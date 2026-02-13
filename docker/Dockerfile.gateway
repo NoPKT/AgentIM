@@ -1,0 +1,32 @@
+# Gateway Dockerfile with node-pty native dependencies
+FROM node:20-bookworm-slim AS base
+RUN npm install -g pnpm@10
+
+# Install native build dependencies for node-pty
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/gateway/package.json packages/gateway/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source
+COPY tsconfig.base.json ./
+COPY packages/shared/ packages/shared/
+COPY packages/gateway/ packages/gateway/
+
+# Build
+RUN pnpm --filter @agentim/shared build && pnpm --filter @agentim/gateway build
+
+ENV NODE_ENV=production
+
+CMD ["node", "packages/gateway/dist/cli.js", "start"]

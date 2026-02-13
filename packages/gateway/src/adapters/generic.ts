@@ -1,0 +1,82 @@
+import { spawn, type ChildProcess } from 'node:child_process'
+import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type CompleteCallback, type ErrorCallback } from './base.js'
+
+export interface GenericAdapterOptions extends AdapterOptions {
+  command: string
+  args?: string[]
+}
+
+export class GenericAdapter extends BaseAgentAdapter {
+  private process: ChildProcess | null = null
+  private command: string
+  private cmdArgs: string[]
+
+  constructor(opts: GenericAdapterOptions) {
+    super(opts)
+    this.command = opts.command
+    this.cmdArgs = opts.args ?? []
+  }
+
+  get type() {
+    return 'generic' as const
+  }
+
+  sendMessage(
+    content: string,
+    onChunk: ChunkCallback,
+    onComplete: CompleteCallback,
+    onError: ErrorCallback,
+  ) {
+    if (this.isRunning) {
+      onError('Agent is already processing a message')
+      return
+    }
+
+    this.isRunning = true
+    let fullContent = ''
+
+    const args = [...this.cmdArgs, content]
+    const proc = spawn(this.command, args, {
+      cwd: this.workingDirectory,
+      env: { ...process.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    this.process = proc
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString()
+      fullContent += text
+      onChunk({ type: 'text', content: text })
+    })
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      const text = data.toString().trim()
+      if (text) onChunk({ type: 'error', content: text })
+    })
+
+    proc.on('close', (code) => {
+      this.isRunning = false
+      this.process = null
+      if (code === 0 || code === null) {
+        onComplete(fullContent)
+      } else {
+        onError(`Process exited with code ${code}`)
+      }
+    })
+
+    proc.on('error', (err) => {
+      this.isRunning = false
+      this.process = null
+      onError(err.message)
+    })
+  }
+
+  stop() {
+    this.process?.kill('SIGTERM')
+  }
+
+  dispose() {
+    this.stop()
+  }
+}

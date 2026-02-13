@@ -1,0 +1,32 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - agentim-data:/app/data
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DATABASE_PATH=/app/data/agentim.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
+      - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    restart: unless-stopped
+
+  # Optional: gateway service (usually run on user's machine instead)
+  # gateway:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile.gateway
+  #   environment:
+  #     - GATEWAY_SERVER_URL=ws://server:3000/ws/gateway
+  #     - GATEWAY_TOKEN=${GATEWAY_TOKEN}
+  #   depends_on:
+  #     - server
+
+volumes:
+  agentim-data:
