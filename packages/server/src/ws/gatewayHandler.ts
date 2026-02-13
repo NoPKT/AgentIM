@@ -7,7 +7,11 @@ import { verifyToken } from '../lib/jwt.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks } from '../db/schema.js'
 
+const MAX_MESSAGE_SIZE = 256 * 1024 // 256 KB (gateway messages can be larger due to agent output)
+
 export async function handleGatewayMessage(ws: WSContext, raw: string) {
+  if (raw.length > MAX_MESSAGE_SIZE) return
+
   let data: unknown
   try {
     data = JSON.parse(raw)

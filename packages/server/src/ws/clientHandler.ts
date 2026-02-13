@@ -9,7 +9,18 @@ import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 
+const MAX_MESSAGE_SIZE = 64 * 1024 // 64 KB
+
 export async function handleClientMessage(ws: WSContext, raw: string) {
+  if (raw.length > MAX_MESSAGE_SIZE) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'MESSAGE_TOO_LARGE',
+      message: 'Message exceeds maximum size',
+    })
+    return
+  }
+
   let data: unknown
   try {
     data = JSON.parse(raw)

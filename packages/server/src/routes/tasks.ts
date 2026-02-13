@@ -76,8 +76,8 @@ taskRoutes.put('/:id', async (c) => {
 
   const now = new Date().toISOString()
   const updateData: Record<string, unknown> = { updatedAt: now }
-  if (parsed.data.title !== undefined) updateData.title = parsed.data.title
-  if (parsed.data.description !== undefined) updateData.description = parsed.data.description
+  if (parsed.data.title !== undefined) updateData.title = sanitizeText(parsed.data.title)
+  if (parsed.data.description !== undefined) updateData.description = sanitizeContent(parsed.data.description)
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status
   if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
   if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType

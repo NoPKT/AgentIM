@@ -3,6 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { createNodeWebSocket } from '@hono/node-ws'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { secureHeaders } from 'hono/secure-headers'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { config } from './config.js'
@@ -25,6 +26,7 @@ const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 // Global middleware
+app.use('*', secureHeaders())
 app.use(
   '*',
   cors({

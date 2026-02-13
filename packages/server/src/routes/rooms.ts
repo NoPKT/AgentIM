@@ -110,8 +110,12 @@ roomRoutes.put('/:id', async (c) => {
   }
 
   const now = new Date().toISOString()
+  const updateData = { ...parsed.data, updatedAt: now }
+  if (updateData.name) {
+    updateData.name = sanitizeText(updateData.name)
+  }
   db.update(rooms)
-    .set({ ...parsed.data, updatedAt: now })
+    .set(updateData)
     .where(eq(rooms.id, roomId))
     .run()
 
