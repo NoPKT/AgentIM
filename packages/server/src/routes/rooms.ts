@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { rooms, roomMembers } from '../db/schema.js'
 import { createRoomSchema, updateRoomSchema, addMemberSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { sanitizeText } from '../lib/sanitize.js'
 
 export const roomRoutes = new Hono<AuthEnv>()
 
@@ -48,7 +49,7 @@ roomRoutes.post('/', async (c) => {
   db.insert(rooms)
     .values({
       id,
-      name: parsed.data.name,
+      name: sanitizeText(parsed.data.name),
       type: parsed.data.type,
       broadcastMode: parsed.data.broadcastMode,
       createdById: userId,

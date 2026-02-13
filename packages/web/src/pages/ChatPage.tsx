@@ -1,49 +1,37 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router';
-import { useTranslation } from 'react-i18next';
-import { useChatStore } from '../stores/chat.js';
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import { useChatStore } from '../stores/chat.js'
+import { MessageList } from '../components/MessageList.js'
+import { MessageInput } from '../components/MessageInput.js'
+import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
 
 export default function ChatPage() {
-  const { t } = useTranslation();
-  const { roomId: routeRoomId } = useParams();
-  const currentRoomId = useChatStore((state) => state.currentRoomId);
-  const setCurrentRoom = useChatStore((state) => state.setCurrentRoom);
+  const { t } = useTranslation()
+  const { roomId: routeRoomId } = useParams()
+  const currentRoomId = useChatStore((state) => state.currentRoomId)
+  const setCurrentRoom = useChatStore((state) => state.setCurrentRoom)
+  const rooms = useChatStore((state) => state.rooms)
+  const roomMembers = useChatStore((state) => state.roomMembers)
+  const loadRoomMembers = useChatStore((state) => state.loadRoomMembers)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Sync route param → store
+  const currentRoom = rooms.find((r) => r.id === currentRoomId)
+  const members = currentRoomId ? roomMembers.get(currentRoomId) ?? [] : []
+
+  // Sync route param -> store
   useEffect(() => {
     if (routeRoomId && routeRoomId !== currentRoomId) {
-      setCurrentRoom(routeRoomId);
+      setCurrentRoom(routeRoomId)
     }
-  }, [routeRoomId, currentRoomId, setCurrentRoom]);
-  const rooms = useChatStore((state) => state.rooms);
-  const messages = useChatStore((state) => state.messages);
-  const streaming = useChatStore((state) => state.streaming);
-  const hasMore = useChatStore((state) => state.hasMore);
-  const loadMessages = useChatStore((state) => state.loadMessages);
-  const sendMessage = useChatStore((state) => state.sendMessage);
+  }, [routeRoomId, currentRoomId, setCurrentRoom])
 
-  const currentRoom = rooms.find((r) => r.id === currentRoomId);
-  const roomMessages = currentRoomId ? messages.get(currentRoomId) ?? [] : [];
-  const roomHasMore = currentRoomId ? hasMore.get(currentRoomId) ?? false : false;
-
+  // Load members on room change
   useEffect(() => {
-    if (currentRoomId && !messages.has(currentRoomId)) {
-      loadMessages(currentRoomId);
+    if (currentRoomId) {
+      loadRoomMembers(currentRoomId)
     }
-  }, [currentRoomId, messages, loadMessages]);
-
-  const handleSendMessage = (content: string, mentions: string[]) => {
-    if (currentRoomId && content.trim()) {
-      sendMessage(currentRoomId, content, mentions);
-    }
-  };
-
-  const handleLoadMore = () => {
-    if (currentRoomId && roomHasMore && roomMessages.length > 0) {
-      const oldestMessage = roomMessages[0];
-      loadMessages(currentRoomId, oldestMessage.id);
-    }
-  };
+  }, [currentRoomId, loadRoomMembers])
 
   if (!currentRoomId) {
     return (
@@ -70,137 +58,60 @@ export default function ChatPage() {
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="flex-1 flex flex-col bg-white">
       {/* Room Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
-        <h2 className="text-lg font-semibold text-gray-900">{currentRoom?.name || 'Chat'}</h2>
-        {currentRoom?.broadcastMode && (
-          <p className="text-xs text-gray-500 mt-1">{t('broadcastMode')}</p>
-        )}
-      </div>
-
-      {/* Messages List */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {roomHasMore && (
-          <button
-            onClick={handleLoadMore}
-            className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium py-2"
-          >
-            {t('loadMore')}
-          </button>
-        )}
-
-        {roomMessages.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">{t('noMessages')}</p>
-          </div>
-        )}
-
-        {roomMessages.map((msg) => (
-          <div key={msg.id} className="flex gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-              {msg.senderName?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span className="font-medium text-gray-900">{msg.senderName}</span>
-                <span className="text-xs text-gray-500">
-                  {new Date(msg.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </div>
-              <div className="mt-1 text-gray-800 whitespace-pre-wrap break-words">
-                {msg.content}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Streaming Messages */}
-        {Array.from(streaming.entries()).map(([key, stream]) => {
-          if (!key.startsWith(`${currentRoomId}:`)) return null;
-          return (
-            <div key={key} className="flex gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-sm font-medium">
-                {stream.agentName?.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-gray-900">{stream.agentName}</span>
-                  <span className="text-xs text-gray-500">{t('typing') || 'typing...'}</span>
-                </div>
-                <div className="mt-1 text-gray-800 whitespace-pre-wrap break-words">
-                  {stream.chunks.map((chunk, i) => (
-                    <span key={i}>{chunk.content || ''}</span>
-                  ))}
-                  <span className="inline-block w-1.5 h-4 bg-blue-600 animate-pulse ml-0.5" />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Message Input */}
-      <MessageInput onSend={handleSendMessage} />
-    </div>
-  );
-}
-
-// Simple message input component
-function MessageInput({ onSend }: { onSend: (content: string, mentions: string[]) => void }) {
-  const { t } = useTranslation();
-  const [content, setContent] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (content.trim()) {
-      // Extract @mentions (simple regex)
-      const mentions = Array.from(content.matchAll(/@(\w+)/g)).map((m) => m[1]);
-      onSend(content, mentions);
-      setContent('');
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-200 px-6 py-4">
-      <div className="flex gap-3 items-end">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('sendMessage') || 'Send a message...'}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-          rows={1}
-          style={{ minHeight: '40px', maxHeight: '120px' }}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-          }}
-        />
+      <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-lg font-semibold text-gray-900 truncate">
+            {currentRoom?.name || 'Chat'}
+          </h2>
+          {currentRoom?.broadcastMode && (
+            <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-md flex-shrink-0">
+              {t('broadcastMode')}
+            </span>
+          )}
+          <span className="text-xs text-gray-400 flex-shrink-0">
+            {t('memberCount', { count: members.length })}
+          </span>
+        </div>
         <button
-          type="submit"
-          disabled={!content.trim()}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          onClick={() => setSettingsOpen(true)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700 flex-shrink-0"
+          title={t('roomSettings')}
         >
-          {t('send')}
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
         </button>
       </div>
-      <p className="mt-2 text-xs text-gray-500">{t('sendWithCmd') || 'Cmd+Enter to send'}</p>
-    </form>
-  );
+
+      {/* Messages */}
+      <MessageList />
+
+      {/* Input */}
+      <MessageInput />
+
+      {/* Room Settings Drawer */}
+      <RoomSettingsDrawer
+        roomId={currentRoomId}
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    </div>
+  )
 }

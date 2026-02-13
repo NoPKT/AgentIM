@@ -1,14 +1,31 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { tasks } from '../db/schema.js'
+import { tasks, roomMembers } from '../db/schema.js'
 import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { sanitizeText, sanitizeContent } from '../lib/sanitize.js'
 
 export const taskRoutes = new Hono<AuthEnv>()
 
 taskRoutes.use('*', authMiddleware)
+
+// List all tasks for current user's rooms
+taskRoutes.get('/', async (c) => {
+  const userId = c.get('userId')
+  const memberRows = db
+    .select({ roomId: roomMembers.roomId })
+    .from(roomMembers)
+    .where(eq(roomMembers.memberId, userId))
+    .all()
+  const roomIds = memberRows.map((r) => r.roomId)
+  if (roomIds.length === 0) {
+    return c.json({ ok: true, data: [] })
+  }
+  const taskList = db.select().from(tasks).where(inArray(tasks.roomId, roomIds)).all()
+  return c.json({ ok: true, data: taskList })
+})
 
 // List tasks for a room
 taskRoutes.get('/rooms/:roomId', async (c) => {
@@ -34,8 +51,8 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
     .values({
       id,
       roomId,
-      title: parsed.data.title,
-      description: parsed.data.description,
+      title: sanitizeText(parsed.data.title),
+      description: sanitizeContent(parsed.data.description ?? ''),
       assigneeId: parsed.data.assigneeId,
       assigneeType: parsed.data.assigneeType,
       createdById: userId,

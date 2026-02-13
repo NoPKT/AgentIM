@@ -4,6 +4,7 @@ import { db } from '../db/index.js'
 import { users } from '../db/schema.js'
 import { updateUserSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { sanitizeText } from '../lib/sanitize.js'
 
 export const userRoutes = new Hono<AuthEnv>()
 
@@ -38,8 +39,12 @@ userRoutes.put('/me', async (c) => {
   }
 
   const now = new Date().toISOString()
+  const updateData = { ...parsed.data }
+  if (updateData.displayName) {
+    updateData.displayName = sanitizeText(updateData.displayName)
+  }
   db.update(users)
-    .set({ ...parsed.data, updatedAt: now })
+    .set({ ...updateData, updatedAt: now })
     .where(eq(users.id, userId))
     .run()
 

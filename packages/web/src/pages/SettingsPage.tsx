@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/auth.js';
+import { api } from '../lib/api.js';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -20,13 +21,19 @@ export default function SettingsPage() {
     setIsSaving(true);
     setSaveMessage('');
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    setSaveMessage(t('profileUpdated') || 'Profile updated successfully');
-    setIsSaving(false);
-
-    setTimeout(() => setSaveMessage(''), 3000);
+    try {
+      const res = await api.put('/users/me', { displayName });
+      if (res.ok) {
+        setSaveMessage(t('profileUpdated') || 'Profile updated successfully');
+      } else {
+        setSaveMessage(res.error || 'Failed to update profile');
+      }
+    } catch {
+      setSaveMessage(t('generic') || 'Something went wrong');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(''), 3000);
+    }
   };
 
   const handleLanguageChange = (langCode: string) => {

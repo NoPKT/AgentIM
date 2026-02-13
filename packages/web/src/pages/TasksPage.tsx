@@ -1,47 +1,49 @@
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { api } from '../lib/api.js';
-import type { Task } from '@agentim/shared';
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { api } from '../lib/api.js'
+import { useChatStore } from '../stores/chat.js'
+import type { Task } from '@agentim/shared'
 
 export default function TasksPage() {
-  const { t } = useTranslation();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { t } = useTranslation()
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const rooms = useChatStore((state) => state.rooms)
 
   const loadTasks = async () => {
-    setIsLoading(true);
-    const res = await api.get<Task[]>('/tasks');
+    setIsLoading(true)
+    const res = await api.get<Task[]>('/tasks')
     if (res.ok && res.data) {
-      setTasks(res.data);
+      setTasks(res.data)
     }
-    setIsLoading(false);
-  };
+    setIsLoading(false)
+  }
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    loadTasks()
+  }, [])
 
-  const handleCreateTask = async (title: string, description: string) => {
-    const res = await api.post<Task>('/tasks', { title, description });
+  const handleCreateTask = async (roomId: string, title: string, description: string) => {
+    const res = await api.post<Task>(`/tasks/rooms/${roomId}`, { title, description })
     if (res.ok && res.data) {
-      setTasks([...tasks, res.data]);
-      setIsDialogOpen(false);
+      setTasks([...tasks, res.data])
+      setIsDialogOpen(false)
     }
-  };
+  }
 
   const groupedTasks = {
     pending: tasks.filter((t) => t.status === 'pending'),
     in_progress: tasks.filter((t) => t.status === 'in_progress'),
     completed: tasks.filter((t) => t.status === 'completed'),
-  };
+  }
 
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
-    );
+    )
   }
 
   return (
@@ -52,7 +54,7 @@ export default function TasksPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{t('tasks')}</h1>
             <p className="mt-1 text-sm text-gray-600">
-              {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'} total
+              {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
             </p>
           </div>
           <button
@@ -92,19 +94,16 @@ export default function TasksPage() {
             <TaskColumn
               title={t('pending')}
               tasks={groupedTasks.pending}
-              status="pending"
               badgeColor="bg-gray-100 text-gray-800"
             />
             <TaskColumn
               title={t('inProgress')}
               tasks={groupedTasks.in_progress}
-              status="in_progress"
               badgeColor="bg-blue-100 text-blue-800"
             />
             <TaskColumn
               title={t('completed')}
               tasks={groupedTasks.completed}
-              status="completed"
               badgeColor="bg-green-100 text-green-800"
             />
           </div>
@@ -113,25 +112,24 @@ export default function TasksPage() {
         {/* Create Task Dialog */}
         {isDialogOpen && (
           <CreateTaskDialog
+            rooms={rooms}
             onClose={() => setIsDialogOpen(false)}
             onCreate={handleCreateTask}
           />
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function TaskColumn({
   title,
   tasks,
-  status,
   badgeColor,
 }: {
-  title: string;
-  tasks: Task[];
-  status: string;
-  badgeColor: string;
+  title: string
+  tasks: Task[]
+  badgeColor: string
 }) {
   return (
     <div className="bg-gray-100 rounded-lg p-4">
@@ -147,11 +145,11 @@ function TaskColumn({
           <TaskCard key={task.id} task={task} />
         ))}
         {tasks.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-4">No tasks</p>
+          <p className="text-sm text-gray-500 text-center py-4">--</p>
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function TaskCard({ task }: { task: Task }) {
@@ -175,26 +173,29 @@ function TaskCard({ task }: { task: Task }) {
         )}
       </div>
     </div>
-  );
+  )
 }
 
 function CreateTaskDialog({
+  rooms,
   onClose,
   onCreate,
 }: {
-  onClose: () => void;
-  onCreate: (title: string, description: string) => void;
+  rooms: { id: string; name: string }[]
+  onClose: () => void
+  onCreate: (roomId: string, title: string, description: string) => void
 }) {
-  const { t } = useTranslation();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const { t } = useTranslation()
+  const [roomId, setRoomId] = useState(rooms[0]?.id ?? '')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onCreate(title, description);
+    e.preventDefault()
+    if (title.trim() && roomId) {
+      onCreate(roomId, title, description)
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -216,6 +217,25 @@ function CreateTaskDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="room" className="block text-sm font-medium text-gray-700 mb-2">
+              {t('rooms') || 'Room'}
+            </label>
+            <select
+              id="room"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              required
+            >
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
               {t('taskTitle')}
@@ -256,7 +276,8 @@ function CreateTaskDialog({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              disabled={!roomId}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               {t('create')}
             </button>
@@ -264,5 +285,5 @@ function CreateTaskDialog({
         </form>
       </div>
     </div>
-  );
+  )
 }

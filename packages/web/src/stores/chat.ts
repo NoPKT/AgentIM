@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Room, Message, ParsedChunk } from '@agentim/shared'
+import type { Room, RoomMember, Message, ParsedChunk } from '@agentim/shared'
 import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 
@@ -16,6 +16,7 @@ interface ChatState {
   messages: Map<string, Message[]>
   streaming: Map<string, StreamingMessage>
   hasMore: Map<string, boolean>
+  roomMembers: Map<string, RoomMember[]>
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
@@ -23,7 +24,12 @@ interface ChatState {
   addMessage: (message: Message) => void
   addStreamChunk: (roomId: string, agentId: string, agentName: string, messageId: string, chunk: ParsedChunk) => void
   completeStream: (message: Message) => void
-  createRoom: (name: string, type: string, broadcastMode: boolean) => Promise<Room>
+  createRoom: (name: string, broadcastMode: boolean) => Promise<Room>
+  loadRoomMembers: (roomId: string) => Promise<void>
+  addRoomMember: (roomId: string, memberId: string, memberType: 'user' | 'agent') => Promise<void>
+  removeRoomMember: (roomId: string, memberId: string) => Promise<void>
+  updateRoom: (roomId: string, data: { name?: string; broadcastMode?: boolean }) => Promise<void>
+  deleteRoom: (roomId: string) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -32,6 +38,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: new Map(),
   streaming: new Map(),
   hasMore: new Map(),
+  roomMembers: new Map(),
 
   loadRooms: async () => {
     const res = await api.get<Room[]>('/rooms')
@@ -109,10 +116,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().addMessage(message)
   },
 
-  createRoom: async (name, type, broadcastMode) => {
-    const res = await api.post<Room>('/rooms', { name, type, broadcastMode })
+  createRoom: async (name, broadcastMode) => {
+    const res = await api.post<Room>('/rooms', { name, type: 'group', broadcastMode })
     if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to create room')
     set({ rooms: [...get().rooms, res.data] })
     return res.data
+  },
+
+  loadRoomMembers: async (roomId) => {
+    const res = await api.get<RoomMember[]>(`/rooms/${roomId}/members`)
+    if (res.ok && res.data) {
+      const members = new Map(get().roomMembers)
+      members.set(roomId, res.data)
+      set({ roomMembers: members })
+    }
+  },
+
+  addRoomMember: async (roomId, memberId, memberType) => {
+    const res = await api.post(`/rooms/${roomId}/members`, { memberId, memberType })
+    if (!res.ok) throw new Error(res.error ?? 'Failed to add member')
+    await get().loadRoomMembers(roomId)
+  },
+
+  removeRoomMember: async (roomId, memberId) => {
+    const res = await api.delete(`/rooms/${roomId}/members/${memberId}`)
+    if (!res.ok) throw new Error(res.error ?? 'Failed to remove member')
+    await get().loadRoomMembers(roomId)
+  },
+
+  updateRoom: async (roomId, data) => {
+    const res = await api.put<Room>(`/rooms/${roomId}`, data)
+    if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to update room')
+    set({
+      rooms: get().rooms.map((r) => (r.id === roomId ? { ...r, ...res.data } : r)),
+    })
+  },
+
+  deleteRoom: async (roomId) => {
+    const res = await api.delete(`/rooms/${roomId}`)
+    if (!res.ok) throw new Error(res.error ?? 'Failed to delete room')
+    set({
+      rooms: get().rooms.filter((r) => r.id !== roomId),
+      currentRoomId: get().currentRoomId === roomId ? null : get().currentRoomId,
+    })
   },
 }))

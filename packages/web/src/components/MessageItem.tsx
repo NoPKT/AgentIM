@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,63 +9,86 @@ interface MessageItemProps {
   message: Message
 }
 
+const agentAvatarGradients: Record<string, string> = {
+  a: 'from-purple-500 to-violet-600',
+  b: 'from-blue-500 to-indigo-600',
+  c: 'from-cyan-500 to-teal-600',
+  d: 'from-emerald-500 to-green-600',
+  e: 'from-amber-500 to-orange-600',
+  f: 'from-rose-500 to-pink-600',
+}
+
+function getAvatarGradient(name: string): string {
+  const key = name.charAt(0).toLowerCase()
+  return agentAvatarGradients[key] || 'from-blue-500 to-indigo-600'
+}
+
 export function MessageItem({ message }: MessageItemProps) {
-  // 系统消息居中显示
+  const { i18n } = useTranslation()
+
+  // System messages
   if (message.senderType === 'system') {
     return (
-      <div className="px-6 py-3">
+      <div className="px-6 py-2">
         <div className="flex justify-center">
-          <div className="px-4 py-2 bg-gray-100 rounded-full">
-            <p className="text-xs text-gray-600 text-center">{message.content}</p>
+          <div className="px-4 py-1.5 bg-gray-100 rounded-full">
+            <p className="text-xs text-gray-500 text-center">{message.content}</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // Agent消息背景色
-  const bgClass = message.senderType === 'agent' ? 'bg-blue-50' : 'bg-white'
+  const isAgent = message.senderType === 'agent'
 
   return (
-    <div className={`px-6 py-4 ${bgClass} border-b border-gray-100`}>
+    <div className="px-6 py-3 hover:bg-gray-50/50 transition-colors">
       <div className="flex items-start space-x-3">
-        {/* 头像 */}
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-          <span className="text-sm font-medium text-gray-600">
+        {/* Avatar */}
+        <div
+          className={`
+            flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
+            ${isAgent
+              ? `bg-gradient-to-br ${getAvatarGradient(message.senderName)}`
+              : 'bg-gradient-to-br from-gray-400 to-gray-500'
+            }
+          `}
+        >
+          <span className="text-sm font-medium text-white">
             {message.senderName.charAt(0).toUpperCase()}
           </span>
         </div>
 
-        {/* 消息内容 */}
+        {/* Message content */}
         <div className="flex-1 min-w-0">
-          {/* 发送者和时间 */}
+          {/* Sender and time */}
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-gray-900">{message.senderName}</span>
-            <span className="text-xs text-gray-500">
-              {new Date(message.createdAt).toLocaleString('zh-CN', {
+            <span className="font-semibold text-gray-900 text-sm">{message.senderName}</span>
+            {isAgent && (
+              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">
+                Agent
+              </span>
+            )}
+            <span className="text-xs text-gray-400">
+              {new Date(message.createdAt).toLocaleString(i18n.language, {
                 month: 'numeric',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit',
               })}
             </span>
-            {message.senderType === 'agent' && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                Agent
-              </span>
-            )}
           </div>
 
-          {/* Markdown内容 */}
+          {/* Markdown content */}
           <div className="prose prose-sm max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
               components={{
-                // 自定义代码块样式
-                code({ node, inline, className, children, ...props }) {
+                code({ className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
-                  return !inline ? (
+                  const isBlock = match || (typeof children === 'string' && children.includes('\n'))
+                  return isBlock ? (
                     <div className="relative">
                       {match && (
                         <div className="absolute top-0 right-0 px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded-bl">
@@ -83,8 +107,7 @@ export function MessageItem({ message }: MessageItemProps) {
                     </code>
                   )
                 },
-                // 自定义链接样式
-                a({ node, children, ...props }) {
+                a({ children, ...props }) {
                   return (
                     <a
                       className="text-blue-600 hover:text-blue-800 underline"
@@ -96,8 +119,7 @@ export function MessageItem({ message }: MessageItemProps) {
                     </a>
                   )
                 },
-                // 自定义表格样式
-                table({ node, children, ...props }) {
+                table({ children, ...props }) {
                   return (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200" {...props}>
@@ -112,7 +134,7 @@ export function MessageItem({ message }: MessageItemProps) {
             </ReactMarkdown>
           </div>
 
-          {/* 附件 */}
+          {/* Attachments */}
           {message.attachments && message.attachments.length > 0 && (
             <div className="mt-2 space-y-2">
               {message.attachments.map((attachment) => (
@@ -121,9 +143,9 @@ export function MessageItem({ message }: MessageItemProps) {
                   href={attachment.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
                 >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                   <div className="flex-1 min-w-0">

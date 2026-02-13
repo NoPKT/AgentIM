@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { config } from './config.js'
 import { loggerMiddleware } from './middleware/logger.js'
+import { apiRateLimit } from './middleware/rateLimit.js'
 import { migrate } from './db/index.js'
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
@@ -32,6 +33,7 @@ app.use(
   }),
 )
 app.use('*', loggerMiddleware)
+app.use('/api/*', apiRateLimit)
 
 // Health check
 app.get('/api/health', (c) => c.json({ ok: true, timestamp: new Date().toISOString() }))

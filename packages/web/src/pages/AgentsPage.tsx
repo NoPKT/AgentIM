@@ -1,16 +1,17 @@
-import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useAgentStore } from '../stores/agents.js';
-import type { Agent } from '@agentim/shared';
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useAgentStore } from '../stores/agents.js'
+import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
+import type { Agent } from '@agentim/shared'
 
 export default function AgentsPage() {
-  const { t } = useTranslation();
-  const agents = useAgentStore((state) => state.agents);
-  const loadAgents = useAgentStore((state) => state.loadAgents);
+  const { t } = useTranslation()
+  const agents = useAgentStore((state) => state.agents)
+  const loadAgents = useAgentStore((state) => state.loadAgents)
 
   useEffect(() => {
-    loadAgents();
-  }, [loadAgents]);
+    loadAgents()
+  }, [loadAgents])
 
   if (agents.length === 0) {
     return (
@@ -33,7 +34,7 @@ export default function AgentsPage() {
           <p className="mt-2 text-sm text-gray-600">{t('noAgentsDesc')}</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -53,72 +54,31 @@ export default function AgentsPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function AgentCard({ agent }: { agent: Agent }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
-  const statusConfig = {
-    online: {
-      color: 'bg-green-500',
-      label: t('online'),
-      textColor: 'text-green-700',
-      bgColor: 'bg-green-50',
-    },
-    offline: {
-      color: 'bg-gray-400',
-      label: t('offline'),
-      textColor: 'text-gray-700',
-      bgColor: 'bg-gray-50',
-    },
-    busy: {
-      color: 'bg-yellow-500',
-      label: t('busy'),
-      textColor: 'text-yellow-700',
-      bgColor: 'bg-yellow-50',
-    },
-    error: {
-      color: 'bg-red-500',
-      label: t('error'),
-      textColor: 'text-red-700',
-      bgColor: 'bg-red-50',
-    },
-  };
+  const statusConfig = getStatusConfig(t)
+  const typeConfig = getTypeConfig(t)
 
-  const typeConfig: Record<string, { label: string; color: string }> = {
-    claude_code: {
-      label: t('claudeCode'),
-      color: 'bg-purple-100 text-purple-800',
-    },
-    codex: {
-      label: t('codex'),
-      color: 'bg-blue-100 text-blue-800',
-    },
-    gemini: {
-      label: t('gemini'),
-      color: 'bg-cyan-100 text-cyan-800',
-    },
-    cursor: {
-      label: t('cursor'),
-      color: 'bg-indigo-100 text-indigo-800',
-    },
-    generic: {
-      label: t('generic'),
-      color: 'bg-gray-100 text-gray-800',
-    },
-  };
-
-  const status = statusConfig[agent.status] || statusConfig.offline;
-  const type = typeConfig[agent.type] || typeConfig.generic;
+  const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
+  const type = typeConfig[agent.type] || typeConfig.generic
+  const gradient = agentGradients[agent.type] || agentGradients.generic
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{agent.name}</h3>
-          <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+            <span className="text-sm font-semibold text-white">
+              {agent.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate">{agent.name}</h3>
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}>
               {type.label}
             </span>
@@ -128,7 +88,12 @@ function AgentCard({ agent }: { agent: Agent }) {
 
       {/* Status */}
       <div className="flex items-center gap-2 mb-4">
-        <span className={`w-2 h-2 rounded-full ${status.color}`} />
+        <span className="relative flex h-2.5 w-2.5">
+          {agent.status === 'online' && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          )}
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
+        </span>
         <span className="text-sm font-medium text-gray-700">{status.label}</span>
       </div>
 
@@ -147,7 +112,7 @@ function AgentCard({ agent }: { agent: Agent }) {
           <div>
             <dt className="text-gray-500 text-xs font-medium mb-0.5">{t('device')}</dt>
             <dd className="text-gray-900 truncate">
-              {agent.deviceInfo.platform} {agent.deviceInfo.hostname && `• ${agent.deviceInfo.hostname}`}
+              {agent.deviceInfo.platform} {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
             </dd>
           </div>
         )}
@@ -167,5 +132,5 @@ function AgentCard({ agent }: { agent: Agent }) {
         )}
       </div>
     </div>
-  );
+  )
 }

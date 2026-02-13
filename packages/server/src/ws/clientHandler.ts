@@ -7,6 +7,7 @@ import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
 import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents } from '../db/schema.js'
+import { sanitizeContent } from '../lib/sanitize.js'
 
 export async function handleClientMessage(ws: WSContext, raw: string) {
   let data: unknown
@@ -88,13 +89,14 @@ function handleLeaveRoom(ws: WSContext, roomId: string) {
 async function handleSendMessage(
   ws: WSContext,
   roomId: string,
-  content: string,
+  rawContent: string,
   mentions: string[],
   replyToId?: string,
 ) {
   const client = connectionManager.getClient(ws)
   if (!client) return
 
+  const content = sanitizeContent(rawContent)
   const id = nanoid()
   const now = new Date().toISOString()
 

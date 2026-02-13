@@ -7,8 +7,13 @@ import { users, refreshTokens } from '../db/schema.js'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js'
 import { registerSchema, loginSchema, refreshSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { authRateLimit } from '../middleware/rateLimit.js'
+import { sanitizeText } from '../lib/sanitize.js'
 
 export const authRoutes = new Hono<AuthEnv>()
+
+// Rate limit auth endpoints: 10 req/min per IP
+authRoutes.use('*', authRateLimit)
 
 authRoutes.post('/register', async (c) => {
   const body = await c.req.json()
@@ -17,7 +22,8 @@ authRoutes.post('/register', async (c) => {
     return c.json({ ok: false, error: 'Validation failed', details: parsed.error.flatten() }, 400)
   }
 
-  const { username, password, displayName } = parsed.data
+  const { username, password, displayName: rawDisplayName } = parsed.data
+  const displayName = rawDisplayName ? sanitizeText(rawDisplayName) : username
 
   const existing = db.select().from(users).where(eq(users.username, username)).get()
   if (existing) {
@@ -33,7 +39,7 @@ authRoutes.post('/register', async (c) => {
       id,
       username,
       passwordHash,
-      displayName: displayName ?? username,
+      displayName,
       createdAt: now,
       updatedAt: now,
     })
@@ -53,7 +59,7 @@ authRoutes.post('/register', async (c) => {
   return c.json({
     ok: true,
     data: {
-      user: { id, username, displayName: displayName ?? username },
+      user: { id, username, displayName },
       accessToken,
       refreshToken,
     },
