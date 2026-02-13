@@ -16,7 +16,7 @@ COPY packages/web/package.json packages/web/
 RUN pnpm install --frozen-lockfile
 
 # Copy source
-COPY tsconfig.base.json ./
+COPY tsconfig.base.json turbo.json ./
 COPY packages/shared/ packages/shared/
 COPY packages/server/ packages/server/
 COPY packages/web/ packages/web/
@@ -30,7 +30,7 @@ RUN npm install -g pnpm@10
 WORKDIR /app
 
 # Copy package files
-COPY package.json pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 
