@@ -9,7 +9,6 @@ export function RoomList() {
   const { rooms, currentRoomId, loadRooms, setCurrentRoom, createRoom } = useChatStore()
   const [showNewRoomDialog, setShowNewRoomDialog] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
-  const [broadcastMode, setBroadcastMode] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => {
@@ -26,10 +25,9 @@ export function RoomList() {
 
     setIsCreating(true)
     try {
-      const room = await createRoom(newRoomName.trim(), broadcastMode)
+      const room = await createRoom(newRoomName.trim(), false)
       setShowNewRoomDialog(false)
       setNewRoomName('')
-      setBroadcastMode(false)
       handleRoomClick(room.id)
     } catch (error) {
       console.error('Failed to create room:', error)
@@ -122,27 +120,6 @@ export function RoomList() {
                 />
               </div>
 
-              {/* Broadcast Mode */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <span className="text-sm font-medium text-gray-700">{t('broadcastMode')}</span>
-                  <p className="text-xs text-gray-500 mt-0.5">{t('broadcastModeDesc')}</p>
-                </div>
-                <button
-                  onClick={() => setBroadcastMode(!broadcastMode)}
-                  className={`
-                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                    ${broadcastMode ? 'bg-blue-600' : 'bg-gray-200'}
-                  `}
-                >
-                  <span
-                    className={`
-                      inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
-                      ${broadcastMode ? 'translate-x-6' : 'translate-x-1'}
-                    `}
-                  />
-                </button>
-              </div>
             </div>
 
             {/* Buttons */}
@@ -151,7 +128,6 @@ export function RoomList() {
                 onClick={() => {
                   setShowNewRoomDialog(false)
                   setNewRoomName('')
-                  setBroadcastMode(false)
                 }}
                 disabled={isCreating}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
