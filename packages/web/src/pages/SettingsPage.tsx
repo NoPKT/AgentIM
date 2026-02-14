@@ -14,7 +14,6 @@ export default function SettingsPage() {
   const user = useAuthStore((state) => state.user);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(getNotificationPreference());
 
   const languages = [
@@ -26,20 +25,17 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
-    setSaveMessage('');
-
     try {
       const res = await api.put('/users/me', { displayName });
       if (res.ok) {
-        setSaveMessage(t('profileUpdated') || 'Profile updated successfully');
+        toast.success(t('profileUpdated'));
       } else {
-        setSaveMessage(res.error || 'Failed to update profile');
+        toast.error(res.error || t('error'));
       }
     } catch {
-      setSaveMessage(t('generic') || 'Something went wrong');
+      toast.error(t('error'));
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveMessage(''), 3000);
     }
   };
 
@@ -98,10 +94,7 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                {saveMessage && (
-                  <p className="text-sm text-green-600 font-medium">{saveMessage}</p>
-                )}
+              <div className="flex items-center justify-end pt-2">
                 <button
                   onClick={handleSaveProfile}
                   disabled={isSaving}

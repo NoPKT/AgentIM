@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
@@ -23,8 +24,29 @@ function getAvatarGradient(name: string): string {
   return agentAvatarGradients[key] || 'from-blue-500 to-indigo-600'
 }
 
+function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [text])
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+      title={t('copy')}
+    >
+      {copied ? t('copied') : t('copy')}
+    </button>
+  )
+}
+
 export function MessageItem({ message }: MessageItemProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   // System messages
   if (message.senderType === 'system') {
@@ -88,13 +110,19 @@ export function MessageItem({ message }: MessageItemProps) {
                 code({ className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
                   const isBlock = match || (typeof children === 'string' && children.includes('\n'))
+                  const codeText = String(children).replace(/\n$/, '')
                   return isBlock ? (
-                    <div className="relative">
-                      {match && (
-                        <div className="absolute top-0 right-0 px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded-bl">
-                          {match[1]}
-                        </div>
-                      )}
+                    <div className="relative group/code">
+                      <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
+                        {match && (
+                          <span className="px-1.5 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
+                            {match[1]}
+                          </span>
+                        )}
+                        <span className="opacity-0 group-hover/code:opacity-100 transition-opacity">
+                          <CopyButton text={codeText} />
+                        </span>
+                      </div>
                       <pre className={className}>
                         <code className={className} {...props}>
                           {children}
