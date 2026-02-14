@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { RoomList } from './RoomList.js'
@@ -26,6 +26,13 @@ export function AppLayout() {
   const { t } = useTranslation()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
   const navLinks = [
     { path: '/agents', label: t('agents') },
@@ -70,7 +77,7 @@ export function AppLayout() {
 
         {/* Room List */}
         <div className="flex-1 overflow-y-auto">
-          <RoomList />
+          <RoomList onRoomSelect={closeSidebar} />
         </div>
 
         {/* Bottom Navigation */}

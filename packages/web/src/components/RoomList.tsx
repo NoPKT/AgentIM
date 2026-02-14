@@ -16,7 +16,7 @@ function timeAgo(dateStr: string, locale: string): string {
   return `${days}d`
 }
 
-export function RoomList() {
+export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { rooms, currentRoomId, loadRooms, setCurrentRoom, createRoom, lastMessages, unreadCounts } = useChatStore()
@@ -31,6 +31,7 @@ export function RoomList() {
   const handleRoomClick = (roomId: string) => {
     setCurrentRoom(roomId)
     navigate(`/room/${roomId}`)
+    onRoomSelect?.()
   }
 
   const handleCreateRoom = async () => {

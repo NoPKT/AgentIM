@@ -66,17 +66,17 @@ export default function ChatPage() {
   return (
     <div className="flex-1 flex flex-col bg-white">
       {/* Room Header */}
-      <div className="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900 truncate">
+      <div className="border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
             {currentRoom?.name || 'Chat'}
           </h2>
           {currentRoom?.broadcastMode && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-md flex-shrink-0">
+            <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-md flex-shrink-0">
               {t('broadcastMode')}
             </span>
           )}
-          <span className="text-xs text-gray-400 flex-shrink-0">
+          <span className="hidden sm:inline text-xs text-gray-400 flex-shrink-0">
             {t('memberCount', { count: members.length })}
           </span>
           {connectionStatus !== 'connected' && (
