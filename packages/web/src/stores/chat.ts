@@ -16,6 +16,21 @@ interface LastMessageInfo {
   createdAt: string
 }
 
+// Persist lastReadAt to localStorage
+const LAST_READ_KEY = 'agentim:lastReadAt'
+function loadLastReadAt(): Map<string, string> {
+  try {
+    const raw = localStorage.getItem(LAST_READ_KEY)
+    if (raw) return new Map(JSON.parse(raw))
+  } catch { /* ignore */ }
+  return new Map()
+}
+function saveLastReadAt(map: Map<string, string>) {
+  try {
+    localStorage.setItem(LAST_READ_KEY, JSON.stringify([...map]))
+  } catch { /* ignore */ }
+}
+
 interface ChatState {
   rooms: Room[]
   currentRoomId: string | null
@@ -24,6 +39,8 @@ interface ChatState {
   hasMore: Map<string, boolean>
   roomMembers: Map<string, RoomMember[]>
   lastMessages: Map<string, LastMessageInfo>
+  unreadCounts: Map<string, number>
+  lastReadAt: Map<string, string>
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
@@ -47,20 +64,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hasMore: new Map(),
   roomMembers: new Map(),
   lastMessages: new Map(),
+  unreadCounts: new Map(),
+  lastReadAt: loadLastReadAt(),
 
   loadRooms: async () => {
     const res = await api.get<Room[]>('/rooms')
     if (res.ok && res.data) {
       set({ rooms: res.data })
     }
-    // Load last message for each room (for preview + sorting)
+    // Load last message for each room (for preview + sorting + unread calculation)
     const recentRes = await api.get<Record<string, LastMessageInfo>>('/messages/recent')
     if (recentRes.ok && recentRes.data) {
       const lastMessages = new Map(get().lastMessages)
+      const unreadCounts = new Map(get().unreadCounts)
+      const lastReadAt = get().lastReadAt
       for (const [roomId, info] of Object.entries(recentRes.data)) {
         lastMessages.set(roomId, info)
+        // If this room has a message newer than lastReadAt, mark as unread
+        const readAt = lastReadAt.get(roomId)
+        if (!readAt || info.createdAt > readAt) {
+          unreadCounts.set(roomId, (unreadCounts.get(roomId) || 0) || 1)
+        }
       }
-      set({ lastMessages })
+      set({ lastMessages, unreadCounts })
     }
   },
 
@@ -69,6 +95,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (prev) wsClient.send({ type: 'client:leave_room', roomId: prev })
     set({ currentRoomId: roomId })
     wsClient.send({ type: 'client:join_room', roomId })
+
+    // Mark room as read
+    const lastReadAt = new Map(get().lastReadAt)
+    lastReadAt.set(roomId, new Date().toISOString())
+    saveLastReadAt(lastReadAt)
+    const unreadCounts = new Map(get().unreadCounts)
+    unreadCounts.delete(roomId)
+    set({ lastReadAt, unreadCounts })
+
     if (!get().messages.has(roomId)) {
       get().loadMessages(roomId)
     }
@@ -131,7 +166,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       senderName: message.senderName,
       createdAt: message.createdAt,
     })
-    set({ messages: msgs, lastMessages })
+
+    // Increment unread count if message is not in the current room
+    const unreadCounts = new Map(get().unreadCounts)
+    if (message.roomId !== get().currentRoomId) {
+      unreadCounts.set(message.roomId, (unreadCounts.get(message.roomId) || 0) + 1)
+    }
+
+    set({ messages: msgs, lastMessages, unreadCounts })
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {

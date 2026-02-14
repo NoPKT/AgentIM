@@ -19,7 +19,7 @@ function timeAgo(dateStr: string, locale: string): string {
 export function RoomList() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { rooms, currentRoomId, loadRooms, setCurrentRoom, createRoom, lastMessages } = useChatStore()
+  const { rooms, currentRoomId, loadRooms, setCurrentRoom, createRoom, lastMessages, unreadCounts } = useChatStore()
   const [showNewRoomDialog, setShowNewRoomDialog] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -81,6 +81,7 @@ export function RoomList() {
             })
             .map((room) => {
               const lastMsg = lastMessages.get(room.id)
+              const unread = unreadCounts.get(room.id) || 0
               return (
                 <button
                   key={room.id}
@@ -119,6 +120,11 @@ export function RoomList() {
                           {lastMsg && (
                             <span className="text-[10px] text-gray-400">
                               {timeAgo(lastMsg.createdAt, i18n.language)}
+                            </span>
+                          )}
+                          {unread > 0 && room.id !== currentRoomId && (
+                            <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-blue-600 rounded-full">
+                              {unread > 99 ? '99+' : unread}
                             </span>
                           )}
                         </div>
