@@ -12,17 +12,16 @@ agentRoutes.use('*', authMiddleware)
 agentRoutes.get('/', async (c) => {
   const userId = c.get('userId')
 
-  const userGateways = db.select().from(gateways).where(eq(gateways.userId, userId)).all()
+  const userGateways = await db.select().from(gateways).where(eq(gateways.userId, userId))
   if (userGateways.length === 0) {
     return c.json({ ok: true, data: [] })
   }
 
   const gatewayIds = userGateways.map((g) => g.id)
-  const allAgents = db
+  const allAgents = await db
     .select()
     .from(agents)
     .where(inArray(agents.gatewayId, gatewayIds))
-    .all()
 
   return c.json({ ok: true, data: allAgents })
 })
@@ -30,7 +29,7 @@ agentRoutes.get('/', async (c) => {
 // Get single agent
 agentRoutes.get('/:id', async (c) => {
   const agentId = c.req.param('id')
-  const agent = db.select().from(agents).where(eq(agents.id, agentId)).get()
+  const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
   if (!agent) {
     return c.json({ ok: false, error: 'Agent not found' }, 404)
   }
@@ -41,6 +40,6 @@ agentRoutes.get('/:id', async (c) => {
 // List gateways
 agentRoutes.get('/gateways/list', async (c) => {
   const userId = c.get('userId')
-  const gwList = db.select().from(gateways).where(eq(gateways.userId, userId)).all()
+  const gwList = await db.select().from(gateways).where(eq(gateways.userId, userId))
   return c.json({ ok: true, data: gwList })
 })

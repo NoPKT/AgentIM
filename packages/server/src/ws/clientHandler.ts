@@ -112,20 +112,18 @@ async function handleSendMessage(
   const now = new Date().toISOString()
 
   // Persist message
-  db.insert(messages)
-    .values({
-      id,
-      roomId,
-      senderId: client.userId,
-      senderType: 'user',
-      senderName: client.username,
-      type: 'text',
-      content,
-      replyToId,
-      mentions: JSON.stringify(mentions),
-      createdAt: now,
-    })
-    .run()
+  await db.insert(messages).values({
+    id,
+    roomId,
+    senderId: client.userId,
+    senderType: 'user',
+    senderName: client.username,
+    type: 'text',
+    content,
+    replyToId,
+    mentions: JSON.stringify(mentions),
+    createdAt: now,
+  })
 
   const message = {
     id,
@@ -155,21 +153,20 @@ async function routeToAgents(
   message: { id: string; content: string; senderName: string },
   mentions: string[],
 ) {
-  const room = db.select().from(rooms).where(eq(rooms.id, roomId)).get()
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
   if (!room) return
 
   // Get agent members in this room
-  const agentMembers = db
+  const agentMembers = await db
     .select()
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberType, 'agent')))
-    .all()
 
   if (agentMembers.length === 0) return
 
   // Get the actual agent records for these members
   const agentIds = agentMembers.map((m) => m.memberId)
-  const agentRows = db.select().from(agents).where(inArray(agents.id, agentIds)).all()
+  const agentRows = await db.select().from(agents).where(inArray(agents.id, agentIds))
   const agentMap = new Map(agentRows.map((a) => [a.id, a]))
 
   // Build name→agent map, preferring online agents when duplicates exist

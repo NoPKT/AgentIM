@@ -1,20 +1,28 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import pg from 'pg'
 import WebSocket from 'ws'
 
 let serverProcess: ChildProcess | null = null
-let tempDir: string | null = null
+let testDbName: string | null = null
 
 export const TEST_PORT = 3999
 export const BASE_URL = `http://localhost:${TEST_PORT}`
 export const WS_CLIENT_URL = `ws://localhost:${TEST_PORT}/ws/client`
 export const WS_GATEWAY_URL = `ws://localhost:${TEST_PORT}/ws/gateway`
 
+const PG_BASE_URL = process.env.TEST_PG_URL ?? 'postgresql://postgres:postgres@localhost:5432'
+const REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://localhost:6379/1'
+
 export async function startServer(): Promise<void> {
-  tempDir = mkdtempSync(join(tmpdir(), 'aim-test-'))
-  const dbPath = join(tempDir, 'test.db')
+  // Create a unique test database
+  testDbName = `agentim_test_${Date.now()}`
+  const client = new pg.Client({ connectionString: `${PG_BASE_URL}/postgres` })
+  await client.connect()
+  await client.query(`CREATE DATABASE "${testDbName}"`)
+  await client.end()
+
+  const databaseUrl = `${PG_BASE_URL}/${testDbName}`
 
   return new Promise((resolve, reject) => {
     serverProcess = spawn('node', ['--import', 'tsx', 'src/index.ts'], {
@@ -22,7 +30,8 @@ export async function startServer(): Promise<void> {
       env: {
         ...process.env,
         PORT: String(TEST_PORT),
-        DATABASE_PATH: dbPath,
+        DATABASE_URL: databaseUrl,
+        REDIS_URL: REDIS_URL,
         JWT_SECRET: 'test-secret-for-tests',
         CORS_ORIGIN: '*',
         NODE_ENV: 'test',
@@ -65,13 +74,33 @@ export async function stopServer(): Promise<void> {
     })
     serverProcess = null
   }
-  if (tempDir) {
+
+  // Clean up test database
+  if (testDbName) {
     try {
-      rmSync(tempDir, { recursive: true, force: true })
+      const client = new pg.Client({ connectionString: `${PG_BASE_URL}/postgres` })
+      await client.connect()
+      // Terminate connections to the test database before dropping
+      await client.query(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
+        [testDbName],
+      )
+      await client.query(`DROP DATABASE IF EXISTS "${testDbName}"`)
+      await client.end()
     } catch {
       // Ignore cleanup errors
     }
-    tempDir = null
+    testDbName = null
+  }
+
+  // Flush test Redis DB
+  try {
+    const { default: Redis } = await import('ioredis')
+    const redis = new Redis(REDIS_URL)
+    await redis.flushdb()
+    await redis.quit()
+  } catch {
+    // Ignore cleanup errors
   }
 }
 

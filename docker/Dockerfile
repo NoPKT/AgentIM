@@ -42,12 +42,13 @@ COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/server/dist packages/server/dist
 COPY --from=build /app/packages/web/dist packages/web/dist
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+# Copy drizzle migrations
+COPY --from=build /app/packages/server/drizzle packages/server/drizzle
 
 ENV PORT=3000
 ENV HOST=0.0.0.0
-ENV DATABASE_PATH=/app/data/agentim.db
+ENV DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
+ENV REDIS_URL=redis://redis:6379
 ENV NODE_ENV=production
 
 EXPOSE 3000

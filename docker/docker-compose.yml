@@ -1,20 +1,54 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentim
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   server:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
       - "${PORT:-3000}:3000"
-    volumes:
-      - agentim-data:/app/data
     environment:
       - PORT=3000
       - HOST=0.0.0.0
-      - DATABASE_PATH=/app/data/agentim.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   # Optional: gateway service (usually run on user's machine instead)
@@ -29,4 +63,5 @@ services:
   #     - server
 
 volumes:
-  agentim-data:
+  pgdata:
+  redisdata:

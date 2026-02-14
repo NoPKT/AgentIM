@@ -1,62 +1,44 @@
 import { createMiddleware } from 'hono/factory'
-
-interface RateLimitEntry {
-  count: number
-  resetAt: number
-}
+import { getRedis } from '../lib/redis.js'
 
 /**
- * Simple in-memory rate limiter.
+ * Redis-based rate limiter using INCR + EXPIRE atomic operations.
  * @param windowMs - Time window in milliseconds
  * @param maxRequests - Max requests per window per IP
  */
 export function rateLimitMiddleware(windowMs: number, maxRequests: number) {
-  const store = new Map<string, RateLimitEntry>()
   const isTest = process.env.NODE_ENV === 'test'
-
-  // Periodic cleanup to prevent memory leak
-  const cleanup = setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of store) {
-      if (entry.resetAt <= now) {
-        store.delete(key)
-      }
-    }
-  }, windowMs * 2)
-  cleanup.unref()
+  const windowSec = Math.ceil(windowMs / 1000)
 
   return createMiddleware(async (c, next) => {
     if (isTest) {
       await next()
       return
     }
+
     const ip =
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
       c.req.header('x-real-ip') ||
       'unknown'
 
-    const now = Date.now()
-    const entry = store.get(ip)
+    const redis = getRedis()
+    const key = `rl:${ip}:${windowSec}`
 
-    if (!entry || entry.resetAt <= now) {
-      store.set(ip, { count: 1, resetAt: now + windowMs })
-      c.header('X-RateLimit-Limit', String(maxRequests))
-      c.header('X-RateLimit-Remaining', String(maxRequests - 1))
-      await next()
-      return
-    }
-
-    entry.count++
-
-    if (entry.count > maxRequests) {
-      c.header('X-RateLimit-Limit', String(maxRequests))
-      c.header('X-RateLimit-Remaining', '0')
-      c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)))
-      return c.json({ ok: false, error: 'Too many requests' }, 429)
+    const count = await redis.incr(key)
+    if (count === 1) {
+      await redis.expire(key, windowSec)
     }
 
     c.header('X-RateLimit-Limit', String(maxRequests))
-    c.header('X-RateLimit-Remaining', String(maxRequests - entry.count))
+
+    if (count > maxRequests) {
+      const ttl = await redis.ttl(key)
+      c.header('X-RateLimit-Remaining', '0')
+      c.header('Retry-After', String(ttl > 0 ? ttl : windowSec))
+      return c.json({ ok: false, error: 'Too many requests' }, 429)
+    }
+
+    c.header('X-RateLimit-Remaining', String(maxRequests - count))
     await next()
   })
 }

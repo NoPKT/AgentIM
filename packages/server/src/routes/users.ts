@@ -12,7 +12,7 @@ userRoutes.use('*', authMiddleware)
 
 userRoutes.get('/me', async (c) => {
   const userId = c.get('userId')
-  const user = db.select().from(users).where(eq(users.id, userId)).get()
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!user) {
     return c.json({ ok: false, error: 'User not found' }, 404)
   }
@@ -43,12 +43,12 @@ userRoutes.put('/me', async (c) => {
   if (updateData.displayName) {
     updateData.displayName = sanitizeText(updateData.displayName)
   }
-  db.update(users)
+  await db
+    .update(users)
     .set({ ...updateData, updatedAt: now })
     .where(eq(users.id, userId))
-    .run()
 
-  const user = db.select().from(users).where(eq(users.id, userId)).get()
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   return c.json({
     ok: true,
     data: {

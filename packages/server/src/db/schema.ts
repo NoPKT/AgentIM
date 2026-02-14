@@ -1,8 +1,8 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { pgTable, text, integer, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
 
 // ─── Users ───
 
-export const users = sqliteTable(
+export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
@@ -18,7 +18,7 @@ export const users = sqliteTable(
 
 // ─── Refresh Tokens ───
 
-export const refreshTokens = sqliteTable(
+export const refreshTokens = pgTable(
   'refresh_tokens',
   {
     id: text('id').primaryKey(),
@@ -37,7 +37,7 @@ export const refreshTokens = sqliteTable(
 
 // ─── Gateways ───
 
-export const gateways = sqliteTable(
+export const gateways = pgTable(
   'gateways',
   {
     id: text('id').primaryKey(),
@@ -58,7 +58,7 @@ export const gateways = sqliteTable(
 
 // ─── Agents ───
 
-export const agents = sqliteTable(
+export const agents = pgTable(
   'agents',
   {
     id: text('id').primaryKey(),
@@ -81,11 +81,11 @@ export const agents = sqliteTable(
 
 // ─── Rooms ───
 
-export const rooms = sqliteTable('rooms', {
+export const rooms = pgTable('rooms', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   type: text('type').notNull().default('group'),
-  broadcastMode: integer('broadcast_mode', { mode: 'boolean' }).notNull().default(false),
+  broadcastMode: boolean('broadcast_mode').notNull().default(false),
   createdById: text('created_by_id')
     .notNull()
     .references(() => users.id),
@@ -95,7 +95,7 @@ export const rooms = sqliteTable('rooms', {
 
 // ─── Room Members ───
 
-export const roomMembers = sqliteTable(
+export const roomMembers = pgTable(
   'room_members',
   {
     roomId: text('room_id')
@@ -115,7 +115,7 @@ export const roomMembers = sqliteTable(
 
 // ─── Messages ───
 
-export const messages = sqliteTable(
+export const messages = pgTable(
   'messages',
   {
     id: text('id').primaryKey(),
@@ -141,7 +141,7 @@ export const messages = sqliteTable(
 
 // ─── Message Attachments ───
 
-export const messageAttachments = sqliteTable(
+export const messageAttachments = pgTable(
   'message_attachments',
   {
     id: text('id').primaryKey(),
@@ -158,7 +158,7 @@ export const messageAttachments = sqliteTable(
 
 // ─── Tasks ───
 
-export const tasks = sqliteTable(
+export const tasks = pgTable(
   'tasks',
   {
     id: text('id').primaryKey(),

@@ -19,12 +19,11 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Database
+# Database (legacy SQLite)
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
-packages/server/data/
 
 # Logs
 *.log

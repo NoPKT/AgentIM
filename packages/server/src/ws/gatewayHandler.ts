@@ -65,9 +65,14 @@ async function handleAuth(
 
     // Upsert gateway in DB
     const now = new Date().toISOString()
-    const existing = db.select().from(gateways).where(eq(gateways.id, msg.gatewayId)).get()
+    const [existing] = await db
+      .select()
+      .from(gateways)
+      .where(eq(gateways.id, msg.gatewayId))
+      .limit(1)
     if (existing) {
-      db.update(gateways)
+      await db
+        .update(gateways)
         .set({
           userId: payload.sub,
           connectedAt: now,
@@ -78,21 +83,18 @@ async function handleAuth(
           nodeVersion: msg.deviceInfo.nodeVersion,
         })
         .where(eq(gateways.id, msg.gatewayId))
-        .run()
     } else {
-      db.insert(gateways)
-        .values({
-          id: msg.gatewayId,
-          userId: payload.sub,
-          name: msg.deviceInfo.hostname,
-          hostname: msg.deviceInfo.hostname,
-          platform: msg.deviceInfo.platform,
-          arch: msg.deviceInfo.arch,
-          nodeVersion: msg.deviceInfo.nodeVersion,
-          connectedAt: now,
-          createdAt: now,
-        })
-        .run()
+      await db.insert(gateways).values({
+        id: msg.gatewayId,
+        userId: payload.sub,
+        name: msg.deviceInfo.hostname,
+        hostname: msg.deviceInfo.hostname,
+        platform: msg.deviceInfo.platform,
+        arch: msg.deviceInfo.arch,
+        nodeVersion: msg.deviceInfo.nodeVersion,
+        connectedAt: now,
+        createdAt: now,
+      })
     }
 
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
@@ -103,7 +105,7 @@ async function handleAuth(
   }
 }
 
-function handleRegisterAgent(
+async function handleRegisterAgent(
   ws: WSContext,
   agent: { id: string; name: string; type: string; workingDirectory?: string },
 ) {
@@ -113,7 +115,8 @@ function handleRegisterAgent(
   const now = new Date().toISOString()
 
   // Mark any existing agents with same gateway + name as offline (orphan cleanup)
-  db.update(agents)
+  await db
+    .update(agents)
     .set({ status: 'offline', updatedAt: now })
     .where(
       and(
@@ -122,12 +125,12 @@ function handleRegisterAgent(
         eq(agents.status, 'online'),
       ),
     )
-    .run()
 
   // Upsert agent in DB
-  const existing = db.select().from(agents).where(eq(agents.id, agent.id)).get()
+  const [existing] = await db.select().from(agents).where(eq(agents.id, agent.id)).limit(1)
   if (existing) {
-    db.update(agents)
+    await db
+      .update(agents)
       .set({
         name: agent.name,
         type: agent.type,
@@ -137,37 +140,34 @@ function handleRegisterAgent(
         updatedAt: now,
       })
       .where(eq(agents.id, agent.id))
-      .run()
   } else {
-    db.insert(agents)
-      .values({
-        id: agent.id,
-        name: agent.name,
-        type: agent.type,
-        status: 'online',
-        gatewayId: gw.gatewayId,
-        workingDirectory: agent.workingDirectory,
-        lastSeenAt: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run()
+    await db.insert(agents).values({
+      id: agent.id,
+      name: agent.name,
+      type: agent.type,
+      status: 'online',
+      gatewayId: gw.gatewayId,
+      workingDirectory: agent.workingDirectory,
+      lastSeenAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
   }
 
   connectionManager.registerAgent(ws, agent.id)
 }
 
-function handleUnregisterAgent(ws: WSContext, agentId: string) {
+async function handleUnregisterAgent(ws: WSContext, agentId: string) {
   const now = new Date().toISOString()
-  db.update(agents)
+  await db
+    .update(agents)
     .set({ status: 'offline', updatedAt: now })
     .where(eq(agents.id, agentId))
-    .run()
 
   connectionManager.unregisterAgent(ws, agentId)
 }
 
-function handleMessageChunk(
+async function handleMessageChunk(
   ws: WSContext,
   msg: {
     roomId: string
@@ -176,7 +176,7 @@ function handleMessageChunk(
     chunk: { type: string; content: string; metadata?: Record<string, unknown> }
   },
 ) {
-  const agent = db.select().from(agents).where(eq(agents.id, msg.agentId)).get()
+  const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
 
   connectionManager.broadcastToRoom(msg.roomId, {
@@ -189,7 +189,7 @@ function handleMessageChunk(
   })
 }
 
-function handleMessageComplete(
+async function handleMessageComplete(
   ws: WSContext,
   msg: {
     roomId: string
@@ -199,25 +199,23 @@ function handleMessageComplete(
     chunks?: Array<{ type: string; content: string; metadata?: Record<string, unknown> }>
   },
 ) {
-  const agent = db.select().from(agents).where(eq(agents.id, msg.agentId)).get()
+  const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
 
   // Persist agent's full message with structured chunks
-  db.insert(messages)
-    .values({
-      id: msg.messageId,
-      roomId: msg.roomId,
-      senderId: msg.agentId,
-      senderType: 'agent',
-      senderName: agentName,
-      type: 'agent_response',
-      content: msg.fullContent,
-      mentions: '[]',
-      chunks: msg.chunks ? JSON.stringify(msg.chunks) : null,
-      createdAt: now,
-    })
-    .run()
+  await db.insert(messages).values({
+    id: msg.messageId,
+    roomId: msg.roomId,
+    senderId: msg.agentId,
+    senderType: 'agent',
+    senderName: agentName,
+    type: 'agent_response',
+    content: msg.fullContent,
+    mentions: '[]',
+    chunks: msg.chunks ? JSON.stringify(msg.chunks) : null,
+    createdAt: now,
+  })
 
   const message = {
     id: msg.messageId,
@@ -238,52 +236,52 @@ function handleMessageComplete(
   })
 
   // Update agent status back to online
-  db.update(agents)
+  await db
+    .update(agents)
     .set({ status: 'online', lastSeenAt: now, updatedAt: now })
     .where(eq(agents.id, msg.agentId))
-    .run()
 }
 
-function handleAgentStatus(ws: WSContext, agentId: string, status: string) {
+async function handleAgentStatus(ws: WSContext, agentId: string, status: string) {
   const now = new Date().toISOString()
-  db.update(agents)
+  await db
+    .update(agents)
     .set({ status, lastSeenAt: now, updatedAt: now })
     .where(eq(agents.id, agentId))
-    .run()
 
-  const agent = db.select().from(agents).where(eq(agents.id, agentId)).get()
+  const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
   if (agent) {
     // Broadcast agent status to all clients (we'd need room context here)
     // For now, this is a simplified version
   }
 }
 
-function handleTaskUpdate(taskId: string, status: string, result?: string) {
+async function handleTaskUpdate(taskId: string, status: string, result?: string) {
   const now = new Date().toISOString()
   const updateData: Record<string, unknown> = { status, updatedAt: now }
   if (result) updateData.description = result
 
-  db.update(tasks).set(updateData).where(eq(tasks.id, taskId)).run()
+  await db.update(tasks).set(updateData).where(eq(tasks.id, taskId))
 }
 
-export function handleGatewayDisconnect(ws: WSContext) {
+export async function handleGatewayDisconnect(ws: WSContext) {
   const gw = connectionManager.getGateway(ws)
   if (gw) {
     const now = new Date().toISOString()
 
     // Mark all agents as offline
     for (const agentId of gw.agentIds) {
-      db.update(agents)
+      await db
+        .update(agents)
         .set({ status: 'offline', updatedAt: now })
         .where(eq(agents.id, agentId))
-        .run()
     }
 
     // Mark gateway as disconnected
-    db.update(gateways)
+    await db
+      .update(gateways)
       .set({ disconnectedAt: now })
       .where(eq(gateways.id, gw.gatewayId))
-      .run()
 
     connectionManager.removeGateway(ws)
   }

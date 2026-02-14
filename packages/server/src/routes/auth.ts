@@ -25,7 +25,7 @@ authRoutes.post('/register', async (c) => {
   const { username, password, displayName: rawDisplayName } = parsed.data
   const displayName = rawDisplayName ? sanitizeText(rawDisplayName) : username
 
-  const existing = db.select().from(users).where(eq(users.username, username)).get()
+  const [existing] = await db.select().from(users).where(eq(users.username, username)).limit(1)
   if (existing) {
     return c.json({ ok: false, error: 'Username already taken' }, 409)
   }
@@ -34,16 +34,14 @@ authRoutes.post('/register', async (c) => {
   const now = new Date().toISOString()
   const passwordHash = await hash(password)
 
-  db.insert(users)
-    .values({
-      id,
-      username,
-      passwordHash,
-      displayName,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run()
+  await db.insert(users).values({
+    id,
+    username,
+    passwordHash,
+    displayName,
+    createdAt: now,
+    updatedAt: now,
+  })
 
   const accessToken = await signAccessToken({ sub: id, username })
   const refreshToken = await signRefreshToken({ sub: id, username })
@@ -52,9 +50,9 @@ authRoutes.post('/register', async (c) => {
   const rtId = nanoid()
   const rtHash = await hash(refreshToken)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  db.insert(refreshTokens)
+  await db
+    .insert(refreshTokens)
     .values({ id: rtId, userId: id, tokenHash: rtHash, expiresAt, createdAt: now })
-    .run()
 
   return c.json({
     ok: true,
@@ -75,7 +73,7 @@ authRoutes.post('/login', async (c) => {
 
   const { username, password } = parsed.data
 
-  const user = db.select().from(users).where(eq(users.username, username)).get()
+  const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1)
   if (!user) {
     return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
@@ -92,9 +90,9 @@ authRoutes.post('/login', async (c) => {
   const rtId = nanoid()
   const rtHash = await hash(refreshToken)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  db.insert(refreshTokens)
+  await db
+    .insert(refreshTokens)
     .values({ id: rtId, userId: user.id, tokenHash: rtHash, expiresAt, createdAt: now })
-    .run()
 
   return c.json({
     ok: true,
@@ -124,13 +122,13 @@ authRoutes.post('/refresh', async (c) => {
       return c.json({ ok: false, error: 'Invalid token type' }, 401)
     }
 
-    const user = db.select().from(users).where(eq(users.id, payload.sub)).get()
+    const [user] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1)
     if (!user) {
       return c.json({ ok: false, error: 'User not found' }, 401)
     }
 
     // Rotate: delete old refresh tokens for this user and issue new ones
-    db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id)).run()
+    await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id))
 
     const accessToken = await signAccessToken({ sub: user.id, username: user.username })
     const refreshToken = await signRefreshToken({ sub: user.id, username: user.username })
@@ -139,9 +137,9 @@ authRoutes.post('/refresh', async (c) => {
     const rtId = nanoid()
     const rtHash = await hash(refreshToken)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    db.insert(refreshTokens)
+    await db
+      .insert(refreshTokens)
       .values({ id: rtId, userId: user.id, tokenHash: rtHash, expiresAt, createdAt: now })
-      .run()
 
     return c.json({ ok: true, data: { accessToken, refreshToken } })
   } catch {
@@ -151,6 +149,6 @@ authRoutes.post('/refresh', async (c) => {
 
 authRoutes.post('/logout', authMiddleware, async (c) => {
   const userId = c.get('userId')
-  db.delete(refreshTokens).where(eq(refreshTokens.userId, userId)).run()
+  await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
   return c.json({ ok: true })
 })

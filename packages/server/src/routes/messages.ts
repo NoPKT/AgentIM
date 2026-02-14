@@ -12,11 +12,10 @@ messageRoutes.use('*', authMiddleware)
 // Get the latest message for each of the user's rooms
 messageRoutes.get('/recent', async (c) => {
   const userId = c.get('userId')
-  const memberRows = db
+  const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
     .where(eq(roomMembers.memberId, userId))
-    .all()
 
   const roomIds = memberRows.map((m) => m.roomId)
   if (roomIds.length === 0) {
@@ -26,13 +25,12 @@ messageRoutes.get('/recent', async (c) => {
   // Get latest message per room (one query per room, but room count is typically small)
   const result: Record<string, { content: string; senderName: string; createdAt: string }> = {}
   for (const roomId of roomIds) {
-    const row = db
+    const [row] = await db
       .select()
       .from(messages)
       .where(eq(messages.roomId, roomId))
       .orderBy(desc(messages.createdAt))
       .limit(1)
-      .get()
     if (row) {
       result[roomId] = {
         content: row.content,
@@ -57,11 +55,10 @@ messageRoutes.get('/search', async (c) => {
   }
 
   // Get rooms the user belongs to
-  const memberRows = db
+  const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
     .where(eq(roomMembers.memberId, userId))
-    .all()
   const userRoomIds = new Set(memberRows.map((m) => m.roomId))
 
   if (roomId && !userRoomIds.has(roomId)) {
@@ -76,13 +73,12 @@ messageRoutes.get('/search', async (c) => {
         like(messages.content, searchPattern),
       )
 
-  const rows = db
+  const rows = await db
     .select()
     .from(messages)
     .where(conditions)
     .orderBy(desc(messages.createdAt))
     .limit(limit)
-    .all()
 
   return c.json({
     ok: true,
@@ -106,21 +102,19 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
 
   let rows
   if (cursor) {
-    rows = db
+    rows = await db
       .select()
       .from(messages)
       .where(and(eq(messages.roomId, roomId), lt(messages.createdAt, cursor)))
       .orderBy(desc(messages.createdAt))
       .limit(limit + 1)
-      .all()
   } else {
-    rows = db
+    rows = await db
       .select()
       .from(messages)
       .where(eq(messages.roomId, roomId))
       .orderBy(desc(messages.createdAt))
       .limit(limit + 1)
-      .all()
   }
 
   const hasMore = rows.length > limit

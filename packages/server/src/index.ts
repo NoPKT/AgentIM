@@ -20,7 +20,7 @@ import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
 
 // Run migrations on startup
-migrate()
+await migrate()
 
 const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
