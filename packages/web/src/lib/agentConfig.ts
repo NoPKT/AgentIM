@@ -31,7 +31,7 @@ export function getStatusConfig(t: TFunction) {
 
 export function getTypeConfig(t: TFunction) {
   return {
-    claude_code: {
+    'claude-code': {
       label: t('claudeCode'),
       color: 'bg-purple-100 text-purple-800',
     },
@@ -55,7 +55,7 @@ export function getTypeConfig(t: TFunction) {
 }
 
 export const agentGradients: Record<string, string> = {
-  claude_code: 'from-purple-500 to-violet-600',
+  'claude-code': 'from-purple-500 to-violet-600',
   codex: 'from-blue-500 to-indigo-600',
   gemini: 'from-cyan-500 to-teal-600',
   cursor: 'from-indigo-500 to-purple-600',

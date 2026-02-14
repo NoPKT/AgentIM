@@ -171,7 +171,15 @@ async function routeToAgents(
   const agentIds = agentMembers.map((m) => m.memberId)
   const agentRows = db.select().from(agents).where(inArray(agents.id, agentIds)).all()
   const agentMap = new Map(agentRows.map((a) => [a.id, a]))
-  const agentNameMap = new Map(agentRows.map((a) => [a.name, a]))
+
+  // Build name→agent map, preferring online agents when duplicates exist
+  const agentNameMap = new Map<string, (typeof agentRows)[number]>()
+  for (const a of agentRows) {
+    const existing = agentNameMap.get(a.name)
+    if (!existing || (existing.status !== 'online' && a.status === 'online')) {
+      agentNameMap.set(a.name, a)
+    }
+  }
 
   let targetAgents: typeof agentRows = []
 

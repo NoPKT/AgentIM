@@ -29,11 +29,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     this.buffer = ''
     let fullContent = ''
 
-    const args = ['-p', content, '--output-format', 'stream-json']
+    const args = ['-p', content, '--output-format', 'stream-json', '--verbose']
+    // Remove CLAUDECODE env to allow launching from within Claude Code sessions
+    const env = { ...process.env }
+    delete env.CLAUDECODE
     const proc = spawn('claude', args, {
       cwd: this.workingDirectory,
-      env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc
@@ -136,12 +139,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       }
     }
 
-    // Result event
-    if (event.type === 'result') {
-      if (event.result) {
-        return { type: 'text', content: event.result }
-      }
-    }
+    // Result event — skip to avoid duplicating text already emitted by assistant events.
+    // The fullContent is accumulated from assistant chunks and passed to onComplete.
 
     return null
   }
