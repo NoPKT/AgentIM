@@ -2,6 +2,7 @@ import WebSocket from 'ws'
 import type { GatewayMessage, ServerGatewayMessage, ServerSendToAgent } from '@agentim/shared'
 
 type MessageHandler = (msg: ServerGatewayMessage | ServerSendToAgent) => void
+type TokenRefresher = () => Promise<string>
 
 export class GatewayWsClient {
   private ws: WebSocket | null = null
@@ -12,6 +13,7 @@ export class GatewayWsClient {
   private onMessage: MessageHandler
   private onConnected: () => void
   private onDisconnected: () => void
+  private onAuthFailed: (() => Promise<void>) | null = null
   private shouldReconnect = true
 
   constructor(opts: {
@@ -19,11 +21,13 @@ export class GatewayWsClient {
     onMessage: MessageHandler
     onConnected: () => void
     onDisconnected: () => void
+    onAuthFailed?: () => Promise<void>
   }) {
     this.url = opts.url
     this.onMessage = opts.onMessage
     this.onConnected = opts.onConnected
     this.onDisconnected = opts.onDisconnected
+    this.onAuthFailed = opts.onAuthFailed ?? null
   }
 
   connect() {

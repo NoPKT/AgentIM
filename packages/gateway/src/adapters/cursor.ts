@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type CompleteCallback, type ErrorCallback } from './base.js'
+import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type CompleteCallback, type ErrorCallback, type MessageContext } from './base.js'
 
 export class CursorAdapter extends BaseAgentAdapter {
   private process: ChildProcess | null = null
@@ -17,6 +17,7 @@ export class CursorAdapter extends BaseAgentAdapter {
     onChunk: ChunkCallback,
     onComplete: CompleteCallback,
     onError: ErrorCallback,
+    context?: MessageContext,
   ) {
     if (this.isRunning) {
       onError('Agent is already processing a message')

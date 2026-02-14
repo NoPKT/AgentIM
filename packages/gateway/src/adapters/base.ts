@@ -6,6 +6,11 @@ export interface AdapterOptions {
   workingDirectory?: string
 }
 
+export interface MessageContext {
+  roomId: string
+  senderName: string
+}
+
 export type ChunkCallback = (chunk: ParsedChunk) => void
 export type CompleteCallback = (fullContent: string) => void
 export type ErrorCallback = (error: string) => void
@@ -29,6 +34,7 @@ export abstract class BaseAgentAdapter {
     onChunk: ChunkCallback,
     onComplete: CompleteCallback,
     onError: ErrorCallback,
+    context?: MessageContext,
   ): void
 
   abstract stop(): void

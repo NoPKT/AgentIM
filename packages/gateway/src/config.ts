@@ -4,7 +4,9 @@ import { homedir } from 'node:os'
 
 export interface GatewayConfig {
   serverUrl: string
+  serverBaseUrl: string
   token: string
+  refreshToken: string
   gatewayId: string
 }
 
@@ -27,4 +29,12 @@ export function saveConfig(config: GatewayConfig): void {
 
 export function getConfigPath(): string {
   return CONFIG_FILE
+}
+
+/** Derive HTTP base URL from WebSocket URL */
+export function wsUrlToHttpUrl(wsUrl: string): string {
+  return wsUrl
+    .replace(/^ws:/, 'http:')
+    .replace(/^wss:/, 'https:')
+    .replace(/\/ws\/gateway\/?$/, '')
 }

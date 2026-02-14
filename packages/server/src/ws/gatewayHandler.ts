@@ -1,6 +1,6 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { gatewayMessageSchema } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
@@ -69,6 +69,7 @@ async function handleAuth(
     if (existing) {
       db.update(gateways)
         .set({
+          userId: payload.sub,
           connectedAt: now,
           disconnectedAt: null,
           hostname: msg.deviceInfo.hostname,
@@ -110,6 +111,18 @@ function handleRegisterAgent(
   if (!gw) return
 
   const now = new Date().toISOString()
+
+  // Mark any existing agents with same gateway + name as offline (orphan cleanup)
+  db.update(agents)
+    .set({ status: 'offline', updatedAt: now })
+    .where(
+      and(
+        eq(agents.gatewayId, gw.gatewayId),
+        eq(agents.name, agent.name),
+        eq(agents.status, 'online'),
+      ),
+    )
+    .run()
 
   // Upsert agent in DB
   const existing = db.select().from(agents).where(eq(agents.id, agent.id)).get()

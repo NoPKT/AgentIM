@@ -1,5 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type CompleteCallback, type ErrorCallback } from './base.js'
+import { createHash } from 'node:crypto'
+import {
+  BaseAgentAdapter,
+  type AdapterOptions,
+  type ChunkCallback,
+  type CompleteCallback,
+  type ErrorCallback,
+  type MessageContext,
+} from './base.js'
 import type { ParsedChunk } from '@agentim/shared'
 
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
@@ -14,11 +22,21 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return 'claude-code' as const
   }
 
+  /** Generate a deterministic UUID v4-format session ID for a given room */
+  private sessionIdForRoom(roomId: string): string {
+    const hash = createHash('sha256')
+      .update(`${this.agentId}:${roomId}`)
+      .digest('hex')
+    // Format as UUID: 8-4-4-4-12
+    return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`
+  }
+
   sendMessage(
     content: string,
     onChunk: ChunkCallback,
     onComplete: CompleteCallback,
     onError: ErrorCallback,
+    context?: MessageContext,
   ) {
     if (this.isRunning) {
       onError('Agent is already processing a message')
@@ -30,6 +48,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     const args = ['-p', content, '--output-format', 'stream-json', '--verbose']
+
+    // TODO: Enable session persistence when running with permissive tool mode.
+    // Currently disabled because --session-id resume fails when the previous
+    // session included tool use that requires interactive confirmation.
+    // if (context?.roomId) {
+    //   args.push('--session-id', this.sessionIdForRoom(context.roomId))
+    // }
+
     // Remove CLAUDECODE env to allow launching from within Claude Code sessions
     const env = { ...process.env }
     delete env.CLAUDECODE

@@ -119,6 +119,7 @@ export class AgentManager {
           status: 'error',
         })
       },
+      { roomId: msg.roomId, senderName: msg.senderName },
     )
   }
 
