@@ -40,7 +40,7 @@ export class GenericAdapter extends BaseAgentAdapter {
     const proc = spawn(this.command, args, {
       cwd: this.workingDirectory,
       env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc

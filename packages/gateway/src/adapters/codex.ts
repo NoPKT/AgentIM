@@ -33,7 +33,7 @@ export class CodexAdapter extends BaseAgentAdapter {
     const proc = spawn('codex', args, {
       cwd: this.workingDirectory,
       env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc

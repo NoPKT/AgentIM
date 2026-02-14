@@ -31,7 +31,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     const proc = spawn('gemini', args, {
       cwd: this.workingDirectory,
       env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc
