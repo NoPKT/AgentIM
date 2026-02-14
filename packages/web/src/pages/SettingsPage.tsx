@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/auth.js';
 import { api } from '../lib/api.js';
+import {
+  getNotificationPreference,
+  setNotificationPreference,
+  requestNotificationPermission,
+} from '../lib/notifications.js';
+import { toast } from '../stores/toast.js';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -9,6 +15,7 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(getNotificationPreference());
 
   const languages = [
     { code: 'en', label: 'English', flag: '🇺🇸' },
@@ -159,6 +166,50 @@ export default function SettingsPage() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+
+          {/* Notifications Section */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">{t('notifications')}</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                {t('notificationsDesc')}
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t('mentionNotifications')}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t('mentionNotificationsDesc')}</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!notificationsEnabled) {
+                      const granted = await requestNotificationPermission()
+                      if (!granted) {
+                        toast.error(t('notificationPermissionDenied'))
+                        return
+                      }
+                    }
+                    const next = !notificationsEnabled
+                    setNotificationPreference(next)
+                    setNotificationsEnabled(next)
+                    toast.success(next ? t('notificationsEnabled') : t('notificationsDisabled'))
+                  }}
+                  className={`
+                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                    ${notificationsEnabled ? 'bg-blue-600' : 'bg-gray-200'}
+                  `}
+                >
+                  <span
+                    className={`
+                      inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
+                      ${notificationsEnabled ? 'translate-x-6' : 'translate-x-1'}
+                    `}
+                  />
+                </button>
               </div>
             </div>
           </div>

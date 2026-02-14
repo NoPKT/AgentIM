@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
+import { useAuthStore } from '../stores/auth.js'
+import { showNotification } from '../lib/notifications.js'
 import type { ServerMessage } from '@agentim/shared'
 
 export function useWebSocket() {
@@ -13,9 +15,31 @@ export function useWebSocket() {
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
       switch (msg.type) {
-        case 'server:new_message':
+        case 'server:new_message': {
           addMessage(msg.message)
+          // Check for @mention of current user
+          const user = useAuthStore.getState().user
+          if (user && msg.message.senderId !== user.id) {
+            const isMentioned =
+              msg.message.mentions.includes(user.username) ||
+              msg.message.mentions.includes(user.displayName)
+            if (isMentioned) {
+              const rooms = useChatStore.getState().rooms
+              const room = rooms.find((r) => r.id === msg.message.roomId)
+              const roomName = room?.name ?? msg.message.roomId
+              showNotification(
+                `@${msg.message.senderName}`,
+                msg.message.content.slice(0, 120),
+                () => {
+                  useChatStore.getState().setCurrentRoom(msg.message.roomId)
+                  window.location.hash = ''
+                  window.history.pushState(null, '', `/room/${msg.message.roomId}`)
+                },
+              )
+            }
+          }
           break
+        }
         case 'server:message_chunk':
           addStreamChunk(msg.roomId, msg.agentId, msg.agentName, msg.messageId, msg.chunk)
           break
