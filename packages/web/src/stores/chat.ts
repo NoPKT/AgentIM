@@ -10,6 +10,12 @@ interface StreamingMessage {
   chunks: ParsedChunk[]
 }
 
+interface LastMessageInfo {
+  content: string
+  senderName: string
+  createdAt: string
+}
+
 interface ChatState {
   rooms: Room[]
   currentRoomId: string | null
@@ -17,6 +23,7 @@ interface ChatState {
   streaming: Map<string, StreamingMessage>
   hasMore: Map<string, boolean>
   roomMembers: Map<string, RoomMember[]>
+  lastMessages: Map<string, LastMessageInfo>
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
@@ -39,11 +46,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: new Map(),
   hasMore: new Map(),
   roomMembers: new Map(),
+  lastMessages: new Map(),
 
   loadRooms: async () => {
     const res = await api.get<Room[]>('/rooms')
     if (res.ok && res.data) {
       set({ rooms: res.data })
+    }
+    // Load last message for each room (for preview + sorting)
+    const recentRes = await api.get<Record<string, LastMessageInfo>>('/messages/recent')
+    if (recentRes.ok && recentRes.data) {
+      const lastMessages = new Map(get().lastMessages)
+      for (const [roomId, info] of Object.entries(recentRes.data)) {
+        lastMessages.set(roomId, info)
+      }
+      set({ lastMessages })
     }
   },
 
@@ -74,6 +91,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       msgs.set(roomId, combined)
       const hasMore = new Map(get().hasMore)
       hasMore.set(roomId, res.data.hasMore)
+
+      // Track last message for room list preview
+      const lastMsg = combined[combined.length - 1]
+      if (lastMsg) {
+        const lastMessages = new Map(get().lastMessages)
+        const existing = lastMessages.get(roomId)
+        if (!existing || lastMsg.createdAt >= existing.createdAt) {
+          lastMessages.set(roomId, {
+            content: lastMsg.content,
+            senderName: lastMsg.senderName,
+            createdAt: lastMsg.createdAt,
+          })
+          set({ messages: msgs, hasMore, lastMessages })
+          return
+        }
+      }
       set({ messages: msgs, hasMore })
     }
   },
@@ -91,7 +124,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const msgs = new Map(get().messages)
     const roomMsgs = msgs.get(message.roomId) ?? []
     msgs.set(message.roomId, [...roomMsgs, message])
-    set({ messages: msgs })
+
+    const lastMessages = new Map(get().lastMessages)
+    lastMessages.set(message.roomId, {
+      content: message.content,
+      senderName: message.senderName,
+      createdAt: message.createdAt,
+    })
+    set({ messages: msgs, lastMessages })
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
