@@ -12,9 +12,10 @@ interface RateLimitEntry {
  */
 export function rateLimitMiddleware(windowMs: number, maxRequests: number) {
   const store = new Map<string, RateLimitEntry>()
+  const isTest = process.env.NODE_ENV === 'test'
 
   // Periodic cleanup to prevent memory leak
-  setInterval(() => {
+  const cleanup = setInterval(() => {
     const now = Date.now()
     for (const [key, entry] of store) {
       if (entry.resetAt <= now) {
@@ -22,8 +23,13 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number) {
       }
     }
   }, windowMs * 2)
+  cleanup.unref()
 
   return createMiddleware(async (c, next) => {
+    if (isTest) {
+      await next()
+      return
+    }
     const ip =
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
       c.req.header('x-real-ip') ||

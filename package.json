@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "test": "pnpm --filter @agentim/server test",
     "lint": "turbo lint",
     "clean": "turbo clean"
   },

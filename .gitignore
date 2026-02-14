@@ -22,6 +22,9 @@ Thumbs.db
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
+packages/server/data/
 
 # Logs
 *.log
