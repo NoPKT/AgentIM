@@ -4,6 +4,7 @@ import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { useChatStore } from '../stores/chat.js'
 import 'highlight.js/styles/github.css'
 
 interface MessageItemProps {
@@ -47,6 +48,13 @@ function CopyButton({ text }: { text: string }) {
 
 export function MessageItem({ message }: MessageItemProps) {
   const { t, i18n } = useTranslation()
+  const setReplyTo = useChatStore((s) => s.setReplyTo)
+  const messages = useChatStore((s) => s.messages)
+
+  // Find the replied-to message
+  const repliedMessage = message.replyToId
+    ? (messages.get(message.roomId) ?? []).find((m) => m.id === message.replyToId)
+    : null
 
   // System messages
   if (message.senderType === 'system') {
@@ -64,7 +72,18 @@ export function MessageItem({ message }: MessageItemProps) {
   const isAgent = message.senderType === 'agent'
 
   return (
-    <div className="px-6 py-3 hover:bg-gray-50/50 transition-colors">
+    <div className="px-6 py-3 hover:bg-gray-50/50 transition-colors group/msg relative">
+      {/* Reply button */}
+      <button
+        onClick={() => setReplyTo(message)}
+        className="absolute right-4 top-2 p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover/msg:opacity-100 transition-all"
+        title={t('reply')}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+        </svg>
+      </button>
+
       <div className="flex items-start space-x-3">
         {/* Avatar */}
         <div
@@ -100,6 +119,14 @@ export function MessageItem({ message }: MessageItemProps) {
               })}
             </span>
           </div>
+
+          {/* Replied message quote */}
+          {repliedMessage && (
+            <div className="mb-1.5 pl-3 border-l-2 border-blue-300 bg-blue-50/50 rounded-r-md py-1 pr-2">
+              <span className="text-xs font-medium text-blue-600">{repliedMessage.senderName}</span>
+              <p className="text-xs text-gray-500 truncate">{repliedMessage.content.slice(0, 100)}</p>
+            </div>
+          )}
 
           {/* Markdown content */}
           <div className="prose prose-sm max-w-none">

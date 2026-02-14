@@ -44,6 +44,8 @@ interface ChatState {
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
+  replyTo: Message | null
+  setReplyTo: (message: Message | null) => void
   sendMessage: (roomId: string, content: string, mentions: string[]) => void
   addMessage: (message: Message) => void
   addStreamChunk: (roomId: string, agentId: string, agentName: string, messageId: string, chunk: ParsedChunk) => void
@@ -65,7 +67,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   roomMembers: new Map(),
   lastMessages: new Map(),
   unreadCounts: new Map(),
+  replyTo: null,
   lastReadAt: loadLastReadAt(),
+
+  setReplyTo: (message) => set({ replyTo: message }),
 
   loadRooms: async () => {
     const res = await api.get<Room[]>('/rooms')
@@ -147,12 +152,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: (roomId, content, mentions) => {
+    const replyTo = get().replyTo
     wsClient.send({
       type: 'client:send_message',
       roomId,
       content,
       mentions,
+      ...(replyTo ? { replyToId: replyTo.id } : {}),
     })
+    if (replyTo) set({ replyTo: null })
   },
 
   addMessage: (message) => {

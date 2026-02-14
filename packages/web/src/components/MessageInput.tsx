@@ -6,7 +6,7 @@ import { useAgentStore } from '../stores/agents.js'
 
 export function MessageInput() {
   const { t } = useTranslation()
-  const { currentRoomId, sendMessage } = useChatStore()
+  const { currentRoomId, sendMessage, replyTo, setReplyTo } = useChatStore()
   const { agents } = useAgentStore()
   const [content, setContent] = useState('')
   const [showMentionMenu, setShowMentionMenu] = useState(false)
@@ -110,6 +110,29 @@ export function MessageInput() {
 
   return (
     <div className="bg-white px-4 pb-4 pt-2">
+      {/* Reply preview */}
+      {replyTo && (
+        <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              <span className="text-xs font-medium text-blue-600">{replyTo.senderName}</span>
+            </div>
+            <p className="text-xs text-gray-500 truncate mt-0.5">{replyTo.content.slice(0, 80)}</p>
+          </div>
+          <button
+            onClick={() => setReplyTo(null)}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex-shrink-0 ml-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       <div className="relative border border-gray-200 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-shadow">
         {/* Mention menu */}
         {showMentionMenu && filteredAgents.length > 0 && (

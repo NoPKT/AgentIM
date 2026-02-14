@@ -96,6 +96,7 @@ export const ko = {
     deleteRoom: '채팅방 삭제',
     reconnecting: '재연결 중...',
     disconnected: '연결 끊김',
+    reply: '답장',
     searchMessages: '메시지 검색...',
     searchHint: '2자 이상 입력하여 검색',
     resultsFound: '개의 결과',
