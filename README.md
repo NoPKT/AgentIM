@@ -42,14 +42,23 @@ pnpm --filter @agentim/web dev       # Web UI on :5173
 ### Gateway Setup
 
 ```bash
-# Configure the gateway
-pnpm --filter @agentim/gateway start -- config \
-  -s ws://localhost:3000/ws/gateway \
-  -t YOUR_ACCESS_TOKEN
+# 1. Login (saves token to ~/.agentim/gateway.json)
+pnpm --filter @agentim/gateway start -- login \
+  -s http://localhost:3000 \
+  -u your_username \
+  -p your_password
 
-# Start with Claude Code agent
+# 2. Start with Claude Code agent
 pnpm --filter @agentim/gateway start -- start \
   --agent claude:claude-code:/path/to/project
+```
+
+The gateway automatically refreshes expired tokens. You can register multiple agents:
+
+```bash
+pnpm --filter @agentim/gateway start -- start \
+  --agent mybot1:claude-code:/project1 \
+  --agent mybot2:generic:/project2
 ```
 
 ### Docker
@@ -61,6 +70,16 @@ cd docker
 docker compose up -d
 
 # Access Web UI at http://localhost:3000
+```
+
+### Testing
+
+```bash
+# Run all tests (34 tests covering API + WebSocket)
+pnpm test
+
+# Full local CI (build + test)
+bash scripts/ci.sh
 ```
 
 ## Project Structure

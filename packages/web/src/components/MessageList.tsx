@@ -77,7 +77,7 @@ export function MessageList() {
     if (!currentRoomId || !currentHasMore) return
     const oldestMessage = currentMessages[0]
     if (oldestMessage) {
-      loadMessages(currentRoomId, oldestMessage.id)
+      loadMessages(currentRoomId, oldestMessage.createdAt)
     }
   }
 
