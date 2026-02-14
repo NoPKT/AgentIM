@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
+import { toast } from '../stores/toast.js'
 
 function timeAgo(dateStr: string, locale: string): string {
   const now = Date.now()
@@ -43,8 +44,8 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       setShowNewRoomDialog(false)
       setNewRoomName('')
       handleRoomClick(room.id)
-    } catch (error) {
-      console.error('Failed to create room:', error)
+    } catch {
+      toast.error(t('error'))
     } finally {
       setIsCreating(false)
     }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
+import { toast } from '../stores/toast.js'
 
 interface AddAgentDialogProps {
   roomId: string
@@ -37,8 +38,9 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
     try {
       await addRoomMember(roomId, agentId, 'agent')
       onAdded()
-    } catch (err) {
-      console.error('Failed to add agent:', err)
+      toast.success(t('agentAdded'))
+    } catch {
+      toast.error(t('error'))
     } finally {
       setAdding(null)
     }

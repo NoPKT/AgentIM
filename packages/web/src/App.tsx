@@ -5,6 +5,7 @@ import { useChatStore } from './stores/chat.js'
 import { useWebSocket } from './hooks/useWebSocket.js'
 import ProtectedRoute from './components/ProtectedRoute.js'
 import { AppLayout } from './components/AppLayout.js'
+import { ToastContainer } from './components/ToastContainer.js'
 import LoginPage from './pages/LoginPage.js'
 import RegisterPage from './pages/RegisterPage.js'
 import ChatPage from './pages/ChatPage.js'
@@ -55,6 +56,7 @@ export function App() {
   return (
     <BrowserRouter>
       <AppInner />
+      <ToastContainer />
     </BrowserRouter>
   )
 }

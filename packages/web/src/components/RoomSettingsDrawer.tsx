@@ -5,6 +5,7 @@ import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { AddAgentDialog } from './AddAgentDialog.js'
+import { toast } from '../stores/toast.js'
 
 interface RoomSettingsDrawerProps {
   roomId: string
@@ -65,8 +66,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     setUpdating(true)
     try {
       await updateRoom(roomId, { name: nameValue.trim() })
-    } catch (err) {
-      console.error('Failed to update room name:', err)
+      toast.success(t('roomUpdated'))
+    } catch {
+      toast.error(t('error'))
     } finally {
       setUpdating(false)
       setEditingName(false)
@@ -78,8 +80,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     setUpdating(true)
     try {
       await updateRoom(roomId, { broadcastMode: !room.broadcastMode })
-    } catch (err) {
-      console.error('Failed to toggle broadcast:', err)
+      toast.success(t('roomUpdated'))
+    } catch {
+      toast.error(t('error'))
     } finally {
       setUpdating(false)
     }
@@ -88,18 +91,20 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const handleRemoveMember = async (memberId: string) => {
     try {
       await removeRoomMember(roomId, memberId)
-    } catch (err) {
-      console.error('Failed to remove member:', err)
+      toast.success(t('agentRemoved'))
+    } catch {
+      toast.error(t('error'))
     }
   }
 
   const handleDeleteRoom = async () => {
     try {
       await deleteRoom(roomId)
+      toast.success(t('roomDeleted'))
       onClose()
       navigate('/')
-    } catch (err) {
-      console.error('Failed to delete room:', err)
+    } catch {
+      toast.error(t('error'))
     }
   }
 
