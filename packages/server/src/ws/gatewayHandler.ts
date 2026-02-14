@@ -191,13 +191,19 @@ function handleMessageChunk(
 
 function handleMessageComplete(
   ws: WSContext,
-  msg: { roomId: string; agentId: string; messageId: string; fullContent: string },
+  msg: {
+    roomId: string
+    agentId: string
+    messageId: string
+    fullContent: string
+    chunks?: Array<{ type: string; content: string; metadata?: Record<string, unknown> }>
+  },
 ) {
   const agent = db.select().from(agents).where(eq(agents.id, msg.agentId)).get()
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
 
-  // Persist agent's full message
+  // Persist agent's full message with structured chunks
   db.insert(messages)
     .values({
       id: msg.messageId,
@@ -208,6 +214,7 @@ function handleMessageComplete(
       type: 'agent_response',
       content: msg.fullContent,
       mentions: '[]',
+      chunks: msg.chunks ? JSON.stringify(msg.chunks) : null,
       createdAt: now,
     })
     .run()
@@ -220,7 +227,8 @@ function handleMessageComplete(
     senderName: agentName,
     type: 'agent_response' as const,
     content: msg.fullContent,
-    mentions: [],
+    mentions: [] as string[],
+    chunks: msg.chunks,
     createdAt: now,
   }
 

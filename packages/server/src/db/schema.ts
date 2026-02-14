@@ -129,6 +129,7 @@ export const messages = sqliteTable(
     content: text('content').notNull(),
     replyToId: text('reply_to_id'),
     mentions: text('mentions').notNull().default('[]'), // JSON array of IDs
+    chunks: text('chunks'), // JSON array of ParsedChunk for agent responses
     createdAt: text('created_at').notNull(),
   },
   (table) => [

@@ -78,6 +78,7 @@ export interface Message {
   replyToId?: string
   mentions: string[]
   attachments?: MessageAttachment[]
+  chunks?: ParsedChunk[]
   createdAt: string
 }
 

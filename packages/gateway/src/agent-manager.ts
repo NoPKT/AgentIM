@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
-import type { GatewayMessage, ServerSendToAgent, ServerStopAgent, ServerGatewayMessage } from '@agentim/shared'
+import type { GatewayMessage, ServerSendToAgent, ServerStopAgent, ServerGatewayMessage, ParsedChunk } from '@agentim/shared'
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
@@ -72,6 +72,7 @@ export class AgentManager {
     }
 
     const messageId = nanoid()
+    const allChunks: ParsedChunk[] = []
 
     // Update status to busy
     this.wsClient.send({
@@ -83,6 +84,7 @@ export class AgentManager {
     adapter.sendMessage(
       msg.content,
       (chunk) => {
+        allChunks.push(chunk)
         this.wsClient.send({
           type: 'gateway:message_chunk',
           roomId: msg.roomId,
@@ -98,6 +100,7 @@ export class AgentManager {
           agentId: msg.agentId,
           messageId,
           fullContent,
+          chunks: allChunks,
         })
         this.wsClient.send({
           type: 'gateway:agent_status',
@@ -106,12 +109,14 @@ export class AgentManager {
         })
       },
       (error) => {
+        allChunks.push({ type: 'error', content: error })
         this.wsClient.send({
           type: 'gateway:message_complete',
           roomId: msg.roomId,
           agentId: msg.agentId,
           messageId,
           fullContent: `Error: ${error}`,
+          chunks: allChunks,
         })
         this.wsClient.send({
           type: 'gateway:agent_status',

@@ -156,6 +156,7 @@ export interface GatewayMessageComplete {
   agentId: string
   messageId: string
   fullContent: string
+  chunks?: ParsedChunk[]
 }
 
 export interface GatewayAgentStatus {

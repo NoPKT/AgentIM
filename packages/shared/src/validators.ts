@@ -184,6 +184,7 @@ export const gatewayMessageCompleteSchema = z.object({
   agentId: z.string().min(1),
   messageId: z.string().min(1),
   fullContent: z.string(),
+  chunks: z.array(parsedChunkSchema).optional(),
 })
 
 export const gatewayAgentStatusSchema = z.object({

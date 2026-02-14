@@ -106,6 +106,7 @@ export function migrate() {
       content TEXT NOT NULL,
       reply_to_id TEXT,
       mentions TEXT NOT NULL DEFAULT '[]',
+      chunks TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -141,4 +142,11 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS tasks_assignee_idx ON tasks(assignee_id);
     CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status);
   `)
+
+  // Incremental migrations for existing databases
+  try {
+    sqlite.exec(`ALTER TABLE messages ADD COLUMN chunks TEXT`)
+  } catch {
+    // Column already exists — ignore
+  }
 }

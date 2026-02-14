@@ -1,47 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { ParsedChunk } from '@agentim/shared'
 import { useChatStore } from '../stores/chat.js'
 import { MessageItem } from './MessageItem.js'
-
-function StreamingMessage({
-  agentName,
-  chunks
-}: {
-  agentName: string
-  chunks: ParsedChunk[]
-}) {
-  const combinedContent = chunks.map(c => c.content).join('')
-
-  return (
-    <div className="px-6 py-4 bg-blue-50">
-      <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center">
-          <span className="text-sm font-medium text-blue-700">
-            {agentName.charAt(0).toUpperCase()}
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-gray-900">{agentName}</span>
-            <span className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</span>
-          </div>
-          <div className="prose prose-sm max-w-none">
-            <p className="text-gray-800 whitespace-pre-wrap">{combinedContent}</p>
-          </div>
-          <div className="mt-2 flex items-center space-x-1 text-blue-600">
-            <div className="flex space-x-1">
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { StreamingMessage } from './StreamingMessage.js'
 
 export function MessageList() {
   const { t } = useTranslation()

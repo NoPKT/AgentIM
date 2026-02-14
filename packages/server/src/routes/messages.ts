@@ -89,6 +89,7 @@ messageRoutes.get('/search', async (c) => {
     data: rows.map((m) => ({
       ...m,
       mentions: JSON.parse(m.mentions),
+      chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
     })),
   })
 })
@@ -131,6 +132,7 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
       items: items.map((m) => ({
         ...m,
         mentions: JSON.parse(m.mentions),
+        chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
       })),
       nextCursor: hasMore ? items[items.length - 1].createdAt : undefined,
       hasMore,

@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { useChatStore } from '../stores/chat.js'
+import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
 import 'highlight.js/styles/github.css'
 
 interface MessageItemProps {
@@ -55,6 +56,12 @@ export function MessageItem({ message }: MessageItemProps) {
   const repliedMessage = message.replyToId
     ? (messages.get(message.roomId) ?? []).find((m) => m.id === message.replyToId)
     : null
+
+  // Group chunks for agent messages that have structured data
+  const chunkGroups = useMemo(
+    () => (message.chunks?.length ? groupChunks(message.chunks) : null),
+    [message.chunks],
+  )
 
   // System messages
   if (message.senderType === 'system') {
@@ -128,66 +135,70 @@ export function MessageItem({ message }: MessageItemProps) {
             </div>
           )}
 
-          {/* Markdown content */}
-          <div className="prose prose-sm max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                code({ className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '')
-                  const isBlock = match || (typeof children === 'string' && children.includes('\n'))
-                  const codeText = String(children).replace(/\n$/, '')
-                  return isBlock ? (
-                    <div className="relative group/code">
-                      <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
-                        {match && (
-                          <span className="px-1.5 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
-                            {match[1]}
+          {/* Message content: structured chunks for agent messages, markdown for others */}
+          {chunkGroups ? (
+            <ChunkGroupRenderer groups={chunkGroups} />
+          ) : (
+            <div className="prose prose-sm max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  code({ className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '')
+                    const isBlock = match || (typeof children === 'string' && children.includes('\n'))
+                    const codeText = String(children).replace(/\n$/, '')
+                    return isBlock ? (
+                      <div className="relative group/code">
+                        <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
+                          {match && (
+                            <span className="px-1.5 py-0.5 text-xs text-gray-500 bg-gray-100 rounded">
+                              {match[1]}
+                            </span>
+                          )}
+                          <span className="opacity-0 group-hover/code:opacity-100 transition-opacity">
+                            <CopyButton text={codeText} />
                           </span>
-                        )}
-                        <span className="opacity-0 group-hover/code:opacity-100 transition-opacity">
-                          <CopyButton text={codeText} />
-                        </span>
+                        </div>
+                        <pre className={className}>
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        </pre>
                       </div>
-                      <pre className={className}>
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      </pre>
-                    </div>
-                  ) : (
-                    <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm" {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-                a({ children, ...props }) {
-                  return (
-                    <a
-                      className="text-blue-600 hover:text-blue-800 underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    >
-                      {children}
-                    </a>
-                  )
-                },
-                table({ children, ...props }) {
-                  return (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200" {...props}>
+                    ) : (
+                      <code className="px-1.5 py-0.5 bg-gray-100 rounded text-sm" {...props}>
                         {children}
-                      </table>
-                    </div>
-                  )
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
+                      </code>
+                    )
+                  },
+                  a({ children, ...props }) {
+                    return (
+                      <a
+                        className="text-blue-600 hover:text-blue-800 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        {...props}
+                      >
+                        {children}
+                      </a>
+                    )
+                  },
+                  table({ children, ...props }) {
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200" {...props}>
+                          {children}
+                        </table>
+                      </div>
+                    )
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
 
           {/* Attachments */}
           {message.attachments && message.attachments.length > 0 && (

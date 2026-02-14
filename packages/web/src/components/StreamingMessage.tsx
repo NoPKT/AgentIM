@@ -1,0 +1,81 @@
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { ParsedChunk } from '@agentim/shared'
+import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+
+const agentAvatarGradients: Record<string, string> = {
+  a: 'from-purple-500 to-violet-600',
+  b: 'from-blue-500 to-indigo-600',
+  c: 'from-cyan-500 to-teal-600',
+  d: 'from-emerald-500 to-green-600',
+  e: 'from-amber-500 to-orange-600',
+  f: 'from-rose-500 to-pink-600',
+}
+
+function getAvatarGradient(name: string): string {
+  const key = name.charAt(0).toLowerCase()
+  return agentAvatarGradients[key] || 'from-blue-500 to-indigo-600'
+}
+
+interface StreamingMessageProps {
+  agentName: string
+  chunks: ParsedChunk[]
+}
+
+export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
+  const { t } = useTranslation()
+
+  const groups = useMemo(() => groupChunks(chunks), [chunks])
+
+  // Determine what's currently happening for the status line
+  const lastChunk = chunks[chunks.length - 1]
+  const statusText = lastChunk
+    ? lastChunk.type === 'thinking'
+      ? t('agentThinking')
+      : lastChunk.type === 'tool_use'
+        ? t('agentUsingTool')
+        : lastChunk.type === 'text'
+          ? t('agentResponding')
+          : t('agentWorking')
+    : t('agentWorking')
+
+  return (
+    <div className="px-6 py-4">
+      <div className="flex items-start space-x-3">
+        {/* Avatar */}
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarGradient(agentName)} flex items-center justify-center`}>
+          <span className="text-sm font-medium text-white">
+            {agentName.charAt(0).toUpperCase()}
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="font-semibold text-gray-900 text-sm">{agentName}</span>
+            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">
+              Agent
+            </span>
+            <span className="text-xs text-gray-400">
+              {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+
+          {/* Chunk groups */}
+          <ChunkGroupRenderer groups={groups} isStreaming />
+
+          {/* Status line */}
+          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+            <div className="flex space-x-1">
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span>{statusText}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
