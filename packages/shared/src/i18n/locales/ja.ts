@@ -94,6 +94,8 @@ export const ja = {
     filterOnlineOnly: 'オンラインのみ',
     leaveRoom: 'ルームを退出',
     deleteRoom: 'ルームを削除',
+    reconnecting: '再接続中...',
+    disconnected: '切断されました',
   },
   agent: {
     agents: 'エージェント',

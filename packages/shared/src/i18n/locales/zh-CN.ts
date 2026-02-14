@@ -94,6 +94,8 @@ export const zhCN = {
     filterOnlineOnly: '仅在线',
     leaveRoom: '离开房间',
     deleteRoom: '删除房间',
+    reconnecting: '重新连接中...',
+    disconnected: '已断开连接',
   },
   agent: {
     agents: '智能体',

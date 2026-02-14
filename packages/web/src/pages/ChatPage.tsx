@@ -5,6 +5,7 @@ import { useChatStore } from '../stores/chat.js'
 import { MessageList } from '../components/MessageList.js'
 import { MessageInput } from '../components/MessageInput.js'
 import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
+import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
 
 export default function ChatPage() {
   const { t } = useTranslation()
@@ -15,6 +16,7 @@ export default function ChatPage() {
   const roomMembers = useChatStore((state) => state.roomMembers)
   const loadRoomMembers = useChatStore((state) => state.loadRoomMembers)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const connectionStatus = useConnectionStatus()
 
   const currentRoom = rooms.find((r) => r.id === currentRoomId)
   const members = currentRoomId ? roomMembers.get(currentRoomId) ?? [] : []
@@ -77,6 +79,18 @@ export default function ChatPage() {
           <span className="text-xs text-gray-400 flex-shrink-0">
             {t('memberCount', { count: members.length })}
           </span>
+          {connectionStatus !== 'connected' && (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${
+              connectionStatus === 'reconnecting'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                connectionStatus === 'reconnecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+              }`} />
+              {connectionStatus === 'reconnecting' ? t('reconnecting') : t('disconnected')}
+            </span>
+          )}
         </div>
         <button
           onClick={() => setSettingsOpen(true)}

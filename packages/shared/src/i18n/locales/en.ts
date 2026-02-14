@@ -94,6 +94,8 @@ export const en = {
     filterOnlineOnly: 'Online only',
     leaveRoom: 'Leave Room',
     deleteRoom: 'Delete Room',
+    reconnecting: 'Reconnecting...',
+    disconnected: 'Disconnected',
   },
   agent: {
     agents: 'Agents',

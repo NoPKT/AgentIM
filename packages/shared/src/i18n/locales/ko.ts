@@ -94,6 +94,8 @@ export const ko = {
     filterOnlineOnly: '온라인만',
     leaveRoom: '채팅방 나가기',
     deleteRoom: '채팅방 삭제',
+    reconnecting: '재연결 중...',
+    disconnected: '연결 끊김',
   },
   agent: {
     agents: '에이전트',
