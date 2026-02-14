@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { and, eq, lt, desc, inArray } from 'drizzle-orm'
+import { and, eq, lt, desc, like, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { messages, roomMembers } from '../db/schema.js'
 import { messageQuerySchema } from '@agentim/shared'
@@ -43,6 +43,54 @@ messageRoutes.get('/recent', async (c) => {
   }
 
   return c.json({ ok: true, data: result })
+})
+
+// Search messages across user's rooms
+messageRoutes.get('/search', async (c) => {
+  const userId = c.get('userId')
+  const q = c.req.query('q')?.trim()
+  const roomId = c.req.query('roomId')
+  const limit = Math.min(parseInt(c.req.query('limit') || '20'), 50)
+
+  if (!q || q.length < 2) {
+    return c.json({ ok: false, error: 'Query must be at least 2 characters' }, 400)
+  }
+
+  // Get rooms the user belongs to
+  const memberRows = db
+    .select({ roomId: roomMembers.roomId })
+    .from(roomMembers)
+    .where(eq(roomMembers.memberId, userId))
+    .all()
+  const userRoomIds = new Set(memberRows.map((m) => m.roomId))
+
+  if (roomId && !userRoomIds.has(roomId)) {
+    return c.json({ ok: false, error: 'Room not found' }, 404)
+  }
+
+  const searchPattern = `%${q}%`
+  const conditions = roomId
+    ? and(eq(messages.roomId, roomId), like(messages.content, searchPattern))
+    : and(
+        inArray(messages.roomId, [...userRoomIds]),
+        like(messages.content, searchPattern),
+      )
+
+  const rows = db
+    .select()
+    .from(messages)
+    .where(conditions)
+    .orderBy(desc(messages.createdAt))
+    .limit(limit)
+    .all()
+
+  return c.json({
+    ok: true,
+    data: rows.map((m) => ({
+      ...m,
+      mentions: JSON.parse(m.mentions),
+    })),
+  })
 })
 
 // Get messages for a room (cursor-based pagination)

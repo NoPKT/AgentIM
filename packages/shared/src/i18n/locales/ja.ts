@@ -96,6 +96,9 @@ export const ja = {
     deleteRoom: 'ルームを削除',
     reconnecting: '再接続中...',
     disconnected: '切断されました',
+    searchMessages: 'メッセージを検索...',
+    searchHint: '2文字以上入力して検索',
+    resultsFound: '件の結果',
   },
   agent: {
     agents: 'エージェント',

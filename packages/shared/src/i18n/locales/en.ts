@@ -96,6 +96,9 @@ export const en = {
     deleteRoom: 'Delete Room',
     reconnecting: 'Reconnecting...',
     disconnected: 'Disconnected',
+    searchMessages: 'Search messages...',
+    searchHint: 'Type at least 2 characters to search',
+    resultsFound: 'results',
   },
   agent: {
     agents: 'Agents',
