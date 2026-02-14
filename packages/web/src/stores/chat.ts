@@ -46,6 +46,9 @@ interface ChatState {
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
   replyTo: Message | null
   setReplyTo: (message: Message | null) => void
+  typingUsers: Map<string, { username: string; expiresAt: number }>
+  addTypingUser: (roomId: string, userId: string, username: string) => void
+  clearExpiredTyping: () => void
   sendMessage: (roomId: string, content: string, mentions: string[]) => void
   addMessage: (message: Message) => void
   addStreamChunk: (roomId: string, agentId: string, agentName: string, messageId: string, chunk: ParsedChunk) => void
@@ -68,9 +71,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
   lastMessages: new Map(),
   unreadCounts: new Map(),
   replyTo: null,
+  typingUsers: new Map(),
   lastReadAt: loadLastReadAt(),
 
   setReplyTo: (message) => set({ replyTo: message }),
+
+  addTypingUser: (roomId, userId, username) => {
+    const key = `${roomId}:${userId}`
+    const typingUsers = new Map(get().typingUsers)
+    typingUsers.set(key, { username, expiresAt: Date.now() + 4000 })
+    set({ typingUsers })
+  },
+
+  clearExpiredTyping: () => {
+    const now = Date.now()
+    const typingUsers = new Map(get().typingUsers)
+    let changed = false
+    for (const [key, value] of typingUsers) {
+      if (value.expiresAt < now) {
+        typingUsers.delete(key)
+        changed = true
+      }
+    }
+    if (changed) set({ typingUsers })
+  },
 
   loadRooms: async () => {
     const res = await api.get<Room[]>('/rooms')

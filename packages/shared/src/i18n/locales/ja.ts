@@ -73,6 +73,7 @@ export const ja = {
     noMessages: 'まだメッセージがありません。会話を始めましょう！',
     loadMore: 'さらに読み込む',
     typing: '{{name}} が入力中...',
+    typingMultiple: '{{names}} が入力中...',
     mentionHint: '@ を入力してエージェントやユーザーをメンション',
     stopGeneration: '生成を停止',
     roomSettings: 'ルーム設定',

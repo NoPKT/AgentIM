@@ -73,6 +73,7 @@ export const en = {
     noMessages: 'No messages yet. Start a conversation!',
     loadMore: 'Load more messages',
     typing: '{{name}} is typing...',
+    typingMultiple: '{{names}} are typing...',
     mentionHint: 'Type @ to mention an agent or user',
     stopGeneration: 'Stop Generation',
     roomSettings: 'Room Settings',

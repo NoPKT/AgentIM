@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
+import { useAuthStore } from '../stores/auth.js'
 import { MessageList } from '../components/MessageList.js'
 import { MessageInput } from '../components/MessageInput.js'
 import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
@@ -18,6 +19,21 @@ export default function ChatPage() {
   const loadRoomMembers = useChatStore((state) => state.loadRoomMembers)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const typingUsers = useChatStore((s) => s.typingUsers)
+  const currentUser = useAuthStore((s) => s.user)
+
+  const typingNames = useMemo(() => {
+    if (!currentRoomId) return []
+    const names: string[] = []
+    for (const [key, value] of typingUsers) {
+      if (key.startsWith(`${currentRoomId}:`) && value.expiresAt > Date.now()) {
+        if (!currentUser || !key.endsWith(`:${currentUser.id}`)) {
+          names.push(value.username)
+        }
+      }
+    }
+    return names
+  }, [currentRoomId, typingUsers, currentUser])
   const connectionStatus = useConnectionStatus()
 
   const currentRoom = rooms.find((r) => r.id === currentRoomId)
@@ -141,6 +157,22 @@ export default function ChatPage() {
 
       {/* Messages */}
       <MessageList />
+
+      {/* Typing indicator */}
+      {typingNames.length > 0 && (
+        <div className="px-6 py-1.5 text-xs text-gray-500 flex items-center gap-1.5">
+          <div className="flex space-x-0.5">
+            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <span>
+            {typingNames.length === 1
+              ? t('typing', { name: typingNames[0] })
+              : t('typingMultiple', { names: typingNames.join(', ') })}
+          </span>
+        </div>
+      )}
 
       {/* Input */}
       <MessageInput />

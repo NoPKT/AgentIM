@@ -73,6 +73,7 @@ export const zhCN = {
     noMessages: '还没有消息，开始对话吧！',
     loadMore: '加载更多消息',
     typing: '{{name}} 正在输入...',
+    typingMultiple: '{{names}} 正在输入...',
     mentionHint: '输入 @ 来提及智能体或用户',
     stopGeneration: '停止生成',
     roomSettings: '房间设置',

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from 'react'
+import { useState, useRef, useEffect, useCallback, KeyboardEvent, ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { parseMentions } from '@agentim/shared'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
+import { wsClient } from '../lib/ws.js'
 
 export function MessageInput() {
   const { t } = useTranslation()
@@ -14,6 +15,16 @@ export function MessageInput() {
   const [mentionPosition, setMentionPosition] = useState(0)
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastTypingSentRef = useRef(0)
+
+  const sendTypingEvent = useCallback(() => {
+    if (!currentRoomId) return
+    const now = Date.now()
+    if (now - lastTypingSentRef.current > 2000) {
+      lastTypingSentRef.current = now
+      wsClient.send({ type: 'client:typing', roomId: currentRoomId })
+    }
+  }, [currentRoomId])
 
   const filteredAgents = agents.filter((agent) =>
     agent.name.toLowerCase().includes(mentionSearch.toLowerCase())
@@ -29,6 +40,7 @@ export function MessageInput() {
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value
     setContent(newContent)
+    sendTypingEvent()
 
     const cursorPos = e.target.selectionStart
     const textBeforeCursor = newContent.slice(0, cursorPos)

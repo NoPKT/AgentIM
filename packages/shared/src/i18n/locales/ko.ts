@@ -73,6 +73,7 @@ export const ko = {
     noMessages: '아직 메시지가 없습니다. 대화를 시작하세요!',
     loadMore: '더 불러오기',
     typing: '{{name}} 입력 중...',
+    typingMultiple: '{{names}} 입력 중...',
     mentionHint: '@를 입력하여 에이전트나 사용자를 멘션하세요',
     stopGeneration: '생성 중지',
     roomSettings: '채팅방 설정',

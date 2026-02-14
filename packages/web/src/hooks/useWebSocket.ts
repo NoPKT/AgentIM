@@ -10,6 +10,8 @@ export function useWebSocket() {
   const addMessage = useChatStore((s) => s.addMessage)
   const addStreamChunk = useChatStore((s) => s.addStreamChunk)
   const completeStream = useChatStore((s) => s.completeStream)
+  const addTypingUser = useChatStore((s) => s.addTypingUser)
+  const clearExpiredTyping = useChatStore((s) => s.clearExpiredTyping)
   const updateAgent = useAgentStore((s) => s.updateAgent)
 
   useEffect(() => {
@@ -46,6 +48,9 @@ export function useWebSocket() {
         case 'server:message_complete':
           completeStream(msg.message)
           break
+        case 'server:typing':
+          addTypingUser(msg.roomId, msg.userId, msg.username)
+          break
         case 'server:agent_status':
           updateAgent(msg.agent)
           break
@@ -53,5 +58,11 @@ export function useWebSocket() {
     })
 
     return unsub
-  }, [addMessage, addStreamChunk, completeStream, updateAgent])
+  }, [addMessage, addStreamChunk, completeStream, addTypingUser, updateAgent])
+
+  // Periodically clear expired typing indicators
+  useEffect(() => {
+    const timer = setInterval(clearExpiredTyping, 2000)
+    return () => clearInterval(timer)
+  }, [clearExpiredTyping])
 }
