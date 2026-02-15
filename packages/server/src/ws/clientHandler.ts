@@ -11,6 +11,7 @@ import { messages, rooms, roomMembers, agents, messageAttachments } from '../db/
 import { sanitizeContent } from '../lib/sanitize.js'
 import { getRedis } from '../lib/redis.js'
 import { selectAgents } from '../lib/routerLlm.js'
+import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('ClientHandler')
 
@@ -217,47 +218,49 @@ async function handleSendMessage(
   const id = nanoid()
   const now = new Date().toISOString()
 
-  // Persist message
-  await db.insert(messages).values({
-    id,
-    roomId,
-    senderId: client.userId,
-    senderType: 'user',
-    senderName: client.username,
-    type: 'text',
-    content,
-    replyToId,
-    mentions: JSON.stringify(mentions),
-    createdAt: now,
+  // Atomic: persist message + link attachments in a single transaction
+  const attachments = await db.transaction(async (tx) => {
+    await tx.insert(messages).values({
+      id,
+      roomId,
+      senderId: client.userId,
+      senderType: 'user',
+      senderName: client.username,
+      type: 'text',
+      content,
+      replyToId,
+      mentions: JSON.stringify(mentions),
+      createdAt: now,
+    })
+
+    if (attachmentIds && attachmentIds.length > 0) {
+      await tx
+        .update(messageAttachments)
+        .set({ messageId: id })
+        .where(
+          and(
+            inArray(messageAttachments.id, attachmentIds),
+            eq(messageAttachments.uploadedBy, client.userId),
+          ),
+        )
+
+      const rows = await tx
+        .select()
+        .from(messageAttachments)
+        .where(eq(messageAttachments.messageId, id))
+
+      return rows.map((r) => ({
+        id: r.id,
+        messageId: id,
+        filename: r.filename,
+        mimeType: r.mimeType,
+        size: r.size,
+        url: r.url,
+      }))
+    }
+
+    return [] as { id: string; messageId: string; filename: string; mimeType: string; size: number; url: string }[]
   })
-
-  // Link attachments to this message
-  let attachments: { id: string; messageId: string; filename: string; mimeType: string; size: number; url: string }[] = []
-  if (attachmentIds && attachmentIds.length > 0) {
-    await db
-      .update(messageAttachments)
-      .set({ messageId: id })
-      .where(
-        and(
-          inArray(messageAttachments.id, attachmentIds),
-          eq(messageAttachments.uploadedBy, client.userId),
-        ),
-      )
-
-    const rows = await db
-      .select()
-      .from(messageAttachments)
-      .where(eq(messageAttachments.messageId, id))
-
-    attachments = rows.map((r) => ({
-      id: r.id,
-      messageId: id,
-      filename: r.filename,
-      mimeType: r.mimeType,
-      size: r.size,
-      url: r.url,
-    }))
-  }
 
   const message = {
     id,
@@ -303,14 +306,7 @@ async function routeToAgents(
   const agentRows = await db.select().from(agents).where(inArray(agents.id, agentIds))
   const agentMap = new Map(agentRows.map((a) => [a.id, a]))
 
-  // Build name→agent map, preferring online agents when duplicates exist
-  const agentNameMap = new Map<string, (typeof agentRows)[number]>()
-  for (const a of agentRows) {
-    const existing = agentNameMap.get(a.name)
-    if (!existing || (existing.status !== 'online' && a.status === 'online')) {
-      agentNameMap.set(a.name, a)
-    }
-  }
+  const agentNameMap = buildAgentNameMap(agentRows)
 
   // Server-side mention parsing — don't trust client-provided mentions for routing
   const serverMentions = parseMentions(message.content)

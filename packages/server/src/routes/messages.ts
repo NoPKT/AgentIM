@@ -414,21 +414,23 @@ messageRoutes.put('/:id', async (c) => {
   }
 
   const now = new Date().toISOString()
-
-  // Save previous content to edit history
-  await db.insert(messageEdits).values({
-    id: nanoid(),
-    messageId,
-    previousContent: msg.content,
-    editedAt: now,
-  })
-
   const content = sanitizeContent(parsed.data.content)
-  const [updated] = await db
-    .update(messages)
-    .set({ content, updatedAt: now })
-    .where(eq(messages.id, messageId))
-    .returning()
+
+  // Atomic: save edit history + update message in a single transaction
+  const [updated] = await db.transaction(async (tx) => {
+    await tx.insert(messageEdits).values({
+      id: nanoid(),
+      messageId,
+      previousContent: msg.content,
+      editedAt: now,
+    })
+
+    return tx
+      .update(messages)
+      .set({ content, updatedAt: now })
+      .where(eq(messages.id, messageId))
+      .returning()
+  })
 
   const message = {
     ...updated!,

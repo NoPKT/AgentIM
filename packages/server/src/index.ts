@@ -19,13 +19,14 @@ await initSentry()
 import { apiRateLimit } from './middleware/rateLimit.js'
 import { migrate, closeDb, db } from './db/index.js'
 import { closeRedis, getRedis } from './lib/redis.js'
-import { sql } from 'drizzle-orm'
+import { sql, lt } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
 import { roomRoutes } from './routes/rooms.js'
 import { messageRoutes } from './routes/messages.js'
 import { agentRoutes } from './routes/agents.js'
 import { taskRoutes } from './routes/tasks.js'
+import { refreshTokens } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
 import { docsRoutes } from './routes/docs.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
@@ -91,7 +92,26 @@ const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 // Global middleware
-app.use('*', secureHeaders())
+app.use(
+  '*',
+  secureHeaders(
+    config.isProduction
+      ? {
+          contentSecurityPolicy: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'blob:'],
+            connectSrc: ["'self'", 'ws:', 'wss:'],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+          },
+        }
+      : {},
+  ),
+)
 app.use(
   '*',
   cors({
@@ -217,12 +237,37 @@ const server = serve({
 injectWebSocket(server)
 startOrphanCleanup()
 
+// Periodic cleanup: remove expired refresh tokens every hour
+const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000
+let tokenCleanupTimer: ReturnType<typeof setInterval> | null = null
+
+function startTokenCleanup() {
+  tokenCleanupTimer = setInterval(async () => {
+    try {
+      const now = new Date().toISOString()
+      await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, now))
+    } catch (err) {
+      log.error(`Failed to clean up expired refresh tokens: ${(err as Error).message}`)
+    }
+  }, TOKEN_CLEANUP_INTERVAL)
+}
+
+function stopTokenCleanup() {
+  if (tokenCleanupTimer) {
+    clearInterval(tokenCleanupTimer)
+    tokenCleanupTimer = null
+  }
+}
+
+startTokenCleanup()
+
 log.info(`Running at http://${config.host}:${config.port}`)
 
 // Graceful shutdown
 async function shutdown(signal: string) {
   log.info(`${signal} received, shutting down gracefully...`)
   stopOrphanCleanup()
+  stopTokenCleanup()
   server.close(() => {
     log.info('HTTP server closed')
   })

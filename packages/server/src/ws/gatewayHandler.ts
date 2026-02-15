@@ -10,6 +10,7 @@ import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
 import { getRedis } from '../lib/redis.js'
 import { config } from '../config.js'
+import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('GatewayHandler')
 
@@ -64,11 +65,15 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
   try {
     data = JSON.parse(raw)
   } catch {
+    log.warn('Gateway sent invalid JSON, dropping message')
     return
   }
 
   const parsed = gatewayMessageSchema.safeParse(data)
-  if (!parsed.success) return
+  if (!parsed.success) {
+    log.warn(`Gateway sent invalid message format: ${parsed.error.issues[0]?.message ?? 'unknown'}`)
+    return
+  }
 
   const msg = parsed.data
 
@@ -443,14 +448,7 @@ async function routeAgentToAgent(
   const agentIds = agentMembers.map((m) => m.memberId)
   const agentRows = await db.select().from(agents).where(inArray(agents.id, agentIds))
 
-  // Build name→agent map
-  const agentNameMap = new Map<string, (typeof agentRows)[number]>()
-  for (const a of agentRows) {
-    const existing = agentNameMap.get(a.name)
-    if (!existing || (existing.status !== 'online' && a.status === 'online')) {
-      agentNameMap.set(a.name, a)
-    }
-  }
+  const agentNameMap = buildAgentNameMap(agentRows)
 
   // 2. Redis visited set for loop detection
   const redis = getRedis()
