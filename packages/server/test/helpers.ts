@@ -37,6 +37,7 @@ export async function startServer(): Promise<void> {
         NODE_ENV: 'test',
         ADMIN_USERNAME: 'admin',
         ADMIN_PASSWORD: 'AdminPass123',
+        AGENT_RATE_LIMIT_MAX: '5',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })

@@ -530,6 +530,158 @@ describe('Message Routing', () => {
     })
   })
 
+  // ─── Routing Protection ───
+
+  describe('Routing Protection', () => {
+    it('depth limit: stops routing when chain depth reaches maxAgentChainDepth', async () => {
+      const user = await registerUser('route_depth1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'Depth Room' },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-depth1', 'rt-agent-depth1', 'DeepA')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-depth2', 'rt-agent-depth2', 'DeepB')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-depth1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-depth2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+
+      // Case 1: depth under limit (default maxAgentChainDepth=5) — should route
+      const collectOk = wsCollect(gw2, 'server:send_to_agent', 2000)
+      gw1.send(
+        JSON.stringify({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId: 'rt-agent-depth1',
+          messageId: 'depth-ok-msg',
+          fullContent: '@DeepB continue',
+          conversationId: 'depth-conv-ok',
+          depth: 3,
+        }),
+      )
+      const msgsOk = await collectOk
+      assert.equal(msgsOk.length, 1)
+      assert.equal(msgsOk[0].depth, 4)
+
+      // Case 2: depth at limit — should NOT route
+      const collectBlocked = wsCollect(gw2, 'server:send_to_agent', 1500)
+      gw1.send(
+        JSON.stringify({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId: 'rt-agent-depth1',
+          messageId: 'depth-blocked-msg',
+          fullContent: '@DeepB too deep',
+          conversationId: 'depth-conv-blocked',
+          depth: 5,
+        }),
+      )
+      const msgsBlocked = await collectBlocked
+      assert.equal(msgsBlocked.length, 0)
+    })
+
+    it('visited dedup: prevents A→B→A loop via conversation visited set', async () => {
+      const user = await registerUser('route_visited1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'Visited Room' },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-vis1', 'rt-agent-vis1', 'VisA')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-vis2', 'rt-agent-vis2', 'VisB')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-vis1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-vis2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+      const convId = 'visited-test-conv'
+
+      // Step 1: A mentions B → B should receive
+      const collectB = wsCollect(gw2, 'server:send_to_agent', 2000)
+      gw1.send(
+        JSON.stringify({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId: 'rt-agent-vis1',
+          messageId: 'vis-msg-1',
+          fullContent: '@VisB help me',
+          conversationId: convId,
+          depth: 0,
+        }),
+      )
+      const msgsB = await collectB
+      assert.equal(msgsB.length, 1)
+      assert.equal(msgsB[0].depth, 1)
+
+      // Step 2: B mentions A (same conversation) → A should NOT receive (A in visited set)
+      const collectA = wsCollect(gw1, 'server:send_to_agent', 1500)
+      gw2.send(
+        JSON.stringify({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId: 'rt-agent-vis2',
+          messageId: 'vis-msg-2',
+          fullContent: '@VisA here is the answer',
+          conversationId: convId,
+          depth: 1,
+        }),
+      )
+      const msgsA = await collectA
+      assert.equal(msgsA.length, 0)
+    })
+
+    it('rate limit: agent messages saved but not routed after exceeding limit', async () => {
+      const user = await registerUser('route_rl1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'RateLimit Room' },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-rl1', 'rt-agent-rl1', 'SpammerBot')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-rl2', 'rt-agent-rl2', 'VictimBot')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-rl1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-rl2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+
+      // AGENT_RATE_LIMIT_MAX=5 in test env — send 8 messages to exceed it
+      const totalMessages = 8
+      const collectTarget = wsCollect(gw2, 'server:send_to_agent', 4000)
+
+      for (let i = 0; i < totalMessages; i++) {
+        gw1.send(
+          JSON.stringify({
+            type: 'gateway:message_complete',
+            roomId,
+            agentId: 'rt-agent-rl1',
+            messageId: `rl-msg-${i}`,
+            fullContent: `@VictimBot message ${i}`,
+          }),
+        )
+      }
+
+      const msgs = await collectTarget
+
+      // Only first 5 should be routed (count 1-5 not limited; count 6+ limited)
+      assert.equal(msgs.length, 5)
+    })
+  })
+
   // ─── Capabilities & systemPrompt in API ───
 
   describe('Capabilities & SystemPrompt', () => {
