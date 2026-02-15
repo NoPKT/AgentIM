@@ -33,6 +33,21 @@ export abstract class BaseAgentAdapter {
 
   abstract get type(): string
 
+  /**
+   * Build a contextual prompt by prepending room context and sender info.
+   */
+  protected buildPrompt(content: string, context?: MessageContext): string {
+    const parts: string[] = []
+    if (context?.roomContext?.systemPrompt) {
+      parts.push(`[System: ${context.roomContext.systemPrompt}]`)
+    }
+    if (context?.senderName) {
+      parts.push(`[From: ${context.senderName}]`)
+    }
+    parts.push(content)
+    return parts.join('\n\n')
+  }
+
   abstract sendMessage(
     content: string,
     onChunk: ChunkCallback,

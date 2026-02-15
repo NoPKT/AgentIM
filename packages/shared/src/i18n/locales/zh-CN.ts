@@ -230,6 +230,7 @@ export const zhCN = {
     currentPassword: '当前密码',
     newPassword: '新密码',
     confirmNewPassword: '确认新密码',
+    passwordRequirements: '至少 8 个字符，包含大写字母、小写字母和数字',
     passwordChanged: '密码修改成功',
     currentPasswordIncorrect: '当前密码不正确',
     changingPassword: '修改中...',

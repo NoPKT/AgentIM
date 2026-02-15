@@ -232,6 +232,7 @@ export const en = {
     currentPassword: 'Current Password',
     newPassword: 'New Password',
     confirmNewPassword: 'Confirm New Password',
+    passwordRequirements: 'At least 8 characters, including uppercase, lowercase, and a digit',
     passwordChanged: 'Password changed successfully',
     currentPasswordIncorrect: 'Current password is incorrect',
     changingPassword: 'Changing...',

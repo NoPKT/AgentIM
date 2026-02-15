@@ -230,6 +230,7 @@ export const ko = {
     currentPassword: '현재 비밀번호',
     newPassword: '새 비밀번호',
     confirmNewPassword: '새 비밀번호 확인',
+    passwordRequirements: '8자 이상, 대문자·소문자·숫자 포함',
     passwordChanged: '비밀번호가 변경되었습니다',
     currentPasswordIncorrect: '현재 비밀번호가 올바르지 않습니다',
     changingPassword: '변경 중...',

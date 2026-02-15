@@ -8,6 +8,7 @@ type ReconnectHandler = () => void
 const PING_INTERVAL = 30_000
 const PONG_TIMEOUT = 10_000
 const MAX_QUEUE_SIZE = 100
+const MAX_RECONNECT_ATTEMPTS = 20
 
 export class WsClient {
   private ws: WebSocket | null = null
@@ -19,6 +20,7 @@ export class WsClient {
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private pongTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectInterval = 1000
+  private reconnectAttempts = 0
   private shouldReconnect = true
   private _status: ConnectionStatus = 'disconnected'
   private _token: string | null = null
@@ -46,6 +48,7 @@ export class WsClient {
     this.ws.onopen = () => {
       const isReconnect = this.wasConnected
       this.reconnectInterval = 1000
+      this.reconnectAttempts = 0
       this.send({ type: 'client:auth', token })
       this.setStatus('connected')
       this.startHeartbeat()
@@ -163,6 +166,12 @@ export class WsClient {
 
   private scheduleReconnect() {
     if (!this.shouldReconnect || !this._token) return
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error('[WS] Max reconnect attempts reached, giving up')
+      this.setStatus('disconnected')
+      return
+    }
+    this.reconnectAttempts++
     this.setStatus('reconnecting')
     const token = this._token
     this.reconnectTimer = setTimeout(() => {

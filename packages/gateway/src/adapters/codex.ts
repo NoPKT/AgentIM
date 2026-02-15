@@ -29,7 +29,8 @@ export class CodexAdapter extends BaseAgentAdapter {
     this.buffer = ''
     let fullContent = ''
 
-    const args = ['-q', content]
+    const prompt = this.buildPrompt(content, context)
+    const args = ['-q', prompt]
     const proc = spawn('codex', args, {
       cwd: this.workingDirectory,
       env: { ...process.env },

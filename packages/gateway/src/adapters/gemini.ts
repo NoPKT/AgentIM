@@ -27,7 +27,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
     this.isRunning = true
     let fullContent = ''
 
-    const args = ['-p', content]
+    const prompt = this.buildPrompt(content, context)
+    const args = ['-p', prompt]
     const proc = spawn('gemini', args, {
       cwd: this.workingDirectory,
       env: { ...process.env },

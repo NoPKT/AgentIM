@@ -228,5 +228,6 @@ export const tasks = pgTable(
     index('tasks_room_idx').on(table.roomId),
     index('tasks_assignee_idx').on(table.assigneeId),
     index('tasks_status_idx').on(table.status),
+    index('tasks_created_by_idx').on(table.createdById),
   ],
 )

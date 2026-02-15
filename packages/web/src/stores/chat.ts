@@ -3,6 +3,7 @@ import type { Room, RoomMember, Message, MessageReaction, ParsedChunk } from '@a
 import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
+import { toast } from './toast.js'
 
 interface StreamingMessage {
   messageId: string
@@ -129,22 +130,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadRooms: async () => {
-    const res = await api.get<Room[]>('/rooms')
-    if (res.ok && res.data) {
-      set({ rooms: res.data })
-    }
-    // Load last message + server-side unread counts for each room
-    const recentRes = await api.get<Record<string, LastMessageInfo & { unread: number }>>('/messages/recent')
-    if (recentRes.ok && recentRes.data) {
-      const lastMessages = new Map(get().lastMessages)
-      const unreadCounts = new Map(get().unreadCounts)
-      for (const [roomId, info] of Object.entries(recentRes.data)) {
-        lastMessages.set(roomId, { content: info.content, senderName: info.senderName, createdAt: info.createdAt })
-        if (info.unread > 0) {
-          unreadCounts.set(roomId, info.unread)
-        }
+    try {
+      const res = await api.get<Room[]>('/rooms')
+      if (res.ok && res.data) {
+        set({ rooms: res.data })
       }
-      set({ lastMessages, unreadCounts })
+      // Load last message + server-side unread counts for each room
+      const recentRes = await api.get<Record<string, LastMessageInfo & { unread: number }>>('/messages/recent')
+      if (recentRes.ok && recentRes.data) {
+        const lastMessages = new Map(get().lastMessages)
+        const unreadCounts = new Map(get().unreadCounts)
+        for (const [roomId, info] of Object.entries(recentRes.data)) {
+          lastMessages.set(roomId, { content: info.content, senderName: info.senderName, createdAt: info.createdAt })
+          if (info.unread > 0) {
+            unreadCounts.set(roomId, info.unread)
+          }
+        }
+        set({ lastMessages, unreadCounts })
+      }
+    } catch {
+      toast.error('Failed to load rooms')
     }
   },
 
@@ -170,44 +175,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
     loadingMessages.add(roomId)
     set({ loadingMessages })
 
-    const params = new URLSearchParams()
-    if (cursor) params.set('cursor', cursor)
-    params.set('limit', '50')
+    try {
+      const params = new URLSearchParams()
+      if (cursor) params.set('cursor', cursor)
+      params.set('limit', '50')
 
-    const res = await api.get<{ items: Message[]; nextCursor?: string; hasMore: boolean }>(
-      `/messages/rooms/${roomId}?${params}`,
-    )
+      const res = await api.get<{ items: Message[]; nextCursor?: string; hasMore: boolean }>(
+        `/messages/rooms/${roomId}?${params}`,
+      )
 
-    const loadingDone = new Set(get().loadingMessages)
-    loadingDone.delete(roomId)
-    set({ loadingMessages: loadingDone })
+      if (res.ok && res.data) {
+        const existing = get().messages.get(roomId) ?? []
+        // Messages come newest first, reverse for display
+        const newMsgs = res.data.items.reverse()
+        const combined = cursor ? [...newMsgs, ...existing] : newMsgs
+        const msgs = new Map(get().messages)
+        msgs.set(roomId, combined)
+        const hasMore = new Map(get().hasMore)
+        hasMore.set(roomId, res.data.hasMore)
 
-    if (res.ok && res.data) {
-      const existing = get().messages.get(roomId) ?? []
-      // Messages come newest first, reverse for display
-      const newMsgs = res.data.items.reverse()
-      const combined = cursor ? [...newMsgs, ...existing] : newMsgs
-      const msgs = new Map(get().messages)
-      msgs.set(roomId, combined)
-      const hasMore = new Map(get().hasMore)
-      hasMore.set(roomId, res.data.hasMore)
-
-      // Track last message for room list preview
-      const lastMsg = combined[combined.length - 1]
-      if (lastMsg) {
-        const lastMessages = new Map(get().lastMessages)
-        const existing = lastMessages.get(roomId)
-        if (!existing || lastMsg.createdAt >= existing.createdAt) {
-          lastMessages.set(roomId, {
-            content: lastMsg.content,
-            senderName: lastMsg.senderName,
-            createdAt: lastMsg.createdAt,
-          })
-          set({ messages: msgs, hasMore, lastMessages })
-          return
+        // Track last message for room list preview
+        const lastMsg = combined[combined.length - 1]
+        if (lastMsg) {
+          const lastMessages = new Map(get().lastMessages)
+          const existing = lastMessages.get(roomId)
+          if (!existing || lastMsg.createdAt >= existing.createdAt) {
+            lastMessages.set(roomId, {
+              content: lastMsg.content,
+              senderName: lastMsg.senderName,
+              createdAt: lastMsg.createdAt,
+            })
+            set({ messages: msgs, hasMore, lastMessages })
+            return
+          }
         }
+        set({ messages: msgs, hasMore })
       }
-      set({ messages: msgs, hasMore })
+    } catch {
+      toast.error('Failed to load messages')
+    } finally {
+      const loadingDone = new Set(get().loadingMessages)
+      loadingDone.delete(roomId)
+      set({ loadingMessages: loadingDone })
     }
   },
 
@@ -349,7 +358,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   toggleReaction: async (messageId, emoji) => {
-    await api.post(`/messages/${messageId}/reactions`, { emoji })
+    try {
+      const res = await api.post(`/messages/${messageId}/reactions`, { emoji })
+      if (!res.ok) toast.error(res.error ?? 'Failed to toggle reaction')
+    } catch {
+      toast.error('Failed to toggle reaction')
+    }
     // The WS broadcast will handle the UI update via updateReactions
   },
 
@@ -387,84 +401,102 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   updateNotificationPref: async (roomId, pref) => {
-    const res = await api.put(`/rooms/${roomId}/notification-pref`, { pref })
-    if (res.ok) {
-      // Update local member data
-      const members = new Map(get().roomMembers)
-      const list = members.get(roomId)
-      if (list) {
-        const userId = useAuthStore.getState().user?.id ?? null
-        members.set(
-          roomId,
-          list.map((m) => (m.memberId === userId ? { ...m, notificationPref: pref } : m)),
-        )
-        set({ roomMembers: members })
+    try {
+      const res = await api.put(`/rooms/${roomId}/notification-pref`, { pref })
+      if (res.ok) {
+        // Update local member data
+        const members = new Map(get().roomMembers)
+        const list = members.get(roomId)
+        if (list) {
+          const userId = useAuthStore.getState().user?.id ?? null
+          members.set(
+            roomId,
+            list.map((m) => (m.memberId === userId ? { ...m, notificationPref: pref } : m)),
+          )
+          set({ roomMembers: members })
+        }
+      } else {
+        toast.error(res.error ?? 'Failed to update notification preference')
       }
+    } catch {
+      toast.error('Failed to update notification preference')
     }
   },
 
   togglePin: async (roomId) => {
-    const res = await api.put<{ pinned: boolean }>(`/rooms/${roomId}/pin`)
-    if (res.ok && res.data) {
-      const members = new Map(get().roomMembers)
-      const list = members.get(roomId)
-      if (list) {
-        const userId = useAuthStore.getState().user?.id ?? null
-        members.set(
-          roomId,
-          list.map((m) =>
-            m.memberId === userId
-              ? { ...m, pinnedAt: res.data!.pinned ? new Date().toISOString() : undefined }
-              : m,
-          ),
-        )
-        set({ roomMembers: members })
+    try {
+      const res = await api.put<{ pinned: boolean }>(`/rooms/${roomId}/pin`)
+      if (res.ok && res.data) {
+        const members = new Map(get().roomMembers)
+        const list = members.get(roomId)
+        if (list) {
+          const userId = useAuthStore.getState().user?.id ?? null
+          members.set(
+            roomId,
+            list.map((m) =>
+              m.memberId === userId
+                ? { ...m, pinnedAt: res.data!.pinned ? new Date().toISOString() : undefined }
+                : m,
+            ),
+          )
+          set({ roomMembers: members })
+        }
       }
+    } catch {
+      toast.error('Failed to toggle pin')
     }
   },
 
   toggleArchive: async (roomId) => {
-    const res = await api.put<{ archived: boolean }>(`/rooms/${roomId}/archive`)
-    if (res.ok && res.data) {
-      const members = new Map(get().roomMembers)
-      const list = members.get(roomId)
-      if (list) {
-        const userId = useAuthStore.getState().user?.id ?? null
-        members.set(
-          roomId,
-          list.map((m) =>
-            m.memberId === userId
-              ? { ...m, archivedAt: res.data!.archived ? new Date().toISOString() : undefined }
-              : m,
-          ),
-        )
-        set({ roomMembers: members })
+    try {
+      const res = await api.put<{ archived: boolean }>(`/rooms/${roomId}/archive`)
+      if (res.ok && res.data) {
+        const members = new Map(get().roomMembers)
+        const list = members.get(roomId)
+        if (list) {
+          const userId = useAuthStore.getState().user?.id ?? null
+          members.set(
+            roomId,
+            list.map((m) =>
+              m.memberId === userId
+                ? { ...m, archivedAt: res.data!.archived ? new Date().toISOString() : undefined }
+                : m,
+            ),
+          )
+          set({ roomMembers: members })
+        }
       }
+    } catch {
+      toast.error('Failed to toggle archive')
     }
   },
 
   syncMissedMessages: async (roomId) => {
-    const existing = get().messages.get(roomId) ?? []
-    const lastMsg = existing[existing.length - 1]
-    if (!lastMsg) {
-      // No messages loaded — do a full load
-      await get().loadMessages(roomId)
-      return
-    }
-
-    const params = new URLSearchParams({ after: lastMsg.createdAt, limit: '100' })
-    const res = await api.get<{ items: Message[]; hasMore: boolean }>(
-      `/messages/rooms/${roomId}?${params}`,
-    )
-    if (res.ok && res.data && res.data.items.length > 0) {
-      const newMsgs = res.data.items.reverse()
-      const existingIds = new Set(existing.map((m) => m.id))
-      const unique = newMsgs.filter((m) => !existingIds.has(m.id))
-      if (unique.length > 0) {
-        const msgs = new Map(get().messages)
-        msgs.set(roomId, [...existing, ...unique])
-        set({ messages: msgs })
+    try {
+      const existing = get().messages.get(roomId) ?? []
+      const lastMsg = existing[existing.length - 1]
+      if (!lastMsg) {
+        // No messages loaded — do a full load
+        await get().loadMessages(roomId)
+        return
       }
+
+      const params = new URLSearchParams({ after: lastMsg.createdAt, limit: '100' })
+      const res = await api.get<{ items: Message[]; hasMore: boolean }>(
+        `/messages/rooms/${roomId}?${params}`,
+      )
+      if (res.ok && res.data && res.data.items.length > 0) {
+        const newMsgs = res.data.items.reverse()
+        const existingIds = new Set(existing.map((m) => m.id))
+        const unique = newMsgs.filter((m) => !existingIds.has(m.id))
+        if (unique.length > 0) {
+          const msgs = new Map(get().messages)
+          msgs.set(roomId, [...existing, ...unique])
+          set({ messages: msgs })
+        }
+      }
+    } catch {
+      // Silently fail for background sync
     }
   },
 }))

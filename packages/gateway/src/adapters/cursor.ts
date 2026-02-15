@@ -28,7 +28,8 @@ export class CursorAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     // Cursor CLI in non-interactive mode
-    const args = ['--message', content]
+    const prompt = this.buildPrompt(content, context)
+    const args = ['--message', prompt]
     const proc = spawn('cursor', args, {
       cwd: this.workingDirectory,
       env: { ...process.env },

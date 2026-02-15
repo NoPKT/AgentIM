@@ -88,6 +88,39 @@ messageRoutes.get('/recent', async (c) => {
   return c.json({ ok: true, data: result })
 })
 
+// Mark all rooms as read for the current user
+messageRoutes.post('/mark-all-read', async (c) => {
+  const userId = c.get('userId')
+  const username = c.get('username')
+  const now = new Date().toISOString()
+
+  // Get all rooms the user belongs to
+  const memberRows = await db
+    .select({ roomId: roomMembers.roomId })
+    .from(roomMembers)
+    .where(eq(roomMembers.memberId, userId))
+
+  if (memberRows.length > 0) {
+    await db
+      .update(roomMembers)
+      .set({ lastReadAt: now })
+      .where(eq(roomMembers.memberId, userId))
+
+    // Broadcast read receipts to all rooms
+    for (const row of memberRows) {
+      connectionManager.broadcastToRoom(row.roomId, {
+        type: 'server:read_receipt',
+        roomId: row.roomId,
+        userId,
+        username,
+        lastReadAt: now,
+      })
+    }
+  }
+
+  return c.json({ ok: true })
+})
+
 // Mark a room as read for the current user
 messageRoutes.post('/rooms/:roomId/read', async (c) => {
   const userId = c.get('userId')

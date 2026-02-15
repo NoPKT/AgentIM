@@ -230,6 +230,7 @@ export const ja = {
     currentPassword: '現在のパスワード',
     newPassword: '新しいパスワード',
     confirmNewPassword: '新しいパスワードの確認',
+    passwordRequirements: '8文字以上、大文字・小文字・数字を含む',
     passwordChanged: 'パスワードが変更されました',
     currentPasswordIncorrect: '現在のパスワードが正しくありません',
     changingPassword: '変更中...',

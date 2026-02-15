@@ -36,7 +36,8 @@ export class GenericAdapter extends BaseAgentAdapter {
     this.isRunning = true
     let fullContent = ''
 
-    const args = [...this.cmdArgs, content]
+    const prompt = this.buildPrompt(content, context)
+    const args = [...this.cmdArgs, prompt]
     const proc = spawn(this.command, args, {
       cwd: this.workingDirectory,
       env: { ...process.env },

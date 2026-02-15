@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tasks, roomMembers } from '../db/schema.js'
 import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
@@ -15,6 +15,9 @@ taskRoutes.use('*', authMiddleware)
 // List all tasks for current user's rooms
 taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50'), 1), 100)
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0)
+
   const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
@@ -23,7 +26,13 @@ taskRoutes.get('/', async (c) => {
   if (roomIds.length === 0) {
     return c.json({ ok: true, data: [] })
   }
-  const taskList = await db.select().from(tasks).where(inArray(tasks.roomId, roomIds))
+  const taskList = await db
+    .select()
+    .from(tasks)
+    .where(inArray(tasks.roomId, roomIds))
+    .orderBy(desc(tasks.createdAt))
+    .limit(limit)
+    .offset(offset)
   return c.json({ ok: true, data: taskList })
 })
 
@@ -31,12 +40,20 @@ taskRoutes.get('/', async (c) => {
 taskRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50'), 1), 100)
+  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0)
 
   if (!await isRoomMember(userId, roomId)) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const taskList = await db.select().from(tasks).where(eq(tasks.roomId, roomId))
+  const taskList = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.roomId, roomId))
+    .orderBy(desc(tasks.createdAt))
+    .limit(limit)
+    .offset(offset)
   return c.json({ ok: true, data: taskList })
 })
 
