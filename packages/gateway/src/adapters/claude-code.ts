@@ -49,9 +49,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
     const args = ['-p', content, '--output-format', 'stream-json', '--verbose']
 
-    // TODO: Enable session persistence when running with permissive tool mode.
-    // Currently disabled because --session-id resume fails when the previous
-    // session included tool use that requires interactive confirmation.
+    // Session persistence is intentionally disabled. Claude Code's --session-id
+    // resume fails when the prior session included tool use requiring interactive
+    // confirmation, causing the process to hang. The sessionIdForRoom() helper is
+    // kept for future use once Claude Code supports non-interactive session resume.
     // if (context?.roomId) {
     //   args.push('--session-id', this.sessionIdForRoom(context.roomId))
     // }

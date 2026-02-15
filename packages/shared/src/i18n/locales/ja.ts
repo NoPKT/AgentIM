@@ -164,6 +164,7 @@ export const ja = {
     gateways: 'ゲートウェイ一覧',
     noGateways: '接続されたゲートウェイがありません',
     agentsConnected: '{{count}} 個のエージェントが接続中',
+    agentsConnected_one: '{{count}} 個のエージェントが接続中',
     capabilities: '機能',
     visibility: '公開範囲',
     visibilityPrivate: 'プライベート',
@@ -184,6 +185,7 @@ export const ja = {
   task: {
     tasks: 'タスク',
     tasksCount: '{{count}} 個のタスク',
+    tasksCount_one: '{{count}} 個のタスク',
     newTask: '新規タスク',
     taskTitle: 'タイトル',
     taskDescription: '説明',

@@ -164,6 +164,7 @@ export const ko = {
     gateways: '게이트웨이 목록',
     noGateways: '연결된 게이트웨이가 없습니다',
     agentsConnected: '{{count}}개 에이전트 연결됨',
+    agentsConnected_one: '{{count}}개 에이전트 연결됨',
     capabilities: '기능',
     visibility: '공개 범위',
     visibilityPrivate: '비공개',
@@ -184,6 +185,7 @@ export const ko = {
   task: {
     tasks: '작업',
     tasksCount: '{{count}}개 작업',
+    tasksCount_one: '{{count}}개 작업',
     newTask: '새 작업',
     taskTitle: '제목',
     taskDescription: '설명',

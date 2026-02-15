@@ -164,6 +164,7 @@ export const zhCN = {
     gateways: '网关列表',
     noGateways: '没有已连接的网关',
     agentsConnected: '{{count}} 个智能体已连接',
+    agentsConnected_one: '{{count}} 个智能体已连接',
     capabilities: '能力',
     visibility: '可见性',
     visibilityPrivate: '私有',
@@ -184,6 +185,7 @@ export const zhCN = {
   task: {
     tasks: '任务',
     tasksCount: '{{count}} 个任务',
+    tasksCount_one: '{{count}} 个任务',
     newTask: '新建任务',
     taskTitle: '标题',
     taskDescription: '描述',

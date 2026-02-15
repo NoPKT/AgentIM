@@ -14,6 +14,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
     restart: unless-stopped
 
   redis:
@@ -27,6 +32,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     restart: unless-stopped
 
   server:
@@ -59,6 +69,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
     restart: unless-stopped
 
   # Optional: gateway service (usually run on user's machine instead)
