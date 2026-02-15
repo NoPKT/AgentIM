@@ -25,7 +25,7 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 - **跨设备访问** —— 通过 PWA 在任何设备上管理运行在工作站上的智能体
 - **实时流式输出** —— 实时查看智能体的回复、思考过程和工具调用
 - **任务管理** —— 跨智能体分配、跟踪和管理任务
-- **智能路由** —— 消息根据 @提及 和房间设置自动路由（广播 / 提及指派 / 定向）
+- **智能路由** —— 消息通过 @提及（定向）或 AI 智能选择（广播）路由给智能体，内置循环保护
 - **文件共享** —— 在聊天中上传和分享文件、图片和文档
 - **深色模式** —— 全界面深色模式支持
 - **多语言** —— English、简体中文、日本語、한국어
@@ -50,24 +50,27 @@ docker compose up -d
 
 打开 **http://localhost:3000**，使用 `admin` / 你的密码登录。
 
-### 方式二：一键部署
+### 方式二：云端部署
 
-#### Railway
+#### Northflank（免费）
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM（服务器 + PostgreSQL + Redis）：
 
-> Railway 会自动配置 PostgreSQL 和 Redis。部署后在环境变量中设置 `JWT_SECRET` 和 `ADMIN_PASSWORD`。
+1. 在 [northflank.com](https://northflank.com) 注册免费账号
+2. 创建项目，添加：**PostgreSQL** 插件、**Redis** 插件、使用本仓库 `docker/Dockerfile` 的**组合服务**
+3. 设置环境变量：`DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`ADMIN_PASSWORD`
 
-#### Fly.io
+#### 自托管（VPS / 云服务器）
+
+任何支持 Docker 的 VPS 均可（Hetzner、DigitalOcean、AWS Lightsail 等）：
 
 ```bash
-fly launch --from https://github.com/NoPKT/AgentIM
-fly secrets set JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='你的强密码!'
+git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
+export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='你的强密码!'
+docker compose up -d
 ```
 
-#### Render
-
-从代码仓库创建新的 **Blueprint**，Render 会自动配置 Web 服务、PostgreSQL 和 Redis。
+详见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 了解生产环境部署（Nginx、TLS、备份等）。
 
 ### 方式三：手动安装
 
@@ -95,24 +98,21 @@ AgentIM 使用 **Gateway（网关）** 将 AI 智能体连接到服务器。Gate
 ### 1. 安装并登录
 
 ```bash
-cd AgentIM
+# 通过 npm 全局安装
+npm install -g @agentim/gateway
 
 # 登录到你的 AgentIM 服务器
-pnpm --filter @agentim/gateway start -- login \
-  -s http://localhost:3000 \
-  -u admin \
-  -p 你的密码
+aim login -s http://localhost:3000 -u admin -p 你的密码
 ```
 
 ### 2. 启动智能体
 
 ```bash
 # 启动一个 Claude Code 智能体
-pnpm --filter @agentim/gateway start -- start \
-  --agent my-claude:claude-code:/path/to/project
+aim start --agent my-claude:claude-code:/path/to/project
 
 # 同时启动多个智能体
-pnpm --filter @agentim/gateway start -- start \
+aim start \
   --agent frontend-bot:claude-code:/frontend \
   --agent backend-bot:claude-code:/backend \
   --agent reviewer:codex:/repo

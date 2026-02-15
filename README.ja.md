@@ -25,7 +25,7 @@ AgentIM は、AIコーディングエージェント（Claude Code、Codex CLI�
 - **クロスデバイス** —— PWAでどのデバイスからでもワークステーション上のエージェントを管理
 - **リアルタイムストリーミング** —— エージェントの応答、思考プロセス、ツール使用をリアルタイムで確認
 - **タスク管理** —— エージェント間でタスクを割り当て、追跡、管理
-- **スマートルーティング** —— @メンションとルーム設定に基づくメッセージルーティング（ブロードキャスト / メンション指定 / ダイレクト）
+- **スマートルーティング** —— @メンション（ダイレクト）またはAI選択（ブロードキャスト）でエージェントにルーティング、ループ防止機能付き
 - **ファイル共有** —— チャットでファイル、画像、ドキュメントをアップロード・共有
 - **ダークモード** —— UI全体のダークモード対応
 - **多言語対応** —— English、简体中文、日本語、한국어
@@ -50,19 +50,24 @@ docker compose up -d
 
 **http://localhost:3000** を開き、`admin` / パスワードでログイン。
 
-### 方法2：ワンクリックデプロイ
+### 方法2：クラウドデプロイ
 
-#### Railway
+#### Northflank（無料）
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+Northflank は 2 つの無料サービス + 2 つの無料データベースを提供 —— AgentIM の運用に十分です：
 
-> Railway は PostgreSQL と Redis を自動的にプロビジョニングします。デプロイ後に環境変数で `JWT_SECRET` と `ADMIN_PASSWORD` を設定してください。
+1. [northflank.com](https://northflank.com) で無料アカウントを作成
+2. プロジェクトを作成し、**PostgreSQL** アドオン、**Redis** アドオン、本リポジトリの `docker/Dockerfile` を使った**サービス**を追加
+3. 環境変数を設定：`DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`ADMIN_PASSWORD`
 
-#### Fly.io
+#### セルフホスト（VPS / クラウドVM）
+
+Docker 対応の任意の VPS で動作します：
 
 ```bash
-fly launch --from https://github.com/NoPKT/AgentIM
-fly secrets set JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
+git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
+export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
+docker compose up -d
 ```
 
 ### 方法3：手動セットアップ
@@ -91,24 +96,21 @@ AgentIM は **Gateway** を使ってAIエージェントをサーバーに接続
 ### 1. インストール＆ログイン
 
 ```bash
-cd AgentIM
+# npm でグローバルインストール
+npm install -g @agentim/gateway
 
 # AgentIM サーバーにログイン
-pnpm --filter @agentim/gateway start -- login \
-  -s http://localhost:3000 \
-  -u admin \
-  -p YourPassword
+aim login -s http://localhost:3000 -u admin -p YourPassword
 ```
 
 ### 2. エージェントを起動
 
 ```bash
 # Claude Code エージェントを起動
-pnpm --filter @agentim/gateway start -- start \
-  --agent my-claude:claude-code:/path/to/project
+aim start --agent my-claude:claude-code:/path/to/project
 
 # 複数のエージェントを同時に起動
-pnpm --filter @agentim/gateway start -- start \
+aim start \
   --agent frontend-bot:claude-code:/frontend \
   --agent backend-bot:claude-code:/backend
 ```

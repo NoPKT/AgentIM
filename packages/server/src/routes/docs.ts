@@ -54,7 +54,7 @@ const spec = {
           senderId: { type: 'string' },
           senderType: { type: 'string', enum: ['user', 'agent', 'system'] },
           senderName: { type: 'string' },
-          type: { type: 'string', enum: ['text', 'file'] },
+          type: { type: 'string', enum: ['text', 'system', 'agent_response', 'terminal'] },
           content: { type: 'string' },
           replyToId: { type: 'string', nullable: true },
           mentions: { type: 'array', items: { type: 'string' } },

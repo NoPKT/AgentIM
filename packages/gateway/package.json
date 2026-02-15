@@ -1,10 +1,19 @@
 {
   "name": "@agentim/gateway",
   "version": "0.1.0",
-  "private": true,
+  "description": "Gateway CLI for connecting AI coding agents to AgentIM",
   "license": "AGPL-3.0-only",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoPKT/AgentIM.git",
+    "directory": "packages/gateway"
+  },
+  "homepage": "https://github.com/NoPKT/AgentIM#connecting-ai-agents",
+  "keywords": ["agentim", "gateway", "ai", "agent", "claude-code", "codex", "gemini", "cli"],
+  "files": ["dist", "package.json", "README.md"],
   "bin": {
+    "aim": "dist/cli.js",
     "aim-gateway": "dist/cli.js"
   },
   "scripts": {

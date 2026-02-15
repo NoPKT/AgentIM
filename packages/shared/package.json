@@ -1,9 +1,16 @@
 {
   "name": "@agentim/shared",
   "version": "0.1.0",
-  "private": true,
+  "description": "Shared types, protocol, validators and i18n for AgentIM",
   "license": "AGPL-3.0-only",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoPKT/AgentIM.git",
+    "directory": "packages/shared"
+  },
+  "keywords": ["agentim", "shared", "protocol", "types"],
+  "files": ["dist", "package.json", "README.md"],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

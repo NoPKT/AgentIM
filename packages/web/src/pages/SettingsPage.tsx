@@ -455,7 +455,7 @@ export default function SettingsPage() {
             <div className="px-6 py-5 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('version')}</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">1.0.0</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">0.1.0</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('appName')}</span>

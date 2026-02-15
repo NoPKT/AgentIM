@@ -1,7 +1,16 @@
 {
   "name": "agentim",
+  "version": "0.1.0",
   "private": true,
+  "description": "Unified IM platform for managing and orchestrating multiple AI coding agents",
+  "author": "NoPKT LLC",
   "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/NoPKT/AgentIM",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NoPKT/AgentIM.git"
+  },
+  "keywords": ["ai", "agent", "im", "chat", "claude", "codex", "gemini", "orchestration"],
   "type": "module",
   "scripts": {
     "build": "turbo build",

@@ -25,7 +25,7 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 - **크로스 디바이스** —— PWA로 어떤 디바이스에서든 워크스테이션의 에이전트를 관리
 - **실시간 스트리밍** —— 에이전트의 응답, 사고 과정, 도구 사용을 실시간으로 확인
 - **작업 관리** —— 에이전트 간 작업 할당, 추적, 관리
-- **스마트 라우팅** —— @멘션과 방 설정에 따른 메시지 라우팅 (브로드캐스트 / 멘션 지정 / 다이렉트)
+- **스마트 라우팅** —— @멘션(다이렉트) 또는 AI 선택(브로드캐스트)으로 에이전트에 라우팅, 루프 방지 기능 내장
 - **파일 공유** —— 채팅에서 파일, 이미지, 문서 업로드 및 공유
 - **다크 모드** —— 전체 UI 다크 모드 지원
 - **다국어** —— English, 简体中文, 日本語, 한국어
@@ -50,19 +50,24 @@ docker compose up -d
 
 **http://localhost:3000**을 열고 `admin` / 비밀번호로 로그인.
 
-### 방법 2: 원클릭 배포
+### 방법 2: 클라우드 배포
 
-#### Railway
+#### Northflank (무료)
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+Northflank는 2개의 무료 서비스 + 2개의 무료 데이터베이스를 제공합니다 — AgentIM 운영에 충분합니다:
 
-> Railway는 PostgreSQL과 Redis를 자동으로 프로비저닝합니다. 배포 후 환경 변수에서 `JWT_SECRET`과 `ADMIN_PASSWORD`를 설정하세요.
+1. [northflank.com](https://northflank.com)에서 무료 계정 생성
+2. 프로젝트 생성 후 **PostgreSQL** 애드온, **Redis** 애드온, 본 저장소의 `docker/Dockerfile`을 사용한 **서비스** 추가
+3. 환경 변수 설정: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`
 
-#### Fly.io
+#### 셀프 호스팅 (VPS / 클라우드 VM)
+
+Docker를 지원하는 모든 VPS에서 동작합니다:
 
 ```bash
-fly launch --from https://github.com/NoPKT/AgentIM
-fly secrets set JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
+git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
+export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
+docker compose up -d
 ```
 
 ### 방법 3: 수동 설치
@@ -91,24 +96,21 @@ AgentIM은 **Gateway**를 사용하여 AI 에이전트를 서버에 연결합니
 ### 1. 설치 및 로그인
 
 ```bash
-cd AgentIM
+# npm으로 전역 설치
+npm install -g @agentim/gateway
 
 # AgentIM 서버에 로그인
-pnpm --filter @agentim/gateway start -- login \
-  -s http://localhost:3000 \
-  -u admin \
-  -p YourPassword
+aim login -s http://localhost:3000 -u admin -p YourPassword
 ```
 
 ### 2. 에이전트 시작
 
 ```bash
 # Claude Code 에이전트 시작
-pnpm --filter @agentim/gateway start -- start \
-  --agent my-claude:claude-code:/path/to/project
+aim start --agent my-claude:claude-code:/path/to/project
 
 # 여러 에이전트 동시 시작
-pnpm --filter @agentim/gateway start -- start \
+aim start \
   --agent frontend-bot:claude-code:/frontend \
   --agent backend-bot:claude-code:/backend
 ```
