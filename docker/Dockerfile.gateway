@@ -53,6 +53,10 @@ RUN apt-get update && apt-get install -y \
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/gateway/dist packages/gateway/dist
 
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+USER app
+
 ENV NODE_ENV=production
 
 CMD ["node", "packages/gateway/dist/cli.js", "start"]

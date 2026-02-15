@@ -34,6 +34,9 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+
 # Install production dependencies only
 RUN pnpm install --prod --frozen-lockfile
 
@@ -50,6 +53,11 @@ ENV HOST=0.0.0.0
 ENV DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
 ENV REDIS_URL=redis://redis:6379
 ENV NODE_ENV=production
+
+# Ensure uploads dir is writable by non-root user
+RUN mkdir -p /app/uploads && chown -R app:app /app/uploads
+
+USER app
 
 EXPOSE 3000
 
