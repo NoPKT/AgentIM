@@ -1,11 +1,12 @@
 {
   "name": "agentim",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "test": "pnpm --filter @agentim/server test",
+    "test": "pnpm --filter @agentim/shared test && pnpm --filter @agentim/gateway test && pnpm --filter @agentim/server test",
     "lint": "turbo lint",
     "clean": "turbo clean"
   },

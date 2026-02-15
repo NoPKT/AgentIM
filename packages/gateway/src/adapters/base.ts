@@ -1,4 +1,4 @@
-import type { ParsedChunk } from '@agentim/shared'
+import type { ParsedChunk, RoutingMode, RoomContext } from '@agentim/shared'
 
 export interface AdapterOptions {
   agentId: string
@@ -9,6 +9,9 @@ export interface AdapterOptions {
 export interface MessageContext {
   roomId: string
   senderName: string
+  routingMode?: RoutingMode
+  isMentioned?: boolean
+  roomContext?: RoomContext
 }
 
 export type ChunkCallback = (chunk: ParsedChunk) => void

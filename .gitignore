@@ -32,3 +32,6 @@ pnpm-debug.log*
 
 # Build
 .cache/
+
+# Uploads (user data)
+uploads/

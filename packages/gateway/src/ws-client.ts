@@ -1,15 +1,25 @@
 import WebSocket from 'ws'
 import type { GatewayMessage, ServerGatewayMessage, ServerSendToAgent } from '@agentim/shared'
+import { createLogger } from './lib/logger.js'
+
+const log = createLogger('Gateway')
 
 type MessageHandler = (msg: ServerGatewayMessage | ServerSendToAgent) => void
 type TokenRefresher = () => Promise<string>
+
+const PING_INTERVAL = 30_000 // Send ping every 30s
+const PONG_TIMEOUT = 10_000 // Wait 10s for pong before considering connection dead
 
 export class GatewayWsClient {
   private ws: WebSocket | null = null
   private url: string
   private reconnectInterval = 3000
   private maxReconnectInterval = 30000
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 50
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private pingTimer: ReturnType<typeof setInterval> | null = null
+  private pongTimer: ReturnType<typeof setTimeout> | null = null
   private onMessage: MessageHandler
   private onConnected: () => void
   private onDisconnected: () => void
@@ -35,14 +45,20 @@ export class GatewayWsClient {
     this.ws = new WebSocket(this.url)
 
     this.ws.on('open', () => {
-      console.log('[Gateway] Connected to server')
+      log.info('Connected to server')
       this.reconnectInterval = 3000
+      this.reconnectAttempts = 0
+      this.startHeartbeat()
       this.onConnected()
     })
 
     this.ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString())
+        if (msg.type === 'server:pong') {
+          this.clearPongTimeout()
+          return
+        }
         this.onMessage(msg)
       } catch {
         // Ignore parse errors
@@ -50,13 +66,14 @@ export class GatewayWsClient {
     })
 
     this.ws.on('close', () => {
-      console.log('[Gateway] Disconnected from server')
+      log.warn('Disconnected from server')
+      this.stopHeartbeat()
       this.onDisconnected()
       this.scheduleReconnect()
     })
 
     this.ws.on('error', (err) => {
-      console.error('[Gateway] WebSocket error:', err.message)
+      log.error(`WebSocket error: ${err.message}`)
     })
   }
 
@@ -68,14 +85,53 @@ export class GatewayWsClient {
 
   close() {
     this.shouldReconnect = false
+    this.stopHeartbeat()
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.ws?.close()
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.pingTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'gateway:ping', ts: Date.now() }))
+        this.pongTimer = setTimeout(() => {
+          log.warn('Pong timeout, reconnecting...')
+          this.ws?.terminate()
+        }, PONG_TIMEOUT)
+      }
+    }, PING_INTERVAL)
+  }
+
+  private stopHeartbeat() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
+    }
+    this.clearPongTimeout()
+  }
+
+  private clearPongTimeout() {
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer)
+      this.pongTimer = null
+    }
+  }
+
   private scheduleReconnect() {
     if (!this.shouldReconnect) return
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      log.error(
+        `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Giving up.`,
+      )
+      this.onDisconnected()
+      return
+    }
+    this.reconnectAttempts++
     this.reconnectTimer = setTimeout(() => {
-      console.log('[Gateway] Reconnecting...')
+      log.info(
+        `Reconnecting... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+      )
       this.connect()
     }, this.reconnectInterval)
     this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)

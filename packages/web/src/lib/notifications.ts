@@ -24,14 +24,14 @@ export function canShowNotifications(): boolean {
   )
 }
 
-export function showNotification(title: string, body: string, onClick?: () => void) {
+export function showNotification(title: string, body: string, onClick?: () => void, tag = 'agentim-message') {
   if (!canShowNotifications()) return
   if (document.visibilityState === 'visible') return
 
   const notification = new Notification(title, {
     body,
-    icon: '/favicon.ico',
-    tag: 'agentim-mention',
+    icon: '/favicon.svg',
+    tag,
   })
 
   if (onClick) {

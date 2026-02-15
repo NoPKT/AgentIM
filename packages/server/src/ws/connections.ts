@@ -21,14 +21,42 @@ class ConnectionManager {
   // Agent ID → gateway ws mapping
   private agentToGateway = new Map<string, WSContext>()
 
+  // User ID → count of active connections (a user may have multiple tabs)
+  private onlineUsers = new Map<string, number>()
+
   // ─── Client connections ───
 
   addClient(ws: WSContext, userId: string, username: string) {
     this.clients.set(ws, { ws, userId, username, joinedRooms: new Set() })
+    const count = this.onlineUsers.get(userId) ?? 0
+    this.onlineUsers.set(userId, count + 1)
   }
 
   removeClient(ws: WSContext) {
+    const client = this.clients.get(ws)
+    if (client) {
+      const count = (this.onlineUsers.get(client.userId) ?? 1) - 1
+      if (count <= 0) {
+        this.onlineUsers.delete(client.userId)
+      } else {
+        this.onlineUsers.set(client.userId, count)
+      }
+    }
     this.clients.delete(ws)
+  }
+
+  isUserOnline(userId: string): boolean {
+    return (this.onlineUsers.get(userId) ?? 0) > 0
+  }
+
+  wasUserOnline(userId: string): boolean {
+    // Check if user was online BEFORE the most recent removeClient call
+    // This is called after removeClient, so if count was 1, now 0 → was sole connection
+    return !this.isUserOnline(userId)
+  }
+
+  getOnlineUserIds(): string[] {
+    return [...this.onlineUsers.keys()]
   }
 
   getClient(ws: WSContext): ClientConnection | undefined {
@@ -113,6 +141,13 @@ class ConnectionManager {
 
   sendToClient(ws: WSContext, message: object) {
     ws.send(JSON.stringify(message))
+  }
+
+  broadcastToAll(message: object) {
+    const data = JSON.stringify(message)
+    for (const client of this.clients.values()) {
+      client.ws.send(data)
+    }
   }
 }
 

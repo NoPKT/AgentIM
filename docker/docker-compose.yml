@@ -40,15 +40,25 @@ services:
       - HOST=0.0.0.0
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate one with: openssl rand -base64 32}
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set with a strong password}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health | grep -q '\"ok\":true' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # Optional: gateway service (usually run on user's machine instead)
@@ -65,3 +75,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  uploads_data:

@@ -1,21 +1,23 @@
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
+import type { UserRole } from '@agentim/shared'
 
 interface AuthUser {
   id: string
   username: string
   displayName: string
   avatarUrl?: string
+  role: UserRole
 }
 
 interface AuthState {
   user: AuthUser | null
   isLoading: boolean
   login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string, displayName?: string) => Promise<void>
   logout: () => Promise<void>
   loadUser: () => Promise<void>
+  updateUser: (data: Partial<AuthUser>) => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -36,20 +38,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     wsClient.connect(res.data.accessToken)
   },
 
-  register: async (username, password, displayName) => {
-    const res = await api.post<{
-      user: AuthUser
-      accessToken: string
-      refreshToken: string
-    }>('/auth/register', { username, password, displayName })
-
-    if (!res.ok || !res.data) throw new Error(res.error ?? 'Registration failed')
-
-    api.setTokens(res.data.accessToken, res.data.refreshToken)
-    set({ user: res.data.user })
-    wsClient.connect(res.data.accessToken)
-  },
-
   logout: async () => {
     await api.post('/auth/logout').catch(() => {})
     api.clearTokens()
@@ -58,7 +46,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadUser: async () => {
-    const token = api.getToken()
+    let token = api.getToken()
+
+    // Access token is in-memory only; on page reload it's null.
+    // Try to restore the session via refresh token.
+    if (!token) {
+      const refreshed = await api.tryRefresh()
+      if (refreshed) {
+        token = api.getToken()
+      }
+    }
+
     if (!token) {
       set({ isLoading: false })
       return
@@ -68,7 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const res = await api.get<AuthUser>('/users/me')
       if (res.ok && res.data) {
         set({ user: res.data, isLoading: false })
-        wsClient.connect(token)
+        wsClient.connect(token!)
       } else {
         api.clearTokens()
         set({ isLoading: false })
@@ -76,5 +74,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       set({ isLoading: false })
     }
+  },
+
+  updateUser: (data) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, ...data } : null,
+    }))
   },
 }))

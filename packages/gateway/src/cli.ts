@@ -6,7 +6,10 @@ import { getDeviceInfo } from './device.js'
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
+import { createLogger } from './lib/logger.js'
 import type { ServerSendToAgent, ServerStopAgent } from '@agentim/shared'
+
+const log = createLogger('Gateway')
 
 program
   .name('aim-gateway')
@@ -101,25 +104,25 @@ program
       onMessage: async (msg) => {
         if (msg.type === 'server:gateway_auth_result') {
           if (msg.ok) {
-            console.log('[Gateway] Authenticated successfully')
+            log.info('Authenticated successfully')
             authRetried = false
             registerAgents(agentManager, opts.agent ?? [])
           } else {
             // Try refreshing token once
             if (!authRetried && config.refreshToken) {
               authRetried = true
-              console.log('[Gateway] Auth failed, refreshing token...')
+              log.info('Auth failed, refreshing token...')
               try {
                 await tokenManager.refresh()
                 authenticate(wsClient)
               } catch (err: any) {
-                console.error(`[Gateway] Token refresh failed: ${err.message}`)
-                console.error('[Gateway] Please re-login: aim-gateway login ...')
+                log.error(`Token refresh failed: ${err.message}`)
+                log.error('Please re-login: aim-gateway login ...')
                 process.exit(1)
               }
             } else {
-              console.error(`[Gateway] Auth failed: ${msg.error}`)
-              console.error('[Gateway] Please re-login: aim-gateway login ...')
+              log.error(`Auth failed: ${msg.error}`)
+              log.error('Please re-login: aim-gateway login ...')
               process.exit(1)
             }
           }
@@ -128,7 +131,7 @@ program
         }
       },
       onDisconnected: () => {
-        console.log('[Gateway] Connection lost, will reconnect...')
+        log.warn('Connection lost, will reconnect...')
       },
     })
 
@@ -138,7 +141,7 @@ program
 
     // Graceful shutdown
     const cleanup = () => {
-      console.log('\n[Gateway] Shutting down...')
+      log.info('Shutting down...')
       agentManager.disposeAll()
       wsClient.close()
       process.exit(0)
@@ -168,7 +171,7 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   for (const spec of agentSpecs) {
     const parts = spec.split(':')
     if (parts.length < 2) {
-      console.warn(`[Gateway] Invalid agent spec "${spec}", expected name:type[:workdir]`)
+      log.warn(`Invalid agent spec "${spec}", expected name:type[:workdir]`)
       continue
     }
     const [name, type, workdir] = parts
@@ -180,8 +183,8 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   }
 
   if (agentSpecs.length === 0) {
-    console.log('[Gateway] No agents specified. Use --agent to add agents.')
-    console.log('[Gateway] Example: aim-gateway start --agent claude:claude-code:/path/to/project')
+    log.info('No agents specified. Use --agent to add agents.')
+    log.info('Example: aim-gateway start --agent claude:claude-code:/path/to/project')
   }
 }
 

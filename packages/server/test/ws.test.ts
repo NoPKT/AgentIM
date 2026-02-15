@@ -76,8 +76,9 @@ describe('WebSocket Protocol', () => {
         'server:auth_result',
       )
 
-      // Join room
+      // Join room and wait for async processing
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
+      await new Promise((r) => setTimeout(r, 200))
 
       // Send message and wait for broadcast
       const result = await wsSendAndWait(

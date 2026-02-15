@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
@@ -24,10 +24,24 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
   const [showNewRoomDialog, setShowNewRoomDialog] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadRooms()
   }, [loadRooms])
+
+  // Cmd/Ctrl+N shortcut to create new room
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      e.preventDefault()
+      setShowNewRoomDialog(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   const handleRoomClick = (roomId: string) => {
     setCurrentRoom(roomId)
@@ -40,7 +54,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
 
     setIsCreating(true)
     try {
-      const room = await createRoom(newRoomName.trim(), false)
+      const room = await createRoom(newRoomName.trim(), 'group', false)
       setShowNewRoomDialog(false)
       setNewRoomName('')
       handleRoomClick(room.id)
@@ -50,6 +64,23 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       setIsCreating(false)
     }
   }
+
+  const sortedRooms = useMemo(
+    () =>
+      [...rooms]
+        .filter((r) => (showArchived ? !!r.archivedAt : !r.archivedAt))
+        .sort((a, b) => {
+          if (a.pinnedAt && !b.pinnedAt) return -1
+          if (!a.pinnedAt && b.pinnedAt) return 1
+          const la = lastMessages.get(a.id)
+          const lb = lastMessages.get(b.id)
+          if (la && lb) return lb.createdAt.localeCompare(la.createdAt)
+          if (lb) return 1
+          if (la) return -1
+          return b.updatedAt.localeCompare(a.updatedAt)
+        }),
+    [rooms, showArchived, lastMessages],
+  )
 
   return (
     <div className="p-4">
@@ -65,35 +96,39 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       </button>
 
       {/* Room List */}
-      <div className="space-y-1">
-        <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          {t('rooms')}
-        </h3>
+      <nav className="space-y-1" aria-label={t('rooms')}>
+        <div className="flex items-center justify-between px-2 mb-2">
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            {showArchived ? t('archivedRooms') : t('rooms')}
+          </h3>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+              showArchived
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
+                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+            }`}
+          >
+            {showArchived ? t('rooms') : t('archivedRooms')}
+          </button>
+        </div>
         {rooms.length === 0 ? (
-          <p className="px-2 py-4 text-sm text-gray-500">{t('noResults')}</p>
+          <p className="px-2 py-4 text-sm text-gray-500 dark:text-gray-400">{t('noResults')}</p>
         ) : (
-          [...rooms]
-            .sort((a, b) => {
-              const la = lastMessages.get(a.id)
-              const lb = lastMessages.get(b.id)
-              if (la && lb) return lb.createdAt.localeCompare(la.createdAt)
-              if (lb) return 1
-              if (la) return -1
-              return b.updatedAt.localeCompare(a.updatedAt)
-            })
-            .map((room) => {
+          sortedRooms.map((room) => {
               const lastMsg = lastMessages.get(room.id)
               const unread = unreadCounts.get(room.id) || 0
               return (
                 <button
                   key={room.id}
                   onClick={() => handleRoomClick(room.id)}
+                  aria-current={room.id === currentRoomId ? 'page' : undefined}
                   className={`
                     w-full px-3 py-2.5 text-left rounded-lg transition-all relative
                     ${
                       room.id === currentRoomId
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                     }
                   `}
                 >
@@ -112,15 +147,22 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                     </svg>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="truncate text-sm">{room.name}</span>
+                        <span className="truncate text-sm flex items-center gap-1">
+                          {room.pinnedAt && (
+                            <svg className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 2L8 8H2l5 4-2 6 5-4 5 4-2-6 5-4h-6L10 2z" />
+                            </svg>
+                          )}
+                          {room.name}
+                        </span>
                         <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
                           {room.broadcastMode && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
                               BC
                             </span>
                           )}
                           {lastMsg && (
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">
                               {timeAgo(lastMsg.createdAt, i18n.language)}
                             </span>
                           )}
@@ -132,8 +174,8 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                         </div>
                       </div>
                       {lastMsg && (
-                        <p className="text-xs text-gray-400 truncate mt-0.5">
-                          <span className="text-gray-500">{lastMsg.senderName}: </span>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                          <span className="text-gray-500 dark:text-gray-400">{lastMsg.senderName}: </span>
                           {lastMsg.content.slice(0, 50)}
                         </p>
                       )}
@@ -143,25 +185,25 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
               )
             })
         )}
-      </div>
+      </nav>
 
       {/* New Room Dialog */}
       {showNewRoomDialog && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold mb-4">{t('newRoom')}</h2>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('newRoom')}</h2>
 
             <div className="space-y-4">
               {/* Room Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('roomName')}
                 </label>
                 <input
                   type="text"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   placeholder={t('enterRoomName')}
                   autoFocus
                   onKeyDown={(e) => {
@@ -180,7 +222,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                   setNewRoomName('')
                 }}
                 disabled={isCreating}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {t('cancel')}
               </button>

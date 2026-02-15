@@ -1,10 +1,14 @@
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
-import type { GatewayMessage, ServerSendToAgent, ServerStopAgent, ServerGatewayMessage, ParsedChunk } from '@agentim/shared'
+import { createLogger } from './lib/logger.js'
+import type { GatewayMessage, ServerSendToAgent, ServerStopAgent, ServerRoomContext, ServerGatewayMessage, RoomContext, ParsedChunk } from '@agentim/shared'
+
+const log = createLogger('AgentManager')
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
+  private roomContexts = new Map<string, RoomContext>()
   private wsClient: GatewayWsClient
 
   constructor(wsClient: GatewayWsClient) {
@@ -17,6 +21,7 @@ export class AgentManager {
     workingDirectory?: string
     command?: string
     args?: string[]
+    capabilities?: string[]
   }): string {
     const agentId = nanoid()
     const adapter = createAdapter(opts.type, {
@@ -37,10 +42,11 @@ export class AgentManager {
         name: opts.name,
         type: opts.type,
         workingDirectory: opts.workingDirectory,
+        capabilities: opts.capabilities,
       },
     })
 
-    console.log(`[AgentManager] Registered agent: ${opts.name} (${opts.type}) -> ${agentId}`)
+    log.info(`Registered agent: ${opts.name} (${opts.type}) -> ${agentId}`)
     return agentId
   }
 
@@ -56,18 +62,32 @@ export class AgentManager {
     }
   }
 
-  handleServerMessage(msg: ServerSendToAgent | ServerStopAgent) {
+  handleServerMessage(msg: ServerSendToAgent | ServerStopAgent | ServerRoomContext) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
     } else if (msg.type === 'server:stop_agent') {
       this.handleStopAgent(msg.agentId)
+    } else if (msg.type === 'server:room_context') {
+      this.handleRoomContext(msg)
     }
+  }
+
+  private handleRoomContext(msg: ServerRoomContext) {
+    const key = `${msg.agentId}:${msg.context.roomId}`
+    this.roomContexts.set(key, msg.context)
+    log.info(`Room context updated for agent ${msg.agentId} in room ${msg.context.roomName}`)
   }
 
   private handleSendToAgent(msg: ServerSendToAgent) {
     const adapter = this.adapters.get(msg.agentId)
     if (!adapter) {
-      console.warn(`[AgentManager] Agent not found: ${msg.agentId}`)
+      log.warn(`Agent not found: ${msg.agentId}`)
+      return
+    }
+
+    // mention_assign mode: if agent is NOT mentioned, skip silently
+    if (msg.routingMode === 'mention_assign' && !msg.isMentioned) {
+      log.debug(`Agent ${msg.agentId} received mention_assign but not mentioned, skipping`)
       return
     }
 
@@ -124,7 +144,13 @@ export class AgentManager {
           status: 'error',
         })
       },
-      { roomId: msg.roomId, senderName: msg.senderName },
+      {
+        roomId: msg.roomId,
+        senderName: msg.senderName,
+        routingMode: msg.routingMode,
+        isMentioned: msg.isMentioned,
+        roomContext: this.roomContexts.get(`${msg.agentId}:${msg.roomId}`),
+      },
     )
   }
 

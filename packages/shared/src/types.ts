@@ -1,6 +1,8 @@
 import type {
   AgentType,
   AgentStatus,
+  AgentConnectionType,
+  UserRole,
   RoomType,
   MemberRole,
   MessageType,
@@ -15,6 +17,7 @@ export interface User {
   username: string
   displayName: string
   avatarUrl?: string
+  role: UserRole
   createdAt: string
   updatedAt: string
 }
@@ -26,6 +29,8 @@ export interface Agent {
   status: AgentStatus
   gatewayId: string
   workingDirectory?: string
+  capabilities?: string[]
+  connectionType?: AgentConnectionType
   deviceInfo?: DeviceInfo
   lastSeenAt?: string
   createdAt: string
@@ -54,7 +59,10 @@ export interface Room {
   name: string
   type: RoomType
   broadcastMode: boolean
+  systemPrompt?: string
   createdById: string
+  pinnedAt?: string | null
+  archivedAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -64,6 +72,10 @@ export interface RoomMember {
   memberId: string
   memberType: 'user' | 'agent'
   role: MemberRole
+  roleDescription?: string
+  notificationPref?: 'all' | 'mentions' | 'none'
+  pinnedAt?: string
+  archivedAt?: string
   joinedAt: string
 }
 
@@ -78,8 +90,10 @@ export interface Message {
   replyToId?: string
   mentions: string[]
   attachments?: MessageAttachment[]
+  reactions?: MessageReaction[]
   chunks?: ParsedChunk[]
   createdAt: string
+  updatedAt?: string
 }
 
 export interface MessageAttachment {
@@ -89,6 +103,12 @@ export interface MessageAttachment {
   mimeType: string
   size: number
   url: string
+}
+
+export interface MessageReaction {
+  emoji: string
+  userIds: string[]
+  usernames: string[]
 }
 
 export interface Task {
@@ -137,4 +157,23 @@ export interface PaginatedResponse<T> {
   items: T[]
   nextCursor?: string
   hasMore: boolean
+}
+
+// ─── Room Context (sent to agents) ───
+
+export interface RoomContextMember {
+  id: string
+  name: string
+  type: 'user' | 'agent'
+  agentType?: AgentType
+  capabilities?: string[]
+  roleDescription?: string
+  status?: AgentStatus
+}
+
+export interface RoomContext {
+  roomId: string
+  roomName: string
+  systemPrompt?: string
+  members: RoomContextMember[]
 }

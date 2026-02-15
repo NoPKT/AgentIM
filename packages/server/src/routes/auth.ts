@@ -1,68 +1,17 @@
 import { Hono } from 'hono'
-import { nanoid } from 'nanoid'
 import { hash, verify } from 'argon2'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { users, refreshTokens } from '../db/schema.js'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js'
-import { registerSchema, loginSchema, refreshSchema } from '@agentim/shared'
+import { loginSchema, refreshSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { authRateLimit } from '../middleware/rateLimit.js'
-import { sanitizeText } from '../lib/sanitize.js'
 
 export const authRoutes = new Hono<AuthEnv>()
 
 // Rate limit auth endpoints: 10 req/min per IP
 authRoutes.use('*', authRateLimit)
-
-authRoutes.post('/register', async (c) => {
-  const body = await c.req.json()
-  const parsed = registerSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed', details: parsed.error.flatten() }, 400)
-  }
-
-  const { username, password, displayName: rawDisplayName } = parsed.data
-  const displayName = rawDisplayName ? sanitizeText(rawDisplayName) : username
-
-  const [existing] = await db.select().from(users).where(eq(users.username, username)).limit(1)
-  if (existing) {
-    return c.json({ ok: false, error: 'Username already taken' }, 409)
-  }
-
-  const id = nanoid()
-  const now = new Date().toISOString()
-  const passwordHash = await hash(password)
-
-  await db.insert(users).values({
-    id,
-    username,
-    passwordHash,
-    displayName,
-    createdAt: now,
-    updatedAt: now,
-  })
-
-  const accessToken = await signAccessToken({ sub: id, username })
-  const refreshToken = await signRefreshToken({ sub: id, username })
-
-  // Store refresh token hash
-  const rtId = nanoid()
-  const rtHash = await hash(refreshToken)
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-  await db
-    .insert(refreshTokens)
-    .values({ id: rtId, userId: id, tokenHash: rtHash, expiresAt, createdAt: now })
-
-  return c.json({
-    ok: true,
-    data: {
-      user: { id, username, displayName },
-      accessToken,
-      refreshToken,
-    },
-  })
-})
 
 authRoutes.post('/login', async (c) => {
   const body = await c.req.json()
@@ -87,6 +36,7 @@ authRoutes.post('/login', async (c) => {
   const refreshToken = await signRefreshToken({ sub: user.id, username: user.username })
 
   const now = new Date().toISOString()
+  const { nanoid } = await import('nanoid')
   const rtId = nanoid()
   const rtHash = await hash(refreshToken)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -102,6 +52,7 @@ authRoutes.post('/login', async (c) => {
         username: user.username,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        role: user.role,
       },
       accessToken,
       refreshToken,
@@ -127,6 +78,18 @@ authRoutes.post('/refresh', async (c) => {
       return c.json({ ok: false, error: 'User not found' }, 401)
     }
 
+    // Verify the refresh token exists in the database (prevents reuse after logout/rotation)
+    const storedTokens = await db
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, user.id))
+    const tokenValid = await Promise.all(
+      storedTokens.map((t) => verify(t.tokenHash, parsed.data.refreshToken).catch(() => false)),
+    ).then((results) => results.some(Boolean))
+    if (!tokenValid) {
+      return c.json({ ok: false, error: 'Refresh token revoked or invalid' }, 401)
+    }
+
     // Rotate: delete old refresh tokens for this user and issue new ones
     await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id))
 
@@ -134,6 +97,7 @@ authRoutes.post('/refresh', async (c) => {
     const refreshToken = await signRefreshToken({ sub: user.id, username: user.username })
 
     const now = new Date().toISOString()
+    const { nanoid } = await import('nanoid')
     const rtId = nanoid()
     const rtHash = await hash(refreshToken)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

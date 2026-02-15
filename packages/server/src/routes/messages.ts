@@ -1,46 +1,115 @@
 import { Hono } from 'hono'
-import { and, eq, lt, desc, like, inArray } from 'drizzle-orm'
+import { sql, and, eq, lt, gt, gte, lte, desc, ilike, inArray } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
-import { messages, roomMembers } from '../db/schema.js'
-import { messageQuerySchema } from '@agentim/shared'
+import { messages, roomMembers, messageAttachments, messageReactions, messageEdits, users } from '../db/schema.js'
+import { messageQuerySchema, editMessageSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { connectionManager } from '../ws/connections.js'
+import { sanitizeContent } from '../lib/sanitize.js'
+import { isRoomMember } from '../lib/roomAccess.js'
+
+// Helper: attach attachments to a list of messages
+async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
+  if (msgs.length === 0) return msgs
+  const ids = msgs.map((m) => m.id)
+  const attachRows = await db
+    .select()
+    .from(messageAttachments)
+    .where(inArray(messageAttachments.messageId, ids))
+
+  const attachMap = new Map<string, typeof attachRows>()
+  for (const row of attachRows) {
+    const list = attachMap.get(row.messageId!) ?? []
+    list.push(row)
+    attachMap.set(row.messageId!, list)
+  }
+
+  return msgs.map((m) => {
+    const att = attachMap.get(m.id)
+    return att && att.length > 0
+      ? { ...m, attachments: att.map((a) => ({ id: a.id, messageId: a.messageId!, filename: a.filename, mimeType: a.mimeType, size: a.size, url: a.url })) }
+      : m
+  })
+}
 
 export const messageRoutes = new Hono<AuthEnv>()
 
 messageRoutes.use('*', authMiddleware)
 
-// Get the latest message for each of the user's rooms
+// Get the latest message + unread count for each of the user's rooms
 messageRoutes.get('/recent', async (c) => {
   const userId = c.get('userId')
-  const memberRows = await db
-    .select({ roomId: roomMembers.roomId })
-    .from(roomMembers)
-    .where(eq(roomMembers.memberId, userId))
 
-  const roomIds = memberRows.map((m) => m.roomId)
-  if (roomIds.length === 0) {
-    return c.json({ ok: true, data: {} })
-  }
+  // Single CTE query: latest message + unread count per room (replaces 2N queries)
+  const rows = await db.execute<{
+    room_id: string
+    content: string
+    sender_name: string
+    created_at: string
+    unread: number
+  }>(sql`
+    WITH latest AS (
+      SELECT DISTINCT ON (m.room_id)
+        m.room_id, m.content, m.sender_name, m.created_at
+      FROM messages m
+      JOIN room_members rm ON rm.room_id = m.room_id AND rm.member_id = ${userId}
+      ORDER BY m.room_id, m.created_at DESC
+    ),
+    unreads AS (
+      SELECT rm.room_id, COUNT(m.id)::int as unread
+      FROM room_members rm
+      LEFT JOIN messages m ON m.room_id = rm.room_id
+        AND (rm.last_read_at IS NULL OR m.created_at > rm.last_read_at)
+      WHERE rm.member_id = ${userId}
+      GROUP BY rm.room_id
+    )
+    SELECT l.room_id, l.content, l.sender_name, l.created_at,
+           COALESCE(u.unread, 0)::int as unread
+    FROM latest l
+    LEFT JOIN unreads u ON u.room_id = l.room_id
+    UNION ALL
+    SELECT u.room_id, ''::text, ''::text, ''::text, u.unread
+    FROM unreads u
+    WHERE u.room_id NOT IN (SELECT room_id FROM latest)
+      AND u.unread > 0
+  `)
 
-  // Get latest message per room (one query per room, but room count is typically small)
-  const result: Record<string, { content: string; senderName: string; createdAt: string }> = {}
-  for (const roomId of roomIds) {
-    const [row] = await db
-      .select()
-      .from(messages)
-      .where(eq(messages.roomId, roomId))
-      .orderBy(desc(messages.createdAt))
-      .limit(1)
-    if (row) {
-      result[roomId] = {
-        content: row.content,
-        senderName: row.senderName,
-        createdAt: row.createdAt,
-      }
+  const result: Record<string, { content: string; senderName: string; createdAt: string; unread: number }> = {}
+  for (const row of rows.rows) {
+    result[row.room_id] = {
+      content: row.content,
+      senderName: row.sender_name,
+      createdAt: row.created_at,
+      unread: row.unread,
     }
   }
 
   return c.json({ ok: true, data: result })
+})
+
+// Mark a room as read for the current user
+messageRoutes.post('/rooms/:roomId/read', async (c) => {
+  const userId = c.get('userId')
+  const username = c.get('username')
+  const roomId = c.req.param('roomId')
+  const now = new Date().toISOString()
+
+  await db
+    .update(roomMembers)
+    .set({ lastReadAt: now })
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+
+  // Broadcast read receipt to room members
+  connectionManager.broadcastToRoom(roomId, {
+    type: 'server:read_receipt',
+    roomId,
+    userId,
+    username,
+    lastReadAt: now,
+  })
+
+  return c.json({ ok: true })
 })
 
 // Search messages across user's rooms
@@ -65,13 +134,22 @@ messageRoutes.get('/search', async (c) => {
     return c.json({ ok: false, error: 'Room not found' }, 404)
   }
 
+  const sender = c.req.query('sender')?.trim()
+  const dateFrom = c.req.query('from')
+  const dateTo = c.req.query('to')
+
   const searchPattern = `%${q}%`
-  const conditions = roomId
-    ? and(eq(messages.roomId, roomId), like(messages.content, searchPattern))
-    : and(
-        inArray(messages.roomId, [...userRoomIds]),
-        like(messages.content, searchPattern),
-      )
+  const filters = [
+    roomId
+      ? eq(messages.roomId, roomId)
+      : inArray(messages.roomId, [...userRoomIds]),
+    ilike(messages.content, searchPattern),
+  ]
+  if (sender) filters.push(ilike(messages.senderName, `%${sender}%`))
+  if (dateFrom) filters.push(gte(messages.createdAt, dateFrom))
+  if (dateTo) filters.push(lte(messages.createdAt, dateTo))
+
+  const conditions = and(...filters)
 
   const rows = await db
     .select()
@@ -80,28 +158,45 @@ messageRoutes.get('/search', async (c) => {
     .orderBy(desc(messages.createdAt))
     .limit(limit)
 
+  const parsed = rows.map((m) => ({
+    ...m,
+    mentions: JSON.parse(m.mentions),
+    chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
+  }))
+
   return c.json({
     ok: true,
-    data: rows.map((m) => ({
-      ...m,
-      mentions: JSON.parse(m.mentions),
-      chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
-    })),
+    data: await attachReactions(await attachAttachments(parsed)),
   })
 })
 
 // Get messages for a room (cursor-based pagination)
 messageRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
+  const userId = c.get('userId')
+
+  if (!await isRoomMember(userId, roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
   const query = messageQuerySchema.safeParse(c.req.query())
   if (!query.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
   }
 
   const { cursor, limit } = query.data
+  const after = c.req.query('after')
 
   let rows
-  if (cursor) {
+  if (after) {
+    // Forward sync: get messages newer than `after` timestamp
+    rows = await db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.roomId, roomId), gt(messages.createdAt, after)))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit + 1)
+  } else if (cursor) {
     rows = await db
       .select()
       .from(messages)
@@ -120,16 +215,260 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
   const hasMore = rows.length > limit
   const items = hasMore ? rows.slice(0, limit) : rows
 
+  const parsed = items.map((m) => ({
+    ...m,
+    mentions: JSON.parse(m.mentions),
+    chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
+  }))
+
   return c.json({
     ok: true,
     data: {
-      items: items.map((m) => ({
-        ...m,
-        mentions: JSON.parse(m.mentions),
-        chunks: m.chunks ? JSON.parse(m.chunks) : undefined,
-      })),
+      items: await attachReactions(await attachAttachments(parsed)),
       nextCursor: hasMore ? items[items.length - 1].createdAt : undefined,
       hasMore,
     },
   })
+})
+
+// Toggle a reaction on a message
+messageRoutes.post('/:id/reactions', async (c) => {
+  const messageId = c.req.param('id')
+  const userId = c.get('userId')
+  const username = c.get('username')
+  const body = await c.req.json()
+  const emoji = body?.emoji
+
+  if (!emoji || typeof emoji !== 'string' || emoji.length > 8) {
+    return c.json({ ok: false, error: 'Invalid emoji' }, 400)
+  }
+
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+
+  if (!await isRoomMember(userId, msg.roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
+  // Check if user already reacted with this emoji
+  const [existing] = await db
+    .select()
+    .from(messageReactions)
+    .where(
+      and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.userId, userId),
+        eq(messageReactions.emoji, emoji),
+      ),
+    )
+    .limit(1)
+
+  if (existing) {
+    // Remove reaction
+    await db
+      .delete(messageReactions)
+      .where(
+        and(
+          eq(messageReactions.messageId, messageId),
+          eq(messageReactions.userId, userId),
+          eq(messageReactions.emoji, emoji),
+        ),
+      )
+  } else {
+    // Add reaction
+    const now = new Date().toISOString()
+    await db.insert(messageReactions).values({
+      messageId,
+      userId,
+      emoji,
+      createdAt: now,
+    })
+  }
+
+  // Fetch updated reactions for this message
+  const reactions = await getMessageReactions(messageId)
+
+  // Broadcast to room
+  connectionManager.broadcastToRoom(msg.roomId, {
+    type: 'server:reaction_update',
+    roomId: msg.roomId,
+    messageId,
+    reactions,
+  })
+
+  return c.json({ ok: true, data: reactions })
+})
+
+// Helper: get aggregated reactions for a message
+async function getMessageReactions(messageId: string) {
+  const rows = await db
+    .select({
+      emoji: messageReactions.emoji,
+      userId: messageReactions.userId,
+      username: users.username,
+    })
+    .from(messageReactions)
+    .innerJoin(users, eq(messageReactions.userId, users.id))
+    .where(eq(messageReactions.messageId, messageId))
+
+  const emojiMap = new Map<string, { userIds: string[]; usernames: string[] }>()
+  for (const row of rows) {
+    const entry = emojiMap.get(row.emoji) ?? { userIds: [], usernames: [] }
+    entry.userIds.push(row.userId)
+    entry.usernames.push(row.username)
+    emojiMap.set(row.emoji, entry)
+  }
+
+  return [...emojiMap.entries()].map(([emoji, { userIds, usernames }]) => ({
+    emoji,
+    userIds,
+    usernames,
+  }))
+}
+
+// Helper: attach reactions to a list of messages
+async function attachReactions(msgs: { id: string; [k: string]: unknown }[]) {
+  if (msgs.length === 0) return msgs
+  const ids = msgs.map((m) => m.id)
+  const rows = await db
+    .select({
+      messageId: messageReactions.messageId,
+      emoji: messageReactions.emoji,
+      userId: messageReactions.userId,
+      username: users.username,
+    })
+    .from(messageReactions)
+    .innerJoin(users, eq(messageReactions.userId, users.id))
+    .where(inArray(messageReactions.messageId, ids))
+
+  // Group by messageId → emoji
+  const map = new Map<string, Map<string, { userIds: string[]; usernames: string[] }>>()
+  for (const row of rows) {
+    let emojiMap = map.get(row.messageId)
+    if (!emojiMap) {
+      emojiMap = new Map()
+      map.set(row.messageId, emojiMap)
+    }
+    const entry = emojiMap.get(row.emoji) ?? { userIds: [], usernames: [] }
+    entry.userIds.push(row.userId)
+    entry.usernames.push(row.username)
+    emojiMap.set(row.emoji, entry)
+  }
+
+  return msgs.map((m) => {
+    const emojiMap = map.get(m.id)
+    if (!emojiMap) return m
+    const reactions = [...emojiMap.entries()].map(([emoji, { userIds, usernames }]) => ({
+      emoji,
+      userIds,
+      usernames,
+    }))
+    return { ...m, reactions }
+  })
+}
+
+// Get edit history for a message
+messageRoutes.get('/:id/history', async (c) => {
+  const messageId = c.req.param('id')
+  const userId = c.get('userId')
+
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+
+  if (!await isRoomMember(userId, msg.roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
+  const edits = await db
+    .select()
+    .from(messageEdits)
+    .where(eq(messageEdits.messageId, messageId))
+    .orderBy(desc(messageEdits.editedAt))
+
+  return c.json({ ok: true, data: edits })
+})
+
+// Edit a message (only the sender can edit)
+messageRoutes.put('/:id', async (c) => {
+  const messageId = c.req.param('id')
+  const userId = c.get('userId')
+  const body = await c.req.json()
+  const parsed = editMessageSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ ok: false, error: 'Validation failed' }, 400)
+  }
+
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+  if (!await isRoomMember(userId, msg.roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+  if (msg.senderId !== userId || msg.senderType !== 'user') {
+    return c.json({ ok: false, error: 'Only the sender can edit this message' }, 403)
+  }
+
+  const now = new Date().toISOString()
+
+  // Save previous content to edit history
+  await db.insert(messageEdits).values({
+    id: nanoid(),
+    messageId,
+    previousContent: msg.content,
+    editedAt: now,
+  })
+
+  const content = sanitizeContent(parsed.data.content)
+  const [updated] = await db
+    .update(messages)
+    .set({ content, updatedAt: now })
+    .where(eq(messages.id, messageId))
+    .returning()
+
+  const message = {
+    ...updated!,
+    mentions: JSON.parse(updated!.mentions),
+    chunks: updated!.chunks ? JSON.parse(updated!.chunks) : undefined,
+  }
+
+  // Broadcast edit to room
+  connectionManager.broadcastToRoom(msg.roomId, {
+    type: 'server:message_edited',
+    message,
+  })
+
+  return c.json({ ok: true, data: message })
+})
+
+// Delete a message (only the sender can delete)
+messageRoutes.delete('/:id', async (c) => {
+  const messageId = c.req.param('id')
+  const userId = c.get('userId')
+
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+  if (!await isRoomMember(userId, msg.roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+  if (msg.senderId !== userId || msg.senderType !== 'user') {
+    return c.json({ ok: false, error: 'Only the sender can delete this message' }, 403)
+  }
+
+  await db.delete(messages).where(eq(messages.id, messageId))
+
+  // Broadcast deletion to room
+  connectionManager.broadcastToRoom(msg.roomId, {
+    type: 'server:message_deleted',
+    roomId: msg.roomId,
+    messageId,
+  })
+
+  return c.json({ ok: true })
 })

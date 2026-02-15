@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
@@ -46,20 +46,29 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
     }
   }
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">{t('addAgentToRoom')}</h2>
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('addAgentToRoom')}</h2>
         </div>
 
         {/* Search + Filter */}
-        <div className="px-6 py-3 space-y-3 border-b border-gray-100">
+        <div className="px-6 py-3 space-y-3 border-b border-gray-100 dark:border-gray-700">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -67,7 +76,7 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('search')}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoFocus
             />
           </div>
@@ -76,16 +85,16 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
               type="checkbox"
               checked={onlineOnly}
               onChange={(e) => setOnlineOnly(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600">{t('filterOnlineOnly')}</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">{t('filterOnlineOnly')}</span>
           </label>
         </div>
 
         {/* Agent List */}
         <div className="max-h-72 overflow-y-auto">
           {availableAgents.length === 0 ? (
-            <div className="px-6 py-8 text-center text-sm text-gray-500">
+            <div className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
               {t('noAgentsAvailable')}
             </div>
           ) : (
@@ -96,7 +105,7 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
               return (
                 <div
                   key={agent.id}
-                  className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 >
                   {/* Avatar */}
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
@@ -108,7 +117,7 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 text-sm truncate">{agent.name}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{agent.name}</span>
                       <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
                     </div>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${type.color}`}>
@@ -120,7 +129,7 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
                   <button
                     onClick={() => handleAdd(agent.id)}
                     disabled={adding === agent.id}
-                    className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 flex-shrink-0"
+                    className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 flex-shrink-0"
                   >
                     {adding === agent.id ? '...' : t('addAgent')}
                   </button>
@@ -131,10 +140,10 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 flex justify-end">
+        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             {t('close')}
           </button>

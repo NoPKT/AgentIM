@@ -1,5 +1,8 @@
 import { createMiddleware } from 'hono/factory'
+import { eq } from 'drizzle-orm'
 import { verifyToken } from '../lib/jwt.js'
+import { db } from '../db/index.js'
+import { users } from '../db/schema.js'
 
 export type AuthEnv = {
   Variables: {
@@ -26,4 +29,13 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   } catch {
     return c.json({ ok: false, error: 'Invalid or expired token' }, 401)
   }
+})
+
+export const adminMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
+  const userId = c.get('userId')
+  const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+  if (!user || user.role !== 'admin') {
+    return c.json({ ok: false, error: 'Admin access required' }, 403)
+  }
+  await next()
 })

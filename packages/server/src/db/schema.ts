@@ -10,6 +10,7 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     displayName: text('display_name').notNull(),
     avatarUrl: text('avatar_url'),
+    role: text('role').notNull().default('user'), // 'admin' | 'user'
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -69,6 +70,8 @@ export const agents = pgTable(
       .notNull()
       .references(() => gateways.id, { onDelete: 'cascade' }),
     workingDirectory: text('working_directory'),
+    capabilities: text('capabilities'), // JSON array string, e.g. '["code","debug"]'
+    connectionType: text('connection_type').notNull().default('cli'), // 'cli' | 'api'
     lastSeenAt: text('last_seen_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -86,6 +89,7 @@ export const rooms = pgTable('rooms', {
   name: text('name').notNull(),
   type: text('type').notNull().default('group'),
   broadcastMode: boolean('broadcast_mode').notNull().default(false),
+  systemPrompt: text('system_prompt'),
   createdById: text('created_by_id')
     .notNull()
     .references(() => users.id),
@@ -104,11 +108,17 @@ export const roomMembers = pgTable(
     memberId: text('member_id').notNull(),
     memberType: text('member_type').notNull(), // 'user' | 'agent'
     role: text('role').notNull().default('member'),
+    roleDescription: text('role_description'),
+    notificationPref: text('notification_pref').notNull().default('all'), // 'all' | 'mentions' | 'none'
+    pinnedAt: text('pinned_at'),
+    archivedAt: text('archived_at'),
+    lastReadAt: text('last_read_at'),
     joinedAt: text('joined_at').notNull(),
   },
   (table) => [
     index('room_members_room_idx').on(table.roomId),
     index('room_members_member_idx').on(table.memberId),
+    index('room_members_member_room_idx').on(table.memberId, table.roomId),
     uniqueIndex('room_members_unique_idx').on(table.roomId, table.memberId),
   ],
 )
@@ -131,6 +141,7 @@ export const messages = pgTable(
     mentions: text('mentions').notNull().default('[]'), // JSON array of IDs
     chunks: text('chunks'), // JSON array of ParsedChunk for agent responses
     createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at'),
   },
   (table) => [
     index('messages_room_idx').on(table.roomId),
@@ -145,15 +156,50 @@ export const messageAttachments = pgTable(
   'message_attachments',
   {
     id: text('id').primaryKey(),
-    messageId: text('message_id')
-      .notNull()
-      .references(() => messages.id, { onDelete: 'cascade' }),
+    messageId: text('message_id').references(() => messages.id, { onDelete: 'cascade' }),
     filename: text('filename').notNull(),
     mimeType: text('mime_type').notNull(),
     size: integer('size').notNull(),
     url: text('url').notNull(),
+    uploadedBy: text('uploaded_by').references(() => users.id),
+    createdAt: text('created_at').notNull(),
   },
   (table) => [index('attachments_message_idx').on(table.messageId)],
+)
+
+// ─── Message Reactions ───
+
+export const messageReactions = pgTable(
+  'message_reactions',
+  {
+    messageId: text('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    index('reactions_message_idx').on(table.messageId),
+    uniqueIndex('reactions_unique_idx').on(table.messageId, table.userId, table.emoji),
+  ],
+)
+
+// ─── Message Edits (edit history) ───
+
+export const messageEdits = pgTable(
+  'message_edits',
+  {
+    id: text('id').primaryKey(),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    previousContent: text('previous_content').notNull(),
+    editedAt: text('edited_at').notNull(),
+  },
+  (table) => [index('message_edits_message_idx').on(table.messageId)],
 )
 
 // ─── Tasks ───

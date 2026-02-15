@@ -5,7 +5,7 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 ## Project Structure
 
 - `packages/shared` - Shared types, WebSocket protocol, i18n, validators (Zod)
-- `packages/server` - Hub server: Hono + SQLite (Drizzle) + WebSocket
+- `packages/server` - Hub server: Hono + PostgreSQL + Redis (Drizzle) + WebSocket
 - `packages/gateway` - Agent Gateway CLI: node-pty + CLI adapters
 - `packages/web` - React 19 SPA/PWA: Vite + TailwindCSS v4
 

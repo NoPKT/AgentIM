@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
+import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
 import type { Task } from '@agentim/shared'
 
@@ -8,14 +9,18 @@ export default function TasksPage() {
   const { t } = useTranslation()
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const rooms = useChatStore((state) => state.rooms)
 
   const loadTasks = async () => {
     setIsLoading(true)
+    setLoadError(false)
     const res = await api.get<Task[]>('/tasks')
     if (res.ok && res.data) {
       setTasks(res.data)
+    } else {
+      setLoadError(true)
     }
     setIsLoading(false)
   }
@@ -24,11 +29,38 @@ export default function TasksPage() {
     loadTasks()
   }, [])
 
+  // Listen for real-time task updates via WebSocket
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const updated = (e as CustomEvent<Task>).detail
+      setTasks((prev) => {
+        const idx = prev.findIndex((t) => t.id === updated.id)
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = updated
+          return next
+        }
+        return [...prev, updated]
+      })
+    }
+    window.addEventListener('agentim:task_update', handler)
+    return () => window.removeEventListener('agentim:task_update', handler)
+  }, [])
+
   const handleCreateTask = async (roomId: string, title: string, description: string) => {
     const res = await api.post<Task>(`/tasks/rooms/${roomId}`, { title, description })
     if (res.ok && res.data) {
       setTasks([...tasks, res.data])
       setIsDialogOpen(false)
+    } else {
+      toast.error(res.error || t('error'))
+    }
+  }
+
+  const handleUpdateStatus = async (taskId: string, status: string) => {
+    const res = await api.put<Task>(`/tasks/${taskId}`, { status })
+    if (res.ok && res.data) {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? res.data! : t)))
     }
   }
 
@@ -40,21 +72,62 @@ export default function TasksPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-6 animate-pulse">
+            <div className="h-8 w-24 bg-gray-200 dark:bg-gray-600 rounded" />
+            <div className="mt-2 h-4 w-32 bg-gray-100 dark:bg-gray-700 rounded" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
+                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-600 rounded mb-4" />
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-600 rounded" />
+                    <div className="h-3 w-full bg-gray-100 dark:bg-gray-700 rounded" />
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                    <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-600 rounded" />
+                    <div className="h-3 w-2/3 bg-gray-100 dark:bg-gray-700 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+        <div className="text-center max-w-md">
+          <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{t('loadFailed')}</h3>
+          <button
+            onClick={loadTasks}
+            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          >
+            {t('retry')}
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t('tasks')}</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('tasks')}</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {t('tasksCount', { count: tasks.length })}
             </p>
           </div>
           <button
@@ -67,9 +140,9 @@ export default function TasksPage() {
 
         {/* Empty State */}
         {tasks.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -81,8 +154,8 @@ export default function TasksPage() {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900">{t('noTasks')}</h3>
-            <p className="mt-2 text-sm text-gray-600">
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">{t('noTasks')}</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               {t('createFirstTask') || 'Create your first task to get started'}
             </p>
           </div>
@@ -94,17 +167,20 @@ export default function TasksPage() {
             <TaskColumn
               title={t('pending')}
               tasks={groupedTasks.pending}
-              badgeColor="bg-gray-100 text-gray-800"
+              badgeColor="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+              onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
               title={t('inProgress')}
               tasks={groupedTasks.in_progress}
-              badgeColor="bg-blue-100 text-blue-800"
+              badgeColor="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
               title={t('completed')}
               tasks={groupedTasks.completed}
-              badgeColor="bg-green-100 text-green-800"
+              badgeColor="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              onUpdateStatus={handleUpdateStatus}
             />
           </div>
         )}
@@ -126,15 +202,17 @@ function TaskColumn({
   title,
   tasks,
   badgeColor,
+  onUpdateStatus,
 }: {
   title: string
   tasks: Task[]
   badgeColor: string
+  onUpdateStatus: (taskId: string, status: string) => void
 }) {
   return (
-    <div className="bg-gray-100 rounded-lg p-4">
+    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900">{title}</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor}`}>
           {tasks.length}
         </span>
@@ -142,35 +220,57 @@ function TaskColumn({
 
       <div className="space-y-3">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onUpdateStatus={onUpdateStatus} />
         ))}
         {tasks.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-4">--</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">--</p>
         )}
       </div>
     </div>
   )
 }
 
-function TaskCard({ task }: { task: Task }) {
+function TaskCard({
+  task,
+  onUpdateStatus,
+}: {
+  task: Task
+  onUpdateStatus: (taskId: string, status: string) => void
+}) {
+  const { t } = useTranslation()
+
+  const statusOptions = [
+    { value: 'pending', label: t('pending'), color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+    { value: 'in_progress', label: t('inProgress'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    { value: 'completed', label: t('completed'), color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+  ]
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
-      <h3 className="font-medium text-gray-900 mb-2">{task.title}</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{task.title}</h3>
       {task.description && (
-        <p className="text-sm text-gray-600 line-clamp-2 mb-3">{task.description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">{task.description}</p>
       )}
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {new Date(task.createdAt).toLocaleDateString([], {
             month: 'short',
             day: 'numeric',
           })}
         </span>
-        {task.assigneeId && (
-          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full font-medium">
-            Assigned
-          </span>
-        )}
+        <select
+          value={task.status}
+          onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-blue-500 ${
+            statusOptions.find((s) => s.value === task.status)?.color ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+          }`}
+        >
+          {statusOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   )
@@ -199,12 +299,12 @@ function CreateTaskDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">{t('createTask')}</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('createTask')}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -218,14 +318,14 @@ function CreateTaskDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="room" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="room" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('rooms') || 'Room'}
             </label>
             <select
               id="room"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-gray-100"
               required
             >
               {rooms.map((room) => (
@@ -237,7 +337,7 @@ function CreateTaskDialog({
           </div>
 
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('taskTitle')}
             </label>
             <input
@@ -245,7 +345,7 @@ function CreateTaskDialog({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-gray-100"
               placeholder={t('enterTaskTitle') || 'Enter task title'}
               autoFocus
               required
@@ -253,14 +353,14 @@ function CreateTaskDialog({
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('taskDescription')}
             </label>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none dark:bg-gray-700 dark:text-gray-100"
               rows={4}
               placeholder={t('enterTaskDescription') || 'Enter task description (optional)'}
             />
@@ -270,7 +370,7 @@ function CreateTaskDialog({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
             >
               {t('cancel')}
             </button>

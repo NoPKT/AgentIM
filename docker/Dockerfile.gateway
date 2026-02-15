@@ -1,5 +1,6 @@
 # Gateway Dockerfile with node-pty native dependencies
-FROM node:20-bookworm-slim AS base
+# ── Build stage ──
+FROM node:20-bookworm-slim AS build
 RUN npm install -g pnpm@10
 
 # Install native build dependencies for node-pty
@@ -11,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first (better layer caching)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/gateway/package.json packages/gateway/
@@ -26,6 +27,31 @@ COPY packages/gateway/ packages/gateway/
 
 # Build
 RUN pnpm --filter @agentim/shared build && pnpm --filter @agentim/gateway build
+
+# ── Production stage ──
+FROM node:20-bookworm-slim AS production
+RUN npm install -g pnpm@10
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/gateway/package.json packages/gateway/
+
+# Install production dependencies only (node-pty needs native libs at runtime)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && pnpm install --prod --frozen-lockfile \
+    && apt-get purge -y python3 make g++ \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built artifacts
+COPY --from=build /app/packages/shared/dist packages/shared/dist
+COPY --from=build /app/packages/gateway/dist packages/gateway/dist
 
 ENV NODE_ENV=production
 

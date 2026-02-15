@@ -1,0 +1,312 @@
+import { Hono } from 'hono'
+
+const spec = {
+  openapi: '3.0.3',
+  info: {
+    title: 'AgentIM API',
+    version: '0.1.0',
+    description: 'Unified IM-style platform for managing and orchestrating multiple AI coding agents.',
+  },
+  servers: [{ url: '/api', description: 'Default server' }],
+  components: {
+    securitySchemes: {
+      BearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    },
+    schemas: {
+      ApiResponse: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean' },
+          data: {},
+          error: { type: 'string' },
+        },
+      },
+      User: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          username: { type: 'string' },
+          displayName: { type: 'string' },
+          avatarUrl: { type: 'string', nullable: true },
+          role: { type: 'string', enum: ['admin', 'user'] },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Room: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['private', 'group'] },
+          broadcastMode: { type: 'boolean' },
+          systemPrompt: { type: 'string', nullable: true },
+          createdById: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Message: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          roomId: { type: 'string' },
+          senderId: { type: 'string' },
+          senderType: { type: 'string', enum: ['user', 'agent', 'system'] },
+          senderName: { type: 'string' },
+          type: { type: 'string', enum: ['text', 'file'] },
+          content: { type: 'string' },
+          replyToId: { type: 'string', nullable: true },
+          mentions: { type: 'array', items: { type: 'string' } },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time', nullable: true },
+        },
+      },
+      Agent: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['claude-code', 'codex', 'gemini', 'cursor', 'generic'] },
+          status: { type: 'string', enum: ['online', 'offline', 'busy', 'error'] },
+          gatewayId: { type: 'string' },
+          workingDirectory: { type: 'string', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Task: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          roomId: { type: 'string' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] },
+          assigneeId: { type: 'string', nullable: true },
+          assigneeType: { type: 'string', enum: ['user', 'agent'], nullable: true },
+          createdById: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  },
+  security: [{ BearerAuth: [] }],
+  paths: {
+    '/health': {
+      get: {
+        tags: ['System'],
+        summary: 'Health check',
+        security: [],
+        responses: { '200': { description: 'Server is healthy' } },
+      },
+    },
+    '/auth/register': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Register a new user',
+        security: [],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password'],
+                properties: {
+                  username: { type: 'string', minLength: 3, maxLength: 20 },
+                  password: { type: 'string', minLength: 8 },
+                  displayName: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '201': { description: 'User created' }, '409': { description: 'Username taken' } },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Login',
+        security: [],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['username', 'password'],
+                properties: {
+                  username: { type: 'string' },
+                  password: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Login successful, returns tokens' }, '401': { description: 'Invalid credentials' } },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Refresh access token',
+        security: [],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['refreshToken'],
+                properties: { refreshToken: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'New tokens' } },
+      },
+    },
+    '/auth/me': {
+      get: { tags: ['Auth'], summary: 'Get current user', responses: { '200': { description: 'Current user info' } } },
+    },
+    '/users': {
+      get: {
+        tags: ['Users'],
+        summary: 'List users (admin)',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { '200': { description: 'List of users' } },
+      },
+    },
+    '/rooms': {
+      get: { tags: ['Rooms'], summary: 'List rooms for current user', responses: { '200': { description: 'Room list' } } },
+      post: {
+        tags: ['Rooms'],
+        summary: 'Create a room',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string' },
+                  type: { type: 'string', enum: ['private', 'group'] },
+                  broadcastMode: { type: 'boolean' },
+                  systemPrompt: { type: 'string' },
+                  memberIds: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+        responses: { '201': { description: 'Room created' } },
+      },
+    },
+    '/rooms/{id}': {
+      get: { tags: ['Rooms'], summary: 'Get room details', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room details with members' } } },
+      put: { tags: ['Rooms'], summary: 'Update room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room updated' } } },
+      delete: { tags: ['Rooms'], summary: 'Delete room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room deleted' } } },
+    },
+    '/rooms/{id}/members': {
+      get: { tags: ['Rooms'], summary: 'Get room members', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Member list' } } },
+      post: { tags: ['Rooms'], summary: 'Add member to room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '201': { description: 'Member added' } } },
+    },
+    '/rooms/{id}/members/{memberId}': {
+      delete: { tags: ['Rooms'], summary: 'Remove member from room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, { name: 'memberId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Member removed' } } },
+    },
+    '/rooms/{id}/pin': {
+      put: { tags: ['Rooms'], summary: 'Toggle room pin', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Pin toggled' } } },
+    },
+    '/rooms/{id}/archive': {
+      put: { tags: ['Rooms'], summary: 'Toggle room archive', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Archive toggled' } } },
+    },
+    '/rooms/{id}/notification-pref': {
+      put: { tags: ['Rooms'], summary: 'Update notification preference', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Preference updated' } } },
+    },
+    '/messages/rooms/{roomId}': {
+      get: {
+        tags: ['Messages'],
+        summary: 'Get messages for a room (cursor-based)',
+        parameters: [
+          { name: 'roomId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'cursor', in: 'query', schema: { type: 'string' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+          { name: 'after', in: 'query', schema: { type: 'string', description: 'ISO timestamp for forward sync' } },
+        ],
+        responses: { '200': { description: 'Paginated messages' } },
+      },
+    },
+    '/messages/search': {
+      get: {
+        tags: ['Messages'],
+        summary: 'Search messages across rooms',
+        parameters: [
+          { name: 'q', in: 'query', required: true, schema: { type: 'string', minLength: 2 } },
+          { name: 'roomId', in: 'query', schema: { type: 'string' } },
+          { name: 'sender', in: 'query', schema: { type: 'string' } },
+          { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+        ],
+        responses: { '200': { description: 'Search results' } },
+      },
+    },
+    '/messages/recent': {
+      get: { tags: ['Messages'], summary: 'Get latest message + unread count per room', responses: { '200': { description: 'Recent messages map' } } },
+    },
+    '/messages/rooms/{roomId}/read': {
+      post: { tags: ['Messages'], summary: 'Mark room as read', parameters: [{ name: 'roomId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room marked as read' } } },
+    },
+    '/messages/{id}': {
+      put: { tags: ['Messages'], summary: 'Edit a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message edited' } } },
+      delete: { tags: ['Messages'], summary: 'Delete a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message deleted' } } },
+    },
+    '/messages/{id}/history': {
+      get: { tags: ['Messages'], summary: 'Get edit history for a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Edit history' } } },
+    },
+    '/messages/{id}/reactions': {
+      post: { tags: ['Messages'], summary: 'Toggle reaction on a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Reactions updated' } } },
+    },
+    '/agents': {
+      get: {
+        tags: ['Agents'],
+        summary: 'List agents',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { '200': { description: 'Agent list' } },
+      },
+    },
+    '/tasks': {
+      get: { tags: ['Tasks'], summary: 'List tasks for a room', parameters: [{ name: 'roomId', in: 'query', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task list' } } },
+      post: { tags: ['Tasks'], summary: 'Create a task', responses: { '201': { description: 'Task created' } } },
+    },
+    '/tasks/{id}': {
+      put: { tags: ['Tasks'], summary: 'Update a task', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task updated' } } },
+      delete: { tags: ['Tasks'], summary: 'Delete a task', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task deleted' } } },
+    },
+    '/upload': {
+      post: { tags: ['Upload'], summary: 'Upload a file', requestBody: { content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } } } }, responses: { '200': { description: 'File uploaded' } } },
+    },
+    '/upload/avatar': {
+      post: { tags: ['Upload'], summary: 'Upload an avatar', requestBody: { content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } } } }, responses: { '200': { description: 'Avatar uploaded' } } },
+    },
+  },
+  tags: [
+    { name: 'System', description: 'System endpoints' },
+    { name: 'Auth', description: 'Authentication' },
+    { name: 'Users', description: 'User management' },
+    { name: 'Rooms', description: 'Room management' },
+    { name: 'Messages', description: 'Messaging' },
+    { name: 'Agents', description: 'AI agent management' },
+    { name: 'Tasks', description: 'Task management' },
+    { name: 'Upload', description: 'File uploads' },
+  ],
+}
+
+export const docsRoutes = new Hono()
+
+docsRoutes.get('/openapi.json', (c) => c.json(spec))

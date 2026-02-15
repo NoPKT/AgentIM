@@ -6,6 +6,7 @@ import { tasks, roomMembers } from '../db/schema.js'
 import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText, sanitizeContent } from '../lib/sanitize.js'
+import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 
 export const taskRoutes = new Hono<AuthEnv>()
 
@@ -29,6 +30,12 @@ taskRoutes.get('/', async (c) => {
 // List tasks for a room
 taskRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
+  const userId = c.get('userId')
+
+  if (!await isRoomMember(userId, roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
   const taskList = await db.select().from(tasks).where(eq(tasks.roomId, roomId))
   return c.json({ ok: true, data: taskList })
 })
@@ -37,6 +44,11 @@ taskRoutes.get('/rooms/:roomId', async (c) => {
 taskRoutes.post('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
+
+  if (!await isRoomMember(userId, roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
   const body = await c.req.json()
   const parsed = createTaskSchema.safeParse(body)
   if (!parsed.success) {
@@ -63,12 +75,41 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
 })
 
 // Update task
+// - Status: any room member can update (for kanban workflow)
+// - Other fields (title, description, assignee): creator, assignee, or room admin only
 taskRoutes.put('/:id', async (c) => {
   const taskId = c.req.param('id')
+  const userId = c.get('userId')
+
+  const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
+  if (!existing) {
+    return c.json({ ok: false, error: 'Task not found' }, 404)
+  }
+
+  if (!await isRoomMember(userId, existing.roomId)) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
   const body = await c.req.json()
   const parsed = updateTaskSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
+  }
+
+  // Check if non-status fields are being modified
+  const hasNonStatusFields =
+    parsed.data.title !== undefined ||
+    parsed.data.description !== undefined ||
+    parsed.data.assigneeId !== undefined ||
+    parsed.data.assigneeType !== undefined
+
+  if (hasNonStatusFields) {
+    const isCreator = existing.createdById === userId
+    const isAssignee = existing.assigneeId === userId
+    const isAdmin = await isRoomAdmin(userId, existing.roomId)
+    if (!isCreator && !isAssignee && !isAdmin) {
+      return c.json({ ok: false, error: 'Only task creator, assignee, or room admin can modify task details' }, 403)
+    }
   }
 
   const now = new Date().toISOString()
@@ -85,9 +126,22 @@ taskRoutes.put('/:id', async (c) => {
   return c.json({ ok: true, data: task })
 })
 
-// Delete task
+// Delete task (creator or room admin only)
 taskRoutes.delete('/:id', async (c) => {
   const taskId = c.req.param('id')
+  const userId = c.get('userId')
+
+  const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
+  if (!existing) {
+    return c.json({ ok: false, error: 'Task not found' }, 404)
+  }
+
+  const isCreator = existing.createdById === userId
+  const isAdmin = await isRoomAdmin(userId, existing.roomId)
+  if (!isCreator && !isAdmin) {
+    return c.json({ ok: false, error: 'Only task creator or room admin can delete' }, 403)
+  }
+
   await db.delete(tasks).where(eq(tasks.id, taskId))
   return c.json({ ok: true })
 })

@@ -35,6 +35,8 @@ export async function startServer(): Promise<void> {
         JWT_SECRET: 'test-secret-for-tests',
         CORS_ORIGIN: '*',
         NODE_ENV: 'test',
+        ADMIN_USERNAME: 'admin',
+        ADMIN_PASSWORD: 'AdminPass123',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -46,7 +48,7 @@ export async function startServer(): Promise<void> {
 
     serverProcess.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()
-      if (text.includes('running at') && !started) {
+      if (text.toLowerCase().includes('running at') && !started) {
         started = true
         clearTimeout(timeout)
         // Give it a moment to fully initialize
@@ -66,6 +68,7 @@ export async function startServer(): Promise<void> {
 }
 
 export async function stopServer(): Promise<void> {
+  resetAdminToken()
   if (serverProcess) {
     serverProcess.kill('SIGTERM')
     await new Promise<void>((resolve) => {
@@ -163,16 +166,91 @@ export function wsSendAndWait(
   })
 }
 
-/** Register a test user and return tokens */
+/** Wait for a specific WS message type without sending */
+export function wsWaitFor(
+  ws: WebSocket,
+  expectedType: string,
+  timeoutMs = 10000,
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error(`Timeout waiting for ${expectedType}`)),
+      timeoutMs,
+    )
+
+    const handler = (data: WebSocket.Data) => {
+      try {
+        const parsed = JSON.parse(data.toString())
+        if (parsed.type === expectedType) {
+          clearTimeout(timeout)
+          ws.off('message', handler)
+          resolve(parsed)
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    ws.on('message', handler)
+  })
+}
+
+/** Collect all messages of a specific type for a duration */
+export function wsCollect(
+  ws: WebSocket,
+  expectedType: string,
+  durationMs = 1000,
+): Promise<any[]> {
+  return new Promise((resolve) => {
+    const results: any[] = []
+    const handler = (data: WebSocket.Data) => {
+      try {
+        const parsed = JSON.parse(data.toString())
+        if (parsed.type === expectedType) results.push(parsed)
+      } catch { /* ignore */ }
+    }
+    ws.on('message', handler)
+    setTimeout(() => {
+      ws.off('message', handler)
+      resolve(results)
+    }, durationMs)
+  })
+}
+
+let _adminToken: string | null = null
+
+/** Get admin access token (cached per test run) */
+async function getAdminToken(): Promise<string> {
+  if (_adminToken) return _adminToken
+  const res = await api('POST', '/api/auth/login', {
+    username: 'admin',
+    password: 'AdminPass123',
+  })
+  if (!res.data?.ok) throw new Error(`Admin login failed: ${res.data?.error}`)
+  _adminToken = res.data.data.accessToken
+  return _adminToken!
+}
+
+/** Create a test user via admin API and return their tokens */
 export async function registerUser(
   username: string,
-  password = 'testpass123',
+  password = 'TestPass123',
 ): Promise<{ userId: string; accessToken: string; refreshToken: string }> {
-  const res = await api('POST', '/api/auth/register', { username, password })
-  if (!res.data?.ok) throw new Error(`Register failed: ${res.data?.error}`)
+  const adminToken = await getAdminToken()
+  const createRes = await api('POST', '/api/users', { username, password }, adminToken)
+  if (!createRes.data?.ok) throw new Error(`Create user failed: ${createRes.data?.error}`)
+
+  // Login as the new user to get their tokens
+  const loginRes = await api('POST', '/api/auth/login', { username, password })
+  if (!loginRes.data?.ok) throw new Error(`Login failed: ${loginRes.data?.error}`)
   return {
-    userId: res.data.data.user.id,
-    accessToken: res.data.data.accessToken,
-    refreshToken: res.data.data.refreshToken,
+    userId: loginRes.data.data.user.id,
+    accessToken: loginRes.data.data.accessToken,
+    refreshToken: loginRes.data.data.refreshToken,
   }
+}
+
+/** Reset cached admin token (call in stopServer) */
+function resetAdminToken() {
+  _adminToken = null
 }

@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.md
+LICENSE
+.vscode
+.idea
+docker

@@ -1,4 +1,7 @@
 import { loadConfig, saveConfig, type GatewayConfig } from './config.js'
+import { createLogger } from './lib/logger.js'
+
+const log = createLogger('TokenManager')
 
 export class TokenManager {
   private config: GatewayConfig
@@ -37,7 +40,7 @@ export class TokenManager {
     this.config.refreshToken = json.data.refreshToken
     saveConfig(this.config)
 
-    console.log('[TokenManager] Tokens refreshed and saved')
+    log.info('Tokens refreshed and saved')
     return json.data.accessToken
   }
 

@@ -2,6 +2,7 @@
   "name": "@agentim/gateway",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "bin": {
     "aim-gateway": "dist/cli.js"
@@ -10,6 +11,7 @@
     "build": "tsc",
     "dev": "tsx watch src/cli.ts",
     "start": "node dist/cli.js",
+    "test": "node --import tsx --test test/*.test.ts",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {

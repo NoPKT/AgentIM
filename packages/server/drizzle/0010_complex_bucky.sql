@@ -1,0 +1,1 @@
+ALTER TABLE "room_members" ADD COLUMN "notification_pref" text DEFAULT 'all' NOT NULL;

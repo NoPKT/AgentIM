@@ -1,5 +1,5 @@
-import type { Agent, Message, ParsedChunk, Task, Room, RoomMember } from './types.js'
-import type { AgentStatus, TaskStatus } from './constants.js'
+import type { Agent, Message, MessageReaction, ParsedChunk, Task, Room, RoomMember, RoomContext } from './types.js'
+import type { AgentStatus, TaskStatus, RoutingMode } from './constants.js'
 
 // ─── Client → Server Messages ───
 
@@ -24,6 +24,7 @@ export interface ClientSendMessage {
   content: string
   mentions: string[]
   replyToId?: string
+  attachmentIds?: string[]
 }
 
 export interface ClientTyping {
@@ -37,6 +38,11 @@ export interface ClientStopGeneration {
   agentId: string
 }
 
+export interface ClientPing {
+  type: 'client:ping'
+  ts: number
+}
+
 export type ClientMessage =
   | ClientAuth
   | ClientJoinRoom
@@ -44,6 +50,7 @@ export type ClientMessage =
   | ClientSendMessage
   | ClientTyping
   | ClientStopGeneration
+  | ClientPing
 
 // ─── Server → Client Messages ───
 
@@ -96,6 +103,47 @@ export interface ServerRoomUpdate {
   members?: RoomMember[]
 }
 
+export interface ServerTerminalData {
+  type: 'server:terminal_data'
+  agentId: string
+  agentName: string
+  roomId: string
+  data: string
+}
+
+export interface ServerMessageEdited {
+  type: 'server:message_edited'
+  message: Message
+}
+
+export interface ServerMessageDeleted {
+  type: 'server:message_deleted'
+  roomId: string
+  messageId: string
+}
+
+export interface ServerReadReceipt {
+  type: 'server:read_receipt'
+  roomId: string
+  userId: string
+  username: string
+  lastReadAt: string
+}
+
+export interface ServerPresence {
+  type: 'server:presence'
+  userId: string
+  username: string
+  online: boolean
+}
+
+export interface ServerReactionUpdate {
+  type: 'server:reaction_update'
+  roomId: string
+  messageId: string
+  reactions: MessageReaction[]
+}
+
 export interface ServerError {
   type: 'server:error'
   code: string
@@ -107,10 +155,17 @@ export type ServerMessage =
   | ServerNewMessage
   | ServerMessageChunk
   | ServerMessageComplete
+  | ServerMessageEdited
+  | ServerMessageDeleted
   | ServerTyping
   | ServerAgentStatus
   | ServerTaskUpdate
   | ServerRoomUpdate
+  | ServerTerminalData
+  | ServerReadReceipt
+  | ServerPresence
+  | ServerReactionUpdate
+  | ServerPong
   | ServerError
 
 // ─── Gateway → Server Messages ───
@@ -134,6 +189,7 @@ export interface GatewayRegisterAgent {
     name: string
     type: string
     workingDirectory?: string
+    capabilities?: string[]
   }
 }
 
@@ -178,6 +234,11 @@ export interface GatewayTaskUpdate {
   result?: string
 }
 
+export interface GatewayPing {
+  type: 'gateway:ping'
+  ts: number
+}
+
 export type GatewayMessage =
   | GatewayAuth
   | GatewayRegisterAgent
@@ -187,6 +248,7 @@ export type GatewayMessage =
   | GatewayAgentStatus
   | GatewayTerminalData
   | GatewayTaskUpdate
+  | GatewayPing
 
 // ─── Server → Gateway Messages ───
 
@@ -203,6 +265,15 @@ export interface ServerSendToAgent {
   messageId: string
   content: string
   senderName: string
+  senderType: 'user' | 'agent'
+  routingMode: RoutingMode
+  isMentioned: boolean
+}
+
+export interface ServerRoomContext {
+  type: 'server:room_context'
+  agentId: string
+  context: RoomContext
 }
 
 export interface ServerStopAgent {
@@ -210,10 +281,17 @@ export interface ServerStopAgent {
   agentId: string
 }
 
+export interface ServerPong {
+  type: 'server:pong'
+  ts: number
+}
+
 export type ServerGatewayMessage =
   | ServerGatewayAuthResult
   | ServerSendToAgent
   | ServerStopAgent
+  | ServerRoomContext
+  | ServerPong
 
 // ─── All Messages Union ───
 

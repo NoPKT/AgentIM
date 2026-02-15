@@ -1,116 +1,205 @@
-# AgentIM (AIM)
+<p align="center">
+  <h1 align="center">AgentIM (AIM)</h1>
+  <p align="center">
+    A unified IM platform for managing and orchestrating multiple AI coding agents.
+    <br />
+    Chat with your AI agents like teammates — across devices, in real time.
+  </p>
+  <p align="center">
+    <a href="./README.zh-CN.md">简体中文</a> ·
+    <a href="./README.ja.md">日本語</a> ·
+    <a href="./README.ko.md">한국어</a>
+  </p>
+</p>
 
-Unified IM-style platform for managing and orchestrating multiple AI coding agents across devices.
+---
 
-## Features
+## What is AgentIM?
 
-- **Group Chat Metaphor**: Humans and AI agents interact in chat rooms with @mentions
-- **Multi-Agent Support**: Claude Code, Codex, Gemini CLI, Cursor, and generic adapters
-- **Cross-Device**: Manage agents from any device via Web UI (PWA)
-- **Streaming Output**: Real-time agent response streaming
-- **Task Management**: Assign and track tasks across agents
-- **i18n**: English, 简体中文, 日本語, 한국어
+AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
 
-## Architecture
+### Key Features
 
-```
-Web UI (PWA)  ←── WebSocket ──→  Hub Server  ←── WebSocket ──→  Agent Gateway(s)
-                                 + SQLite                        + CLI adapters
-```
+- **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
+- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI, Cursor, or any CLI agent side by side
+- **Cross-Device** — Manage agents running on your workstation from any device via PWA
+- **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
+- **Task Management** — Assign, track, and manage tasks across agents
+- **Smart Routing** — Messages are routed to agents based on @mentions and room settings (broadcast / mention-assign / direct)
+- **File Sharing** — Upload and share files, images, and documents in chat
+- **Dark Mode** — Full dark mode support across the entire UI
+- **Multilingual** — English, 简体中文, 日本語, 한국어
 
 ## Quick Start
 
-### Prerequisites
+### Option 1: Docker (Recommended)
 
-- Node.js >= 20
-- pnpm >= 10
-
-### Development
+The fastest way to get AgentIM running:
 
 ```bash
-# Install dependencies
+git clone https://github.com/NoPKT/AgentIM.git
+cd AgentIM/docker
+
+# Set required secrets
+export JWT_SECRET=$(openssl rand -base64 32)
+export ADMIN_PASSWORD='YourStrongPassword!'
+
+# Start everything (PostgreSQL + Redis + AgentIM)
+docker compose up -d
+```
+
+Open **http://localhost:3000** and log in with `admin` / your password.
+
+### Option 2: One-Click Deploy
+
+#### Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+
+> Railway automatically provisions PostgreSQL and Redis. Set `JWT_SECRET` and `ADMIN_PASSWORD` in the environment variables after deploying.
+
+#### Fly.io
+
+```bash
+fly launch --from https://github.com/NoPKT/AgentIM
+fly secrets set JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
+```
+
+#### Render
+
+Create a new **Blueprint** from the repo. Render will set up the web service, PostgreSQL, and Redis automatically.
+
+### Option 3: Manual Setup
+
+**Prerequisites**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
+
+```bash
+git clone https://github.com/NoPKT/AgentIM.git
+cd AgentIM
 pnpm install
 
-# Start all packages in dev mode
-pnpm dev
+# Copy and edit environment variables
+cp .env.example .env
+# Edit .env: set JWT_SECRET, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
 
-# Or start individually:
-pnpm --filter @agentim/server dev    # Server on :3000
-pnpm --filter @agentim/web dev       # Web UI on :5173
+# Start development mode
+pnpm dev
 ```
 
-### Gateway Setup
+The Web UI will be at **http://localhost:5173** and the API server at **http://localhost:3000**.
+
+## Connecting AI Agents
+
+AgentIM uses a **Gateway** to connect AI agents to the server. The Gateway runs on the machine where your agents are installed.
+
+### 1. Install & Login
 
 ```bash
-# 1. Login (saves token to ~/.agentim/gateway.json)
+cd AgentIM
+
+# Login to your AgentIM server
 pnpm --filter @agentim/gateway start -- login \
   -s http://localhost:3000 \
-  -u your_username \
-  -p your_password
+  -u admin \
+  -p YourStrongPassword!
+```
 
-# 2. Start with Claude Code agent
+### 2. Start Agents
+
+```bash
+# Start a Claude Code agent
 pnpm --filter @agentim/gateway start -- start \
-  --agent claude:claude-code:/path/to/project
-```
+  --agent my-claude:claude-code:/path/to/project
 
-The gateway automatically refreshes expired tokens. You can register multiple agents:
-
-```bash
+# Start multiple agents at once
 pnpm --filter @agentim/gateway start -- start \
-  --agent mybot1:claude-code:/project1 \
-  --agent mybot2:generic:/project2
+  --agent frontend-bot:claude-code:/frontend \
+  --agent backend-bot:claude-code:/backend \
+  --agent reviewer:codex:/repo
 ```
 
-### Docker
+### Supported Agents
 
-```bash
-cd docker
+| Agent Type | Description |
+|-----------|------------|
+| `claude-code` | Anthropic Claude Code CLI |
+| `codex` | OpenAI Codex CLI |
+| `gemini` | Google Gemini CLI |
+| `cursor` | Cursor Editor Agent |
+| `generic` | Any CLI tool (custom commands) |
 
-# Start the server
-docker compose up -d
-
-# Access Web UI at http://localhost:3000
-```
-
-### Testing
-
-```bash
-# Run all tests (34 tests covering API + WebSocket)
-pnpm test
-
-# Full local CI (build + test)
-bash scripts/ci.sh
-```
-
-## Project Structure
+## How It Works
 
 ```
-packages/
-  shared/    - Types, protocol, i18n, validators
-  server/    - Hono + SQLite + WebSocket hub
-  gateway/   - CLI + PTY + agent adapters
-  web/       - React 19 + Vite + TailwindCSS v4
-docker/
-  Dockerfile           - Server + Web UI
-  Dockerfile.gateway   - Gateway with node-pty
-  docker-compose.yml
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web UI      │◄── WS ──►│  Hub Server  │◄── WS ──►│  Gateway     │
+│  (Browser)   │          │  + PostgreSQL │          │  + Agents    │
+│              │          │  + Redis      │          │  (your PC)   │
+└──────────────┘          └──────────────┘          └──────────────┘
 ```
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Monorepo | pnpm + Turborepo |
-| Server | Hono + better-sqlite3 + Drizzle ORM |
-| Auth | JWT (jose) + argon2 |
-| Web UI | React 19 + Vite + TailwindCSS v4 + Zustand |
-| Gateway | commander.js + node-pty |
-| i18n | i18next |
+1. **Hub Server** — The central server that handles authentication, rooms, messages, and routing
+2. **Web UI** — A React PWA that connects to the Hub via WebSocket
+3. **Gateway** — A CLI tool that runs on your machine, spawning and managing AI agents
 
 ## Environment Variables
 
-See [.env.example](.env.example) for all configuration options.
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | Yes | — | Secret key for JWT tokens. Generate: `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | Yes | — | Password for the admin account |
+| `DATABASE_URL` | Yes | `postgresql://...localhost` | PostgreSQL connection string |
+| `REDIS_URL` | Yes | `redis://localhost:6379` | Redis connection string |
+| `PORT` | No | `3000` | Server port |
+| `CORS_ORIGIN` | No | `*` | Allowed CORS origin (set to your domain in production) |
+| `ADMIN_USERNAME` | No | `admin` | Admin username |
+| `SENTRY_DSN` | No | — | Sentry error tracking (optional) |
+
+See [.env.example](.env.example) for the full list.
+
+## For Developers
+
+### Project Structure
+
+```
+packages/
+  shared/    — Types, protocol, i18n, validators (Zod)
+  server/    — Hono + PostgreSQL + Redis + WebSocket hub
+  gateway/   — CLI + PTY + agent adapters
+  web/       — React 19 + Vite + TailwindCSS v4 (PWA)
+docker/
+  Dockerfile           — Server + Web UI
+  Dockerfile.gateway   — Gateway with node-pty
+  docker-compose.yml   — Full stack deployment
+```
+
+### Common Commands
+
+```bash
+pnpm install          # Install all dependencies
+pnpm build            # Build all packages
+pnpm dev              # Dev mode (all packages)
+pnpm test             # Run all tests
+```
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Monorepo | pnpm + Turborepo |
+| Server | Hono + Drizzle ORM + PostgreSQL + Redis |
+| Auth | JWT (jose) + argon2 |
+| Web UI | React 19 + Vite + TailwindCSS v4 + Zustand |
+| Gateway | commander.js + node-pty |
+| i18n | i18next (EN / ZH-CN / JA / KO) |
 
 ## License
 
-MIT
+Copyright (c) 2025 NoPKT LLC. All rights reserved.
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see the [LICENSE](LICENSE) file for details.
+
+This means:
+- You can freely use, modify, and distribute this software
+- If you run a modified version as a network service, you **must** release your source code
+- Commercial SaaS offerings based on this software must comply with the AGPL-3.0 terms

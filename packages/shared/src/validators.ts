@@ -7,10 +7,21 @@ import {
   MESSAGE_TYPES,
   TASK_STATUSES,
   CHUNK_TYPES,
+  USER_ROLES,
   MAX_MESSAGE_LENGTH,
   MAX_ROOM_NAME_LENGTH,
   MAX_USERNAME_LENGTH,
 } from './constants.js'
+
+// ─── Password Complexity ───
+
+const passwordSchema = z
+  .string()
+  .min(8)
+  .max(128)
+  .refine((p) => /[a-z]/.test(p), 'Password must contain a lowercase letter')
+  .refine((p) => /[A-Z]/.test(p), 'Password must contain an uppercase letter')
+  .refine((p) => /[0-9]/.test(p), 'Password must contain a digit')
 
 // ─── Auth ───
 
@@ -20,7 +31,7 @@ export const registerSchema = z.object({
     .min(3)
     .max(MAX_USERNAME_LENGTH)
     .regex(/^[a-zA-Z0-9_-]+$/),
-  password: z.string().min(8).max(128),
+  password: passwordSchema,
   displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
 })
 
@@ -39,18 +50,21 @@ export const createRoomSchema = z.object({
   name: z.string().min(1).max(MAX_ROOM_NAME_LENGTH),
   type: z.enum(ROOM_TYPES).default('group'),
   broadcastMode: z.boolean().default(false),
+  systemPrompt: z.string().max(10000).optional(),
   memberIds: z.array(z.string()).optional(),
 })
 
 export const updateRoomSchema = z.object({
   name: z.string().min(1).max(MAX_ROOM_NAME_LENGTH).optional(),
   broadcastMode: z.boolean().optional(),
+  systemPrompt: z.string().max(10000).nullable().optional(),
 })
 
 export const addMemberSchema = z.object({
   memberId: z.string().min(1),
   memberType: z.enum(['user', 'agent']),
   role: z.enum(MEMBER_ROLES).default('member'),
+  roleDescription: z.string().max(500).optional(),
 })
 
 // ─── Message ───
@@ -59,6 +73,11 @@ export const sendMessageSchema = z.object({
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
   mentions: z.array(z.string()).default([]),
   replyToId: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
+})
+
+export const editMessageSchema = z.object({
+  content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
 })
 
 export const messageQuerySchema = z.object({
@@ -88,6 +107,28 @@ export const updateTaskSchema = z.object({
 export const updateUserSchema = z.object({
   displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
   avatarUrl: z.string().url().optional(),
+})
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+})
+
+export const adminCreateUserSchema = z.object({
+  username: z
+    .string()
+    .min(3)
+    .max(MAX_USERNAME_LENGTH)
+    .regex(/^[a-zA-Z0-9_-]+$/),
+  password: passwordSchema,
+  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
+  role: z.enum(USER_ROLES).default('user'),
+})
+
+export const adminUpdateUserSchema = z.object({
+  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
+  role: z.enum(USER_ROLES).optional(),
+  password: passwordSchema.optional(),
 })
 
 // ─── WebSocket Protocol Validators ───
@@ -120,6 +161,7 @@ export const clientSendMessageSchema = z.object({
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
   mentions: z.array(z.string()).default([]),
   replyToId: z.string().optional(),
+  attachmentIds: z.array(z.string()).optional(),
 })
 
 export const clientTypingSchema = z.object({
@@ -133,6 +175,11 @@ export const clientStopGenerationSchema = z.object({
   agentId: z.string().min(1),
 })
 
+export const clientPingSchema = z.object({
+  type: z.literal('client:ping'),
+  ts: z.number(),
+})
+
 export const clientMessageSchema = z.discriminatedUnion('type', [
   clientAuthSchema,
   clientJoinRoomSchema,
@@ -140,6 +187,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientSendMessageSchema,
   clientTypingSchema,
   clientStopGenerationSchema,
+  clientPingSchema,
 ])
 
 // Gateway messages
@@ -162,6 +210,7 @@ export const gatewayRegisterAgentSchema = z.object({
     name: z.string().min(1),
     type: z.string(),
     workingDirectory: z.string().optional(),
+    capabilities: z.array(z.string()).optional(),
   }),
 })
 
@@ -206,6 +255,11 @@ export const gatewayTaskUpdateSchema = z.object({
   result: z.string().optional(),
 })
 
+export const gatewayPingSchema = z.object({
+  type: z.literal('gateway:ping'),
+  ts: z.number(),
+})
+
 export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAuthSchema,
   gatewayRegisterAgentSchema,
@@ -215,4 +269,5 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAgentStatusSchema,
   gatewayTerminalDataSchema,
   gatewayTaskUpdateSchema,
+  gatewayPingSchema,
 ])

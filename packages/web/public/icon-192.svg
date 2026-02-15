@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
+  <defs>
+    <radialGradient id="bg" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0%" stop-color="#5BB0C8"/>
+      <stop offset="100%" stop-color="#3A8CA5"/>
+    </radialGradient>
+    <radialGradient id="screen" cx="0.5" cy="0.45" r="0.7">
+      <stop offset="0%" stop-color="#B0D830"/>
+      <stop offset="100%" stop-color="#82AE14"/>
+    </radialGradient>
+    <filter id="inset" x="-8%" y="-8%" width="116%" height="124%">
+      <feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>
+      <feGaussianBlur in="inv" stdDeviation="10" result="blur"/>
+      <feOffset in="blur" dy="5" result="off"/>
+      <feFlood flood-color="#1a3005" flood-opacity="0.7"/>
+      <feComposite in2="off" operator="in" result="sh"/>
+      <feComposite in="sh" in2="SourceAlpha" operator="in" result="inner"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="inner"/></feMerge>
+    </filter>
+    <filter id="raise" x="-10%" y="-10%" width="125%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="blur"/>
+      <feOffset in="blur" dy="6" result="off"/>
+      <feFlood flood-color="#15505e" flood-opacity="0.32"/>
+      <feComposite in2="off" operator="in" result="sh"/>
+      <feMerge><feMergeNode in="sh"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="white" stop-opacity="0.88"/>
+      <stop offset="30%" stop-color="white" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0.22"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect x="58" y="96" width="238" height="82" rx="8" fill="url(#screen)" filter="url(#inset)"/>
+  <rect x="196" y="216" width="262" height="86" rx="43" fill="url(#glass)" stroke="white" stroke-opacity="0.6" stroke-width="1.5" filter="url(#raise)"/>
+  <rect x="58" y="340" width="275" height="82" rx="8" fill="url(#screen)" filter="url(#inset)"/>
+</svg>
