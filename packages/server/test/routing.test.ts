@@ -84,13 +84,12 @@ describe('Message Routing', () => {
     return client
   }
 
-  // ─── Three-Mode Routing ───
+  // ─── Two-Mode Routing ───
 
-  describe('Three-Mode Routing', () => {
-    it('broadcast mode: all agents receive with routingMode=broadcast when no @mention', async () => {
+  describe('Two-Mode Routing', () => {
+    it('broadcast mode without @mention and without AI Router: message NOT routed to agents', async () => {
       const user = await registerUser('route_bc1')
 
-      // Create broadcast room
       const room = await api(
         'POST',
         '/api/rooms',
@@ -99,22 +98,18 @@ describe('Message Routing', () => {
       )
       const roomId = room.data.data.id
 
-      // Setup two agents
       const gw1 = await setupGatewayAgent(user, 'rt-gw-bc1', 'rt-agent-bc1', 'AgentA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-bc2', 'rt-agent-bc2', 'AgentB')
 
-      // Add both to room
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bc1', memberType: 'agent' }, user.accessToken)
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bc2', memberType: 'agent' }, user.accessToken)
 
-      // Setup client
       const client = await setupClient(user, roomId)
 
-      // Collect messages from both gateways
       const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
       const collect2 = wsCollect(gw2, 'server:send_to_agent', 1500)
 
-      // Send message without @mention
+      // Send message without @mention — no AI Router configured
       client.send(
         JSON.stringify({
           type: 'client:send_message',
@@ -126,70 +121,14 @@ describe('Message Routing', () => {
 
       const [msgs1, msgs2] = await Promise.all([collect1, collect2])
 
-      // Both agents should receive
-      assert.equal(msgs1.length, 1)
-      assert.equal(msgs2.length, 1)
-      assert.equal(msgs1[0].routingMode, 'broadcast')
-      assert.equal(msgs1[0].isMentioned, false)
-      assert.equal(msgs1[0].senderType, 'user')
-      assert.equal(msgs2[0].routingMode, 'broadcast')
+      // No agents should receive (no AI Router configured, no @mention)
+      assert.equal(msgs1.length, 0)
+      assert.equal(msgs2.length, 0)
     })
 
-    it('mention_assign mode: all agents receive, only mentioned has isMentioned=true', async () => {
-      const user = await registerUser('route_ma1')
-
-      // Create broadcast room
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'MentionAssign Room', broadcastMode: true },
-        user.accessToken,
-      )
-      const roomId = room.data.data.id
-
-      // Setup two agents
-      const gw1 = await setupGatewayAgent(user, 'rt-gw-ma1', 'rt-agent-ma1', 'AlphaBot')
-      const gw2 = await setupGatewayAgent(user, 'rt-gw-ma2', 'rt-agent-ma2', 'BetaBot')
-
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ma1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ma2', memberType: 'agent' }, user.accessToken)
-
-      const client = await setupClient(user, roomId)
-
-      const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
-      const collect2 = wsCollect(gw2, 'server:send_to_agent', 1500)
-
-      // Send message with @AlphaBot mention
-      client.send(
-        JSON.stringify({
-          type: 'client:send_message',
-          roomId,
-          content: '@AlphaBot do something',
-          mentions: ['AlphaBot'],
-        }),
-      )
-
-      const [msgs1, msgs2] = await Promise.all([collect1, collect2])
-
-      // Both agents should receive (broadcast room)
-      assert.equal(msgs1.length, 1)
-      assert.equal(msgs2.length, 1)
-
-      // AlphaBot is mentioned
-      assert.equal(msgs1[0].routingMode, 'mention_assign')
-      assert.equal(msgs1[0].isMentioned, true)
-      assert.equal(msgs1[0].agentId, 'rt-agent-ma1')
-
-      // BetaBot is NOT mentioned
-      assert.equal(msgs2[0].routingMode, 'mention_assign')
-      assert.equal(msgs2[0].isMentioned, false)
-      assert.equal(msgs2[0].agentId, 'rt-agent-ma2')
-    })
-
-    it('direct mode: only mentioned agent receives in non-broadcast room', async () => {
+    it('direct mode: only mentioned agent receives with routingMode=direct', async () => {
       const user = await registerUser('route_dir1')
 
-      // Create non-broadcast room
       const room = await api(
         'POST',
         '/api/rooms',
@@ -198,7 +137,6 @@ describe('Message Routing', () => {
       )
       const roomId = room.data.data.id
 
-      // Setup two agents
       const gw1 = await setupGatewayAgent(user, 'rt-gw-dir1', 'rt-agent-dir1', 'DirAgentA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-dir2', 'rt-agent-dir2', 'DirAgentB')
 
@@ -210,7 +148,7 @@ describe('Message Routing', () => {
       const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
       const collect2 = wsCollect(gw2, 'server:send_to_agent', 1500)
 
-      // Send message with @DirAgentA mention only
+      // Send message with @DirAgentA mention
       client.send(
         JSON.stringify({
           type: 'client:send_message',
@@ -225,9 +163,54 @@ describe('Message Routing', () => {
       // Only DirAgentA should receive
       assert.equal(msgs1.length, 1)
       assert.equal(msgs1[0].routingMode, 'direct')
-      assert.equal(msgs1[0].isMentioned, true)
+      assert.equal(msgs1[0].senderType, 'user')
+      assert.ok(typeof msgs1[0].conversationId === 'string')
+      assert.equal(msgs1[0].depth, 0)
 
       // DirAgentB should NOT receive
+      assert.equal(msgs2.length, 0)
+    })
+
+    it('@mention in broadcast room routes as direct to only mentioned agent', async () => {
+      const user = await registerUser('route_bcd1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'BC Direct Room', broadcastMode: true },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-bcd1', 'rt-agent-bcd1', 'AlphaBot')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-bcd2', 'rt-agent-bcd2', 'BetaBot')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bcd1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bcd2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+
+      const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
+      const collect2 = wsCollect(gw2, 'server:send_to_agent', 1500)
+
+      // Send message with @AlphaBot in broadcast room
+      client.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: '@AlphaBot do something',
+          mentions: ['AlphaBot'],
+        }),
+      )
+
+      const [msgs1, msgs2] = await Promise.all([collect1, collect2])
+
+      // Only AlphaBot receives (direct mode, not broadcast)
+      assert.equal(msgs1.length, 1)
+      assert.equal(msgs1[0].routingMode, 'direct')
+      assert.equal(msgs1[0].agentId, 'rt-agent-bcd1')
+
+      // BetaBot should NOT receive
       assert.equal(msgs2.length, 0)
     })
 
@@ -248,7 +231,6 @@ describe('Message Routing', () => {
       const client = await setupClient(user, roomId)
       const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
 
-      // Send without mention in non-broadcast room
       client.send(
         JSON.stringify({
           type: 'client:send_message',
@@ -261,12 +243,54 @@ describe('Message Routing', () => {
       const msgs = await collect1
       assert.equal(msgs.length, 0)
     })
+
+    it('server-side mention parsing: routing uses server-parsed mentions not client-provided', async () => {
+      const user = await registerUser('route_smp1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'ServerMentions Room', broadcastMode: false },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-smp1', 'rt-agent-smp1', 'RealAgent')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-smp2', 'rt-agent-smp2', 'FakeAgent')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-smp1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-smp2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+
+      const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
+      const collect2 = wsCollect(gw2, 'server:send_to_agent', 1500)
+
+      // Content mentions @RealAgent, but client provides spoofed mentions for FakeAgent
+      client.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: '@RealAgent help me',
+          mentions: ['FakeAgent'],
+        }),
+      )
+
+      const [msgs1, msgs2] = await Promise.all([collect1, collect2])
+
+      // RealAgent should receive (server parsed from content)
+      assert.equal(msgs1.length, 1)
+      assert.equal(msgs1[0].agentId, 'rt-agent-smp1')
+
+      // FakeAgent should NOT receive (client mention is ignored for routing)
+      assert.equal(msgs2.length, 0)
+    })
   })
 
   // ─── Agent-to-Agent Routing ───
 
   describe('Agent-to-Agent Routing', () => {
-    it('agent mentioning another agent triggers direct routing', async () => {
+    it('agent mentioning another agent triggers direct routing with conversationId and depth', async () => {
       const user = await registerUser('route_a2a1')
 
       const room = await api(
@@ -277,17 +301,14 @@ describe('Message Routing', () => {
       )
       const roomId = room.data.data.id
 
-      // Setup two agents on separate gateways
       const gw1 = await setupGatewayAgent(user, 'rt-gw-a2a1', 'rt-agent-a2a1', 'SenderBot')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-a2a2', 'rt-agent-a2a2', 'ReceiverBot')
 
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-a2a1', memberType: 'agent' }, user.accessToken)
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-a2a2', memberType: 'agent' }, user.accessToken)
 
-      // Setup client to receive the message_complete broadcast
       const client = await setupClient(user, roomId)
 
-      // Start collecting on gw2 BEFORE sending the complete
       const collectReceiver = wsCollect(gw2, 'server:send_to_agent', 2000)
 
       // SenderBot completes a message that mentions @ReceiverBot
@@ -303,13 +324,13 @@ describe('Message Routing', () => {
 
       const msgs = await collectReceiver
 
-      // ReceiverBot should receive a direct message from SenderBot
       assert.equal(msgs.length, 1)
       assert.equal(msgs[0].agentId, 'rt-agent-a2a2')
       assert.equal(msgs[0].senderType, 'agent')
       assert.equal(msgs[0].senderName, 'SenderBot')
       assert.equal(msgs[0].routingMode, 'direct')
-      assert.equal(msgs[0].isMentioned, true)
+      assert.ok(typeof msgs[0].conversationId === 'string')
+      assert.equal(msgs[0].depth, 1) // depth incremented from 0 (default)
       assert.ok(msgs[0].content.includes('@ReceiverBot'))
     })
 
@@ -330,7 +351,6 @@ describe('Message Routing', () => {
       const client = await setupClient(user, roomId)
       const collect = wsCollect(gw, 'server:send_to_agent', 1500)
 
-      // Agent mentions itself
       gw.send(
         JSON.stringify({
           type: 'gateway:message_complete',
@@ -342,8 +362,64 @@ describe('Message Routing', () => {
       )
 
       const msgs = await collect
-      // Should NOT receive a message routed to itself
       assert.equal(msgs.length, 0)
+    })
+
+    it('conversation chain passes conversationId and depth through agent relay', async () => {
+      const user = await registerUser('route_chain1')
+
+      const room = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'Chain Room', broadcastMode: false },
+        user.accessToken,
+      )
+      const roomId = room.data.data.id
+
+      const gw1 = await setupGatewayAgent(user, 'rt-gw-chain1', 'rt-agent-chain1', 'ChainA')
+      const gw2 = await setupGatewayAgent(user, 'rt-gw-chain2', 'rt-agent-chain2', 'ChainB')
+
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-chain1', memberType: 'agent' }, user.accessToken)
+      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-chain2', memberType: 'agent' }, user.accessToken)
+
+      const client = await setupClient(user, roomId)
+
+      // User sends to ChainA
+      const collectA = wsCollect(gw1, 'server:send_to_agent', 1500)
+
+      client.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: '@ChainA start the chain',
+          mentions: ['ChainA'],
+        }),
+      )
+
+      const msgsA = await collectA
+      assert.equal(msgsA.length, 1)
+      const convId = msgsA[0].conversationId
+      assert.equal(msgsA[0].depth, 0)
+
+      // ChainA responds mentioning ChainB, passing the conversation chain
+      const collectB = wsCollect(gw2, 'server:send_to_agent', 2000)
+
+      gw1.send(
+        JSON.stringify({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId: 'rt-agent-chain1',
+          messageId: 'chain-msg-1',
+          fullContent: '@ChainB continue this',
+          conversationId: convId,
+          depth: 0,
+        }),
+      )
+
+      const msgsB = await collectB
+      assert.equal(msgsB.length, 1)
+      assert.equal(msgsB[0].conversationId, convId)
+      assert.equal(msgsB[0].depth, 1)
     })
   })
 
@@ -353,7 +429,6 @@ describe('Message Routing', () => {
     it('agent receives room context on registration', async () => {
       const user = await registerUser('route_ctx1')
 
-      // Create room with systemPrompt
       const room = await api(
         'POST',
         '/api/rooms',
@@ -362,15 +437,7 @@ describe('Message Routing', () => {
       )
       const roomId = room.data.data.id
 
-      // Pre-add agent as member (before gateway registers)
-      await api(
-        'POST',
-        `/api/rooms/${roomId}/members`,
-        { memberId: 'rt-agent-ctx1', memberType: 'agent' },
-        user.accessToken,
-      )
-
-      // Setup gateway — agent registration should trigger room context
+      // Register agent first (agent must exist in DB before adding to room)
       const gw = track(await connectWs(WS_GATEWAY_URL))
       await wsSendAndWait(
         gw,
@@ -383,9 +450,6 @@ describe('Message Routing', () => {
         'server:gateway_auth_result',
       )
 
-      // Start collecting room context before registering
-      const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
-
       gw.send(
         JSON.stringify({
           type: 'gateway:register_agent',
@@ -396,6 +460,17 @@ describe('Message Routing', () => {
             capabilities: ['code', 'debug'],
           },
         }),
+      )
+      await new Promise((r) => setTimeout(r, 300))
+
+      // Add agent to room — agent should receive room context
+      const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
+
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-ctx1', memberType: 'agent' },
+        user.accessToken,
       )
 
       const ctx = await contextPromise
@@ -417,23 +492,18 @@ describe('Message Routing', () => {
       )
       const roomId = room.data.data.id
 
-      // Setup agent already in room
       const gw = await setupGatewayAgent(user, 'rt-gw-ctx2', 'rt-agent-ctx2', 'WatcherBot')
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx2', memberType: 'agent' }, user.accessToken)
 
-      // Wait for initial room context from member add
       await new Promise((r) => setTimeout(r, 500))
 
-      // Now add another member — agent should receive updated room context
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
 
-      // Register and add second agent
       const gw2 = await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx2b', memberType: 'agent' }, user.accessToken)
 
       const ctx = await contextPromise
       assert.equal(ctx.context.roomId, roomId)
-      // Should have at least the creator user + both agents
       assert.ok(ctx.context.members.length >= 3)
     })
 
@@ -452,7 +522,6 @@ describe('Message Routing', () => {
       await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx3', memberType: 'agent' }, user.accessToken)
       await new Promise((r) => setTimeout(r, 500))
 
-      // Update room systemPrompt
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
       await api('PUT', `/api/rooms/${roomId}`, { systemPrompt: 'New system prompt' }, user.accessToken)
 
@@ -488,12 +557,10 @@ describe('Message Routing', () => {
       )
       assert.equal(room.data.data.systemPrompt, 'Build a web app')
 
-      // Update systemPrompt
       await api('PUT', `/api/rooms/${room.data.data.id}`, { systemPrompt: 'Updated prompt' }, user.accessToken)
       const updated = await api('GET', `/api/rooms/${room.data.data.id}`, undefined, user.accessToken)
       assert.equal(updated.data.data.systemPrompt, 'Updated prompt')
 
-      // Clear systemPrompt
       await api('PUT', `/api/rooms/${room.data.data.id}`, { systemPrompt: null }, user.accessToken)
       const cleared = await api('GET', `/api/rooms/${room.data.data.id}`, undefined, user.accessToken)
       assert.equal(cleared.data.data.systemPrompt, null)

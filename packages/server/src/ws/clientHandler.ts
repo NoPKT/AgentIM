@@ -1,7 +1,7 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
-import { clientMessageSchema } from '@agentim/shared'
+import { clientMessageSchema, parseMentions } from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
@@ -10,6 +10,7 @@ import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents, messageAttachments } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { getRedis } from '../lib/redis.js'
+import { selectAgents } from '../lib/routerLlm.js'
 
 const log = createLogger('ClientHandler')
 
@@ -278,12 +279,12 @@ async function handleSendMessage(
     message,
   })
 
-  // Route to agents based on mentions and broadcast mode
+  // Route to agents based on server-parsed mentions and broadcast mode
   await routeToAgents(room, message, mentions)
 }
 
 async function routeToAgents(
-  room: { id: string; broadcastMode: boolean },
+  room: { id: string; broadcastMode: boolean; systemPrompt: string | null },
   message: { id: string; content: string; senderName: string },
   mentions: string[],
 ) {
@@ -311,48 +312,69 @@ async function routeToAgents(
     }
   }
 
-  // Resolve mentioned agent IDs
+  // Server-side mention parsing — don't trust client-provided mentions for routing
+  const serverMentions = parseMentions(message.content)
+
+  // Resolve mentioned agent IDs from server-parsed mentions
   const mentionedAgentIds = new Set<string>()
-  for (const mention of mentions) {
+  for (const mention of serverMentions) {
     const agent = agentNameMap.get(mention)
     if (agent && agentMembers.some((m) => m.memberId === agent.id)) {
       mentionedAgentIds.add(agent.id)
     }
   }
 
-  // Three-mode routing decision matrix:
-  // broadcastMode=true  + no mention  → broadcast: all agents receive & respond
-  // broadcastMode=true  + has mention → mention_assign: all agents receive, only mentioned respond
-  // broadcastMode=false + has mention → direct: only mentioned agents receive
-  // broadcastMode=false + no mention  → no routing
+  // Two-mode routing decision matrix:
+  // has @mention (any room)            → direct: only mentioned agents receive
+  // broadcast + no mention + AI Router → broadcast: AI Router selects agents
+  // broadcast + no mention + no Router → no routing (message shown in chat only)
+  // non-broadcast + no mention         → no routing
   let routingMode: RoutingMode
   let targetAgents: typeof agentRows = []
 
-  if (room.broadcastMode && mentions.length === 0) {
-    // broadcast: all agents (excluding API type) receive and respond
-    routingMode = 'broadcast'
-    for (const member of agentMembers) {
-      const agent = agentMap.get(member.memberId)
-      if (agent && agent.connectionType !== 'api') targetAgents.push(agent)
-    }
-  } else if (room.broadcastMode && mentions.length > 0) {
-    // mention_assign: all agents (excluding API type) receive, only mentioned respond
-    routingMode = 'mention_assign'
-    for (const member of agentMembers) {
-      const agent = agentMap.get(member.memberId)
-      if (agent && agent.connectionType !== 'api') targetAgents.push(agent)
-    }
-  } else if (!room.broadcastMode && mentions.length > 0) {
-    // direct: only mentioned agents receive
+  if (mentionedAgentIds.size > 0) {
+    // Direct: only mentioned agents receive
     routingMode = 'direct'
     for (const agentId of mentionedAgentIds) {
       const agent = agentMap.get(agentId)
       if (agent) targetAgents.push(agent)
     }
+  } else if (room.broadcastMode) {
+    // Broadcast room, no mentions — try AI Router
+    const cliAgents = agentRows.filter(
+      (a) => a.connectionType !== 'api',
+    )
+    if (cliAgents.length === 0) return
+
+    const routerResult = await selectAgents(
+      message.content,
+      cliAgents.map((a) => {
+        let capabilities: string[] | undefined
+        if (a.capabilities) {
+          try { capabilities = JSON.parse(a.capabilities) } catch { /* ignore */ }
+        }
+        return { id: a.id, name: a.name, type: a.type, capabilities }
+      }),
+      room.systemPrompt ?? undefined,
+    )
+
+    if (routerResult === null || routerResult.length === 0) {
+      // No AI Router configured or no agents selected — don't route
+      return
+    }
+
+    routingMode = 'broadcast'
+    for (const id of routerResult) {
+      const agent = agentMap.get(id)
+      if (agent) targetAgents.push(agent)
+    }
   } else {
-    // No mentions + no broadcast mode = don't send to agents
+    // Non-broadcast + no mentions = don't route
     return
   }
+
+  // Generate a new conversation chain
+  const conversationId = nanoid()
 
   for (const agent of targetAgents) {
     const sendMsg: ServerSendToAgent = {
@@ -364,7 +386,8 @@ async function routeToAgents(
       senderName: message.senderName,
       senderType: 'user',
       routingMode,
-      isMentioned: mentionedAgentIds.has(agent.id),
+      conversationId,
+      depth: 0,
     }
     connectionManager.sendToGateway(agent.id, sendMsg)
   }

@@ -66,6 +66,7 @@ export const agents = pgTable(
     name: text('name').notNull(),
     type: text('type').notNull(),
     status: text('status').notNull().default('offline'),
+    visibility: text('visibility').notNull().default('private'), // 'private' | 'shared'
     gatewayId: text('gateway_id')
       .notNull()
       .references(() => gateways.id, { onDelete: 'cascade' }),
@@ -79,6 +80,7 @@ export const agents = pgTable(
   (table) => [
     index('agents_gateway_idx').on(table.gatewayId),
     index('agents_status_idx').on(table.status),
+    index('agents_visibility_idx').on(table.visibility),
   ],
 )
 

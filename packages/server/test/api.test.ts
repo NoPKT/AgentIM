@@ -5,6 +5,9 @@ import {
   stopServer,
   api,
   registerUser,
+  connectWs,
+  wsSendAndWait,
+  WS_GATEWAY_URL,
 } from './helpers.js'
 
 describe('AgentIM Server API', () => {
@@ -497,6 +500,132 @@ describe('AgentIM Server API', () => {
     it('owner can delete their own task', async () => {
       const res = await api('DELETE', `/api/tasks/${taskId}`, undefined, ownerToken)
       assert.equal(res.status, 200)
+    })
+  })
+
+  // ─── Agent Ownership & Sharing ───
+
+  describe('Agent Ownership & Sharing', () => {
+    let userAToken: string
+    let userBToken: string
+    let agentId: string
+    let gwA: import('ws').default
+
+    before(async () => {
+      const userA = await registerUser('agent_owner')
+      userAToken = userA.accessToken
+
+      const userB = await registerUser('agent_other')
+      userBToken = userB.accessToken
+
+      // User A registers a gateway + agent via WebSocket
+      gwA = await connectWs(WS_GATEWAY_URL)
+      await wsSendAndWait(
+        gwA,
+        {
+          type: 'gateway:auth',
+          token: userAToken,
+          gatewayId: 'ownership-gw',
+          deviceInfo: { hostname: 'test', platform: 'test', arch: 'x64', nodeVersion: 'v20' },
+        },
+        'server:gateway_auth_result',
+      )
+
+      agentId = 'ownership-agent-1'
+      gwA.send(
+        JSON.stringify({
+          type: 'gateway:register_agent',
+          agent: { id: agentId, name: 'OwnerBot', type: 'generic' },
+        }),
+      )
+      // Wait for agent registration
+      await new Promise((r) => setTimeout(r, 300))
+    })
+
+    after(() => {
+      gwA?.close()
+    })
+
+    it('rejects adding another user\'s private agent to room', async () => {
+      // User B creates a room and tries to add User A's private agent
+      const room = await api('POST', '/api/rooms', { name: 'B Room' }, userBToken)
+      const roomId = room.data.data.id
+
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: agentId, memberType: 'agent' },
+        userBToken,
+      )
+      assert.equal(res.status, 403)
+      assert.ok(res.data.error.includes('not shared'))
+    })
+
+    it('allows owner to add their own agent to room', async () => {
+      const room = await api('POST', '/api/rooms', { name: 'A Room' }, userAToken)
+      const roomId = room.data.data.id
+
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: agentId, memberType: 'agent' },
+        userAToken,
+      )
+      assert.equal(res.status, 201)
+    })
+
+    it('only owner can change agent visibility', async () => {
+      // User B tries to change visibility of User A's agent
+      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'shared' }, userBToken)
+      assert.equal(res.status, 403)
+    })
+
+    it('owner can set agent to shared', async () => {
+      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'shared' }, userAToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.visibility, 'shared')
+    })
+
+    it('allows adding shared agent to another user\'s room', async () => {
+      // Agent is now shared, User B should be able to add it
+      const room = await api('POST', '/api/rooms', { name: 'B Room Shared' }, userBToken)
+      const roomId = room.data.data.id
+
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: agentId, memberType: 'agent' },
+        userBToken,
+      )
+      assert.equal(res.status, 201)
+    })
+
+    it('GET /agents/shared only returns other users\' shared agents', async () => {
+      // User B should see User A's shared agent
+      const res = await api('GET', '/api/agents/shared', undefined, userBToken)
+      assert.equal(res.status, 200)
+      const found = res.data.data.find((a: any) => a.id === agentId)
+      assert.ok(found, 'Shared agent should be visible to other users')
+      assert.ok(found.ownerName, 'Should include owner name')
+
+      // User A should NOT see their own agent in shared list
+      const resA = await api('GET', '/api/agents/shared', undefined, userAToken)
+      assert.equal(resA.status, 200)
+      const foundA = resA.data.data.find((a: any) => a.id === agentId)
+      assert.ok(!foundA, 'Own shared agent should not appear in shared list')
+    })
+
+    it('returns 404 for non-existent agent when adding to room', async () => {
+      const room = await api('POST', '/api/rooms', { name: 'Ghost Room' }, userAToken)
+      const roomId = room.data.data.id
+
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'non-existent-agent', memberType: 'agent' },
+        userAToken,
+      )
+      assert.equal(res.status, 404)
     })
   })
 

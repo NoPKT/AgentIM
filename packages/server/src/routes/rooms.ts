@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { rooms, roomMembers } from '../db/schema.js'
+import { rooms, roomMembers, agents, gateways } from '../db/schema.js'
 import { createRoomSchema, updateRoomSchema, addMemberSchema, NOTIFICATION_PREFS } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText } from '../lib/sanitize.js'
@@ -191,6 +191,28 @@ roomRoutes.post('/:id/members', async (c) => {
 
   if (!await isRoomAdmin(userId, roomId)) {
     return c.json({ ok: false, error: 'Only room owner or admin can add members' }, 403)
+  }
+
+  // Agent ownership / visibility check
+  if (parsed.data.memberType === 'agent') {
+    const [agent] = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.id, parsed.data.memberId))
+      .limit(1)
+    if (!agent) {
+      return c.json({ ok: false, error: 'Agent not found' }, 404)
+    }
+    if (agent.visibility !== 'shared') {
+      const [gw] = await db
+        .select()
+        .from(gateways)
+        .where(eq(gateways.id, agent.gatewayId))
+        .limit(1)
+      if (!gw || gw.userId !== userId) {
+        return c.json({ ok: false, error: 'You do not own this agent and it is not shared' }, 403)
+      }
+    }
   }
 
   const now = new Date().toISOString()

@@ -4,6 +4,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { toast } from '../stores/toast.js'
+import type { Agent } from '@agentim/shared'
 
 interface AddAgentDialogProps {
   roomId: string
@@ -16,6 +17,8 @@ interface AddAgentDialogProps {
 export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onAdded }: AddAgentDialogProps) {
   const { t } = useTranslation()
   const agents = useAgentStore((s) => s.agents)
+  const sharedAgents = useAgentStore((s) => s.sharedAgents)
+  const loadSharedAgents = useAgentStore((s) => s.loadSharedAgents)
   const addRoomMember = useChatStore((s) => s.addRoomMember)
   const [search, setSearch] = useState('')
   const [onlineOnly, setOnlineOnly] = useState(false)
@@ -24,14 +27,23 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
   const statusConfig = getStatusConfig(t)
   const typeConfig = getTypeConfig(t)
 
-  const availableAgents = useMemo(() => {
-    return agents.filter((agent) => {
+  // Load shared agents when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      loadSharedAgents()
+    }
+  }, [isOpen, loadSharedAgents])
+
+  const filterAgents = (list: Agent[]) =>
+    list.filter((agent) => {
       if (existingMemberIds.has(agent.id)) return false
       if (onlineOnly && agent.status !== 'online') return false
       if (search && !agent.name.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [agents, existingMemberIds, onlineOnly, search])
+
+  const availableMyAgents = useMemo(() => filterAgents(agents), [agents, existingMemberIds, onlineOnly, search])
+  const availableSharedAgents = useMemo(() => filterAgents(sharedAgents), [sharedAgents, existingMemberIds, onlineOnly, search])
 
   const handleAdd = async (agentId: string) => {
     setAdding(agentId)
@@ -56,6 +68,54 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
   }, [isOpen, onClose])
 
   if (!isOpen) return null
+
+  const renderAgentRow = (agent: Agent, showOwner = false) => {
+    const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
+    const type = typeConfig[agent.type] || typeConfig.generic
+
+    return (
+      <div
+        key={agent.id}
+        className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      >
+        {/* Avatar */}
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-medium text-white">
+            {agent.name.charAt(0).toUpperCase()}
+          </span>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{agent.name}</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${type.color}`}>
+              {type.label}
+            </span>
+            {showOwner && agent.ownerName && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                {t('ownedBy', { name: agent.ownerName })}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Add Button */}
+        <button
+          onClick={() => handleAdd(agent.id)}
+          disabled={adding === agent.id}
+          className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 flex-shrink-0"
+        >
+          {adding === agent.id ? '...' : t('addAgent')}
+        </button>
+      </div>
+    )
+  }
+
+  const hasNoAgents = availableMyAgents.length === 0 && availableSharedAgents.length === 0
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={onClose}>
@@ -92,50 +152,37 @@ export function AddAgentDialog({ roomId, existingMemberIds, isOpen, onClose, onA
         </div>
 
         {/* Agent List */}
-        <div className="max-h-72 overflow-y-auto">
-          {availableAgents.length === 0 ? (
+        <div className="max-h-80 overflow-y-auto">
+          {hasNoAgents ? (
             <div className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
               {t('noAgentsAvailable')}
             </div>
           ) : (
-            availableAgents.map((agent) => {
-              const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
-              const type = typeConfig[agent.type] || typeConfig.generic
-
-              return (
-                <div
-                  key={agent.id}
-                  className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                >
-                  {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-medium text-white">
-                      {agent.name.charAt(0).toUpperCase()}
+            <>
+              {/* My Agents Section */}
+              {availableMyAgents.length > 0 && (
+                <>
+                  <div className="px-6 py-2 bg-gray-50 dark:bg-gray-700/30 sticky top-0">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {t('myAgents')}
                     </span>
                   </div>
+                  {availableMyAgents.map((agent) => renderAgentRow(agent))}
+                </>
+              )}
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{agent.name}</span>
-                      <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
-                    </div>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${type.color}`}>
-                      {type.label}
+              {/* Shared Agents Section */}
+              {availableSharedAgents.length > 0 && (
+                <>
+                  <div className="px-6 py-2 bg-gray-50 dark:bg-gray-700/30 sticky top-0">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      {t('sharedAgents')}
                     </span>
                   </div>
-
-                  {/* Add Button */}
-                  <button
-                    onClick={() => handleAdd(agent.id)}
-                    disabled={adding === agent.id}
-                    className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
-                    {adding === agent.id ? '...' : t('addAgent')}
-                  </button>
-                </div>
-              )
-            })
+                  {availableSharedAgents.map((agent) => renderAgentRow(agent, true))}
+                </>
+              )}
+            </>
           )}
         </div>
 

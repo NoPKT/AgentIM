@@ -213,6 +213,8 @@ export interface GatewayMessageComplete {
   messageId: string
   fullContent: string
   chunks?: ParsedChunk[]
+  conversationId?: string
+  depth?: number
 }
 
 export interface GatewayAgentStatus {
@@ -267,7 +269,8 @@ export interface ServerSendToAgent {
   senderName: string
   senderType: 'user' | 'agent'
   routingMode: RoutingMode
-  isMentioned: boolean
+  conversationId: string
+  depth: number
 }
 
 export interface ServerRoomContext {

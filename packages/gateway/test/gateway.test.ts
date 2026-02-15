@@ -151,27 +151,6 @@ describe('AgentManager', () => {
     assert.equal(sentMessages.length, 0)
   })
 
-  it('handleServerMessage skips mention_assign when not mentioned', () => {
-    const id = manager.addAgent({ type: 'claude-code', name: 'A4' })
-    sentMessages.length = 0
-
-    manager.handleServerMessage({
-      type: 'server:send_to_agent',
-      agentId: id,
-      roomId: 'room1',
-      content: 'hello',
-      senderName: 'user1',
-      senderType: 'user',
-      routingMode: 'mention_assign',
-      isMentioned: false,
-      messageId: 'msg1',
-      mentions: [],
-    })
-
-    // Should NOT send any messages (agent skipped)
-    assert.equal(sentMessages.length, 0)
-  })
-
   it('handleServerMessage ignores unknown agentId', () => {
     sentMessages.length = 0
 
@@ -183,9 +162,9 @@ describe('AgentManager', () => {
       senderName: 'user1',
       senderType: 'user',
       routingMode: 'broadcast',
-      isMentioned: false,
+      conversationId: 'conv-1',
+      depth: 0,
       messageId: 'msg1',
-      mentions: [],
     })
 
     // Should not crash, no messages sent

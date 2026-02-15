@@ -27,6 +27,14 @@ export const config = {
   uploadDir: env('UPLOAD_DIR', './uploads'),
   maxFileSize: parseInt(env('MAX_FILE_SIZE', String(MAX_FILE_SIZE)), 10),
   allowedMimeTypes: ALLOWED_MIME_TYPES as readonly string[],
+  // AI Router (optional — uses OpenAI-compatible API)
+  routerLlmBaseUrl: process.env.ROUTER_LLM_BASE_URL || '',
+  routerLlmApiKey: process.env.ROUTER_LLM_API_KEY || '',
+  routerLlmModel: env('ROUTER_LLM_MODEL', 'gpt-oss-20b'),
+  // Routing protection
+  maxAgentChainDepth: parseInt(env('MAX_AGENT_CHAIN_DEPTH', '5'), 10),
+  agentRateLimitWindow: parseInt(env('AGENT_RATE_LIMIT_WINDOW', '60'), 10),
+  agentRateLimitMax: parseInt(env('AGENT_RATE_LIMIT_MAX', '20'), 10),
 }
 
 // Security check: refuse to start in production with default JWT secret

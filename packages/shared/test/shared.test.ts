@@ -512,10 +512,9 @@ describe('Constants', () => {
     assert.ok(ROOM_TYPES.includes('group'))
   })
 
-  it('ROUTING_MODES includes three modes', () => {
-    assert.equal(ROUTING_MODES.length, 3)
+  it('ROUTING_MODES includes two modes', () => {
+    assert.equal(ROUTING_MODES.length, 2)
     assert.ok(ROUTING_MODES.includes('broadcast'))
-    assert.ok(ROUTING_MODES.includes('mention_assign'))
     assert.ok(ROUTING_MODES.includes('direct'))
   })
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
-import type { Agent } from '@agentim/shared'
+import type { Agent, AgentVisibility } from '@agentim/shared'
 
 export default function AgentsPage() {
   const { t } = useTranslation()
@@ -110,6 +110,7 @@ export default function AgentsPage() {
 
 function AgentCard({ agent }: { agent: Agent }) {
   const { t } = useTranslation()
+  const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
 
   const statusConfig = getStatusConfig(t)
   const typeConfig = getTypeConfig(t)
@@ -117,6 +118,13 @@ function AgentCard({ agent }: { agent: Agent }) {
   const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
   const type = typeConfig[agent.type] || typeConfig.generic
   const gradient = agentGradients[agent.type] || agentGradients.generic
+
+  const isShared = agent.visibility === 'shared'
+
+  const handleToggleVisibility = () => {
+    const newVisibility: AgentVisibility = isShared ? 'private' : 'shared'
+    updateAgentVisibility(agent.id, newVisibility)
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
@@ -197,6 +205,31 @@ function AgentCard({ agent }: { agent: Agent }) {
             </dd>
           </div>
         )}
+      </div>
+
+      {/* Visibility Toggle */}
+      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('visibility')}</span>
+            <span className={`ml-2 text-xs font-medium ${isShared ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+              {isShared ? t('visibilityShared') : t('visibilityPrivate')}
+            </span>
+          </div>
+          <button
+            onClick={handleToggleVisibility}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              isShared ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+            title={t('visibilityDesc')}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                isShared ? 'translate-x-4.5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -8,10 +8,24 @@ import { verifyToken } from '../lib/jwt.js'
 import { createLogger } from '../lib/logger.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
+import { getRedis } from '../lib/redis.js'
+import { config } from '../config.js'
 
 const log = createLogger('GatewayHandler')
 
 const MAX_MESSAGE_SIZE = 256 * 1024 // 256 KB (gateway messages can be larger due to agent output)
+
+async function isAgentRateLimited(agentId: string): Promise<boolean> {
+  try {
+    const redis = getRedis()
+    const key = `ws:agent_rate:${agentId}`
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, config.agentRateLimitWindow)
+    return count > config.agentRateLimitMax
+  } catch {
+    return false
+  }
+}
 
 async function getAgentRoomIds(agentId: string): Promise<string[]> {
   const rows = await db
@@ -250,8 +264,16 @@ async function handleMessageComplete(
     messageId: string
     fullContent: string
     chunks?: Array<{ type: string; content: string; metadata?: Record<string, unknown> }>
+    conversationId?: string
+    depth?: number
   },
 ) {
+  // Agent rate limiting — save the message but skip routing if limited
+  const rateLimited = await isAgentRateLimited(msg.agentId)
+  if (rateLimited) {
+    log.warn(`Agent ${msg.agentId} rate limited, message saved but not routed`)
+  }
+
   const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
@@ -296,9 +318,15 @@ async function handleMessageComplete(
 
   await broadcastAgentStatus(msg.agentId)
 
+  // Skip agent-to-agent routing if rate limited
+  if (rateLimited) return
+
   // Agent-to-Agent routing: check if agent's message mentions other agents
   const mentionedNames = parseMentions(msg.fullContent)
   if (mentionedNames.length > 0) {
+    const conversationId = msg.conversationId || nanoid()
+    const depth = msg.depth ?? 0
+
     await routeAgentToAgent(
       msg.roomId,
       msg.agentId,
@@ -306,6 +334,8 @@ async function handleMessageComplete(
       msg.messageId,
       msg.fullContent,
       mentionedNames,
+      conversationId,
+      depth,
     )
   }
 }
@@ -393,7 +423,15 @@ async function routeAgentToAgent(
   messageId: string,
   fullContent: string,
   mentionedNames: string[],
+  conversationId: string,
+  depth: number,
 ) {
+  // 1. Depth check
+  if (depth >= config.maxAgentChainDepth) {
+    log.warn(`Chain depth ${depth} exceeds max ${config.maxAgentChainDepth} for conversation ${conversationId}, stopping`)
+    return
+  }
+
   // Get agent members in this room
   const agentMembers = await db
     .select()
@@ -414,11 +452,35 @@ async function routeAgentToAgent(
     }
   }
 
+  // 2. Redis visited set for loop detection
+  const redis = getRedis()
+  const visitedKey = `conv:${conversationId}:visited`
+
+  // Add sender to visited set
+  try {
+    await redis.sadd(visitedKey, senderAgentId)
+    await redis.expire(visitedKey, 300) // 5 minute TTL
+  } catch {
+    // If Redis fails, continue without visited tracking
+  }
+
   // Resolve mentioned agents, excluding the sender
   for (const name of mentionedNames) {
     const agent = agentNameMap.get(name)
+    // 3. Self-reference check
     if (!agent || agent.id === senderAgentId) continue
     if (!agentMembers.some((m) => m.memberId === agent.id)) continue
+
+    // Check visited set — prevent A→B→A loops
+    try {
+      const visited = await redis.sismember(visitedKey, agent.id)
+      if (visited) {
+        log.warn(`Agent ${agent.id} already visited in conversation ${conversationId}, skipping`)
+        continue
+      }
+    } catch {
+      // If Redis fails, allow the message through (depth check still applies)
+    }
 
     const sendMsg: ServerSendToAgent = {
       type: 'server:send_to_agent',
@@ -429,7 +491,8 @@ async function routeAgentToAgent(
       senderName,
       senderType: 'agent',
       routingMode: 'direct',
-      isMentioned: true,
+      conversationId,
+      depth: depth + 1,
     }
     connectionManager.sendToGateway(agent.id, sendMsg)
   }

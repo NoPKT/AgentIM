@@ -4,6 +4,9 @@ export type AgentType = (typeof AGENT_TYPES)[number]
 export const AGENT_STATUSES = ['online', 'offline', 'busy', 'error'] as const
 export type AgentStatus = (typeof AGENT_STATUSES)[number]
 
+export const AGENT_VISIBILITIES = ['private', 'shared'] as const
+export type AgentVisibility = (typeof AGENT_VISIBILITIES)[number]
+
 export const ROOM_TYPES = ['private', 'group'] as const
 export type RoomType = (typeof ROOM_TYPES)[number]
 
@@ -19,7 +22,7 @@ export type TaskStatus = (typeof TASK_STATUSES)[number]
 export const CHUNK_TYPES = ['text', 'thinking', 'tool_use', 'tool_result', 'error'] as const
 export type ChunkType = (typeof CHUNK_TYPES)[number]
 
-export const ROUTING_MODES = ['broadcast', 'mention_assign', 'direct'] as const
+export const ROUTING_MODES = ['broadcast', 'direct'] as const
 export type RoutingMode = (typeof ROUTING_MODES)[number]
 
 export const AGENT_CONNECTION_TYPES = ['cli', 'api'] as const

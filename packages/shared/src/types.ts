@@ -1,6 +1,7 @@
 import type {
   AgentType,
   AgentStatus,
+  AgentVisibility,
   AgentConnectionType,
   UserRole,
   RoomType,
@@ -27,11 +28,13 @@ export interface Agent {
   name: string
   type: AgentType
   status: AgentStatus
+  visibility?: AgentVisibility
   gatewayId: string
   workingDirectory?: string
   capabilities?: string[]
   connectionType?: AgentConnectionType
   deviceInfo?: DeviceInfo
+  ownerName?: string
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

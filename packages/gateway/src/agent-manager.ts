@@ -85,12 +85,6 @@ export class AgentManager {
       return
     }
 
-    // mention_assign mode: if agent is NOT mentioned, skip silently
-    if (msg.routingMode === 'mention_assign' && !msg.isMentioned) {
-      log.debug(`Agent ${msg.agentId} received mention_assign but not mentioned, skipping`)
-      return
-    }
-
     const messageId = nanoid()
     const allChunks: ParsedChunk[] = []
 
@@ -121,6 +115,8 @@ export class AgentManager {
           messageId,
           fullContent,
           chunks: allChunks,
+          conversationId: msg.conversationId,
+          depth: msg.depth,
         })
         this.wsClient.send({
           type: 'gateway:agent_status',
@@ -137,6 +133,8 @@ export class AgentManager {
           messageId,
           fullContent: `Error: ${error}`,
           chunks: allChunks,
+          conversationId: msg.conversationId,
+          depth: msg.depth,
         })
         this.wsClient.send({
           type: 'gateway:agent_status',
@@ -148,7 +146,8 @@ export class AgentManager {
         roomId: msg.roomId,
         senderName: msg.senderName,
         routingMode: msg.routingMode,
-        isMentioned: msg.isMentioned,
+        conversationId: msg.conversationId,
+        depth: msg.depth,
         roomContext: this.roomContexts.get(`${msg.agentId}:${msg.roomId}`),
       },
     )

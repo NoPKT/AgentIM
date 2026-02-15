@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   AGENT_TYPES,
   AGENT_STATUSES,
+  AGENT_VISIBILITIES,
   ROOM_TYPES,
   MEMBER_ROLES,
   MESSAGE_TYPES,
@@ -100,6 +101,12 @@ export const updateTaskSchema = z.object({
   status: z.enum(TASK_STATUSES).optional(),
   assigneeId: z.string().nullable().optional(),
   assigneeType: z.enum(['user', 'agent']).nullable().optional(),
+})
+
+// ─── Agent ───
+
+export const updateAgentSchema = z.object({
+  visibility: z.enum(AGENT_VISIBILITIES).optional(),
 })
 
 // ─── User ───
@@ -234,6 +241,8 @@ export const gatewayMessageCompleteSchema = z.object({
   messageId: z.string().min(1),
   fullContent: z.string(),
   chunks: z.array(parsedChunkSchema).optional(),
+  conversationId: z.string().optional(),
+  depth: z.number().int().min(0).optional(),
 })
 
 export const gatewayAgentStatusSchema = z.object({

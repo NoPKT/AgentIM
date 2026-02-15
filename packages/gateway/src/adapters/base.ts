@@ -10,7 +10,8 @@ export interface MessageContext {
   roomId: string
   senderName: string
   routingMode?: RoutingMode
-  isMentioned?: boolean
+  conversationId?: string
+  depth?: number
   roomContext?: RoomContext
 }
 

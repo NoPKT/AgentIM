@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, ne, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agents, gateways } from '../db/schema.js'
+import { agents, gateways, users } from '../db/schema.js'
+import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 
 export const agentRoutes = new Hono<AuthEnv>()
@@ -54,6 +55,90 @@ agentRoutes.get('/', async (c) => {
     .offset(offset)
 
   return c.json({ ok: true, data: enrichAgents(allAgents, userGateways) })
+})
+
+// List shared agents from other users
+agentRoutes.get('/shared', async (c) => {
+  const userId = c.get('userId')
+
+  // Get all shared agents
+  const sharedAgents = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.visibility, 'shared'))
+
+  if (sharedAgents.length === 0) {
+    return c.json({ ok: true, data: [] })
+  }
+
+  // Get their gateways
+  const gatewayIds = [...new Set(sharedAgents.map((a) => a.gatewayId))]
+  const gwRows = await db
+    .select()
+    .from(gateways)
+    .where(inArray(gateways.id, gatewayIds))
+
+  const gwMap = new Map(gwRows.map((g) => [g.id, g]))
+
+  // Filter out current user's own agents
+  const otherAgents = sharedAgents.filter((a) => {
+    const gw = gwMap.get(a.gatewayId)
+    return gw && gw.userId !== userId
+  })
+
+  if (otherAgents.length === 0) {
+    return c.json({ ok: true, data: [] })
+  }
+
+  // Get owner display names
+  const ownerIds = [...new Set(otherAgents.map((a) => gwMap.get(a.gatewayId)!.userId))]
+  const ownerRows = await db
+    .select({ id: users.id, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.id, ownerIds))
+  const ownerMap = new Map(ownerRows.map((u) => [u.id, u.displayName]))
+
+  const enriched = enrichAgents(otherAgents, gwRows).map((agent) => {
+    const gw = gwMap.get(agent.gatewayId)
+    return {
+      ...agent,
+      ownerName: gw ? ownerMap.get(gw.userId) ?? undefined : undefined,
+    }
+  })
+
+  return c.json({ ok: true, data: enriched })
+})
+
+// Update agent (owner only)
+agentRoutes.put('/:id', async (c) => {
+  const agentId = c.req.param('id')
+  const userId = c.get('userId')
+  const body = await c.req.json()
+  const parsed = updateAgentSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ ok: false, error: 'Validation failed', details: parsed.error.flatten() }, 400)
+  }
+
+  // Verify ownership: agent → gateway → userId
+  const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
+  if (!agent) {
+    return c.json({ ok: false, error: 'Agent not found' }, 404)
+  }
+
+  const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
+  if (!gw || gw.userId !== userId) {
+    return c.json({ ok: false, error: 'You do not own this agent' }, 403)
+  }
+
+  const now = new Date().toISOString()
+  await db
+    .update(agents)
+    .set({ ...parsed.data, updatedAt: now })
+    .where(eq(agents.id, agentId))
+
+  const [updated] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
+  const [enriched] = enrichAgents([updated], [gw])
+  return c.json({ ok: true, data: enriched })
 })
 
 // Get single agent
