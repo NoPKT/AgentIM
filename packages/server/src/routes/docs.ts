@@ -259,6 +259,9 @@ const spec = {
     '/messages/rooms/{roomId}/read': {
       post: { tags: ['Messages'], summary: 'Mark room as read', parameters: [{ name: 'roomId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room marked as read' } } },
     },
+    '/messages/mark-all-read': {
+      post: { tags: ['Messages'], summary: 'Mark all rooms as read', responses: { '200': { description: 'All rooms marked as read' } } },
+    },
     '/messages/{id}': {
       put: { tags: ['Messages'], summary: 'Edit a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message edited' } } },
       delete: { tags: ['Messages'], summary: 'Delete a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message deleted' } } },
@@ -272,7 +275,7 @@ const spec = {
     '/agents': {
       get: {
         tags: ['Agents'],
-        summary: 'List agents',
+        summary: 'List agents owned by current user',
         parameters: [
           { name: 'limit', in: 'query', schema: { type: 'integer' } },
           { name: 'offset', in: 'query', schema: { type: 'integer' } },
@@ -280,9 +283,39 @@ const spec = {
         responses: { '200': { description: 'Agent list' } },
       },
     },
+    '/agents/shared': {
+      get: { tags: ['Agents'], summary: 'List agents shared by other users', responses: { '200': { description: 'Shared agent list' } } },
+    },
+    '/agents/{id}': {
+      get: { tags: ['Agents'], summary: 'Get agent details', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent details' }, '404': { description: 'Agent not found or not accessible' } } },
+      put: { tags: ['Agents'], summary: 'Update agent settings', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent updated' } } },
+    },
+    '/agents/gateways/list': {
+      get: { tags: ['Agents'], summary: 'List connected gateways', responses: { '200': { description: 'Gateway list with connected agent counts' } } },
+    },
     '/tasks': {
-      get: { tags: ['Tasks'], summary: 'List tasks for a room', parameters: [{ name: 'roomId', in: 'query', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task list' } } },
+      get: {
+        tags: ['Tasks'],
+        summary: 'List tasks for current user',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 100 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+        ],
+        responses: { '200': { description: 'Task list' } },
+      },
       post: { tags: ['Tasks'], summary: 'Create a task', responses: { '201': { description: 'Task created' } } },
+    },
+    '/tasks/rooms/{roomId}': {
+      get: {
+        tags: ['Tasks'],
+        summary: 'List tasks for a room',
+        parameters: [
+          { name: 'roomId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 100 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
+        ],
+        responses: { '200': { description: 'Task list for room' } },
+      },
     },
     '/tasks/{id}': {
       put: { tags: ['Tasks'], summary: 'Update a task', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task updated' } } },

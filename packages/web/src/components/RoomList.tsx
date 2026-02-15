@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { toast } from '../stores/toast.js'
+import { api } from '../lib/api.js'
 
 function timeAgo(dateStr: string, locale: string): string {
   const now = Date.now()
@@ -101,16 +102,36 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
           <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             {showArchived ? t('archivedRooms') : t('rooms')}
           </h3>
-          <button
-            onClick={() => setShowArchived(!showArchived)}
-            className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
-              showArchived
-                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
-                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-            }`}
-          >
-            {showArchived ? t('rooms') : t('archivedRooms')}
-          </button>
+          <div className="flex items-center gap-1">
+            {!showArchived && unreadCounts.size > 0 && (
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.post('/messages/mark-all-read')
+                    if (res.ok) {
+                      useChatStore.setState({ unreadCounts: new Map() })
+                    }
+                  } catch {
+                    toast.error(t('error'))
+                  }
+                }}
+                className="text-[10px] px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                title={t('markAllRead')}
+              >
+                {t('markAllRead')}
+              </button>
+            )}
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showArchived
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+            >
+              {showArchived ? t('rooms') : t('archivedRooms')}
+            </button>
+          </div>
         </div>
         {rooms.length === 0 ? (
           <p className="px-2 py-4 text-sm text-gray-500 dark:text-gray-400">{t('noResults')}</p>

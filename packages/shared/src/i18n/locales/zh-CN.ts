@@ -149,6 +149,7 @@ export const zhCN = {
     readBy: '已读',
     scrollToBottom: '滚动到底部',
     imagePreview: '图片预览',
+    markAllRead: '全部标记已读',
   },
   agent: {
     agents: '智能体',

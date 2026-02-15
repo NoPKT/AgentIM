@@ -59,7 +59,8 @@ if (isProduction) {
   }
 }
 
-// Warn if CORS is wide open in production
+// Refuse to start with wide-open CORS in production
 if (isProduction && config.corsOrigin === '*') {
-  log.warn('CORS_ORIGIN is set to "*" in production. Consider restricting to your frontend domain.')
+  log.fatal('CORS_ORIGIN is set to "*" in production. Set CORS_ORIGIN to your frontend domain (e.g. https://app.example.com).')
+  process.exit(1)
 }

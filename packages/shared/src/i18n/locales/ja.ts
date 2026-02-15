@@ -149,6 +149,7 @@ export const ja = {
     readBy: '既読',
     scrollToBottom: '一番下へスクロール',
     imagePreview: '画像プレビュー',
+    markAllRead: 'すべて既読にする',
   },
   agent: {
     agents: 'エージェント',

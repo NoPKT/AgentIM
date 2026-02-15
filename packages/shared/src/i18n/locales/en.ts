@@ -149,6 +149,7 @@ export const en = {
     readBy: 'Read by',
     scrollToBottom: 'Scroll to bottom',
     imagePreview: 'Image preview',
+    markAllRead: 'Mark all read',
   },
   agent: {
     agents: 'Agents',

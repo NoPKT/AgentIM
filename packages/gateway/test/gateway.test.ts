@@ -1,6 +1,7 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createAdapter, BaseAgentAdapter } from '../src/adapters/index.js'
+import type { MessageContext } from '../src/adapters/base.js'
 import { wsUrlToHttpUrl } from '../src/config.js'
 import { getDeviceInfo } from '../src/device.js'
 import { AgentManager } from '../src/agent-manager.js'
@@ -206,5 +207,60 @@ describe('AgentManager', () => {
     manager.addAgent({ type: 'claude-code', name: 'D1', workingDirectory: '/home/user/project' })
     const msg = sentMessages[0] as any
     assert.equal(msg.agent.workingDirectory, '/home/user/project')
+  })
+})
+
+// ─── BaseAgentAdapter.buildPrompt ───
+
+describe('BaseAgentAdapter.buildPrompt', () => {
+  class TestAdapter extends BaseAgentAdapter {
+    get type() { return 'test' }
+    sendMessage() { /* no-op */ }
+    stop() { /* no-op */ }
+    dispose() { /* no-op */ }
+    public testBuildPrompt(content: string, context?: MessageContext) {
+      return this.buildPrompt(content, context)
+    }
+  }
+
+  it('returns content as-is when no context', () => {
+    const adapter = new TestAdapter({ agentId: 'bp-1', agentName: 'Test' })
+    assert.equal(adapter.testBuildPrompt('Hello'), 'Hello')
+  })
+
+  it('prepends sender name', () => {
+    const adapter = new TestAdapter({ agentId: 'bp-2', agentName: 'Test' })
+    const result = adapter.testBuildPrompt('Hello', { roomId: 'r1', senderName: 'Alice' })
+    assert.equal(result, '[From: Alice]\n\nHello')
+  })
+
+  it('prepends system prompt and sender name', () => {
+    const adapter = new TestAdapter({ agentId: 'bp-3', agentName: 'Test' })
+    const result = adapter.testBuildPrompt('Hello', {
+      roomId: 'r1',
+      senderName: 'Alice',
+      roomContext: { roomId: 'r1', roomName: 'Room', members: [], systemPrompt: 'Be helpful' },
+    })
+    assert.equal(result, '[System: Be helpful]\n\n[From: Alice]\n\nHello')
+  })
+
+  it('skips sender when empty', () => {
+    const adapter = new TestAdapter({ agentId: 'bp-4', agentName: 'Test' })
+    const result = adapter.testBuildPrompt('Hello', {
+      roomId: 'r1',
+      senderName: '',
+      roomContext: { roomId: 'r1', roomName: 'Room', members: [], systemPrompt: 'Be concise' },
+    })
+    assert.equal(result, '[System: Be concise]\n\nHello')
+  })
+
+  it('skips system prompt when absent', () => {
+    const adapter = new TestAdapter({ agentId: 'bp-5', agentName: 'Test' })
+    const result = adapter.testBuildPrompt('Hello', {
+      roomId: 'r1',
+      senderName: 'Bob',
+      roomContext: { roomId: 'r1', roomName: 'Room', members: [] },
+    })
+    assert.equal(result, '[From: Bob]\n\nHello')
   })
 })

@@ -112,7 +112,7 @@ export function MessageList() {
 
   return (
     <div className="flex-1 relative min-h-0">
-    <div ref={parentRef} className="h-full overflow-y-auto" role="log" aria-live="polite">
+    <div ref={parentRef} className="h-full overflow-y-auto" role="log" aria-live="polite" aria-label={t('chat.rooms')}>
       {/* 加载更多按钮 */}
       {currentHasMore && (
         <div className="p-4 text-center">

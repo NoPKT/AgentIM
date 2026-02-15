@@ -149,6 +149,7 @@ export const ko = {
     readBy: '읽음',
     scrollToBottom: '맨 아래로 스크롤',
     imagePreview: '이미지 미리보기',
+    markAllRead: '모두 읽음 표시',
   },
   agent: {
     agents: '에이전트',
