@@ -1,13 +1,17 @@
 # CI Pipeline - Build, Lint, Test
+#
+# Triggers:
+#   - Pull requests to main (gate merges)
+#   - Manual dispatch
+#   - Called by release workflow (CD prerequisite)
 
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
