@@ -50,7 +50,7 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 Examples:
 
-```
+```text
 feat: add agent heartbeat monitoring
 fix: resolve WebSocket reconnection loop
 docs: update gateway CLI usage instructions
@@ -61,10 +61,12 @@ docs: update gateway CLI usage instructions
 1. Fork the repository and create a branch from `main`.
 2. Make your changes following the code style and conventions above.
 3. Ensure the project builds and tests pass:
+
    ```bash
    pnpm build
    pnpm test
    ```
+
 4. Submit a pull request against `main` with a clear description of your changes.
 
 ## Internationalization (i18n)
