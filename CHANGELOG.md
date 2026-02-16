@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File upload and image sharing.
 - Message editing, deletion, reactions, and search.
 - Room pinning, archiving, and notification preferences.
-- Multi-language support (EN, ZH-CN, JA, KO).
+- Multi-language support (EN, ZH-CN, JA, KO, FR, DE, RU).
 - OpenAPI documentation endpoint.
 - Docker and Docker Compose deployment.
 - CI pipeline with GitHub Actions.
