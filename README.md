@@ -33,11 +33,23 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI, etc.) into *
 - **Dark Mode** — Full dark mode support across the entire UI
 - **Multilingual** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
+## How It Works
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web UI      │◄── WS ──►│  Hub Server  │◄── WS ──►│ AgentIM CLI  │
+│  (Browser)   │          │  + PostgreSQL │          │  + Agents    │
+│              │          │  + Redis      │          │  (your PC)   │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Hub Server** — Central server handling authentication, rooms, messages, and routing. Deploy it on a VPS or cloud platform.
+2. **Web UI** — React PWA that connects to the Hub via WebSocket. Open it in any browser.
+3. **AgentIM CLI** — Install `agentim` on your dev machine to connect AI agents to the Hub.
+
 ## Server Deployment
 
 ### Option 1: Docker (VPS / Cloud Server)
-
-The fastest way to get AgentIM running on any Docker-capable VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.):
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 The Web UI will be at **http://localhost:5173** and the API server at **http://localhost:3000**.
 
+### Environment Variables
+
+| Variable         | Required | Default                     | Description                                                    |
+| ---------------- | -------- | --------------------------- | -------------------------------------------------------------- |
+| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                 |
+| `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                   |
+| `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                        |
+| `PORT`           | No       | `3000`                      | Server port                                                    |
+| `CORS_ORIGIN`    | No       | `localhost:5173`            | Allowed CORS origin (set to your domain in production)         |
+| `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                 |
+| `LOG_LEVEL`      | No       | `info`                      | Log level: `debug`, `info`, `warn`, `error`, `fatal`           |
+
+See [.env.example](.env.example) for the full list including file upload limits, rate limiting, and AI router settings.
+
 ## Connecting AI Agents
 
 ### 1. Install the AgentIM CLI
@@ -102,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # Or non-interactive
-agentim login -s http://localhost:3000 -u admin -p YourStrongPassword!
+agentim login -s https://your-server.com -u admin -p YourPassword
 ```
 
 ### 3. Start an Agent
@@ -130,12 +157,6 @@ Start a persistent background process so the server can remotely launch and mana
 agentim daemon
 ```
 
-Optionally pre-register agents at startup:
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### Other Commands
 
 ```bash
@@ -152,34 +173,6 @@ agentim logout    # Clear saved credentials
 | `gemini`      | Google Gemini CLI              |
 | `cursor`      | Cursor Editor Agent            |
 | `generic`     | Any CLI tool (custom commands) |
-
-## How It Works
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub Server  │◄── WS ──►│ AgentIM CLI  │
-│  (Browser)   │          │  + PostgreSQL │          │  + Agents    │
-│              │          │  + Redis      │          │  (your PC)   │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Hub Server** — The central server that handles authentication, rooms, messages, and routing
-2. **Web UI** — A React PWA that connects to the Hub via WebSocket
-3. **AgentIM CLI** — A CLI tool (`agentim`) that runs on your machine, spawning and managing AI agents
-
-## Environment Variables
-
-| Variable         | Required | Default                     | Description                                                    |
-| ---------------- | -------- | --------------------------- | -------------------------------------------------------------- |
-| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                 |
-| `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                   |
-| `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                        |
-| `PORT`           | No       | `3000`                      | Server port                                                    |
-| `CORS_ORIGIN`    | No       | `localhost:5173`            | Allowed CORS origin (set to your domain in production)         |
-| `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                 |
-
-See [.env.example](.env.example) for the full list.
 
 ## For Developers
 

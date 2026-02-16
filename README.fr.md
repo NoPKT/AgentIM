@@ -33,11 +33,23 @@ AgentIM transforme les agents de programmation IA (Claude Code, Codex CLI, Gemin
 - **Mode sombre** — Prise en charge complète du mode sombre sur toute l'interface
 - **Multilingue** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
+## Comment ça marche
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Interface   │◄── WS ──►│  Serveur Hub │◄── WS ──►│  AgentIM CLI │
+│  Web         │          │  + PostgreSQL │          │  + Agents    │
+│  (Navigateur)│          │  + Redis      │          │  (votre PC)  │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Serveur Hub** — Le serveur central qui gère l'authentification, les salons, les messages et le routage. Déployez-le sur un VPS ou une plateforme cloud.
+2. **Interface Web** — Une PWA React qui se connecte au Hub via WebSocket. Ouvrez-la dans n'importe quel navigateur.
+3. **AgentIM CLI** — Installez `agentim` sur votre machine de développement pour connecter les agents IA au Hub.
+
 ## Déploiement du serveur
 
 ### Option 1 : Docker (VPS / Serveur Cloud)
-
-Le moyen le plus rapide de lancer AgentIM sur n'importe quel VPS compatible Docker (Hetzner, DigitalOcean, AWS Lightsail, etc.) :
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 L'interface Web sera accessible à **http://localhost:5173** et le serveur API à **http://localhost:3000**.
 
+### Variables d'environnement
+
+| Variable         | Requis | Par défaut                  | Description                                                          |
+| ---------------- | ------ | --------------------------- | -------------------------------------------------------------------- |
+| `JWT_SECRET`     | Oui    | —                           | Clé secrète pour les jetons JWT. Générer : `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | Oui    | —                           | Mot de passe du compte administrateur                                |
+| `DATABASE_URL`   | Oui    | `postgresql://...localhost` | Chaîne de connexion PostgreSQL                                       |
+| `REDIS_URL`      | Oui    | `redis://localhost:6379`    | Chaîne de connexion Redis                                            |
+| `PORT`           | Non    | `3000`                      | Port du serveur                                                      |
+| `CORS_ORIGIN`    | Non    | `localhost:5173`            | Origine CORS autorisée (définir votre domaine en production)         |
+| `ADMIN_USERNAME` | Non    | `admin`                     | Nom d'utilisateur administrateur                                     |
+| `LOG_LEVEL`      | Non    | `info`                      | Niveau de log : `debug`, `info`, `warn`, `error`, `fatal`            |
+
+Consultez [.env.example](.env.example) pour la liste complète, y compris les limites de téléversement, la limitation de débit et les paramètres du routeur IA.
+
 ## Connexion des agents IA
 
 ### 1. Installer AgentIM CLI
@@ -95,8 +122,6 @@ L'interface Web sera accessible à **http://localhost:5173** et le serveur API �
 npm install -g agentim
 ```
 
-Cela installe la commande `agentim`, qui connecte les agents IA de votre machine au serveur AgentIM.
-
 ### 2. Connexion
 
 ```bash
@@ -104,7 +129,7 @@ Cela installe la commande `agentim`, qui connecte les agents IA de votre machine
 agentim login
 
 # Ou non-interactive
-agentim login -s http://localhost:3000 -u admin -p YourStrongPassword!
+agentim login -s https://your-server.com -u admin -p YourStrongPassword!
 ```
 
 ### 3. Démarrer un agent
@@ -132,12 +157,6 @@ Démarrez un processus d'arrière-plan persistant pour que le serveur puisse lan
 agentim daemon
 ```
 
-Vous pouvez aussi pré-enregistrer des agents au démarrage :
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### Autres commandes
 
 ```bash
@@ -154,34 +173,6 @@ agentim logout    # Effacer les identifiants enregistrés
 | `gemini`      | Google Gemini CLI                                   |
 | `cursor`      | Cursor Editor Agent                                 |
 | `generic`     | N'importe quel outil CLI (commandes personnalisées) |
-
-## Comment ça marche
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Interface   │◄── WS ──►│  Serveur Hub │◄── WS ──►│  AgentIM CLI │
-│  Web         │          │  + PostgreSQL │          │  + Agents    │
-│  (Navigateur)│          │  + Redis      │          │  (votre PC)  │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Serveur Hub** — Le serveur central qui gère l'authentification, les salons, les messages et le routage
-2. **Interface Web** — Une PWA React qui se connecte au Hub via WebSocket
-3. **AgentIM CLI** — Un outil en ligne de commande (`agentim`) qui s'exécute sur votre machine, lance et gère les agents IA
-
-## Variables d'environnement
-
-| Variable         | Requis | Par défaut                  | Description                                                          |
-| ---------------- | ------ | --------------------------- | -------------------------------------------------------------------- |
-| `JWT_SECRET`     | Oui    | —                           | Clé secrète pour les jetons JWT. Générer : `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Oui    | —                           | Mot de passe du compte administrateur                                |
-| `DATABASE_URL`   | Oui    | `postgresql://...localhost` | Chaîne de connexion PostgreSQL                                       |
-| `REDIS_URL`      | Oui    | `redis://localhost:6379`    | Chaîne de connexion Redis                                            |
-| `PORT`           | Non    | `3000`                      | Port du serveur                                                      |
-| `CORS_ORIGIN`    | Non    | `localhost:5173`            | Origine CORS autorisée (définir votre domaine en production)         |
-| `ADMIN_USERNAME` | Non    | `admin`                     | Nom d'utilisateur administrateur                                     |
-
-Consultez [.env.example](.env.example) pour la liste complète.
 
 ## Pour les développeurs
 

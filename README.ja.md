@@ -33,11 +33,23 @@ AgentIM は、AIコーディングエージェント（Claude Code、Codex CLI�
 - **ダークモード** —— UI全体のダークモード対応
 - **多言語対応** —— English、简体中文、日本語、한국어、Français、Deutsch、Русский
 
+## 仕組み
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web UI      │◄── WS ──►│  Hub サーバー  │◄── WS ──►│  AgentIM CLI │
+│  (ブラウザ)   │          │  + PostgreSQL │          │  + エージェント│
+│              │          │  + Redis      │          │  (あなたのPC) │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Hub サーバー** —— 認証、ルーム、メッセージ、ルーティングを処理する中央サーバー。VPSやクラウドプラットフォームにデプロイします。
+2. **Web UI** —— WebSocket で Hub に接続する React PWA アプリケーション。任意のブラウザで開けます。
+3. **AgentIM CLI** —— 開発マシンに `agentim` をインストールして、AIエージェントを Hub に接続します。
+
 ## サーバーデプロイ
 
 ### 方法1：Docker（VPS / クラウドサーバー）
-
-Docker対応の任意のVPSでAgentIMを素早く起動（Hetzner、DigitalOcean、AWS Lightsail など）：
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 Web UI は **http://localhost:5173**、API サーバーは **http://localhost:3000**。
 
+### 環境変数
+
+| 変数             | 必須   | デフォルト                  | 説明                                                          |
+| ---------------- | ------ | --------------------------- | ------------------------------------------------------------- |
+| `JWT_SECRET`     | はい   | —                           | JWT トークンシークレット。生成方法：`openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | はい   | —                           | 管理者アカウントのパスワード                                  |
+| `DATABASE_URL`   | はい   | `postgresql://...localhost` | PostgreSQL 接続文字列                                         |
+| `REDIS_URL`      | はい   | `redis://localhost:6379`    | Redis 接続文字列                                              |
+| `PORT`           | いいえ | `3000`                      | サーバーポート                                                |
+| `CORS_ORIGIN`    | いいえ | `localhost:5173`            | 許可する CORS オリジン（本番環境ではドメインを設定）          |
+| `ADMIN_USERNAME` | いいえ | `admin`                     | 管理者ユーザー名                                              |
+| `LOG_LEVEL`      | いいえ | `info`                      | ログレベル：`debug`、`info`、`warn`、`error`、`fatal`         |
+
+完全なリストは [.env.example](.env.example) を参照してください（ファイルアップロード制限、レート制限、AIルーター設定を含む）。
+
 ## AIエージェントの接続
 
 ### 1. AgentIM CLI のインストール
@@ -95,8 +122,6 @@ Web UI は **http://localhost:5173**、API サーバーは **http://localhost:30
 npm install -g agentim
 ```
 
-これにより `agentim` コマンドラインツールがインストールされ、マシン上のAIエージェントをAgentIMサーバーに接続できるようになります。
-
 ### 2. ログイン
 
 ```bash
@@ -104,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # または非対話式
-agentim login -s http://localhost:3000 -u admin -p YourPassword
+agentim login -s https://your-server.com -u admin -p YourPassword
 ```
 
 ### 3. エージェントを起動
@@ -132,12 +157,6 @@ agentim gemini /path/to/project
 agentim daemon
 ```
 
-起動時にエージェントを事前登録することもできます：
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### その他のコマンド
 
 ```bash
@@ -154,34 +173,6 @@ agentim logout    # ログイン資格情報をクリア
 | `gemini`      | Google Gemini CLI                   |
 | `cursor`      | Cursor エディタエージェント         |
 | `generic`     | 任意のCLIツール（カスタムコマンド） |
-
-## 仕組み
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub サーバー  │◄── WS ──►│  AgentIM CLI │
-│  (ブラウザ)   │          │  + PostgreSQL │          │  + エージェント│
-│              │          │  + Redis      │          │  (あなたのPC) │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Hub サーバー** —— 認証、ルーム、メッセージ、ルーティングを処理する中央サーバー
-2. **Web UI** —— WebSocket で Hub に接続する React PWA アプリケーション
-3. **AgentIM CLI** —— あなたのマシンで実行されるコマンドラインツール（`agentim`）、AIエージェントの起動と管理を担当
-
-## 環境変数
-
-| 変数             | 必須   | デフォルト                  | 説明                                                          |
-| ---------------- | ------ | --------------------------- | ------------------------------------------------------------- |
-| `JWT_SECRET`     | はい   | —                           | JWT トークンシークレット。生成方法：`openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | はい   | —                           | 管理者アカウントのパスワード                                  |
-| `DATABASE_URL`   | はい   | `postgresql://...localhost` | PostgreSQL 接続文字列                                         |
-| `REDIS_URL`      | はい   | `redis://localhost:6379`    | Redis 接続文字列                                              |
-| `PORT`           | いいえ | `3000`                      | サーバーポート                                                |
-| `CORS_ORIGIN`    | いいえ | `localhost:5173`            | 許可する CORS オリジン（本番環境ではドメインを設定）          |
-| `ADMIN_USERNAME` | いいえ | `admin`                     | 管理者ユーザー名                                              |
-
-完全なリストは [.env.example](.env.example) を参照してください。
 
 ## 開発者向け情報
 

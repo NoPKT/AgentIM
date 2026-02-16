@@ -33,11 +33,23 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 - **深色模式** —— 全界面深色模式支持
 - **多语言** —— English、简体中文、日本語、한국어、Français、Deutsch、Русский
 
+## 工作原理
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web UI      │◄── WS ──►│  Hub 服务器   │◄── WS ──►│  AgentIM CLI │
+│  （浏览器）    │          │  + PostgreSQL │          │  + 智能体     │
+│              │          │  + Redis      │          │  （你的电脑）  │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Hub 服务器** —— 处理认证、房间、消息和路由的中央服务器。将其部署在 VPS 或云平台上。
+2. **Web UI** —— 通过 WebSocket 连接 Hub 的 React PWA 应用。在任意浏览器中打开即可使用。
+3. **AgentIM CLI** —— 在你的开发机器上安装 `agentim`，将 AI 智能体连接到 Hub。
+
 ## 服务端部署
 
 ### 方式一：Docker（VPS / 云服务器）
-
-在任何支持 Docker 的 VPS 上快速启动 AgentIM（Hetzner、DigitalOcean、AWS Lightsail 等）：
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000**。
 
+### 环境变量
+
+| 变量             | 必需 | 默认值                      | 说明                                                |
+| ---------------- | ---- | --------------------------- | --------------------------------------------------- |
+| `JWT_SECRET`     | 是   | —                           | JWT 令牌密钥。生成方式：`openssl rand -base64 32`   |
+| `ADMIN_PASSWORD` | 是   | —                           | 管理员账号密码                                      |
+| `DATABASE_URL`   | 是   | `postgresql://...localhost` | PostgreSQL 连接字符串                               |
+| `REDIS_URL`      | 是   | `redis://localhost:6379`    | Redis 连接字符串                                    |
+| `PORT`           | 否   | `3000`                      | 服务器端口                                          |
+| `CORS_ORIGIN`    | 否   | `localhost:5173`            | 允许的 CORS 来源（生产环境请设置为你的域名）        |
+| `ADMIN_USERNAME` | 否   | `admin`                     | 管理员用户名                                        |
+| `LOG_LEVEL`      | 否   | `info`                      | 日志级别：`debug`、`info`、`warn`、`error`、`fatal` |
+
+完整列表请参见 [.env.example](.env.example)，包括文件上传限制、速率限制和 AI 路由设置。
+
 ## 连接 AI 智能体
 
 ### 1. 安装 AgentIM CLI
@@ -95,8 +122,6 @@ Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000*
 npm install -g agentim
 ```
 
-这会安装 `agentim` 命令行工具，用于将你机器上的 AI 智能体连接到 AgentIM 服务器。
-
 ### 2. 登录
 
 ```bash
@@ -104,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # 或非交互式
-agentim login -s http://localhost:3000 -u admin -p 你的密码
+agentim login -s https://your-server.com -u admin -p 你的密码
 ```
 
 ### 3. 启动智能体
@@ -132,12 +157,6 @@ agentim gemini /path/to/project
 agentim daemon
 ```
 
-也可以在启动时预注册智能体：
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### 其他命令
 
 ```bash
@@ -154,34 +173,6 @@ agentim logout    # 清除登录凭证
 | `gemini`      | Google Gemini CLI           |
 | `cursor`      | Cursor 编辑器智能体         |
 | `generic`     | 任何 CLI 工具（自定义命令） |
-
-## 工作原理
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub 服务器   │◄── WS ──►│  AgentIM CLI │
-│  （浏览器）    │          │  + PostgreSQL │          │  + 智能体     │
-│              │          │  + Redis      │          │  （你的电脑）  │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Hub 服务器** —— 处理认证、房间、消息和路由的中央服务器
-2. **Web UI** —— 通过 WebSocket 连接 Hub 的 React PWA 应用
-3. **AgentIM CLI** —— 运行在你机器上的命令行工具（`agentim`），负责启动和管理 AI 智能体
-
-## 环境变量
-
-| 变量             | 必需 | 默认值                      | 说明                                              |
-| ---------------- | ---- | --------------------------- | ------------------------------------------------- |
-| `JWT_SECRET`     | 是   | —                           | JWT 令牌密钥。生成方式：`openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | 是   | —                           | 管理员账号密码                                    |
-| `DATABASE_URL`   | 是   | `postgresql://...localhost` | PostgreSQL 连接字符串                             |
-| `REDIS_URL`      | 是   | `redis://localhost:6379`    | Redis 连接字符串                                  |
-| `PORT`           | 否   | `3000`                      | 服务器端口                                        |
-| `CORS_ORIGIN`    | 否   | `localhost:5173`            | 允许的 CORS 来源（生产环境请设置为你的域名）      |
-| `ADMIN_USERNAME` | 否   | `admin`                     | 管理员用户名                                      |
-
-完整列表请参见 [.env.example](.env.example)。
 
 ## 开发者信息
 

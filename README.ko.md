@@ -33,11 +33,23 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 - **다크 모드** —— 전체 UI 다크 모드 지원
 - **다국어** —— English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
+## 작동 원리
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web UI      │◄── WS ──►│  Hub 서버     │◄── WS ──►│  AgentIM CLI │
+│  (브라우저)   │          │  + PostgreSQL │          │  + 에이전트    │
+│              │          │  + Redis      │          │  (내 PC)      │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Hub 서버** —— 인증, 방, 메시지, 라우팅을 처리하는 중앙 서버. VPS 또는 클라우드 플랫폼에 배포하세요.
+2. **Web UI** —— WebSocket으로 Hub에 연결하는 React PWA 애플리케이션. 모든 브라우저에서 열 수 있습니다.
+3. **AgentIM CLI** —— 개발 머신에 `agentim`을 설치하여 AI 에이전트를 Hub에 연결합니다.
+
 ## 서버 배포
 
 ### 방법 1: Docker (VPS / 클라우드 서버)
-
-Docker를 지원하는 모든 VPS에서 AgentIM을 빠르게 시작 (Hetzner, DigitalOcean, AWS Lightsail 등):
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 
+### 환경 변수
+
+| 변수             | 필수   | 기본값                      | 설명                                                    |
+| ---------------- | ------ | --------------------------- | ------------------------------------------------------- |
+| `JWT_SECRET`     | 예     | —                           | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32`   |
+| `ADMIN_PASSWORD` | 예     | —                           | 관리자 계정 비밀번호                                    |
+| `DATABASE_URL`   | 예     | `postgresql://...localhost` | PostgreSQL 연결 문자열                                  |
+| `REDIS_URL`      | 예     | `redis://localhost:6379`    | Redis 연결 문자열                                       |
+| `PORT`           | 아니오 | `3000`                      | 서버 포트                                               |
+| `CORS_ORIGIN`    | 아니오 | `localhost:5173`            | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
+| `ADMIN_USERNAME` | 아니오 | `admin`                     | 관리자 사용자 이름                                      |
+| `LOG_LEVEL`      | 아니오 | `info`                      | 로그 레벨: `debug`, `info`, `warn`, `error`, `fatal`    |
+
+전체 목록은 [.env.example](.env.example)을 참조하세요 (파일 업로드 제한, 속도 제한, AI 라우터 설정 포함).
+
 ## AI 에이전트 연결
 
 ### 1. AgentIM CLI 설치
@@ -95,8 +122,6 @@ Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 npm install -g agentim
 ```
 
-이 명령으로 `agentim` 커맨드라인 도구가 설치되며, 머신의 AI 에이전트를 AgentIM 서버에 연결할 수 있습니다.
-
 ### 2. 로그인
 
 ```bash
@@ -104,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # 또는 비대화식
-agentim login -s http://localhost:3000 -u admin -p YourPassword
+agentim login -s https://your-server.com -u admin -p YourPassword
 ```
 
 ### 3. 에이전트 시작
@@ -132,12 +157,6 @@ agentim gemini /path/to/project
 agentim daemon
 ```
 
-시작 시 에이전트를 사전 등록할 수도 있습니다:
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### 기타 명령어
 
 ```bash
@@ -154,34 +173,6 @@ agentim logout    # 로그인 자격 증명 삭제
 | `gemini`      | Google Gemini CLI           |
 | `cursor`      | Cursor 에디터 에이전트      |
 | `generic`     | 모든 CLI 도구 (커스텀 명령) |
-
-## 작동 원리
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub 서버     │◄── WS ──►│  AgentIM CLI │
-│  (브라우저)   │          │  + PostgreSQL │          │  + 에이전트    │
-│              │          │  + Redis      │          │  (내 PC)      │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Hub 서버** —— 인증, 방, 메시지, 라우팅을 처리하는 중앙 서버
-2. **Web UI** —— WebSocket으로 Hub에 연결하는 React PWA 애플리케이션
-3. **AgentIM CLI** —— 머신에서 실행되는 커맨드라인 도구(`agentim`), AI 에이전트의 시작과 관리를 담당
-
-## 환경 변수
-
-| 변수             | 필수   | 기본값                      | 설명                                                    |
-| ---------------- | ------ | --------------------------- | ------------------------------------------------------- |
-| `JWT_SECRET`     | 예     | —                           | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32`   |
-| `ADMIN_PASSWORD` | 예     | —                           | 관리자 계정 비밀번호                                    |
-| `DATABASE_URL`   | 예     | `postgresql://...localhost` | PostgreSQL 연결 문자열                                  |
-| `REDIS_URL`      | 예     | `redis://localhost:6379`    | Redis 연결 문자열                                       |
-| `PORT`           | 아니오 | `3000`                      | 서버 포트                                               |
-| `CORS_ORIGIN`    | 아니오 | `localhost:5173`            | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
-| `ADMIN_USERNAME` | 아니오 | `admin`                     | 관리자 사용자 이름                                      |
-
-전체 목록은 [.env.example](.env.example)을 참조하세요.
 
 ## 개발자 정보
 

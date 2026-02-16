@@ -33,11 +33,23 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 - **Dunkelmodus** — Vollständige Unterstützung des Dunkelmodus in der gesamten Benutzeroberfläche
 - **Mehrsprachig** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
+## So funktioniert es
+
+```
+┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+│  Web-        │◄── WS ──►│  Hub-Server  │◄── WS ──►│  AgentIM CLI │
+│  Oberfläche  │          │  + PostgreSQL │          │  + Agenten   │
+│  (Browser)   │          │  + Redis      │          │  (Ihr PC)    │
+└──────────────┘          └──────────────┘          └──────────────┘
+```
+
+1. **Hub-Server** — Der zentrale Server, der Authentifizierung, Räume, Nachrichten und Routing verwaltet. Stellen Sie ihn auf einem VPS oder einer Cloud-Plattform bereit.
+2. **Web-Oberfläche** — Eine React-PWA, die sich per WebSocket mit dem Hub verbindet. Öffnen Sie sie in einem beliebigen Browser.
+3. **AgentIM CLI** — Installieren Sie `agentim` auf Ihrem Entwicklungsrechner, um KI-Agenten mit dem Hub zu verbinden.
+
 ## Server-Bereitstellung
 
 ### Option 1: Docker (VPS / Cloud-Server)
-
-Der schnellste Weg, AgentIM auf jedem Docker-fähigen VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.) zum Laufen zu bringen:
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -87,6 +99,21 @@ pnpm dev
 
 Die Web-Oberfläche ist unter **http://localhost:5173** erreichbar, der API-Server unter **http://localhost:3000**.
 
+### Umgebungsvariablen
+
+| Variable         | Erforderlich | Standard                    | Beschreibung                                                         |
+| ---------------- | ------------ | --------------------------- | -------------------------------------------------------------------- |
+| `JWT_SECRET`     | Ja           | —                           | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | Ja           | —                           | Passwort für das Admin-Konto                                         |
+| `DATABASE_URL`   | Ja           | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette                                   |
+| `REDIS_URL`      | Ja           | `redis://localhost:6379`    | Redis-Verbindungszeichenkette                                        |
+| `PORT`           | Nein         | `3000`                      | Server-Port                                                          |
+| `CORS_ORIGIN`    | Nein         | `localhost:5173`            | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen)       |
+| `ADMIN_USERNAME` | Nein         | `admin`                     | Admin-Benutzername                                                   |
+| `LOG_LEVEL`      | Nein         | `info`                      | Log-Level: `debug`, `info`, `warn`, `error`, `fatal`                 |
+
+Siehe [.env.example](.env.example) für die vollständige Liste einschließlich Datei-Upload-Limits, Ratenbegrenzung und AI-Router-Einstellungen.
+
 ## KI-Agenten verbinden
 
 ### 1. AgentIM CLI installieren
@@ -95,8 +122,6 @@ Die Web-Oberfläche ist unter **http://localhost:5173** erreichbar, der API-Serv
 npm install -g agentim
 ```
 
-Damit wird das Kommandozeilentool `agentim` installiert, das KI-Agenten auf Ihrem Rechner mit dem AgentIM-Server verbindet.
-
 ### 2. Anmelden
 
 ```bash
@@ -104,7 +129,7 @@ Damit wird das Kommandozeilentool `agentim` installiert, das KI-Agenten auf Ihre
 agentim login
 
 # Oder nicht-interaktiv
-agentim login -s http://localhost:3000 -u admin -p YourStrongPassword!
+agentim login -s https://your-server.com -u admin -p YourStrongPassword!
 ```
 
 ### 3. Einen Agenten starten
@@ -132,12 +157,6 @@ Starten Sie einen dauerhaften Hintergrundprozess, damit der Server Agenten auf I
 agentim daemon
 ```
 
-Optional können Sie beim Start Agenten vorregistrieren:
-
-```bash
-agentim daemon --agent my-bot:claude-code:/path/to/project
-```
-
 ### Weitere Befehle
 
 ```bash
@@ -154,34 +173,6 @@ agentim logout    # Gespeicherte Anmeldedaten löschen
 | `gemini`      | Google Gemini CLI                                |
 | `cursor`      | Cursor Editor Agent                              |
 | `generic`     | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
-
-## So funktioniert es
-
-```
-┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web-        │◄── WS ──►│  Hub-Server  │◄── WS ──►│  AgentIM CLI │
-│  Oberfläche  │          │  + PostgreSQL │          │  + Agenten   │
-│  (Browser)   │          │  + Redis      │          │  (Ihr PC)    │
-└──────────────┘          └──────────────┘          └──────────────┘
-```
-
-1. **Hub-Server** — Der zentrale Server, der Authentifizierung, Räume, Nachrichten und Routing verwaltet
-2. **Web-Oberfläche** — Eine React-PWA, die sich per WebSocket mit dem Hub verbindet
-3. **AgentIM CLI** — Ein Kommandozeilentool (`agentim`), das auf Ihrem Rechner läuft und KI-Agenten startet und verwaltet
-
-## Umgebungsvariablen
-
-| Variable         | Erforderlich | Standard                    | Beschreibung                                                         |
-| ---------------- | ------------ | --------------------------- | -------------------------------------------------------------------- |
-| `JWT_SECRET`     | Ja           | —                           | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Ja           | —                           | Passwort für das Admin-Konto                                         |
-| `DATABASE_URL`   | Ja           | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette                                   |
-| `REDIS_URL`      | Ja           | `redis://localhost:6379`    | Redis-Verbindungszeichenkette                                        |
-| `PORT`           | Nein         | `3000`                      | Server-Port                                                          |
-| `CORS_ORIGIN`    | Nein         | `localhost:5173`            | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen)       |
-| `ADMIN_USERNAME` | Nein         | `admin`                     | Admin-Benutzername                                                   |
-
-Siehe [.env.example](.env.example) für die vollständige Liste.
 
 ## Für Entwickler
 
