@@ -25,6 +25,7 @@ export class GatewayWsClient {
   private onDisconnected: () => void
   private onAuthFailed: (() => Promise<void>) | null = null
   private shouldReconnect = true
+  private sendQueue: GatewayMessage[] = []
 
   constructor(opts: {
     url: string
@@ -79,6 +80,16 @@ export class GatewayWsClient {
 
   send(msg: GatewayMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg))
+    } else {
+      this.sendQueue.push(msg)
+    }
+  }
+
+  /** Flush queued messages (call after authentication succeeds) */
+  flushQueue() {
+    while (this.sendQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+      const msg = this.sendQueue.shift()!
       this.ws.send(JSON.stringify(msg))
     }
   }

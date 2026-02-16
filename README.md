@@ -8,7 +8,10 @@
   <p align="center">
     <a href="./README.zh-CN.md">简体中文</a> ·
     <a href="./README.ja.md">日本語</a> ·
-    <a href="./README.ko.md">한국어</a>
+    <a href="./README.ko.md">한국어</a> ·
+    <a href="./README.fr.md">Français</a> ·
+    <a href="./README.de.md">Deutsch</a> ·
+    <a href="./README.ru.md">Русский</a>
   </p>
 </p>
 
@@ -28,13 +31,13 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI, etc.) into *
 - **Smart Routing** — Messages are routed to agents via @mentions (direct) or AI-powered selection (broadcast), with loop protection
 - **File Sharing** — Upload and share files, images, and documents in chat
 - **Dark Mode** — Full dark mode support across the entire UI
-- **Multilingual** — English, 简体中文, 日本語, 한국어
+- **Multilingual** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
-## Quick Start
+## Server Deployment
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker (VPS / Cloud Server)
 
-The fastest way to get AgentIM running:
+The fastest way to get AgentIM running on any Docker-capable VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.):
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -50,29 +53,17 @@ docker compose up -d
 
 Open **http://localhost:3000** and log in with `admin` / your password.
 
-### Option 2: Cloud Deploy
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production setup with Nginx, TLS, backups, etc.
 
-#### Northflank (Free Tier)
+### Option 2: Northflank (Free One-Click)
 
-Northflank offers 2 free services + 2 free databases — enough to run AgentIM (server + PostgreSQL + Redis):
+Northflank offers 2 free services + 2 free databases — enough to run AgentIM:
 
 1. Create a free account at [northflank.com](https://northflank.com)
 2. Create a project, then add: a **PostgreSQL** addon, a **Redis** addon, and a **combined service** from this repo's `docker/Dockerfile`
 3. Set environment variables: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`
 
-#### Self-hosted (VPS / Cloud VM)
-
-Any VPS with Docker support works (Hetzner, DigitalOcean, AWS Lightsail, etc.):
-
-```bash
-git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
-export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
-docker compose up -d
-```
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production setup with Nginx, TLS, backups, etc.
-
-### Option 3: Manual Setup
+### Option 3: Manual Setup (Development)
 
 **Prerequisites**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 
@@ -93,29 +84,55 @@ The Web UI will be at **http://localhost:5173** and the API server at **http://l
 
 ## Connecting AI Agents
 
-AgentIM uses a **Gateway** to connect AI agents to the server. The Gateway runs on the machine where your agents are installed.
-
-### 1. Install & Login
+### 1. Install Gateway
 
 ```bash
-# Install globally via npm
 npm install -g @agentim/gateway
+```
 
-# Login to your AgentIM server
+### 2. Login
+
+```bash
+# Interactive login (prompts for server, username, password)
+aim login
+
+# Or non-interactive
 aim login -s http://localhost:3000 -u admin -p YourStrongPassword!
 ```
 
-### 2. Start Agents
+### 3. Start an Agent
 
 ```bash
-# Start a Claude Code agent
-aim start --agent my-claude:claude-code:/path/to/project
+# Start a Claude Code agent in the current directory
+aim claude
 
-# Start multiple agents at once
-aim start \
+# Start in a specific project directory
+aim claude /path/to/project
+
+# Give it a custom name
+aim -n my-frontend claude /path/to/frontend
+
+# Other agent types
+aim codex /path/to/project
+aim gemini /path/to/project
+```
+
+### Multi-Agent Daemon Mode
+
+For running multiple agents at once:
+
+```bash
+aim daemon \
   --agent frontend-bot:claude-code:/frontend \
   --agent backend-bot:claude-code:/backend \
   --agent reviewer:codex:/repo
+```
+
+### Other Commands
+
+```bash
+aim status    # Show configuration status
+aim logout    # Clear saved credentials
 ```
 
 ### Supported Agents
@@ -153,7 +170,6 @@ aim start \
 | `PORT` | No | `3000` | Server port |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origin (set to your domain in production) |
 | `ADMIN_USERNAME` | No | `admin` | Admin username |
-| `SENTRY_DSN` | No | — | Sentry error tracking (optional) |
 
 See [.env.example](.env.example) for the full list.
 
@@ -191,7 +207,7 @@ pnpm test             # Run all tests
 | Auth | JWT (jose) + argon2 |
 | Web UI | React 19 + Vite + TailwindCSS v4 + Zustand |
 | Gateway | commander.js + node-pty |
-| i18n | i18next (EN / ZH-CN / JA / KO) |
+| i18n | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
 ## License
 

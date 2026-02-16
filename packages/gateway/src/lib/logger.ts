@@ -15,7 +15,8 @@ const COLORS: Record<LogLevel, string> = {
 }
 const RESET = '\x1b[0m'
 
-const minLevel = LEVELS[(process.env.LOG_LEVEL as LogLevel) ?? 'info']
+const envLevel = process.env.LOG_LEVEL as LogLevel | undefined
+const minLevel = (envLevel && envLevel in LEVELS) ? LEVELS[envLevel] : LEVELS.info
 
 function log(level: LogLevel, ctx: string, message: string) {
   if (LEVELS[level] < minLevel) return

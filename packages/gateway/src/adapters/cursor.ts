@@ -67,7 +67,12 @@ export class CursorAdapter extends BaseAgentAdapter {
   }
 
   stop() {
-    this.process?.kill('SIGTERM')
+    if (this.process) {
+      this.process.kill('SIGTERM')
+      setTimeout(() => {
+        if (this.process) this.process.kill('SIGKILL')
+      }, 5000)
+    }
   }
 
   dispose() {

@@ -6,6 +6,7 @@ import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/s
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
 import { createLogger } from '../lib/logger.js'
+import { config } from '../config.js'
 import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents, messageAttachments } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
@@ -16,7 +17,6 @@ import { buildAgentNameMap } from '../lib/agentUtils.js'
 const log = createLogger('ClientHandler')
 
 const MAX_MESSAGE_SIZE = 64 * 1024 // 64 KB
-const RATE_LIMIT_WINDOW = 10 // 10 seconds
 const RATE_LIMIT_MAX = 30 // max 30 messages per window
 
 async function isRateLimited(userId: string): Promise<boolean> {
@@ -24,7 +24,7 @@ async function isRateLimited(userId: string): Promise<boolean> {
     const redis = getRedis()
     const key = `ws:rate:${userId}`
     const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, RATE_LIMIT_WINDOW)
+    if (count === 1) await redis.expire(key, config.clientRateLimitWindow)
     return count > RATE_LIMIT_MAX
   } catch {
     // If Redis is unavailable, allow the request

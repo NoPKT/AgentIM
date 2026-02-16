@@ -261,6 +261,7 @@ function TaskCard({
         <select
           value={task.status}
           onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+          aria-label={t('status')}
           className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-blue-500 ${
             statusOptions.find((s) => s.value === task.status)?.color ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
           }`}

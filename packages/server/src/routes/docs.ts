@@ -101,29 +101,6 @@ const spec = {
         responses: { '200': { description: 'Server is healthy' } },
       },
     },
-    '/auth/register': {
-      post: {
-        tags: ['Auth'],
-        summary: 'Register a new user',
-        security: [],
-        requestBody: {
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['username', 'password'],
-                properties: {
-                  username: { type: 'string', minLength: 3, maxLength: 20 },
-                  password: { type: 'string', minLength: 8 },
-                  displayName: { type: 'string' },
-                },
-              },
-            },
-          },
-        },
-        responses: { '201': { description: 'User created' }, '409': { description: 'Username taken' } },
-      },
-    },
     '/auth/login': {
       post: {
         tags: ['Auth'],

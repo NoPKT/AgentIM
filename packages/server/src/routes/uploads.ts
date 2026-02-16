@@ -150,7 +150,6 @@ uploadRoutes.post('/avatar', async (c) => {
 // ─── Orphan Attachment Cleanup ───
 
 const ORPHAN_MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
-const CLEANUP_INTERVAL_MS = 30 * 60 * 1000 // every 30 minutes
 
 /** Remove uploaded files that were never associated with a message */
 export async function cleanupOrphanAttachments() {
@@ -181,7 +180,7 @@ export async function cleanupOrphanAttachments() {
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
 
 export function startOrphanCleanup() {
-  cleanupTimer = setInterval(cleanupOrphanAttachments, CLEANUP_INTERVAL_MS)
+  cleanupTimer = setInterval(cleanupOrphanAttachments, config.orphanFileCheckInterval)
   // Run once at startup after a short delay
   setTimeout(cleanupOrphanAttachments, 10_000)
 }

@@ -237,8 +237,7 @@ const server = serve({
 injectWebSocket(server)
 startOrphanCleanup()
 
-// Periodic cleanup: remove expired refresh tokens every hour
-const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000
+// Periodic cleanup: remove expired refresh tokens
 let tokenCleanupTimer: ReturnType<typeof setInterval> | null = null
 
 function startTokenCleanup() {
@@ -249,7 +248,7 @@ function startTokenCleanup() {
     } catch (err) {
       log.error(`Failed to clean up expired refresh tokens: ${(err as Error).message}`)
     }
-  }, TOKEN_CLEANUP_INTERVAL)
+  }, config.tokenCleanupInterval)
 }
 
 function stopTokenCleanup() {

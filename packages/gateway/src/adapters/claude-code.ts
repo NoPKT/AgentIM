@@ -1,5 +1,4 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -22,15 +21,6 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return 'claude-code' as const
   }
 
-  /** Generate a deterministic UUID v4-format session ID for a given room */
-  private sessionIdForRoom(roomId: string): string {
-    const hash = createHash('sha256')
-      .update(`${this.agentId}:${roomId}`)
-      .digest('hex')
-    // Format as UUID: 8-4-4-4-12
-    return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`
-  }
-
   sendMessage(
     content: string,
     onChunk: ChunkCallback,
@@ -48,14 +38,6 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     const args = ['-p', content, '--output-format', 'stream-json', '--verbose']
-
-    // Session persistence is intentionally disabled. Claude Code's --session-id
-    // resume fails when the prior session included tool use requiring interactive
-    // confirmation, causing the process to hang. The sessionIdForRoom() helper is
-    // kept for future use once Claude Code supports non-interactive session resume.
-    // if (context?.roomId) {
-    //   args.push('--session-id', this.sessionIdForRoom(context.roomId))
-    // }
 
     // Remove CLAUDECODE env to allow launching from within Claude Code sessions
     const env = { ...process.env }

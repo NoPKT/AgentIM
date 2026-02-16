@@ -144,12 +144,21 @@ agentRoutes.put('/:id', async (c) => {
 // Get single agent
 agentRoutes.get('/:id', async (c) => {
   const agentId = c.req.param('id')
+  const userId = c.get('userId')
   const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
   if (!agent) {
     return c.json({ ok: false, error: 'Agent not found' }, 404)
   }
 
   const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
+
+  // Access control: only the owner or shared agents are accessible
+  const isOwner = gw && gw.userId === userId
+  const isShared = agent.visibility === 'shared'
+  if (!isOwner && !isShared) {
+    return c.json({ ok: false, error: 'Agent not found' }, 404)
+  }
+
   const [enriched] = enrichAgents([agent], gw ? [gw] : [])
 
   return c.json({ ok: true, data: enriched })

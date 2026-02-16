@@ -8,7 +8,10 @@
   <p align="center">
     <a href="./README.md">English</a> ·
     <a href="./README.ja.md">日本語</a> ·
-    <a href="./README.ko.md">한국어</a>
+    <a href="./README.ko.md">한국어</a> ·
+    <a href="./README.fr.md">Français</a> ·
+    <a href="./README.de.md">Deutsch</a> ·
+    <a href="./README.ru.md">Русский</a>
   </p>
 </p>
 
@@ -28,13 +31,13 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 - **智能路由** —— 消息通过 @提及（定向）或 AI 智能选择（广播）路由给智能体，内置循环保护
 - **文件共享** —— 在聊天中上传和分享文件、图片和文档
 - **深色模式** —— 全界面深色模式支持
-- **多语言** —— English、简体中文、日本語、한국어
+- **多语言** —— English、简体中文、日本語、한국어、Français、Deutsch、Русский
 
-## 快速开始
+## 服务端部署
 
-### 方式一：Docker（推荐）
+### 方式一：Docker（VPS / 云服务器）
 
-最快的启动方式：
+在任何支持 Docker 的 VPS 上快速启动 AgentIM（Hetzner、DigitalOcean、AWS Lightsail 等）：
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -50,29 +53,17 @@ docker compose up -d
 
 打开 **http://localhost:3000**，使用 `admin` / 你的密码登录。
 
-### 方式二：云端部署
+详见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 了解生产环境部署（Nginx、TLS、备份等）。
 
-#### Northflank（免费）
+### 方式二：Northflank（免费一键部署）
 
-Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM（服务器 + PostgreSQL + Redis）：
+Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM：
 
 1. 在 [northflank.com](https://northflank.com) 注册免费账号
 2. 创建项目，添加：**PostgreSQL** 插件、**Redis** 插件、使用本仓库 `docker/Dockerfile` 的**组合服务**
 3. 设置环境变量：`DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`ADMIN_PASSWORD`
 
-#### 自托管（VPS / 云服务器）
-
-任何支持 Docker 的 VPS 均可（Hetzner、DigitalOcean、AWS Lightsail 等）：
-
-```bash
-git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
-export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='你的强密码!'
-docker compose up -d
-```
-
-详见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 了解生产环境部署（Nginx、TLS、备份等）。
-
-### 方式三：手动安装
+### 方式三：手动安装（开发环境）
 
 **前置要求**：Node.js 20+、pnpm 10+、PostgreSQL 16+、Redis 7+
 
@@ -93,29 +84,55 @@ Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000*
 
 ## 连接 AI 智能体
 
-AgentIM 使用 **Gateway（网关）** 将 AI 智能体连接到服务器。Gateway 运行在安装了智能体的机器上。
-
-### 1. 安装并登录
+### 1. 安装 Gateway
 
 ```bash
-# 通过 npm 全局安装
 npm install -g @agentim/gateway
+```
 
-# 登录到你的 AgentIM 服务器
+### 2. 登录
+
+```bash
+# 交互式登录（依次输入服务器地址、用户名、密码）
+aim login
+
+# 或非交互式
 aim login -s http://localhost:3000 -u admin -p 你的密码
 ```
 
-### 2. 启动智能体
+### 3. 启动智能体
 
 ```bash
-# 启动一个 Claude Code 智能体
-aim start --agent my-claude:claude-code:/path/to/project
+# 在当前目录启动 Claude Code 智能体
+aim claude
 
-# 同时启动多个智能体
-aim start \
+# 在指定项目目录启动
+aim claude /path/to/project
+
+# 自定义名称
+aim -n my-frontend claude /path/to/frontend
+
+# 其他智能体类型
+aim codex /path/to/project
+aim gemini /path/to/project
+```
+
+### 多智能体守护进程模式
+
+同时运行多个智能体：
+
+```bash
+aim daemon \
   --agent frontend-bot:claude-code:/frontend \
   --agent backend-bot:claude-code:/backend \
   --agent reviewer:codex:/repo
+```
+
+### 其他命令
+
+```bash
+aim status    # 显示配置状态
+aim logout    # 清除登录凭证
 ```
 
 ### 支持的智能体类型
@@ -153,7 +170,6 @@ aim start \
 | `PORT` | 否 | `3000` | 服务器端口 |
 | `CORS_ORIGIN` | 否 | `*` | 允许的 CORS 来源（生产环境请设置为你的域名） |
 | `ADMIN_USERNAME` | 否 | `admin` | 管理员用户名 |
-| `SENTRY_DSN` | 否 | — | Sentry 错误追踪（可选） |
 
 完整列表请参见 [.env.example](.env.example)。
 

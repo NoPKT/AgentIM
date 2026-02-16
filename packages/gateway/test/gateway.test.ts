@@ -5,6 +5,7 @@ import type { MessageContext } from '../src/adapters/base.js'
 import { wsUrlToHttpUrl } from '../src/config.js'
 import { getDeviceInfo } from '../src/device.js'
 import { AgentManager } from '../src/agent-manager.js'
+import { generateAgentName } from '../src/name-generator.js'
 
 // ─── Config Utilities ───
 
@@ -23,6 +24,39 @@ describe('wsUrlToHttpUrl', () => {
 
   it('preserves port', () => {
     assert.equal(wsUrlToHttpUrl('ws://host:8080/ws/gateway'), 'http://host:8080')
+  })
+})
+
+// ─── Name Generator ───
+
+describe('generateAgentName', () => {
+  it('generates a name with expected format', () => {
+    const name = generateAgentName('claude-code', '/home/user/my-project')
+    const parts = name.split('_')
+    // hostname_dirname_type_hex
+    assert.ok(parts.length >= 4)
+    assert.equal(parts[parts.length - 2], 'claude-code')
+    assert.equal(parts[parts.length - 3], 'my-project')
+    // hex should be 4 characters
+    assert.match(parts[parts.length - 1], /^[0-9a-f]{4}$/)
+  })
+
+  it('uses "default" when no workDir', () => {
+    const name = generateAgentName('codex')
+    assert.ok(name.includes('_default_'))
+  })
+
+  it('sanitizes special characters in directory name', () => {
+    const name = generateAgentName('gemini', '/path/to/my project!')
+    // Spaces and special chars should be stripped
+    assert.ok(!name.includes(' '))
+    assert.ok(!name.includes('!'))
+  })
+
+  it('generates unique names', () => {
+    const name1 = generateAgentName('claude-code', '/project')
+    const name2 = generateAgentName('claude-code', '/project')
+    assert.notEqual(name1, name2)
   })
 })
 

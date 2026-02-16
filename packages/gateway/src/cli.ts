@@ -1,34 +1,71 @@
 #!/usr/bin/env node
 import { program } from 'commander'
 import { nanoid } from 'nanoid'
-import { loadConfig, saveConfig, getConfigPath, wsUrlToHttpUrl } from './config.js'
+import { loadConfig, saveConfig, getConfigPath, clearConfig, wsUrlToHttpUrl } from './config.js'
 import { getDeviceInfo } from './device.js'
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
+import { generateAgentName } from './name-generator.js'
+import { prompt, promptPassword } from './interactive.js'
+import { runWrapper } from './wrapper.js'
 import { createLogger } from './lib/logger.js'
 import type { ServerSendToAgent, ServerStopAgent } from '@agentim/shared'
 
 const log = createLogger('Gateway')
 
 program
-  .name('aim-gateway')
+  .name('aim')
   .description('AgentIM Gateway - Bridge AI coding agents to AgentIM')
   .version('0.1.0')
 
+// ─── aim login ───
+
 program
   .command('login')
-  .description('Login to AgentIM server and save credentials')
-  .requiredOption('-s, --server <url>', 'Server URL (e.g., http://localhost:3000)')
-  .requiredOption('-u, --username <username>', 'Username')
-  .requiredOption('-p, --password <password>', 'Password')
+  .description('Login to AgentIM server (interactive or with flags)')
+  .option('-s, --server <url>', 'Server URL (e.g., http://localhost:3000)')
+  .option('-u, --username <username>', 'Username')
+  .option('-p, --password <password>', 'Password')
   .action(async (opts) => {
     try {
-      const serverBaseUrl = opts.server.replace(/\/+$/, '')
+      let serverUrl = opts.server
+      let username = opts.username
+      let password = opts.password
+
+      // Interactive prompts for missing values
+      if (!serverUrl) {
+        serverUrl = await prompt('Server URL (e.g., http://localhost:3000): ')
+      }
+      if (!username) {
+        username = await prompt('Username: ')
+      }
+      if (!password) {
+        password = await promptPassword('Password: ')
+      }
+
+      if (!serverUrl || !username || !password) {
+        console.error('Server URL, username, and password are required.')
+        process.exit(1)
+      }
+
+      // Validate URL format
+      try {
+        const parsed = new URL(serverUrl)
+        if (!parsed.protocol.startsWith('http')) {
+          console.error('Server URL must start with http:// or https://')
+          process.exit(1)
+        }
+      } catch {
+        console.error('Invalid server URL. Example: http://localhost:3000')
+        process.exit(1)
+      }
+
+      const serverBaseUrl = serverUrl.replace(/\/+$/, '')
       const { accessToken, refreshToken } = await TokenManager.login(
         serverBaseUrl,
-        opts.username,
-        opts.password,
+        username,
+        password,
       )
 
       const gatewayId = loadConfig()?.gatewayId ?? nanoid()
@@ -42,7 +79,7 @@ program
         gatewayId,
       })
 
-      console.log(`Login successful!`)
+      console.log('Login successful!')
       console.log(`Gateway ID: ${gatewayId}`)
       console.log(`Config saved to: ${getConfigPath()}`)
     } catch (err: any) {
@@ -51,40 +88,75 @@ program
     }
   })
 
-program
-  .command('config')
-  .description('Configure gateway connection (manual token)')
-  .requiredOption('-s, --server <url>', 'Server WebSocket URL (e.g., ws://localhost:3000/ws/gateway)')
-  .requiredOption('-t, --token <token>', 'Authentication token')
-  .option('-r, --refresh-token <token>', 'Refresh token (enables auto-refresh)')
-  .action((opts) => {
-    const gatewayId = loadConfig()?.gatewayId ?? nanoid()
-    saveConfig({
-      serverUrl: opts.server,
-      serverBaseUrl: wsUrlToHttpUrl(opts.server),
-      token: opts.token,
-      refreshToken: opts.refreshToken ?? '',
-      gatewayId,
-    })
-    console.log(`Configuration saved to ${getConfigPath()}`)
-    console.log(`Gateway ID: ${gatewayId}`)
-  })
+// ─── aim logout ───
 
 program
-  .command('start')
-  .description('Start the gateway and connect agents')
+  .command('logout')
+  .description('Clear saved credentials')
+  .action(() => {
+    clearConfig()
+    console.log('Logged out. Credentials cleared.')
+  })
+
+// ─── aim claude [path] ───
+
+program
+  .command('claude [path]')
+  .description('Start a Claude Code agent')
+  .option('-n, --name <name>', 'Agent name')
+  .action(async (path, opts) => {
+    await runWrapper({
+      type: 'claude-code',
+      name: opts.name,
+      workDir: path,
+    })
+  })
+
+// ─── aim codex [path] ───
+
+program
+  .command('codex [path]')
+  .description('Start a Codex agent')
+  .option('-n, --name <name>', 'Agent name')
+  .action(async (path, opts) => {
+    await runWrapper({
+      type: 'codex',
+      name: opts.name,
+      workDir: path,
+    })
+  })
+
+// ─── aim gemini [path] ───
+
+program
+  .command('gemini [path]')
+  .description('Start a Gemini CLI agent')
+  .option('-n, --name <name>', 'Agent name')
+  .action(async (path, opts) => {
+    await runWrapper({
+      type: 'gemini',
+      name: opts.name,
+      workDir: path,
+    })
+  })
+
+// ─── aim daemon ───
+
+program
+  .command('daemon')
+  .description('Start the gateway daemon (multi-agent mode)')
   .option('-a, --agent <spec...>', 'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)')
   .action(async (opts) => {
     const config = loadConfig()
     if (!config) {
-      console.error('No configuration found. Run `aim-gateway login` or `aim-gateway config` first.')
+      console.error('Not logged in. Run `aim login` first.')
       process.exit(1)
     }
 
     const tokenManager = new TokenManager(config)
     const deviceInfo = getDeviceInfo()
     let agentManager: AgentManager
-    let authRetried = false
+    let refreshingToken: Promise<void> | null = null
 
     const authenticate = (wsClient: GatewayWsClient) => {
       wsClient.send({
@@ -98,31 +170,31 @@ program
     const wsClient = new GatewayWsClient({
       url: config.serverUrl,
       onConnected: () => {
-        authRetried = false
+        refreshingToken = null
         authenticate(wsClient)
       },
       onMessage: async (msg) => {
         if (msg.type === 'server:gateway_auth_result') {
           if (msg.ok) {
             log.info('Authenticated successfully')
-            authRetried = false
+            refreshingToken = null
             registerAgents(agentManager, opts.agent ?? [])
+            wsClient.flushQueue()
           } else {
-            // Try refreshing token once
-            if (!authRetried && config.refreshToken) {
-              authRetried = true
+            // Try refreshing token once (with lock to prevent concurrent refreshes)
+            if (!refreshingToken && config.refreshToken) {
               log.info('Auth failed, refreshing token...')
-              try {
-                await tokenManager.refresh()
-                authenticate(wsClient)
-              } catch (err: any) {
-                log.error(`Token refresh failed: ${err.message}`)
-                log.error('Please re-login: aim-gateway login ...')
-                process.exit(1)
-              }
-            } else {
+              refreshingToken = tokenManager.refresh().then(
+                () => authenticate(wsClient),
+                (err: any) => {
+                  log.error(`Token refresh failed: ${err.message}`)
+                  log.error('Please re-login: aim login')
+                  process.exit(1)
+                },
+              )
+            } else if (!config.refreshToken) {
               log.error(`Auth failed: ${msg.error}`)
-              log.error('Please re-login: aim-gateway login ...')
+              log.error('Please re-login: aim login')
               process.exit(1)
             }
           }
@@ -151,13 +223,15 @@ program
     process.on('SIGTERM', cleanup)
   })
 
+// ─── aim status ───
+
 program
   .command('status')
   .description('Show configuration status')
   .action(() => {
     const config = loadConfig()
     if (!config) {
-      console.log('Not configured. Run `aim-gateway login` first.')
+      console.log('Not logged in. Run `aim login` first.')
       return
     }
     console.log(`Server: ${config.serverUrl}`)
@@ -184,7 +258,7 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
 
   if (agentSpecs.length === 0) {
     log.info('No agents specified. Use --agent to add agents.')
-    log.info('Example: aim-gateway start --agent claude:claude-code:/path/to/project')
+    log.info('Example: aim daemon --agent claude:claude-code:/path/to/project')
   }
 }
 

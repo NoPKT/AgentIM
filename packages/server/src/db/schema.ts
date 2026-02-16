@@ -86,18 +86,22 @@ export const agents = pgTable(
 
 // ─── Rooms ───
 
-export const rooms = pgTable('rooms', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  type: text('type').notNull().default('group'),
-  broadcastMode: boolean('broadcast_mode').notNull().default(false),
-  systemPrompt: text('system_prompt'),
-  createdById: text('created_by_id')
-    .notNull()
-    .references(() => users.id),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-})
+export const rooms = pgTable(
+  'rooms',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    type: text('type').notNull().default('group'),
+    broadcastMode: boolean('broadcast_mode').notNull().default(false),
+    systemPrompt: text('system_prompt'),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('rooms_created_by_idx').on(table.createdById)],
+)
 
 // ─── Room Members ───
 
@@ -149,6 +153,7 @@ export const messages = pgTable(
     index('messages_room_idx').on(table.roomId),
     index('messages_room_created_idx').on(table.roomId, table.createdAt),
     index('messages_sender_idx').on(table.senderId),
+    index('messages_reply_to_idx').on(table.replyToId),
   ],
 )
 
@@ -229,5 +234,7 @@ export const tasks = pgTable(
     index('tasks_assignee_idx').on(table.assigneeId),
     index('tasks_status_idx').on(table.status),
     index('tasks_created_by_idx').on(table.createdById),
+    index('tasks_room_status_idx').on(table.roomId, table.status),
+    index('tasks_updated_at_idx').on(table.updatedAt),
   ],
 )

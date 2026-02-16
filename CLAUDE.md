@@ -17,7 +17,7 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 - **IDs**: Use `nanoid` for generating IDs
 - **Errors**: Return proper HTTP status codes, never throw unhandled
 - **WebSocket**: All messages use the protocol types from `@agentim/shared`
-- **i18n**: All user-facing strings must use i18next keys, support EN + ZH-CN + JA + KO
+- **i18n**: All user-facing strings must use i18next keys, support EN + ZH-CN + JA + KO + FR + DE + RU
 
 ## Commands
 

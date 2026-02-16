@@ -311,7 +311,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{message.senderName}</span>
             {isAgent && (
               <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
-                Agent
+                {t('agents')}
               </span>
             )}
             <span className="text-xs text-gray-400 dark:text-gray-500">

@@ -33,6 +33,9 @@ export default function SettingsPage() {
     { code: 'zh-CN', label: '\u4E2D\u6587', flag: '\u{1F1E8}\u{1F1F3}' },
     { code: 'ja', label: '\u65E5\u672C\u8A9E', flag: '\u{1F1EF}\u{1F1F5}' },
     { code: 'ko', label: '\uD55C\uAD6D\uC5B4', flag: '\u{1F1F0}\u{1F1F7}' },
+    { code: 'fr', label: 'Fran\u00E7ais', flag: '\u{1F1EB}\u{1F1F7}' },
+    { code: 'de', label: 'Deutsch', flag: '\u{1F1E9}\u{1F1EA}' },
+    { code: 'ru', label: '\u0420\u0443\u0441\u0441\u043A\u0438\u0439', flag: '\u{1F1F7}\u{1F1FA}' },
   ]
 
   const themes = [
@@ -365,7 +368,7 @@ export default function SettingsPage() {
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('selectLanguage')}</p>
             </div>
             <div className="px-6 py-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {languages.map((lang) => {
                   const isActive = i18n.language === lang.code
                   return (

@@ -3,11 +3,13 @@ import {
   AGENT_TYPES,
   AGENT_STATUSES,
   AGENT_VISIBILITIES,
+  AGENT_CONNECTION_TYPES,
   ROOM_TYPES,
   MEMBER_ROLES,
   MESSAGE_TYPES,
   TASK_STATUSES,
   CHUNK_TYPES,
+  ROUTING_MODES,
   USER_ROLES,
   MAX_MESSAGE_LENGTH,
   MAX_ROOM_NAME_LENGTH,
@@ -279,4 +281,279 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayTerminalDataSchema,
   gatewayTaskUpdateSchema,
   gatewayPingSchema,
+])
+
+// ─── Entity Schemas (used by server messages) ───
+
+const messageAttachmentSchema = z.object({
+  id: z.string(),
+  messageId: z.string(),
+  filename: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  url: z.string(),
+})
+
+const messageReactionSchema = z.object({
+  emoji: z.string(),
+  userIds: z.array(z.string()),
+  usernames: z.array(z.string()),
+})
+
+const messageSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  senderId: z.string(),
+  senderType: z.enum(['user', 'agent', 'system']),
+  senderName: z.string(),
+  type: z.enum(MESSAGE_TYPES),
+  content: z.string(),
+  replyToId: z.string().optional(),
+  mentions: z.array(z.string()),
+  attachments: z.array(messageAttachmentSchema).optional(),
+  reactions: z.array(messageReactionSchema).optional(),
+  chunks: z.array(parsedChunkSchema).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().optional(),
+})
+
+const deviceInfoSchema = z.object({
+  hostname: z.string(),
+  platform: z.string(),
+  arch: z.string(),
+  nodeVersion: z.string(),
+})
+
+const agentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(AGENT_TYPES),
+  status: z.enum(AGENT_STATUSES),
+  visibility: z.enum(AGENT_VISIBILITIES).optional(),
+  gatewayId: z.string(),
+  workingDirectory: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
+  connectionType: z.enum(AGENT_CONNECTION_TYPES).optional(),
+  deviceInfo: deviceInfoSchema.optional(),
+  ownerName: z.string().optional(),
+  lastSeenAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+const taskSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  status: z.enum(TASK_STATUSES),
+  assigneeId: z.string().optional(),
+  assigneeType: z.enum(['user', 'agent']).optional(),
+  createdById: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+const roomSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(ROOM_TYPES),
+  broadcastMode: z.boolean(),
+  systemPrompt: z.string().optional(),
+  createdById: z.string(),
+  pinnedAt: z.string().nullable().optional(),
+  archivedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+const roomMemberSchema = z.object({
+  roomId: z.string(),
+  memberId: z.string(),
+  memberType: z.enum(['user', 'agent']),
+  role: z.enum(MEMBER_ROLES),
+  roleDescription: z.string().optional(),
+  notificationPref: z.enum(['all', 'mentions', 'none']).optional(),
+  pinnedAt: z.string().optional(),
+  archivedAt: z.string().optional(),
+  joinedAt: z.string(),
+})
+
+const roomContextMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['user', 'agent']),
+  agentType: z.enum(AGENT_TYPES).optional(),
+  capabilities: z.array(z.string()).optional(),
+  roleDescription: z.string().optional(),
+  status: z.enum(AGENT_STATUSES).optional(),
+})
+
+const roomContextSchema = z.object({
+  roomId: z.string(),
+  roomName: z.string(),
+  systemPrompt: z.string().optional(),
+  members: z.array(roomContextMemberSchema),
+})
+
+// ─── Server → Client Messages ───
+
+export const serverAuthResultSchema = z.object({
+  type: z.literal('server:auth_result'),
+  ok: z.boolean(),
+  error: z.string().optional(),
+  userId: z.string().optional(),
+})
+
+export const serverNewMessageSchema = z.object({
+  type: z.literal('server:new_message'),
+  message: messageSchema,
+})
+
+export const serverMessageChunkSchema = z.object({
+  type: z.literal('server:message_chunk'),
+  roomId: z.string(),
+  agentId: z.string(),
+  agentName: z.string(),
+  messageId: z.string(),
+  chunk: parsedChunkSchema,
+})
+
+export const serverMessageCompleteSchema = z.object({
+  type: z.literal('server:message_complete'),
+  message: messageSchema,
+})
+
+export const serverTypingSchema = z.object({
+  type: z.literal('server:typing'),
+  roomId: z.string(),
+  userId: z.string(),
+  username: z.string(),
+})
+
+export const serverAgentStatusSchema = z.object({
+  type: z.literal('server:agent_status'),
+  agent: agentSchema.pick({ id: true, name: true, type: true, status: true }),
+})
+
+export const serverTaskUpdateSchema = z.object({
+  type: z.literal('server:task_update'),
+  task: taskSchema,
+})
+
+export const serverRoomUpdateSchema = z.object({
+  type: z.literal('server:room_update'),
+  room: roomSchema,
+  members: z.array(roomMemberSchema).optional(),
+})
+
+export const serverTerminalDataSchema = z.object({
+  type: z.literal('server:terminal_data'),
+  agentId: z.string(),
+  agentName: z.string(),
+  roomId: z.string(),
+  data: z.string(),
+})
+
+export const serverMessageEditedSchema = z.object({
+  type: z.literal('server:message_edited'),
+  message: messageSchema,
+})
+
+export const serverMessageDeletedSchema = z.object({
+  type: z.literal('server:message_deleted'),
+  roomId: z.string(),
+  messageId: z.string(),
+})
+
+export const serverReadReceiptSchema = z.object({
+  type: z.literal('server:read_receipt'),
+  roomId: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  lastReadAt: z.string(),
+})
+
+export const serverPresenceSchema = z.object({
+  type: z.literal('server:presence'),
+  userId: z.string(),
+  username: z.string(),
+  online: z.boolean(),
+})
+
+export const serverReactionUpdateSchema = z.object({
+  type: z.literal('server:reaction_update'),
+  roomId: z.string(),
+  messageId: z.string(),
+  reactions: z.array(messageReactionSchema),
+})
+
+export const serverErrorSchema = z.object({
+  type: z.literal('server:error'),
+  code: z.string(),
+  message: z.string(),
+})
+
+export const serverPongSchema = z.object({
+  type: z.literal('server:pong'),
+  ts: z.number(),
+})
+
+export const serverMessageSchema = z.discriminatedUnion('type', [
+  serverAuthResultSchema,
+  serverNewMessageSchema,
+  serverMessageChunkSchema,
+  serverMessageCompleteSchema,
+  serverMessageEditedSchema,
+  serverMessageDeletedSchema,
+  serverTypingSchema,
+  serverAgentStatusSchema,
+  serverTaskUpdateSchema,
+  serverRoomUpdateSchema,
+  serverTerminalDataSchema,
+  serverReadReceiptSchema,
+  serverPresenceSchema,
+  serverReactionUpdateSchema,
+  serverPongSchema,
+  serverErrorSchema,
+])
+
+// ─── Server → Gateway Messages ───
+
+export const serverGatewayAuthResultSchema = z.object({
+  type: z.literal('server:gateway_auth_result'),
+  ok: z.boolean(),
+  error: z.string().optional(),
+})
+
+export const serverSendToAgentSchema = z.object({
+  type: z.literal('server:send_to_agent'),
+  agentId: z.string(),
+  roomId: z.string(),
+  messageId: z.string(),
+  content: z.string(),
+  senderName: z.string(),
+  senderType: z.enum(['user', 'agent']),
+  routingMode: z.enum(ROUTING_MODES),
+  conversationId: z.string(),
+  depth: z.number().int().min(0),
+})
+
+export const serverRoomContextSchema = z.object({
+  type: z.literal('server:room_context'),
+  agentId: z.string(),
+  context: roomContextSchema,
+})
+
+export const serverStopAgentSchema = z.object({
+  type: z.literal('server:stop_agent'),
+  agentId: z.string(),
+})
+
+export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
+  serverGatewayAuthResultSchema,
+  serverSendToAgentSchema,
+  serverStopAgentSchema,
+  serverRoomContextSchema,
+  serverPongSchema,
 ])

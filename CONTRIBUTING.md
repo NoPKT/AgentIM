@@ -71,12 +71,15 @@ docs: update gateway CLI usage instructions
 
 ## Internationalization (i18n)
 
-All user-facing strings must use i18next translation keys. When adding or modifying UI text, you must update all four locale files:
+All user-facing strings must use i18next translation keys. When adding or modifying UI text, you must update all seven locale files:
 
 - `packages/shared/src/i18n/locales/en.ts`
 - `packages/shared/src/i18n/locales/zh-CN.ts`
 - `packages/shared/src/i18n/locales/ja.ts`
 - `packages/shared/src/i18n/locales/ko.ts`
+- `packages/shared/src/i18n/locales/fr.ts`
+- `packages/shared/src/i18n/locales/de.ts`
+- `packages/shared/src/i18n/locales/ru.ts`
 
 Pull requests with missing locale updates will not be merged.
 

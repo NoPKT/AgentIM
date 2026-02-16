@@ -42,6 +42,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const [showAddAgent, setShowAddAgent] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [pinLoading, setPinLoading] = useState(false)
+  const [archiveLoading, setArchiveLoading] = useState(false)
 
   const statusConfig = getStatusConfig(t)
   const typeConfig = getTypeConfig(t)
@@ -439,13 +441,18 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             <div className="flex gap-2">
               <button
                 onClick={async () => {
+                  if (pinLoading) return
+                  setPinLoading(true)
                   try {
                     await togglePin(roomId)
                   } catch {
                     toast.error(t('error'))
+                  } finally {
+                    setPinLoading(false)
                   }
                 }}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                disabled={pinLoading}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                   myMember?.pinnedAt
                     ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
                     : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
@@ -455,13 +462,18 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               </button>
               <button
                 onClick={async () => {
+                  if (archiveLoading) return
+                  setArchiveLoading(true)
                   try {
                     await toggleArchive(roomId)
                   } catch {
                     toast.error(t('error'))
+                  } finally {
+                    setArchiveLoading(false)
                   }
                 }}
-                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                disabled={archiveLoading}
+                className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                   myMember?.archivedAt
                     ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                     : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'

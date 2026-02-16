@@ -3,7 +3,6 @@ import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type Complet
 
 export class CodexAdapter extends BaseAgentAdapter {
   private process: ChildProcess | null = null
-  private buffer = ''
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -26,7 +25,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
 
     this.isRunning = true
-    this.buffer = ''
     let fullContent = ''
 
     const prompt = this.buildPrompt(content, context)
@@ -68,7 +66,12 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   stop() {
-    this.process?.kill('SIGTERM')
+    if (this.process) {
+      this.process.kill('SIGTERM')
+      setTimeout(() => {
+        if (this.process) this.process.kill('SIGKILL')
+      }, 5000)
+    }
   }
 
   dispose() {

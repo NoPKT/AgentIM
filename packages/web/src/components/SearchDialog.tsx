@@ -122,7 +122,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-[10vh]">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-label={t('searchMessages')} className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Search Input */}
         <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
           <div className="relative">

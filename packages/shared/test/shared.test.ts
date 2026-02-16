@@ -24,6 +24,7 @@ import {
   AGENT_CONNECTION_TYPES,
   MAX_MESSAGE_LENGTH,
 } from '../src/index.js'
+import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES } from '../src/i18n/index.js'
 
 // ─── Mentions ───
 
@@ -526,5 +527,22 @@ describe('Constants', () => {
   it('MAX_MESSAGE_LENGTH is reasonable', () => {
     assert.ok(MAX_MESSAGE_LENGTH >= 1000)
     assert.ok(MAX_MESSAGE_LENGTH <= 1_000_000)
+  })
+
+  it('SUPPORTED_LANGUAGES includes 7 languages', () => {
+    assert.equal(SUPPORTED_LANGUAGES.length, 7)
+    assert.ok(SUPPORTED_LANGUAGES.includes('en'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('zh-CN'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('ja'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('ko'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('fr'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('de'))
+    assert.ok(SUPPORTED_LANGUAGES.includes('ru'))
+  })
+
+  it('LANGUAGE_NAMES has entries for all supported languages', () => {
+    for (const lang of SUPPORTED_LANGUAGES) {
+      assert.ok(typeof LANGUAGE_NAMES[lang] === 'string')
+    }
   })
 })

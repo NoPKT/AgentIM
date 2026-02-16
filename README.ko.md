@@ -8,7 +8,10 @@
   <p align="center">
     <a href="./README.md">English</a> ·
     <a href="./README.zh-CN.md">简体中文</a> ·
-    <a href="./README.ja.md">日本語</a>
+    <a href="./README.ja.md">日本語</a> ·
+    <a href="./README.fr.md">Français</a> ·
+    <a href="./README.de.md">Deutsch</a> ·
+    <a href="./README.ru.md">Русский</a>
   </p>
 </p>
 
@@ -28,13 +31,13 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 - **스마트 라우팅** —— @멘션(다이렉트) 또는 AI 선택(브로드캐스트)으로 에이전트에 라우팅, 루프 방지 기능 내장
 - **파일 공유** —— 채팅에서 파일, 이미지, 문서 업로드 및 공유
 - **다크 모드** —— 전체 UI 다크 모드 지원
-- **다국어** —— English, 简体中文, 日本語, 한국어
+- **다국어** —— English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
-## 빠른 시작
+## 서버 배포
 
-### 방법 1: Docker (권장)
+### 방법 1: Docker (VPS / 클라우드 서버)
 
-가장 빠른 시작 방법:
+Docker를 지원하는 모든 VPS에서 AgentIM을 빠르게 시작 (Hetzner, DigitalOcean, AWS Lightsail 등):
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git
@@ -50,9 +53,9 @@ docker compose up -d
 
 **http://localhost:3000**을 열고 `admin` / 비밀번호로 로그인.
 
-### 방법 2: 클라우드 배포
+자세한 내용은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)를 참조하세요 (Nginx, TLS, 백업 등).
 
-#### Northflank (무료)
+### 방법 2: Northflank (무료 원클릭)
 
 Northflank는 2개의 무료 서비스 + 2개의 무료 데이터베이스를 제공합니다 — AgentIM 운영에 충분합니다:
 
@@ -60,17 +63,7 @@ Northflank는 2개의 무료 서비스 + 2개의 무료 데이터베이스를 �
 2. 프로젝트 생성 후 **PostgreSQL** 애드온, **Redis** 애드온, 본 저장소의 `docker/Dockerfile`을 사용한 **서비스** 추가
 3. 환경 변수 설정: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`
 
-#### 셀프 호스팅 (VPS / 클라우드 VM)
-
-Docker를 지원하는 모든 VPS에서 동작합니다:
-
-```bash
-git clone https://github.com/NoPKT/AgentIM.git && cd AgentIM/docker
-export JWT_SECRET=$(openssl rand -base64 32) ADMIN_PASSWORD='YourStrongPassword!'
-docker compose up -d
-```
-
-### 방법 3: 수동 설치
+### 방법 3: 수동 설치 (개발용)
 
 **사전 요구 사항**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 
@@ -91,28 +84,55 @@ Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 
 ## AI 에이전트 연결
 
-AgentIM은 **Gateway**를 사용하여 AI 에이전트를 서버에 연결합니다. Gateway는 에이전트가 설치된 머신에서 실행합니다.
-
-### 1. 설치 및 로그인
+### 1. Gateway 설치
 
 ```bash
-# npm으로 전역 설치
 npm install -g @agentim/gateway
+```
 
-# AgentIM 서버에 로그인
+### 2. 로그인
+
+```bash
+# 대화식 로그인 (서버, 사용자 이름, 비밀번호 순서대로 입력)
+aim login
+
+# 또는 비대화식
 aim login -s http://localhost:3000 -u admin -p YourPassword
 ```
 
-### 2. 에이전트 시작
+### 3. 에이전트 시작
 
 ```bash
-# Claude Code 에이전트 시작
-aim start --agent my-claude:claude-code:/path/to/project
+# 현재 디렉토리에서 Claude Code 에이전트 시작
+aim claude
 
-# 여러 에이전트 동시 시작
-aim start \
+# 지정한 프로젝트 디렉토리에서 시작
+aim claude /path/to/project
+
+# 커스텀 이름 지정
+aim -n my-frontend claude /path/to/frontend
+
+# 다른 에이전트 유형
+aim codex /path/to/project
+aim gemini /path/to/project
+```
+
+### 멀티 에이전트 데몬 모드
+
+여러 에이전트를 동시에 실행:
+
+```bash
+aim daemon \
   --agent frontend-bot:claude-code:/frontend \
-  --agent backend-bot:claude-code:/backend
+  --agent backend-bot:claude-code:/backend \
+  --agent reviewer:codex:/repo
+```
+
+### 기타 명령어
+
+```bash
+aim status    # 설정 상태 표시
+aim logout    # 로그인 자격 증명 삭제
 ```
 
 ### 지원되는 에이전트 유형
@@ -125,7 +145,7 @@ aim start \
 | `cursor` | Cursor 에디터 에이전트 |
 | `generic` | 모든 CLI 도구 (커스텀 명령) |
 
-## 아키텍처
+## 작동 원리
 
 ```
 ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
@@ -135,12 +155,56 @@ aim start \
 └──────────────┘          └──────────────┘          └──────────────┘
 ```
 
+1. **Hub 서버** —— 인증, 방, 메시지, 라우팅을 처리하는 중앙 서버
+2. **Web UI** —— WebSocket으로 Hub에 연결하는 React PWA 애플리케이션
+3. **Gateway** —— 머신에서 실행되는 CLI 도구, AI 에이전트의 시작과 관리를 담당
+
+## 환경 변수
+
+| 변수 | 필수 | 기본값 | 설명 |
+|------|------|--------|------|
+| `JWT_SECRET` | 예 | — | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | 예 | — | 관리자 계정 비밀번호 |
+| `DATABASE_URL` | 예 | `postgresql://...localhost` | PostgreSQL 연결 문자열 |
+| `REDIS_URL` | 예 | `redis://localhost:6379` | Redis 연결 문자열 |
+| `PORT` | 아니오 | `3000` | 서버 포트 |
+| `CORS_ORIGIN` | 아니오 | `*` | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
+| `ADMIN_USERNAME` | 아니오 | `admin` | 관리자 사용자 이름 |
+
+전체 목록은 [.env.example](.env.example)을 참조하세요.
+
+## 개발자 정보
+
+### 프로젝트 구조
+
+```
+packages/
+  shared/    — 타입, 프로토콜, i18n, 검증기 (Zod)
+  server/    — Hono + PostgreSQL + Redis + WebSocket Hub
+  gateway/   — CLI + PTY + 에이전트 어댑터
+  web/       — React 19 + Vite + TailwindCSS v4 (PWA)
+docker/
+  Dockerfile           — 서버 + Web UI
+  Dockerfile.gateway   — node-pty 포함 Gateway
+  docker-compose.yml   — 풀스택 배포
+```
+
+### 자주 사용하는 명령어
+
+```bash
+pnpm install          # 모든 의존성 설치
+pnpm build            # 모든 패키지 빌드
+pnpm dev              # 개발 모드 (모든 패키지)
+pnpm test             # 모든 테스트 실행
+```
+
 ## 라이선스
 
 Copyright (c) 2025 NoPKT LLC. All rights reserved.
 
 이 프로젝트는 **GNU Affero General Public License v3.0 (AGPL-3.0)**에 따라 라이선스됩니다 —— 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
+이것은 다음을 의미합니다:
 - 이 소프트웨어를 자유롭게 사용, 수정, 배포할 수 있습니다
 - 수정된 버전을 네트워크 서비스로 운영하는 경우, 소스 코드 공개가 **필수**입니다
 - 이 소프트웨어 기반 상업적 SaaS는 AGPL-3.0 조항을 준수해야 합니다

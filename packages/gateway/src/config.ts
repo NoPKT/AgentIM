@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -23,12 +23,18 @@ export function loadConfig(): GatewayConfig | null {
 }
 
 export function saveConfig(config: GatewayConfig): void {
-  mkdirSync(CONFIG_DIR, { recursive: true })
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2))
+  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 })
 }
 
 export function getConfigPath(): string {
   return CONFIG_FILE
+}
+
+export function clearConfig(): void {
+  if (existsSync(CONFIG_FILE)) {
+    unlinkSync(CONFIG_FILE)
+  }
 }
 
 /** Derive HTTP base URL from WebSocket URL */

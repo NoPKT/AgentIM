@@ -35,6 +35,11 @@ export const config = {
   maxAgentChainDepth: parseInt(env('MAX_AGENT_CHAIN_DEPTH', '5'), 10),
   agentRateLimitWindow: parseInt(env('AGENT_RATE_LIMIT_WINDOW', '60'), 10),
   agentRateLimitMax: parseInt(env('AGENT_RATE_LIMIT_MAX', '20'), 10),
+  // Periodic cleanup intervals (ms)
+  orphanFileCheckInterval: parseInt(env('ORPHAN_FILE_CHECK_INTERVAL', '3600000'), 10),
+  tokenCleanupInterval: parseInt(env('TOKEN_CLEANUP_INTERVAL', '3600000'), 10),
+  // Client WebSocket rate limiting
+  clientRateLimitWindow: parseInt(env('CLIENT_RATE_LIMIT_WINDOW', '10'), 10),
 }
 
 // Security check: refuse to start in production with default JWT secret
