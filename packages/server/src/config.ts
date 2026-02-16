@@ -30,7 +30,7 @@ export const config = {
   // AI Router (optional — uses OpenAI-compatible API)
   routerLlmBaseUrl: process.env.ROUTER_LLM_BASE_URL || '',
   routerLlmApiKey: process.env.ROUTER_LLM_API_KEY || '',
-  routerLlmModel: env('ROUTER_LLM_MODEL', 'gpt-oss-20b'),
+  routerLlmModel: process.env.ROUTER_LLM_MODEL || '',
   // Routing protection
   maxAgentChainDepth: parseInt(env('MAX_AGENT_CHAIN_DEPTH', '5'), 10),
   agentRateLimitWindow: parseInt(env('AGENT_RATE_LIMIT_WINDOW', '60'), 10),

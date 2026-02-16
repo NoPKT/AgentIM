@@ -152,7 +152,7 @@ agentim claude /path/to/project
 | --------------------- | ------------- | --------------------------------------------------------------------------------- |
 | `ROUTER_LLM_BASE_URL` | (empty)       | OpenAI-compatible API URL. Without this, broadcast rooms only route via @mentions |
 | `ROUTER_LLM_API_KEY`  | (empty)       | API key                                                                           |
-| `ROUTER_LLM_MODEL`    | `gpt-oss-20b` | Model name                                                                        |
+| `ROUTER_LLM_MODEL`    | (empty)       | Model name (e.g. `gpt-4o-mini`, `llama-3.1-8b-instant`)                          |
 
 ### Routing Protection
 

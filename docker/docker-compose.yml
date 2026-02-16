@@ -5,8 +5,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: agentim
-    ports:
-      - '5432:5432'
+    # ports:
+    #   - '5432:5432'  # Uncomment for local dev access only; do NOT expose in production
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +23,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - '6379:6379'
+    # ports:
+    #   - '6379:6379'  # Uncomment for local dev access only; do NOT expose in production
     volumes:
       - redisdata:/data
     healthcheck:
@@ -79,17 +79,6 @@ services:
           cpus: '2'
           memory: 2G
     restart: unless-stopped
-
-  # Optional: gateway service (usually run on user's machine instead)
-  # gateway:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/Dockerfile.gateway
-  #   environment:
-  #     - GATEWAY_SERVER_URL=ws://server:3000/ws/gateway
-  #     - GATEWAY_TOKEN=${GATEWAY_TOKEN}
-  #   depends_on:
-  #     - server
 
 volumes:
   pgdata:
