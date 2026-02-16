@@ -115,8 +115,16 @@ describe('WebSocket Protocol', () => {
       const ws1 = track(await connectWs(WS_CLIENT_URL))
       const ws2 = track(await connectWs(WS_CLIENT_URL))
 
-      await wsSendAndWait(ws1, { type: 'client:auth', token: user1.accessToken }, 'server:auth_result')
-      await wsSendAndWait(ws2, { type: 'client:auth', token: user2.accessToken }, 'server:auth_result')
+      await wsSendAndWait(
+        ws1,
+        { type: 'client:auth', token: user1.accessToken },
+        'server:auth_result',
+      )
+      await wsSendAndWait(
+        ws2,
+        { type: 'client:auth', token: user2.accessToken },
+        'server:auth_result',
+      )
 
       ws1.send(JSON.stringify({ type: 'client:join_room', roomId }))
       ws2.send(JSON.stringify({ type: 'client:join_room', roomId }))

@@ -53,9 +53,15 @@ describe('Boundary Tests', () => {
       // Create room with both users
       const room = await api('POST', '/api/rooms', { name: 'Edit Room' }, ownerToken)
       roomId = room.data.data.id
-      await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId, memberType: 'user',
-      }, ownerToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId,
+          memberType: 'user',
+        },
+        ownerToken,
+      )
     })
 
     it('sender can edit their own message', async () => {
@@ -65,9 +71,16 @@ describe('Boundary Tests', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 100))
 
-      const msgResult = await wsSendAndWait(ws, {
-        type: 'client:send_message', roomId, content: 'Original', mentions: [],
-      }, 'server:new_message')
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'Original',
+          mentions: [],
+        },
+        'server:new_message',
+      )
       const messageId = msgResult.message.id
 
       // Owner edits their own message
@@ -83,9 +96,16 @@ describe('Boundary Tests', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 100))
 
-      const msgResult = await wsSendAndWait(ws, {
-        type: 'client:send_message', roomId, content: 'Private', mentions: [],
-      }, 'server:new_message')
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'Private',
+          mentions: [],
+        },
+        'server:new_message',
+      )
       const messageId = msgResult.message.id
 
       // Member tries to edit owner's message
@@ -99,9 +119,16 @@ describe('Boundary Tests', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 100))
 
-      const msgResult = await wsSendAndWait(ws, {
-        type: 'client:send_message', roomId, content: 'Keep this', mentions: [],
-      }, 'server:new_message')
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'Keep this',
+          mentions: [],
+        },
+        'server:new_message',
+      )
       const messageId = msgResult.message.id
 
       // Member tries to delete owner's message
@@ -125,9 +152,16 @@ describe('Boundary Tests', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 100))
 
-      const msgResult = await wsSendAndWait(ws, {
-        type: 'client:send_message', roomId, content: 'Version 1', mentions: [],
-      }, 'server:new_message')
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'Version 1',
+          mentions: [],
+        },
+        'server:new_message',
+      )
       const messageId = msgResult.message.id
 
       // Edit the message
@@ -180,7 +214,12 @@ describe('Boundary Tests', () => {
     })
 
     it('rejects invalid notification preference', async () => {
-      const res = await api('PUT', `/api/rooms/${roomId}/notification-pref`, { pref: 'invalid' }, token)
+      const res = await api(
+        'PUT',
+        `/api/rooms/${roomId}/notification-pref`,
+        { pref: 'invalid' },
+        token,
+      )
       assert.equal(res.status, 400)
     })
 
@@ -241,11 +280,7 @@ describe('Boundary Tests', () => {
       const ws = track(await connectWs(WS_CLIENT_URL))
       const ts = Date.now()
 
-      const result = await wsSendAndWait(
-        ws,
-        { type: 'client:ping', ts },
-        'server:pong',
-      )
+      const result = await wsSendAndWait(ws, { type: 'client:ping', ts }, 'server:pong')
 
       assert.equal(result.ts, ts)
     })
@@ -265,21 +300,33 @@ describe('Boundary Tests', () => {
       const room = await api('POST', '/api/rooms', { name: 'Val Room' }, user.accessToken)
       const roomId = room.data.data.id
 
-      const res = await api('POST', `/api/tasks/rooms/${roomId}`, {
-        title: 'x'.repeat(201),
-      }, user.accessToken)
+      const res = await api(
+        'POST',
+        `/api/tasks/rooms/${roomId}`,
+        {
+          title: 'x'.repeat(201),
+        },
+        user.accessToken,
+      )
       assert.equal(res.status, 400)
     })
 
     it('rejects registration with weak password', async () => {
       const adminLogin = await api('POST', '/api/auth/login', {
-        username: 'admin', password: 'AdminPass123',
+        username: 'admin',
+        password: 'AdminPass123',
       })
       const adminToken = adminLogin.data.data.accessToken
 
-      const res = await api('POST', '/api/users', {
-        username: 'weakpw', password: 'weak',
-      }, adminToken)
+      const res = await api(
+        'POST',
+        '/api/users',
+        {
+          username: 'weakpw',
+          password: 'weak',
+        },
+        adminToken,
+      )
       assert.equal(res.status, 400)
     })
 
@@ -290,14 +337,26 @@ describe('Boundary Tests', () => {
       const roomId = room.data.data.id
 
       // Add member
-      await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId: member.userId, memberType: 'user',
-      }, owner.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId: member.userId,
+          memberType: 'user',
+        },
+        owner.accessToken,
+      )
 
       // Try to add again
-      const res = await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId: member.userId, memberType: 'user',
-      }, owner.accessToken)
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId: member.userId,
+          memberType: 'user',
+        },
+        owner.accessToken,
+      )
       assert.equal(res.status, 409)
     })
   })

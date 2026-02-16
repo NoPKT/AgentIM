@@ -19,11 +19,11 @@ import type { ServerSendToAgent, ServerStopAgent } from '@agentim/shared'
 const log = createLogger('Gateway')
 
 program
-  .name('aim')
+  .name('agentim')
   .description('AgentIM Gateway - Bridge AI coding agents to AgentIM')
   .version(version)
 
-// ─── aim login ───
+// ─── agentim login ───
 
 program
   .command('login')
@@ -93,7 +93,7 @@ program
     }
   })
 
-// ─── aim logout ───
+// ─── agentim logout ───
 
 program
   .command('logout')
@@ -103,7 +103,7 @@ program
     console.log('Logged out. Credentials cleared.')
   })
 
-// ─── aim claude [path] ───
+// ─── agentim claude [path] ───
 
 program
   .command('claude [path]')
@@ -117,7 +117,7 @@ program
     })
   })
 
-// ─── aim codex [path] ───
+// ─── agentim codex [path] ───
 
 program
   .command('codex [path]')
@@ -131,7 +131,7 @@ program
     })
   })
 
-// ─── aim gemini [path] ───
+// ─── agentim gemini [path] ───
 
 program
   .command('gemini [path]')
@@ -145,7 +145,7 @@ program
     })
   })
 
-// ─── aim daemon ───
+// ─── agentim daemon ───
 
 program
   .command('daemon')
@@ -157,7 +157,7 @@ program
   .action(async (opts) => {
     const config = loadConfig()
     if (!config) {
-      console.error('Not logged in. Run `aim login` first.')
+      console.error('Not logged in. Run `agentim login` first.')
       process.exit(1)
     }
 
@@ -196,13 +196,13 @@ program
                 () => authenticate(wsClient),
                 (err: any) => {
                   log.error(`Token refresh failed: ${err.message}`)
-                  log.error('Please re-login: aim login')
+                  log.error('Please re-login: agentim login')
                   process.exit(1)
                 },
               )
             } else if (!config.refreshToken) {
               log.error(`Auth failed: ${msg.error}`)
-              log.error('Please re-login: aim login')
+              log.error('Please re-login: agentim login')
               process.exit(1)
             }
           }
@@ -231,7 +231,7 @@ program
     process.on('SIGTERM', cleanup)
   })
 
-// ─── aim status ───
+// ─── agentim status ───
 
 program
   .command('status')
@@ -239,7 +239,7 @@ program
   .action(() => {
     const config = loadConfig()
     if (!config) {
-      console.log('Not logged in. Run `aim login` first.')
+      console.log('Not logged in. Run `agentim login` first.')
       return
     }
     console.log(`Server: ${config.serverUrl}`)
@@ -266,7 +266,7 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
 
   if (agentSpecs.length === 0) {
     log.info('No agents specified. Use --agent to add agents.')
-    log.info('Example: aim daemon --agent claude:claude-code:/path/to/project')
+    log.info('Example: agentim daemon --agent claude:claude-code:/path/to/project')
   }
 }
 

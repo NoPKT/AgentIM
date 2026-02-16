@@ -153,7 +153,7 @@ export default function SettingsPage() {
 
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode)
-    localStorage.setItem('aim_language', langCode)
+    localStorage.setItem('agentim_language', langCode)
   }
 
   return (

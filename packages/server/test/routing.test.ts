@@ -101,8 +101,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-bc1', 'rt-agent-bc1', 'AgentA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-bc2', 'rt-agent-bc2', 'AgentB')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bc1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bc2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-bc1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-bc2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -140,8 +150,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-dir1', 'rt-agent-dir1', 'DirAgentA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-dir2', 'rt-agent-dir2', 'DirAgentB')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-dir1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-dir2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-dir1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-dir2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -185,8 +205,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-bcd1', 'rt-agent-bcd1', 'AlphaBot')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-bcd2', 'rt-agent-bcd2', 'BetaBot')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bcd1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-bcd2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-bcd1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-bcd2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -226,7 +256,12 @@ describe('Message Routing', () => {
       const roomId = room.data.data.id
 
       const gw1 = await setupGatewayAgent(user, 'rt-gw-none1', 'rt-agent-none1', 'SilentAgent')
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-none1', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-none1', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
       const collect1 = wsCollect(gw1, 'server:send_to_agent', 1500)
@@ -258,8 +293,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-smp1', 'rt-agent-smp1', 'RealAgent')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-smp2', 'rt-agent-smp2', 'FakeAgent')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-smp1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-smp2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-smp1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-smp2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -304,8 +349,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-a2a1', 'rt-agent-a2a1', 'SenderBot')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-a2a2', 'rt-agent-a2a2', 'ReceiverBot')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-a2a1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-a2a2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-a2a1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-a2a2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -346,7 +401,12 @@ describe('Message Routing', () => {
       const roomId = room.data.data.id
 
       const gw = await setupGatewayAgent(user, 'rt-gw-a2a-self', 'rt-agent-selfref', 'SelfBot')
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-selfref', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-selfref', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
       const collect = wsCollect(gw, 'server:send_to_agent', 1500)
@@ -379,8 +439,18 @@ describe('Message Routing', () => {
       const gw1 = await setupGatewayAgent(user, 'rt-gw-chain1', 'rt-agent-chain1', 'ChainA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-chain2', 'rt-agent-chain2', 'ChainB')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-chain1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-chain2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-chain1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-chain2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -484,23 +554,28 @@ describe('Message Routing', () => {
     it('agents receive room context when member is added', async () => {
       const user = await registerUser('route_ctx2')
 
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'Ctx Add Room' },
-        user.accessToken,
-      )
+      const room = await api('POST', '/api/rooms', { name: 'Ctx Add Room' }, user.accessToken)
       const roomId = room.data.data.id
 
       const gw = await setupGatewayAgent(user, 'rt-gw-ctx2', 'rt-agent-ctx2', 'WatcherBot')
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-ctx2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       await new Promise((r) => setTimeout(r, 500))
 
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
 
       const gw2 = await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx2b', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-ctx2b', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const ctx = await contextPromise
       assert.equal(ctx.context.roomId, roomId)
@@ -510,20 +585,25 @@ describe('Message Routing', () => {
     it('agents receive room context when room is updated', async () => {
       const user = await registerUser('route_ctx3')
 
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'Ctx Update Room' },
-        user.accessToken,
-      )
+      const room = await api('POST', '/api/rooms', { name: 'Ctx Update Room' }, user.accessToken)
       const roomId = room.data.data.id
 
       const gw = await setupGatewayAgent(user, 'rt-gw-ctx3', 'rt-agent-ctx3', 'UpdateWatcher')
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-ctx3', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-ctx3', memberType: 'agent' },
+        user.accessToken,
+      )
       await new Promise((r) => setTimeout(r, 500))
 
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
-      await api('PUT', `/api/rooms/${roomId}`, { systemPrompt: 'New system prompt' }, user.accessToken)
+      await api(
+        'PUT',
+        `/api/rooms/${roomId}`,
+        { systemPrompt: 'New system prompt' },
+        user.accessToken,
+      )
 
       const ctx = await contextPromise
       assert.equal(ctx.context.systemPrompt, 'New system prompt')
@@ -536,19 +616,24 @@ describe('Message Routing', () => {
     it('depth limit: stops routing when chain depth reaches maxAgentChainDepth', async () => {
       const user = await registerUser('route_depth1')
 
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'Depth Room' },
-        user.accessToken,
-      )
+      const room = await api('POST', '/api/rooms', { name: 'Depth Room' }, user.accessToken)
       const roomId = room.data.data.id
 
       const gw1 = await setupGatewayAgent(user, 'rt-gw-depth1', 'rt-agent-depth1', 'DeepA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-depth2', 'rt-agent-depth2', 'DeepB')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-depth1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-depth2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-depth1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-depth2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -589,19 +674,24 @@ describe('Message Routing', () => {
     it('visited dedup: prevents A→B→A loop via conversation visited set', async () => {
       const user = await registerUser('route_visited1')
 
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'Visited Room' },
-        user.accessToken,
-      )
+      const room = await api('POST', '/api/rooms', { name: 'Visited Room' }, user.accessToken)
       const roomId = room.data.data.id
 
       const gw1 = await setupGatewayAgent(user, 'rt-gw-vis1', 'rt-agent-vis1', 'VisA')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-vis2', 'rt-agent-vis2', 'VisB')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-vis1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-vis2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-vis1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-vis2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
       const convId = 'visited-test-conv'
@@ -643,19 +733,24 @@ describe('Message Routing', () => {
     it('rate limit: agent messages saved but not routed after exceeding limit', async () => {
       const user = await registerUser('route_rl1')
 
-      const room = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'RateLimit Room' },
-        user.accessToken,
-      )
+      const room = await api('POST', '/api/rooms', { name: 'RateLimit Room' }, user.accessToken)
       const roomId = room.data.data.id
 
       const gw1 = await setupGatewayAgent(user, 'rt-gw-rl1', 'rt-agent-rl1', 'SpammerBot')
       const gw2 = await setupGatewayAgent(user, 'rt-gw-rl2', 'rt-agent-rl2', 'VictimBot')
 
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-rl1', memberType: 'agent' }, user.accessToken)
-      await api('POST', `/api/rooms/${roomId}/members`, { memberId: 'rt-agent-rl2', memberType: 'agent' }, user.accessToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-rl1', memberType: 'agent' },
+        user.accessToken,
+      )
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        { memberId: 'rt-agent-rl2', memberType: 'agent' },
+        user.accessToken,
+      )
 
       const client = await setupClient(user, roomId)
 
@@ -709,12 +804,27 @@ describe('Message Routing', () => {
       )
       assert.equal(room.data.data.systemPrompt, 'Build a web app')
 
-      await api('PUT', `/api/rooms/${room.data.data.id}`, { systemPrompt: 'Updated prompt' }, user.accessToken)
-      const updated = await api('GET', `/api/rooms/${room.data.data.id}`, undefined, user.accessToken)
+      await api(
+        'PUT',
+        `/api/rooms/${room.data.data.id}`,
+        { systemPrompt: 'Updated prompt' },
+        user.accessToken,
+      )
+      const updated = await api(
+        'GET',
+        `/api/rooms/${room.data.data.id}`,
+        undefined,
+        user.accessToken,
+      )
       assert.equal(updated.data.data.systemPrompt, 'Updated prompt')
 
       await api('PUT', `/api/rooms/${room.data.data.id}`, { systemPrompt: null }, user.accessToken)
-      const cleared = await api('GET', `/api/rooms/${room.data.data.id}`, undefined, user.accessToken)
+      const cleared = await api(
+        'GET',
+        `/api/rooms/${room.data.data.id}`,
+        undefined,
+        user.accessToken,
+      )
       assert.equal(cleared.data.data.systemPrompt, null)
     })
   })

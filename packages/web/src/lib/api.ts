@@ -17,14 +17,14 @@ function getToken(): string | null {
 
 function setTokens(access: string, refresh: string) {
   accessToken = access
-  localStorage.setItem('aim_refresh_token', refresh)
+  localStorage.setItem('agentim_refresh_token', refresh)
 }
 
 function clearTokens() {
   accessToken = null
-  localStorage.removeItem('aim_refresh_token')
+  localStorage.removeItem('agentim_refresh_token')
   // Clean up legacy key if present
-  localStorage.removeItem('aim_access_token')
+  localStorage.removeItem('agentim_access_token')
 }
 
 function withTimeout(signal?: AbortSignal | null, timeout = DEFAULT_TIMEOUT): AbortSignal {
@@ -41,7 +41,7 @@ function withTimeout(signal?: AbortSignal | null, timeout = DEFAULT_TIMEOUT): Ab
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = localStorage.getItem('aim_refresh_token')
+  const refreshToken = localStorage.getItem('agentim_refresh_token')
   if (!refreshToken) return false
 
   try {

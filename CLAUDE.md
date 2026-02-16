@@ -1,4 +1,4 @@
-# AgentIM (AIM)
+# AgentIM
 
 Unified IM-style platform for managing and orchestrating multiple AI coding agents.
 
@@ -6,7 +6,7 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 
 - `packages/shared` - Shared types, WebSocket protocol, i18n, validators (Zod)
 - `packages/server` - Hub server: Hono + PostgreSQL + Redis (Drizzle) + WebSocket
-- `packages/gateway` - Agent Gateway CLI: node-pty + CLI adapters
+- `packages/gateway` - AgentIM CLI: node-pty + CLI adapters
 - `packages/web` - React 19 SPA/PWA: Vite + TailwindCSS v4
 
 ## Conventions
@@ -27,7 +27,7 @@ pnpm build            # Build all packages
 pnpm dev              # Dev mode (all packages)
 pnpm --filter @agentim/server dev    # Dev server only
 pnpm --filter @agentim/web dev       # Dev web only
-pnpm --filter @agentim/gateway dev   # Dev gateway only
+pnpm --filter agentim dev            # Dev CLI only
 ```
 
 ## Environment Variables

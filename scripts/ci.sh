@@ -29,7 +29,7 @@ pnpm --filter @agentim/web build || fail "web build failed"
 pass "Web built"
 
 step "Building gateway"
-pnpm --filter @agentim/gateway build || fail "gateway build failed"
+pnpm --filter agentim build || fail "gateway build failed"
 pass "Gateway built"
 
 step "Running tests"

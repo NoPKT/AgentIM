@@ -76,7 +76,10 @@ describe('getDeviceInfo', () => {
 
 describe('createAdapter', () => {
   it('throws on unknown type', () => {
-    assert.throws(() => createAdapter('unknown', { agentId: 'a', agentName: 'test' }), /Unknown adapter type/)
+    assert.throws(
+      () => createAdapter('unknown', { agentId: 'a', agentName: 'test' }),
+      /Unknown adapter type/,
+    )
   })
 
   it('creates claude-code adapter', () => {
@@ -248,10 +251,18 @@ describe('AgentManager', () => {
 
 describe('BaseAgentAdapter.buildPrompt', () => {
   class TestAdapter extends BaseAgentAdapter {
-    get type() { return 'test' }
-    sendMessage() { /* no-op */ }
-    stop() { /* no-op */ }
-    dispose() { /* no-op */ }
+    get type() {
+      return 'test'
+    }
+    sendMessage() {
+      /* no-op */
+    }
+    stop() {
+      /* no-op */
+    }
+    dispose() {
+      /* no-op */
+    }
     public testBuildPrompt(content: string, context?: MessageContext) {
       return this.buildPrompt(content, context)
     }

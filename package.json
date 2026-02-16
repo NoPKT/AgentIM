@@ -1,5 +1,5 @@
 {
-  "name": "agentim",
+  "name": "agentim-workspace",
   "version": "0.1.0",
   "private": true,
   "description": "Unified IM platform for managing and orchestrating multiple AI coding agents",
@@ -10,12 +10,21 @@
     "type": "git",
     "url": "https://github.com/NoPKT/AgentIM.git"
   },
-  "keywords": ["ai", "agent", "im", "chat", "claude", "codex", "gemini", "orchestration"],
+  "keywords": [
+    "ai",
+    "agent",
+    "im",
+    "chat",
+    "claude",
+    "codex",
+    "gemini",
+    "orchestration"
+  ],
   "type": "module",
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "test": "pnpm --filter @agentim/shared test && pnpm --filter @agentim/gateway test && pnpm --filter @agentim/server test",
+    "test": "pnpm --filter @agentim/shared test && pnpm --filter agentim test && pnpm --filter @agentim/server test",
     "lint": "turbo lint",
     "clean": "turbo clean"
   },

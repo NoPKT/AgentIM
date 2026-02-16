@@ -53,10 +53,15 @@ describe('AgentIM Server API', () => {
       })
       const adminToken = adminLogin.data.data.accessToken
 
-      const res = await api('POST', '/api/users', {
-        username: 'alice',
-        password: 'Password123',
-      }, adminToken)
+      const res = await api(
+        'POST',
+        '/api/users',
+        {
+          username: 'alice',
+          password: 'Password123',
+        },
+        adminToken,
+      )
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
       assert.equal(res.data.data.username, 'alice')
@@ -70,20 +75,30 @@ describe('AgentIM Server API', () => {
       })
       const adminToken = adminLogin.data.data.accessToken
 
-      const res = await api('POST', '/api/users', {
-        username: 'alice',
-        password: 'Password123',
-      }, adminToken)
+      const res = await api(
+        'POST',
+        '/api/users',
+        {
+          username: 'alice',
+          password: 'Password123',
+        },
+        adminToken,
+      )
       assert.equal(res.status, 409)
       assert.equal(res.data.ok, false)
     })
 
     it('non-admin cannot create users', async () => {
       const user = await registerUser('nonadmin1')
-      const res = await api('POST', '/api/users', {
-        username: 'shouldfail',
-        password: 'Password123',
-      }, user.accessToken)
+      const res = await api(
+        'POST',
+        '/api/users',
+        {
+          username: 'shouldfail',
+          password: 'Password123',
+        },
+        user.accessToken,
+      )
       assert.equal(res.status, 403)
     })
 
@@ -132,10 +147,15 @@ describe('AgentIM Server API', () => {
 
     it('user can change password', async () => {
       const user = await registerUser('pwchange1')
-      const res = await api('PUT', '/api/users/me/password', {
-        currentPassword: 'TestPass123',
-        newPassword: 'NewPass12345',
-      }, user.accessToken)
+      const res = await api(
+        'PUT',
+        '/api/users/me/password',
+        {
+          currentPassword: 'TestPass123',
+          newPassword: 'NewPass12345',
+        },
+        user.accessToken,
+      )
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
 
@@ -150,10 +170,15 @@ describe('AgentIM Server API', () => {
 
     it('rejects wrong current password on change', async () => {
       const user = await registerUser('pwchange2')
-      const res = await api('PUT', '/api/users/me/password', {
-        currentPassword: 'wrongpassword',
-        newPassword: 'NewPass12345',
-      }, user.accessToken)
+      const res = await api(
+        'PUT',
+        '/api/users/me/password',
+        {
+          currentPassword: 'wrongpassword',
+          newPassword: 'NewPass12345',
+        },
+        user.accessToken,
+      )
       assert.equal(res.status, 400)
     })
 
@@ -367,10 +392,15 @@ describe('AgentIM Server API', () => {
       const adminToken = adminLogin.data.data.accessToken
 
       // Create user to delete
-      const create = await api('POST', '/api/users', {
-        username: 'todelete',
-        password: 'Password123',
-      }, adminToken)
+      const create = await api(
+        'POST',
+        '/api/users',
+        {
+          username: 'todelete',
+          password: 'Password123',
+        },
+        adminToken,
+      )
       const deleteId = create.data.data.id
 
       const res = await api('DELETE', `/api/users/${deleteId}`, undefined, adminToken)
@@ -405,9 +435,15 @@ describe('AgentIM Server API', () => {
       const room = await api('POST', '/api/rooms', { name: 'Perm Room' }, ownerToken)
       roomId = room.data.data.id
 
-      await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId, memberType: 'user',
-      }, ownerToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId,
+          memberType: 'user',
+        },
+        ownerToken,
+      )
     })
 
     it('non-admin member cannot update room settings', async () => {
@@ -416,25 +452,47 @@ describe('AgentIM Server API', () => {
     })
 
     it('non-admin member cannot add members', async () => {
-      const res = await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId: outsiderId, memberType: 'user',
-      }, memberToken)
+      const res = await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId: outsiderId,
+          memberType: 'user',
+        },
+        memberToken,
+      )
       assert.equal(res.status, 403)
     })
 
     it('non-admin member cannot remove other members', async () => {
       // Add outsider first (as owner)
-      await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId: outsiderId, memberType: 'user',
-      }, ownerToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId: outsiderId,
+          memberType: 'user',
+        },
+        ownerToken,
+      )
 
       // Member tries to remove outsider
-      const res = await api('DELETE', `/api/rooms/${roomId}/members/${outsiderId}`, undefined, memberToken)
+      const res = await api(
+        'DELETE',
+        `/api/rooms/${roomId}/members/${outsiderId}`,
+        undefined,
+        memberToken,
+      )
       assert.equal(res.status, 403)
     })
 
     it('member can self-leave', async () => {
-      const res = await api('DELETE', `/api/rooms/${roomId}/members/${memberId}`, undefined, memberToken)
+      const res = await api(
+        'DELETE',
+        `/api/rooms/${roomId}/members/${memberId}`,
+        undefined,
+        memberToken,
+      )
       assert.equal(res.status, 200)
     })
 
@@ -444,7 +502,12 @@ describe('AgentIM Server API', () => {
       const createRes = await api('POST', '/api/rooms', { name: 'Private' }, ownerToken)
       const privateRoomId = createRes.data.data.id
 
-      const res = await api('GET', `/api/rooms/${privateRoomId}`, undefined, newOutsider.accessToken)
+      const res = await api(
+        'GET',
+        `/api/rooms/${privateRoomId}`,
+        undefined,
+        newOutsider.accessToken,
+      )
       assert.equal(res.status, 403)
     })
   })
@@ -470,14 +533,26 @@ describe('AgentIM Server API', () => {
       const room = await api('POST', '/api/rooms', { name: 'Task Perm Room' }, ownerToken)
       roomId = room.data.data.id
 
-      await api('POST', `/api/rooms/${roomId}/members`, {
-        memberId, memberType: 'user',
-      }, ownerToken)
+      await api(
+        'POST',
+        `/api/rooms/${roomId}/members`,
+        {
+          memberId,
+          memberType: 'user',
+        },
+        ownerToken,
+      )
 
       // Owner creates a task
-      const task = await api('POST', `/api/tasks/rooms/${roomId}`, {
-        title: 'Owner Task', description: 'Test',
-      }, ownerToken)
+      const task = await api(
+        'POST',
+        `/api/tasks/rooms/${roomId}`,
+        {
+          title: 'Owner Task',
+          description: 'Test',
+        },
+        ownerToken,
+      )
       taskId = task.data.data.id
     })
 
@@ -546,7 +621,7 @@ describe('AgentIM Server API', () => {
       gwA?.close()
     })
 
-    it('rejects adding another user\'s private agent to room', async () => {
+    it("rejects adding another user's private agent to room", async () => {
       // User B creates a room and tries to add User A's private agent
       const room = await api('POST', '/api/rooms', { name: 'B Room' }, userBToken)
       const roomId = room.data.data.id
@@ -586,7 +661,7 @@ describe('AgentIM Server API', () => {
       assert.equal(res.data.data.visibility, 'shared')
     })
 
-    it('allows adding shared agent to another user\'s room', async () => {
+    it("allows adding shared agent to another user's room", async () => {
       // Agent is now shared, User B should be able to add it
       const room = await api('POST', '/api/rooms', { name: 'B Room Shared' }, userBToken)
       const roomId = room.data.data.id
@@ -600,7 +675,7 @@ describe('AgentIM Server API', () => {
       assert.equal(res.status, 201)
     })
 
-    it('GET /agents/shared only returns other users\' shared agents', async () => {
+    it("GET /agents/shared only returns other users' shared agents", async () => {
       // User B should see User A's shared agent
       const res = await api('GET', '/api/agents/shared', undefined, userBToken)
       assert.equal(res.status, 200)

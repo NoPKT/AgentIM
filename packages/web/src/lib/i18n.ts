@@ -90,7 +90,7 @@ i18n
     interpolation: { escapeValue: false },
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'aim_language',
+      lookupLocalStorage: 'agentim_language',
     },
   })
 

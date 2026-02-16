@@ -20,7 +20,7 @@ export async function runWrapper(opts: {
 }): Promise<void> {
   const config = loadConfig()
   if (!config) {
-    console.error('Not logged in. Run `aim login` first.')
+    console.error('Not logged in. Run `agentim login` first.')
     process.exit(1)
   }
 
@@ -71,13 +71,13 @@ export async function runWrapper(opts: {
               () => authenticate(wsClient),
               (err: any) => {
                 log.error(`Token refresh failed: ${err.message}`)
-                log.error('Please re-login: aim login')
+                log.error('Please re-login: agentim login')
                 process.exit(1)
               },
             )
           } else if (!config.refreshToken) {
             log.error(`Auth failed: ${msg.error}`)
-            log.error('Please re-login: aim login')
+            log.error('Please re-login: agentim login')
             process.exit(1)
           }
         }

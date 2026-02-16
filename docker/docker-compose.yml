@@ -6,36 +6,36 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: agentim
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 5
     deploy:
       resources:
         limits:
-          cpus: "1"
+          cpus: '1'
           memory: 1G
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5
     deploy:
       resources:
         limits:
-          cpus: "0.5"
+          cpus: '0.5'
           memory: 256M
     restart: unless-stopped
 
@@ -44,13 +44,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "${PORT:-3000}:3000"
+      - '${PORT:-3000}:3000'
     environment:
       - PORT=3000
       - HOST=0.0.0.0
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
       - REDIS_URL=redis://redis:6379
-      - "JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate one with openssl rand -base64 32}"
+      - 'JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate one with openssl rand -base64 32}'
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-}
@@ -64,7 +64,11 @@ services:
     volumes:
       - uploads_data:/app/uploads
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health | grep -q '\"ok\":true' || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1:3000/api/health | grep -q ''"ok":true'' || exit 1',
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -72,7 +76,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
+          cpus: '2'
           memory: 2G
     restart: unless-stopped
 

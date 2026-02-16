@@ -59,12 +59,14 @@ describe('Endpoint Coverage', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 200))
 
-      ws.send(JSON.stringify({
-        type: 'client:send_message',
-        roomId,
-        content: 'Searchable unicorn message',
-        mentions: [],
-      }))
+      ws.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: 'Searchable unicorn message',
+          mentions: [],
+        }),
+      )
       await wsWaitFor(ws, 'server:new_message')
       ws.close()
       await new Promise((r) => setTimeout(r, 200))
@@ -112,12 +114,14 @@ describe('Endpoint Coverage', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 200))
 
-      ws.send(JSON.stringify({
-        type: 'client:send_message',
-        roomId,
-        content: 'React to this',
-        mentions: [],
-      }))
+      ws.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: 'React to this',
+          mentions: [],
+        }),
+      )
       const msg = await wsWaitFor(ws, 'server:new_message')
       messageId = msg.message.id
       ws.close()
@@ -165,12 +169,14 @@ describe('Endpoint Coverage', () => {
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
       await new Promise((r) => setTimeout(r, 200))
 
-      ws.send(JSON.stringify({
-        type: 'client:send_message',
-        roomId,
-        content: 'Original content',
-        mentions: [],
-      }))
+      ws.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: 'Original content',
+          mentions: [],
+        }),
+      )
       const msg = await wsWaitFor(ws, 'server:new_message')
       messageId = msg.message.id
       ws.close()
@@ -229,22 +235,30 @@ describe('Endpoint Coverage', () => {
       token = user.accessToken
 
       gw = await connectWs(WS_GATEWAY_URL)
-      await wsSendAndWait(gw, {
-        type: 'gateway:auth',
-        token,
-        gatewayId: 'getagent-gw',
-        deviceInfo: { hostname: 'test', platform: 'test', arch: 'x64', nodeVersion: 'v20' },
-      }, 'server:gateway_auth_result')
+      await wsSendAndWait(
+        gw,
+        {
+          type: 'gateway:auth',
+          token,
+          gatewayId: 'getagent-gw',
+          deviceInfo: { hostname: 'test', platform: 'test', arch: 'x64', nodeVersion: 'v20' },
+        },
+        'server:gateway_auth_result',
+      )
 
       agentId = 'getagent-agent-1'
-      gw.send(JSON.stringify({
-        type: 'gateway:register_agent',
-        agent: { id: agentId, name: 'GetBot', type: 'generic' },
-      }))
+      gw.send(
+        JSON.stringify({
+          type: 'gateway:register_agent',
+          agent: { id: agentId, name: 'GetBot', type: 'generic' },
+        }),
+      )
       await new Promise((r) => setTimeout(r, 300))
     })
 
-    after(() => { gw?.close() })
+    after(() => {
+      gw?.close()
+    })
 
     it('returns agent by id', async () => {
       const res = await api('GET', `/api/agents/${agentId}`, undefined, token)
@@ -270,16 +284,22 @@ describe('Endpoint Coverage', () => {
       token = user.accessToken
 
       gw = await connectWs(WS_GATEWAY_URL)
-      await wsSendAndWait(gw, {
-        type: 'gateway:auth',
-        token,
-        gatewayId: 'gwlist-gw-1',
-        deviceInfo: { hostname: 'testhost', platform: 'linux', arch: 'x64', nodeVersion: 'v20' },
-      }, 'server:gateway_auth_result')
+      await wsSendAndWait(
+        gw,
+        {
+          type: 'gateway:auth',
+          token,
+          gatewayId: 'gwlist-gw-1',
+          deviceInfo: { hostname: 'testhost', platform: 'linux', arch: 'x64', nodeVersion: 'v20' },
+        },
+        'server:gateway_auth_result',
+      )
       await new Promise((r) => setTimeout(r, 200))
     })
 
-    after(() => { gw?.close() })
+    after(() => {
+      gw?.close()
+    })
 
     it('lists gateways for current user', async () => {
       const res = await api('GET', '/api/agents/gateways/list', undefined, token)
@@ -308,23 +328,31 @@ describe('Endpoint Coverage', () => {
       token = user.accessToken
 
       gw = await connectWs(WS_GATEWAY_URL)
-      await wsSendAndWait(gw, {
-        type: 'gateway:auth',
-        token,
-        gatewayId: 'listag-gw',
-        deviceInfo: { hostname: 'test', platform: 'test', arch: 'x64', nodeVersion: 'v20' },
-      }, 'server:gateway_auth_result')
+      await wsSendAndWait(
+        gw,
+        {
+          type: 'gateway:auth',
+          token,
+          gatewayId: 'listag-gw',
+          deviceInfo: { hostname: 'test', platform: 'test', arch: 'x64', nodeVersion: 'v20' },
+        },
+        'server:gateway_auth_result',
+      )
 
       for (let i = 0; i < 3; i++) {
-        gw.send(JSON.stringify({
-          type: 'gateway:register_agent',
-          agent: { id: `listag-agent-${i}`, name: `Agent${i}`, type: 'generic' },
-        }))
+        gw.send(
+          JSON.stringify({
+            type: 'gateway:register_agent',
+            agent: { id: `listag-agent-${i}`, name: `Agent${i}`, type: 'generic' },
+          }),
+        )
       }
       await new Promise((r) => setTimeout(r, 300))
     })
 
-    after(() => { gw?.close() })
+    after(() => {
+      gw?.close()
+    })
 
     it('supports limit and offset', async () => {
       const res = await api('GET', '/api/agents?limit=2&offset=0', undefined, token)
@@ -347,10 +375,15 @@ describe('Endpoint Coverage', () => {
       roomId = room.data.data.id
 
       for (let i = 0; i < 3; i++) {
-        await api('POST', `/api/tasks/rooms/${roomId}`, {
-          title: `Task ${i}`,
-          description: `Desc ${i}`,
-        }, token)
+        await api(
+          'POST',
+          `/api/tasks/rooms/${roomId}`,
+          {
+            title: `Task ${i}`,
+            description: `Desc ${i}`,
+          },
+          token,
+        )
       }
     })
 
@@ -400,13 +433,23 @@ describe('Endpoint Coverage', () => {
     })
 
     it('updates notification preference', async () => {
-      const res = await api('PUT', `/api/rooms/${roomId}/notification-pref`, { pref: 'mentions' }, token)
+      const res = await api(
+        'PUT',
+        `/api/rooms/${roomId}/notification-pref`,
+        { pref: 'mentions' },
+        token,
+      )
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
     })
 
     it('rejects invalid notification preference', async () => {
-      const res = await api('PUT', `/api/rooms/${roomId}/notification-pref`, { pref: 'invalid' }, token)
+      const res = await api(
+        'PUT',
+        `/api/rooms/${roomId}/notification-pref`,
+        { pref: 'invalid' },
+        token,
+      )
       assert.equal(res.status, 400)
     })
   })

@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-| Component | Minimum Version | Notes |
-|-----------|----------------|-------|
-| Node.js | >= 20 | Runtime |
-| pnpm | 10.29.3 | Package manager (locked via `packageManager` field) |
-| PostgreSQL | 16 | Primary database |
-| Redis | 7 | Cache and real-time messaging |
-| Docker + Compose | Latest stable | Docker deployment only |
+| Component        | Minimum Version | Notes                                               |
+| ---------------- | --------------- | --------------------------------------------------- |
+| Node.js          | >= 20           | Runtime                                             |
+| pnpm             | 10.29.3         | Package manager (locked via `packageManager` field) |
+| PostgreSQL       | 16              | Primary database                                    |
+| Redis            | 7               | Cache and real-time messaging                       |
+| Docker + Compose | Latest stable   | Docker deployment only                              |
 
 ## Docker Deployment (Recommended)
 
@@ -43,10 +43,10 @@ curl http://localhost:3000/api/health
 
 ### Data persistence
 
-| Volume | Purpose |
-|--------|---------|
-| `pgdata` | PostgreSQL data |
-| `redisdata` | Redis persistence |
+| Volume         | Purpose             |
+| -------------- | ------------------- |
+| `pgdata`       | PostgreSQL data     |
+| `redisdata`    | Redis persistence   |
 | `uploads_data` | User uploaded files |
 
 ## Manual Deployment
@@ -102,62 +102,62 @@ GATEWAY_TOKEN=your-token \
 
 ### Core
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
-| `NODE_ENV` | — | Production | Set to `production` |
-| `PORT` | `3000` | No | HTTP port |
-| `HOST` | `0.0.0.0` | No | Bind address |
+| Variable   | Default   | Required   | Description         |
+| ---------- | --------- | ---------- | ------------------- |
+| `NODE_ENV` | —         | Production | Set to `production` |
+| `PORT`     | `3000`    | No         | HTTP port           |
+| `HOST`     | `0.0.0.0` | No         | Bind address        |
 
 ### Database
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
+| Variable       | Default                                                 | Required   | Description                  |
+| -------------- | ------------------------------------------------------- | ---------- | ---------------------------- |
 | `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/agentim` | Production | PostgreSQL connection string |
-| `REDIS_URL` | `redis://localhost:6379` | Production | Redis connection string |
+| `REDIS_URL`    | `redis://localhost:6379`                                | Production | Redis connection string      |
 
 ### Authentication
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
-| `JWT_SECRET` | `dev-secret-change-me` | **Production** | Server refuses to start with default value. Use `openssl rand -base64 32` |
-| `JWT_ACCESS_EXPIRY` | `15m` | No | Access token TTL |
-| `JWT_REFRESH_EXPIRY` | `7d` | No | Refresh token TTL |
-| `ADMIN_USERNAME` | `admin` | No | Admin user (auto-created on startup) |
-| `ADMIN_PASSWORD` | (empty) | Docker | Admin password |
+| Variable             | Default                | Required       | Description                                                               |
+| -------------------- | ---------------------- | -------------- | ------------------------------------------------------------------------- |
+| `JWT_SECRET`         | `dev-secret-change-me` | **Production** | Server refuses to start with default value. Use `openssl rand -base64 32` |
+| `JWT_ACCESS_EXPIRY`  | `15m`                  | No             | Access token TTL                                                          |
+| `JWT_REFRESH_EXPIRY` | `7d`                   | No             | Refresh token TTL                                                         |
+| `ADMIN_USERNAME`     | `admin`                | No             | Admin user (auto-created on startup)                                      |
+| `ADMIN_PASSWORD`     | (empty)                | Docker         | Admin password                                                            |
 
 ### Security
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
+| Variable      | Default                                  | Required       | Description                         |
+| ------------- | ---------------------------------------- | -------------- | ----------------------------------- |
 | `CORS_ORIGIN` | Dev: `http://localhost:5173`, Prod: `""` | **Production** | `*` causes fatal exit in production |
 
 ### File Upload
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `UPLOAD_DIR` | `./uploads` | Upload storage directory |
-| `MAX_FILE_SIZE` | `10485760` (10 MB) | Max file size in bytes |
+| Variable        | Default            | Description              |
+| --------------- | ------------------ | ------------------------ |
+| `UPLOAD_DIR`    | `./uploads`        | Upload storage directory |
+| `MAX_FILE_SIZE` | `10485760` (10 MB) | Max file size in bytes   |
 
 ### AI Router (Optional)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ROUTER_LLM_BASE_URL` | (empty) | OpenAI-compatible API URL. Without this, broadcast rooms only route via @mentions |
-| `ROUTER_LLM_API_KEY` | (empty) | API key |
-| `ROUTER_LLM_MODEL` | `gpt-oss-20b` | Model name |
+| Variable              | Default       | Description                                                                       |
+| --------------------- | ------------- | --------------------------------------------------------------------------------- |
+| `ROUTER_LLM_BASE_URL` | (empty)       | OpenAI-compatible API URL. Without this, broadcast rooms only route via @mentions |
+| `ROUTER_LLM_API_KEY`  | (empty)       | API key                                                                           |
+| `ROUTER_LLM_MODEL`    | `gpt-oss-20b` | Model name                                                                        |
 
 ### Routing Protection
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAX_AGENT_CHAIN_DEPTH` | `5` | Max agent chain depth |
-| `AGENT_RATE_LIMIT_WINDOW` | `60` | Rate limit window (seconds) |
-| `AGENT_RATE_LIMIT_MAX` | `20` | Max requests per window |
+| Variable                  | Default | Description                 |
+| ------------------------- | ------- | --------------------------- |
+| `MAX_AGENT_CHAIN_DEPTH`   | `5`     | Max agent chain depth       |
+| `AGENT_RATE_LIMIT_WINDOW` | `60`    | Rate limit window (seconds) |
+| `AGENT_RATE_LIMIT_MAX`    | `20`    | Max requests per window     |
 
 ### Monitoring (Optional)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable     | Default | Description               |
+| ------------ | ------- | ------------------------- |
 | `SENTRY_DSN` | (empty) | Sentry error tracking DSN |
 
 ## Security Checklist
@@ -181,10 +181,10 @@ upstream agentim {
 
 server {
     listen 443 ssl http2;
-    server_name aim.example.com;
+    server_name agentim.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/aim.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/aim.example.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/agentim.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/agentim.example.com/privkey.pem;
 
     client_max_body_size 12M;
 

@@ -103,12 +103,7 @@ describe('Access Control', () => {
 
     it('member can DELETE /api/rooms/:id/members/:memberId', async () => {
       // Find the non-owner member added in the previous test
-      const members = await api(
-        'GET',
-        `/api/rooms/${roomId}/members`,
-        undefined,
-        userA.accessToken,
-      )
+      const members = await api('GET', `/api/rooms/${roomId}/members`, undefined, userA.accessToken)
       const nonOwner = members.data.data.find((m: any) => m.role !== 'owner')
       assert.ok(nonOwner, 'Expected a non-owner member to exist')
 
@@ -134,33 +129,18 @@ describe('Access Control', () => {
       userA = await registerUser('acl_msg_userA')
       userB = await registerUser('acl_msg_userB')
 
-      const res = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'ACL Message Room' },
-        userA.accessToken,
-      )
+      const res = await api('POST', '/api/rooms', { name: 'ACL Message Room' }, userA.accessToken)
       assert.equal(res.status, 201)
       roomId = res.data.data.id
     })
 
     it('non-member cannot GET /api/messages/rooms/:roomId', async () => {
-      const res = await api(
-        'GET',
-        `/api/messages/rooms/${roomId}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('GET', `/api/messages/rooms/${roomId}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('member can GET /api/messages/rooms/:roomId', async () => {
-      const res = await api(
-        'GET',
-        `/api/messages/rooms/${roomId}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('GET', `/api/messages/rooms/${roomId}`, undefined, userA.accessToken)
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
       assert.ok(res.data.data.items)
@@ -179,12 +159,7 @@ describe('Access Control', () => {
       userA = await registerUser('acl_task_userA')
       userB = await registerUser('acl_task_userB')
 
-      const res = await api(
-        'POST',
-        '/api/rooms',
-        { name: 'ACL Task Room' },
-        userA.accessToken,
-      )
+      const res = await api('POST', '/api/rooms', { name: 'ACL Task Room' }, userA.accessToken)
       assert.equal(res.status, 201)
       roomId = res.data.data.id
 
@@ -200,12 +175,7 @@ describe('Access Control', () => {
     })
 
     it('non-member cannot GET /api/tasks/rooms/:roomId', async () => {
-      const res = await api(
-        'GET',
-        `/api/tasks/rooms/${roomId}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('GET', `/api/tasks/rooms/${roomId}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
@@ -230,22 +200,12 @@ describe('Access Control', () => {
     })
 
     it('non-member cannot DELETE /api/tasks/:taskId', async () => {
-      const res = await api(
-        'DELETE',
-        `/api/tasks/${taskId}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('DELETE', `/api/tasks/${taskId}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('member can GET /api/tasks/rooms/:roomId', async () => {
-      const res = await api(
-        'GET',
-        `/api/tasks/rooms/${roomId}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('GET', `/api/tasks/rooms/${roomId}`, undefined, userA.accessToken)
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
       assert.ok(res.data.data.length >= 1)
@@ -285,12 +245,7 @@ describe('Access Control', () => {
       )
       const disposableId = createRes.data.data.id
 
-      const res = await api(
-        'DELETE',
-        `/api/tasks/${disposableId}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('DELETE', `/api/tasks/${disposableId}`, undefined, userA.accessToken)
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
     })
@@ -359,42 +314,22 @@ describe('Access Control', () => {
     })
 
     it('User A cannot GET room2 members', async () => {
-      const res = await api(
-        'GET',
-        `/api/rooms/${room2Id}/members`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('GET', `/api/rooms/${room2Id}/members`, undefined, userA.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User A cannot PUT room2', async () => {
-      const res = await api(
-        'PUT',
-        `/api/rooms/${room2Id}`,
-        { name: 'Hijacked' },
-        userA.accessToken,
-      )
+      const res = await api('PUT', `/api/rooms/${room2Id}`, { name: 'Hijacked' }, userA.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User A cannot GET room2 messages', async () => {
-      const res = await api(
-        'GET',
-        `/api/messages/rooms/${room2Id}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('GET', `/api/messages/rooms/${room2Id}`, undefined, userA.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User A cannot GET room2 tasks', async () => {
-      const res = await api(
-        'GET',
-        `/api/tasks/rooms/${room2Id}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('GET', `/api/tasks/rooms/${room2Id}`, undefined, userA.accessToken)
       assert.equal(res.status, 403)
     })
 
@@ -419,12 +354,7 @@ describe('Access Control', () => {
     })
 
     it('User A cannot DELETE task in room2', async () => {
-      const res = await api(
-        'DELETE',
-        `/api/tasks/${task2Id}`,
-        undefined,
-        userA.accessToken,
-      )
+      const res = await api('DELETE', `/api/tasks/${task2Id}`, undefined, userA.accessToken)
       assert.equal(res.status, 403)
     })
 
@@ -456,42 +386,22 @@ describe('Access Control', () => {
     })
 
     it('User B cannot GET room1 members', async () => {
-      const res = await api(
-        'GET',
-        `/api/rooms/${room1Id}/members`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('GET', `/api/rooms/${room1Id}/members`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User B cannot PUT room1', async () => {
-      const res = await api(
-        'PUT',
-        `/api/rooms/${room1Id}`,
-        { name: 'Hijacked' },
-        userB.accessToken,
-      )
+      const res = await api('PUT', `/api/rooms/${room1Id}`, { name: 'Hijacked' }, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User B cannot GET room1 messages', async () => {
-      const res = await api(
-        'GET',
-        `/api/messages/rooms/${room1Id}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('GET', `/api/messages/rooms/${room1Id}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
     it('User B cannot GET room1 tasks', async () => {
-      const res = await api(
-        'GET',
-        `/api/tasks/rooms/${room1Id}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('GET', `/api/tasks/rooms/${room1Id}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 
@@ -516,12 +426,7 @@ describe('Access Control', () => {
     })
 
     it('User B cannot DELETE task in room1', async () => {
-      const res = await api(
-        'DELETE',
-        `/api/tasks/${task1Id}`,
-        undefined,
-        userB.accessToken,
-      )
+      const res = await api('DELETE', `/api/tasks/${task1Id}`, undefined, userB.accessToken)
       assert.equal(res.status, 403)
     })
 

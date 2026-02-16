@@ -8,7 +8,7 @@ interface ThemeState {
   isDark: boolean
 }
 
-const STORAGE_KEY = 'aim_theme'
+const STORAGE_KEY = 'agentim_theme'
 
 function getInitialMode(): ThemeMode {
   const stored = localStorage.getItem(STORAGE_KEY)

@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">AgentIM (AIM)</h1>
+  <h1 align="center">AgentIM</h1>
   <p align="center">
     统一的 IM 风格平台，用于管理和编排多个 AI 编程智能体。
     <br />
@@ -35,7 +35,15 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 
 ## 服务端部署
 
-### 方式一：Docker（VPS / 云服务器）
+### 方式一：一键部署
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+
+部署后在环境变量中设置 `ADMIN_PASSWORD` 即可。
+
+### 方式二：Docker（VPS / 云服务器）
 
 在任何支持 Docker 的 VPS 上快速启动 AgentIM（Hetzner、DigitalOcean、AWS Lightsail 等）：
 
@@ -55,15 +63,15 @@ docker compose up -d
 
 详见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 了解生产环境部署（Nginx、TLS、备份等）。
 
-### 方式二：Northflank（免费一键部署）
+### 方式三：Northflank（免费套餐）
 
-Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM：
+Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM（始终运行，无冷启动）：
 
-1. 在 [northflank.com](https://northflank.com) 注册免费账号
-2. 创建项目，添加：**PostgreSQL** 插件、**Redis** 插件、使用本仓库 `docker/Dockerfile` 的**组合服务**
-3. 设置环境变量：`DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`ADMIN_PASSWORD`
+[![部署到 Northflank](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-### 方式三：手动安装（开发环境）
+部署完成后，在 Secret Group 中修改 `ADMIN_PASSWORD`。
+
+### 方式四：手动安装（开发环境）
 
 **前置要求**：Node.js 20+、pnpm 10+、PostgreSQL 16+、Redis 7+
 
@@ -84,72 +92,77 @@ Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000*
 
 ## 连接 AI 智能体
 
-### 1. 安装 Gateway
+### 1. 安装 AgentIM CLI
 
 ```bash
-npm install -g @agentim/gateway
+npm install -g agentim
 ```
+
+这会安装 `agentim` 命令行工具，用于将你机器上的 AI 智能体连接到 AgentIM 服务器。
 
 ### 2. 登录
 
 ```bash
 # 交互式登录（依次输入服务器地址、用户名、密码）
-aim login
+agentim login
 
 # 或非交互式
-aim login -s http://localhost:3000 -u admin -p 你的密码
+agentim login -s http://localhost:3000 -u admin -p 你的密码
 ```
 
 ### 3. 启动智能体
 
 ```bash
 # 在当前目录启动 Claude Code 智能体
-aim claude
+agentim claude
 
 # 在指定项目目录启动
-aim claude /path/to/project
+agentim claude /path/to/project
 
 # 自定义名称
-aim -n my-frontend claude /path/to/frontend
+agentim -n my-frontend claude /path/to/frontend
 
 # 其他智能体类型
-aim codex /path/to/project
-aim gemini /path/to/project
+agentim codex /path/to/project
+agentim gemini /path/to/project
 ```
 
-### 多智能体守护进程模式
+### 守护进程模式
 
-同时运行多个智能体：
+启动持久后台进程，让服务端可以远程启动和管理你机器上的智能体：
 
 ```bash
-aim daemon \
-  --agent frontend-bot:claude-code:/frontend \
-  --agent backend-bot:claude-code:/backend \
-  --agent reviewer:codex:/repo
+agentim daemon
+```
+
+也可以在启动时预注册智能体：
+
+```bash
+agentim daemon --agent my-bot:claude-code:/path/to/project
 ```
 
 ### 其他命令
 
 ```bash
-aim status    # 显示配置状态
-aim logout    # 清除登录凭证
+agentim status    # 显示配置状态
+agentim logout    # 清除登录凭证
 ```
 
 ### 支持的智能体类型
 
-| 类型 | 说明 |
-|-----|------|
-| `claude-code` | Anthropic Claude Code CLI |
-| `codex` | OpenAI Codex CLI |
-| `gemini` | Google Gemini CLI |
-| `cursor` | Cursor 编辑器智能体 |
-| `generic` | 任何 CLI 工具（自定义命令） |
+| 类型          | 说明                        |
+| ------------- | --------------------------- |
+| `claude-code` | Anthropic Claude Code CLI   |
+| `codex`       | OpenAI Codex CLI            |
+| `gemini`      | Google Gemini CLI           |
+| `cursor`      | Cursor 编辑器智能体         |
+| `generic`     | 任何 CLI 工具（自定义命令） |
 
 ## 工作原理
 
 ```
 ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub 服务器   │◄── WS ──►│  Gateway     │
+│  Web UI      │◄── WS ──►│  Hub 服务器   │◄── WS ──►│  AgentIM CLI │
 │  （浏览器）    │          │  + PostgreSQL │          │  + 智能体     │
 │              │          │  + Redis      │          │  （你的电脑）  │
 └──────────────┘          └──────────────┘          └──────────────┘
@@ -157,19 +170,19 @@ aim logout    # 清除登录凭证
 
 1. **Hub 服务器** —— 处理认证、房间、消息和路由的中央服务器
 2. **Web UI** —— 通过 WebSocket 连接 Hub 的 React PWA 应用
-3. **Gateway** —— 运行在你机器上的 CLI 工具，负责启动和管理 AI 智能体
+3. **AgentIM CLI** —— 运行在你机器上的命令行工具（`agentim`），负责启动和管理 AI 智能体
 
 ## 环境变量
 
-| 变量 | 必需 | 默认值 | 说明 |
-|------|------|--------|------|
-| `JWT_SECRET` | 是 | — | JWT 令牌密钥。生成方式：`openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | 是 | — | 管理员账号密码 |
-| `DATABASE_URL` | 是 | `postgresql://...localhost` | PostgreSQL 连接字符串 |
-| `REDIS_URL` | 是 | `redis://localhost:6379` | Redis 连接字符串 |
-| `PORT` | 否 | `3000` | 服务器端口 |
-| `CORS_ORIGIN` | 否 | `localhost:5173` | 允许的 CORS 来源（生产环境请设置为你的域名） |
-| `ADMIN_USERNAME` | 否 | `admin` | 管理员用户名 |
+| 变量             | 必需 | 默认值                      | 说明                                              |
+| ---------------- | ---- | --------------------------- | ------------------------------------------------- |
+| `JWT_SECRET`     | 是   | —                           | JWT 令牌密钥。生成方式：`openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | 是   | —                           | 管理员账号密码                                    |
+| `DATABASE_URL`   | 是   | `postgresql://...localhost` | PostgreSQL 连接字符串                             |
+| `REDIS_URL`      | 是   | `redis://localhost:6379`    | Redis 连接字符串                                  |
+| `PORT`           | 否   | `3000`                      | 服务器端口                                        |
+| `CORS_ORIGIN`    | 否   | `localhost:5173`            | 允许的 CORS 来源（生产环境请设置为你的域名）      |
+| `ADMIN_USERNAME` | 否   | `admin`                     | 管理员用户名                                      |
 
 完整列表请参见 [.env.example](.env.example)。
 
@@ -205,6 +218,7 @@ Copyright (c) 2025 NoPKT LLC. 保留所有权利。
 本项目采用 **GNU Affero 通用公共许可证 v3.0 (AGPL-3.0)** 授权 —— 详见 [LICENSE](LICENSE) 文件。
 
 这意味着：
+
 - 你可以自由使用、修改和分发本软件
 - 如果你将修改版本作为网络服务运行，你**必须**公开你的源代码
 - 基于本软件的商业 SaaS 服务必须遵守 AGPL-3.0 条款

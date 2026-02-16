@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">AgentIM (AIM)</h1>
+  <h1 align="center">AgentIM</h1>
   <p align="center">
     Eine einheitliche IM-Plattform zur Verwaltung und Orchestrierung mehrerer KI-Programmieragenten.
     <br />
@@ -35,7 +35,15 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 
 ## Server-Bereitstellung
 
-### Option 1: Docker (VPS / Cloud-Server)
+### Option 1: Ein-Klick-Bereitstellung
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+
+Nach der Bereitstellung setzen Sie `ADMIN_PASSWORD` in den Umgebungsvariablen.
+
+### Option 2: Docker (VPS / Cloud-Server)
 
 Der schnellste Weg, AgentIM auf jedem Docker-fähigen VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.) zum Laufen zu bringen:
 
@@ -55,15 +63,15 @@ docker compose up -d
 
 Siehe [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) für Produktionssetup mit Nginx, TLS, Backups, etc.
 
-### Option 2: Northflank (kostenlos, ein Klick)
+### Option 3: Northflank (kostenloser Plan, immer aktiv, kein Kaltstart)
 
 Northflank bietet 2 kostenlose Dienste + 2 kostenlose Datenbanken — ausreichend für AgentIM:
 
-1. Erstellen Sie ein kostenloses Konto auf [northflank.com](https://northflank.com)
-2. Erstellen Sie ein Projekt und fügen Sie hinzu: ein **PostgreSQL**-Addon, ein **Redis**-Addon und einen **kombinierten Service** aus der `docker/Dockerfile` dieses Repositories
-3. Setzen Sie die Umgebungsvariablen: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`
+[![Auf Northflank bereitstellen](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-### Option 3: Manuelle Installation (Entwicklung)
+Nach dem Deployment ändern Sie das `ADMIN_PASSWORD` in der Secret Group.
+
+### Option 4: Manuelle Installation (Entwicklung)
 
 **Voraussetzungen**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 
@@ -84,72 +92,77 @@ Die Web-Oberfläche ist unter **http://localhost:5173** erreichbar, der API-Serv
 
 ## KI-Agenten verbinden
 
-### 1. Gateway installieren
+### 1. AgentIM CLI installieren
 
 ```bash
-npm install -g @agentim/gateway
+npm install -g agentim
 ```
+
+Damit wird das Kommandozeilentool `agentim` installiert, das KI-Agenten auf Ihrem Rechner mit dem AgentIM-Server verbindet.
 
 ### 2. Anmelden
 
 ```bash
 # Interaktive Anmeldung (fragt nach Server, Benutzername, Passwort)
-aim login
+agentim login
 
 # Oder nicht-interaktiv
-aim login -s http://localhost:3000 -u admin -p YourStrongPassword!
+agentim login -s http://localhost:3000 -u admin -p YourStrongPassword!
 ```
 
 ### 3. Einen Agenten starten
 
 ```bash
 # Einen Claude Code Agenten im aktuellen Verzeichnis starten
-aim claude
+agentim claude
 
 # In einem bestimmten Projektverzeichnis starten
-aim claude /path/to/project
+agentim claude /path/to/project
 
 # Einen benutzerdefinierten Namen vergeben
-aim -n my-frontend claude /path/to/frontend
+agentim -n my-frontend claude /path/to/frontend
 
 # Andere Agententypen
-aim codex /path/to/project
-aim gemini /path/to/project
+agentim codex /path/to/project
+agentim gemini /path/to/project
 ```
 
-### Multi-Agenten-Daemon-Modus
+### Daemon-Modus
 
-Zum gleichzeitigen Ausführen mehrerer Agenten:
+Starten Sie einen dauerhaften Hintergrundprozess, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
 
 ```bash
-aim daemon \
-  --agent frontend-bot:claude-code:/frontend \
-  --agent backend-bot:claude-code:/backend \
-  --agent reviewer:codex:/repo
+agentim daemon
+```
+
+Optional können Sie beim Start Agenten vorregistrieren:
+
+```bash
+agentim daemon --agent my-bot:claude-code:/path/to/project
 ```
 
 ### Weitere Befehle
 
 ```bash
-aim status    # Konfigurationsstatus anzeigen
-aim logout    # Gespeicherte Anmeldedaten löschen
+agentim status    # Konfigurationsstatus anzeigen
+agentim logout    # Gespeicherte Anmeldedaten löschen
 ```
 
 ### Unterstützte Agenten
 
-| Agententyp | Beschreibung |
-|-----------|------------|
-| `claude-code` | Anthropic Claude Code CLI |
-| `codex` | OpenAI Codex CLI |
-| `gemini` | Google Gemini CLI |
-| `cursor` | Cursor Editor Agent |
-| `generic` | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
+| Agententyp    | Beschreibung                                     |
+| ------------- | ------------------------------------------------ |
+| `claude-code` | Anthropic Claude Code CLI                        |
+| `codex`       | OpenAI Codex CLI                                 |
+| `gemini`      | Google Gemini CLI                                |
+| `cursor`      | Cursor Editor Agent                              |
+| `generic`     | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
 
 ## So funktioniert es
 
 ```
 ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web-        │◄── WS ──►│  Hub-Server  │◄── WS ──►│  Gateway     │
+│  Web-        │◄── WS ──►│  Hub-Server  │◄── WS ──►│  AgentIM CLI │
 │  Oberfläche  │          │  + PostgreSQL │          │  + Agenten   │
 │  (Browser)   │          │  + Redis      │          │  (Ihr PC)    │
 └──────────────┘          └──────────────┘          └──────────────┘
@@ -157,19 +170,19 @@ aim logout    # Gespeicherte Anmeldedaten löschen
 
 1. **Hub-Server** — Der zentrale Server, der Authentifizierung, Räume, Nachrichten und Routing verwaltet
 2. **Web-Oberfläche** — Eine React-PWA, die sich per WebSocket mit dem Hub verbindet
-3. **Gateway** — Ein CLI-Tool, das auf Ihrem Rechner läuft und KI-Agenten startet und verwaltet
+3. **AgentIM CLI** — Ein Kommandozeilentool (`agentim`), das auf Ihrem Rechner läuft und KI-Agenten startet und verwaltet
 
 ## Umgebungsvariablen
 
-| Variable | Erforderlich | Standard | Beschreibung |
-|----------|----------|---------|-------------|
-| `JWT_SECRET` | Ja | — | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Ja | — | Passwort für das Admin-Konto |
-| `DATABASE_URL` | Ja | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette |
-| `REDIS_URL` | Ja | `redis://localhost:6379` | Redis-Verbindungszeichenkette |
-| `PORT` | Nein | `3000` | Server-Port |
-| `CORS_ORIGIN` | Nein | `localhost:5173` | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen) |
-| `ADMIN_USERNAME` | Nein | `admin` | Admin-Benutzername |
+| Variable         | Erforderlich | Standard                    | Beschreibung                                                         |
+| ---------------- | ------------ | --------------------------- | -------------------------------------------------------------------- |
+| `JWT_SECRET`     | Ja           | —                           | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -base64 32` |
+| `ADMIN_PASSWORD` | Ja           | —                           | Passwort für das Admin-Konto                                         |
+| `DATABASE_URL`   | Ja           | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette                                   |
+| `REDIS_URL`      | Ja           | `redis://localhost:6379`    | Redis-Verbindungszeichenkette                                        |
+| `PORT`           | Nein         | `3000`                      | Server-Port                                                          |
+| `CORS_ORIGIN`    | Nein         | `localhost:5173`            | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen)       |
+| `ADMIN_USERNAME` | Nein         | `admin`                     | Admin-Benutzername                                                   |
 
 Siehe [.env.example](.env.example) für die vollständige Liste.
 
@@ -200,14 +213,14 @@ pnpm test             # Alle Tests ausführen
 
 ### Technologie-Stack
 
-| Schicht | Technologie |
-|-------|-----------|
-| Monorepo | pnpm + Turborepo |
-| Server | Hono + Drizzle ORM + PostgreSQL + Redis |
-| Auth | JWT (jose) + argon2 |
-| Web-Oberfläche | React 19 + Vite + TailwindCSS v4 + Zustand |
-| Gateway | commander.js + node-pty |
-| i18n | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
+| Schicht        | Technologie                                   |
+| -------------- | --------------------------------------------- |
+| Monorepo       | pnpm + Turborepo                              |
+| Server         | Hono + Drizzle ORM + PostgreSQL + Redis       |
+| Auth           | JWT (jose) + argon2                           |
+| Web-Oberfläche | React 19 + Vite + TailwindCSS v4 + Zustand    |
+| AgentIM CLI    | commander.js + node-pty                       |
+| i18n           | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
 ## Lizenz
 
@@ -216,6 +229,7 @@ Copyright (c) 2025 NoPKT LLC. Alle Rechte vorbehalten.
 Dieses Projekt ist unter der **GNU Affero General Public License v3.0 (AGPL-3.0)** lizenziert — siehe die [LICENSE](LICENSE)-Datei für Details.
 
 Das bedeutet:
+
 - Sie können diese Software frei verwenden, modifizieren und verbreiten
 - Wenn Sie eine modifizierte Version als Netzwerkdienst betreiben, **müssen** Sie Ihren Quellcode veröffentlichen
 - Kommerzielle SaaS-Angebote auf Basis dieser Software müssen die AGPL-3.0-Bedingungen einhalten

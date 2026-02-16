@@ -147,7 +147,10 @@ export function wsSendAndWait(
   timeoutMs = 10000,
 ): Promise<any> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout waiting for ${expectedType}`)), timeoutMs)
+    const timeout = setTimeout(
+      () => reject(new Error(`Timeout waiting for ${expectedType}`)),
+      timeoutMs,
+    )
 
     const handler = (data: WebSocket.Data) => {
       try {
@@ -168,11 +171,7 @@ export function wsSendAndWait(
 }
 
 /** Wait for a specific WS message type without sending */
-export function wsWaitFor(
-  ws: WebSocket,
-  expectedType: string,
-  timeoutMs = 10000,
-): Promise<any> {
+export function wsWaitFor(ws: WebSocket, expectedType: string, timeoutMs = 10000): Promise<any> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(
       () => reject(new Error(`Timeout waiting for ${expectedType}`)),
@@ -197,18 +196,16 @@ export function wsWaitFor(
 }
 
 /** Collect all messages of a specific type for a duration */
-export function wsCollect(
-  ws: WebSocket,
-  expectedType: string,
-  durationMs = 1000,
-): Promise<any[]> {
+export function wsCollect(ws: WebSocket, expectedType: string, durationMs = 1000): Promise<any[]> {
   return new Promise((resolve) => {
     const results: any[] = []
     const handler = (data: WebSocket.Data) => {
       try {
         const parsed = JSON.parse(data.toString())
         if (parsed.type === expectedType) results.push(parsed)
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     ws.on('message', handler)
     setTimeout(() => {

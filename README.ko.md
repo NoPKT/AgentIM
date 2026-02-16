@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">AgentIM (AIM)</h1>
+  <h1 align="center">AgentIM</h1>
   <p align="center">
     여러 AI 코딩 에이전트를 관리하고 오케스트레이션하는 통합 IM 플랫폼.
     <br />
@@ -35,7 +35,15 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 
 ## 서버 배포
 
-### 방법 1: Docker (VPS / 클라우드 서버)
+### 방법 1: 원클릭 배포
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+
+배포 후 환경 변수에서 `ADMIN_PASSWORD`를 설정하세요.
+
+### 방법 2: Docker (VPS / 클라우드 서버)
 
 Docker를 지원하는 모든 VPS에서 AgentIM을 빠르게 시작 (Hetzner, DigitalOcean, AWS Lightsail 등):
 
@@ -55,15 +63,15 @@ docker compose up -d
 
 자세한 내용은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)를 참조하세요 (Nginx, TLS, 백업 등).
 
-### 방법 2: Northflank (무료 원클릭)
+### 방법 3: Northflank (무료 플랜, 항상 실행, 콜드 스타트 없음)
 
 Northflank는 2개의 무료 서비스 + 2개의 무료 데이터베이스를 제공합니다 — AgentIM 운영에 충분합니다:
 
-1. [northflank.com](https://northflank.com)에서 무료 계정 생성
-2. 프로젝트 생성 후 **PostgreSQL** 애드온, **Redis** 애드온, 본 저장소의 `docker/Dockerfile`을 사용한 **서비스** 추가
-3. 환경 변수 설정: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`
+[![Northflank에 배포](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-### 방법 3: 수동 설치 (개발용)
+배포 후 Secret Group에서 `ADMIN_PASSWORD`를 변경하세요.
+
+### 방법 4: 수동 설치 (개발용)
 
 **사전 요구 사항**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 
@@ -84,72 +92,77 @@ Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 
 ## AI 에이전트 연결
 
-### 1. Gateway 설치
+### 1. AgentIM CLI 설치
 
 ```bash
-npm install -g @agentim/gateway
+npm install -g agentim
 ```
+
+이 명령으로 `agentim` 커맨드라인 도구가 설치되며, 머신의 AI 에이전트를 AgentIM 서버에 연결할 수 있습니다.
 
 ### 2. 로그인
 
 ```bash
 # 대화식 로그인 (서버, 사용자 이름, 비밀번호 순서대로 입력)
-aim login
+agentim login
 
 # 또는 비대화식
-aim login -s http://localhost:3000 -u admin -p YourPassword
+agentim login -s http://localhost:3000 -u admin -p YourPassword
 ```
 
 ### 3. 에이전트 시작
 
 ```bash
 # 현재 디렉토리에서 Claude Code 에이전트 시작
-aim claude
+agentim claude
 
 # 지정한 프로젝트 디렉토리에서 시작
-aim claude /path/to/project
+agentim claude /path/to/project
 
 # 커스텀 이름 지정
-aim -n my-frontend claude /path/to/frontend
+agentim -n my-frontend claude /path/to/frontend
 
 # 다른 에이전트 유형
-aim codex /path/to/project
-aim gemini /path/to/project
+agentim codex /path/to/project
+agentim gemini /path/to/project
 ```
 
-### 멀티 에이전트 데몬 모드
+### 데몬 모드
 
-여러 에이전트를 동시에 실행:
+서버가 원격으로 머신의 에이전트를 시작하고 관리할 수 있도록 상주 백그라운드 프로세스를 시작합니다:
 
 ```bash
-aim daemon \
-  --agent frontend-bot:claude-code:/frontend \
-  --agent backend-bot:claude-code:/backend \
-  --agent reviewer:codex:/repo
+agentim daemon
+```
+
+시작 시 에이전트를 사전 등록할 수도 있습니다:
+
+```bash
+agentim daemon --agent my-bot:claude-code:/path/to/project
 ```
 
 ### 기타 명령어
 
 ```bash
-aim status    # 설정 상태 표시
-aim logout    # 로그인 자격 증명 삭제
+agentim status    # 설정 상태 표시
+agentim logout    # 로그인 자격 증명 삭제
 ```
 
 ### 지원되는 에이전트 유형
 
-| 유형 | 설명 |
-|-----|------|
-| `claude-code` | Anthropic Claude Code CLI |
-| `codex` | OpenAI Codex CLI |
-| `gemini` | Google Gemini CLI |
-| `cursor` | Cursor 에디터 에이전트 |
-| `generic` | 모든 CLI 도구 (커스텀 명령) |
+| 유형          | 설명                        |
+| ------------- | --------------------------- |
+| `claude-code` | Anthropic Claude Code CLI   |
+| `codex`       | OpenAI Codex CLI            |
+| `gemini`      | Google Gemini CLI           |
+| `cursor`      | Cursor 에디터 에이전트      |
+| `generic`     | 모든 CLI 도구 (커스텀 명령) |
 
 ## 작동 원리
 
 ```
 ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-│  Web UI      │◄── WS ──►│  Hub 서버     │◄── WS ──►│  Gateway     │
+│  Web UI      │◄── WS ──►│  Hub 서버     │◄── WS ──►│  AgentIM CLI │
 │  (브라우저)   │          │  + PostgreSQL │          │  + 에이전트    │
 │              │          │  + Redis      │          │  (내 PC)      │
 └──────────────┘          └──────────────┘          └──────────────┘
@@ -157,19 +170,19 @@ aim logout    # 로그인 자격 증명 삭제
 
 1. **Hub 서버** —— 인증, 방, 메시지, 라우팅을 처리하는 중앙 서버
 2. **Web UI** —— WebSocket으로 Hub에 연결하는 React PWA 애플리케이션
-3. **Gateway** —— 머신에서 실행되는 CLI 도구, AI 에이전트의 시작과 관리를 담당
+3. **AgentIM CLI** —— 머신에서 실행되는 커맨드라인 도구(`agentim`), AI 에이전트의 시작과 관리를 담당
 
 ## 환경 변수
 
-| 변수 | 필수 | 기본값 | 설명 |
-|------|------|--------|------|
-| `JWT_SECRET` | 예 | — | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | 예 | — | 관리자 계정 비밀번호 |
-| `DATABASE_URL` | 예 | `postgresql://...localhost` | PostgreSQL 연결 문자열 |
-| `REDIS_URL` | 예 | `redis://localhost:6379` | Redis 연결 문자열 |
-| `PORT` | 아니오 | `3000` | 서버 포트 |
-| `CORS_ORIGIN` | 아니오 | `localhost:5173` | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
-| `ADMIN_USERNAME` | 아니오 | `admin` | 관리자 사용자 이름 |
+| 변수             | 필수   | 기본값                      | 설명                                                    |
+| ---------------- | ------ | --------------------------- | ------------------------------------------------------- |
+| `JWT_SECRET`     | 예     | —                           | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32`   |
+| `ADMIN_PASSWORD` | 예     | —                           | 관리자 계정 비밀번호                                    |
+| `DATABASE_URL`   | 예     | `postgresql://...localhost` | PostgreSQL 연결 문자열                                  |
+| `REDIS_URL`      | 예     | `redis://localhost:6379`    | Redis 연결 문자열                                       |
+| `PORT`           | 아니오 | `3000`                      | 서버 포트                                               |
+| `CORS_ORIGIN`    | 아니오 | `localhost:5173`            | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
+| `ADMIN_USERNAME` | 아니오 | `admin`                     | 관리자 사용자 이름                                      |
 
 전체 목록은 [.env.example](.env.example)을 참조하세요.
 
@@ -205,6 +218,7 @@ Copyright (c) 2025 NoPKT LLC. All rights reserved.
 이 프로젝트는 **GNU Affero General Public License v3.0 (AGPL-3.0)**에 따라 라이선스됩니다 —— 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
 이것은 다음을 의미합니다:
+
 - 이 소프트웨어를 자유롭게 사용, 수정, 배포할 수 있습니다
 - 수정된 버전을 네트워크 서비스로 운영하는 경우, 소스 코드 공개가 **필수**입니다
 - 이 소프트웨어 기반 상업적 SaaS는 AGPL-3.0 조항을 준수해야 합니다

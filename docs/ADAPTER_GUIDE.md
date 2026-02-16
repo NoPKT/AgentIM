@@ -129,7 +129,14 @@ case 'my-agent':
 Edit `packages/shared/src/constants.ts`:
 
 ```typescript
-export const AGENT_TYPES = ['claude-code', 'codex', 'gemini', 'cursor', 'generic', 'my-agent'] as const
+export const AGENT_TYPES = [
+  'claude-code',
+  'codex',
+  'gemini',
+  'cursor',
+  'generic',
+  'my-agent',
+] as const
 ```
 
 ### 4. Add i18n Labels
@@ -147,16 +154,16 @@ agent: {
 
 ### `BaseAgentAdapter`
 
-| Property / Method | Description |
-|---|---|
-| `agentId: string` | Unique agent ID assigned by the server |
-| `agentName: string` | Human-readable agent name |
-| `workingDirectory?: string` | CWD for spawned processes |
-| `isRunning: boolean` | Whether a message is being processed |
-| `buildPrompt(content, context?)` | Prepends `[System: ...]` and `[From: ...]` to the message |
-| `sendMessage(content, onChunk, onComplete, onError, context?)` | Abstract — implement this |
-| `stop()` | Abstract — kill the running process |
-| `dispose()` | Abstract — cleanup resources |
+| Property / Method                                              | Description                                               |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| `agentId: string`                                              | Unique agent ID assigned by the server                    |
+| `agentName: string`                                            | Human-readable agent name                                 |
+| `workingDirectory?: string`                                    | CWD for spawned processes                                 |
+| `isRunning: boolean`                                           | Whether a message is being processed                      |
+| `buildPrompt(content, context?)`                               | Prepends `[System: ...]` and `[From: ...]` to the message |
+| `sendMessage(content, onChunk, onComplete, onError, context?)` | Abstract — implement this                                 |
+| `stop()`                                                       | Abstract — kill the running process                       |
+| `dispose()`                                                    | Abstract — cleanup resources                              |
 
 ### Chunk Types
 
@@ -239,15 +246,15 @@ describe('MyAgentAdapter', () => {
 Run tests:
 
 ```bash
-pnpm --filter @agentim/gateway test
+pnpm --filter agentim test
 ```
 
 ## Existing Adapters Reference
 
-| Adapter | CLI | Args Pattern | Structured Output |
-|---|---|---|---|
-| `claude-code` | `claude` | `-p <prompt> --output-format stream-json --verbose` | JSON events (thinking, tool_use, text) |
-| `codex` | `codex` | `-q <prompt>` | Plain text |
-| `gemini` | `gemini` | `-p <prompt>` | Plain text |
-| `cursor` | `cursor` | `--message <prompt>` | Plain text |
-| `generic` | configurable | `<...args> <prompt>` | Plain text |
+| Adapter       | CLI          | Args Pattern                                        | Structured Output                      |
+| ------------- | ------------ | --------------------------------------------------- | -------------------------------------- |
+| `claude-code` | `claude`     | `-p <prompt> --output-format stream-json --verbose` | JSON events (thinking, tool_use, text) |
+| `codex`       | `codex`      | `-q <prompt>`                                       | Plain text                             |
+| `gemini`      | `gemini`     | `-p <prompt>`                                       | Plain text                             |
+| `cursor`      | `cursor`     | `--message <prompt>`                                | Plain text                             |
+| `generic`     | configurable | `<...args> <prompt>`                                | Plain text                             |

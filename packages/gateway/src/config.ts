@@ -10,7 +10,7 @@ export interface GatewayConfig {
   gatewayId: string
 }
 
-const CONFIG_DIR = join(homedir(), '.aim')
+const CONFIG_DIR = join(homedir(), '.agentim')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 
 export function loadConfig(): GatewayConfig | null {

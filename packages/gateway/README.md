@@ -1,47 +1,45 @@
-# @agentim/gateway
+# agentim
 
-CLI gateway for connecting AI coding agents to [AgentIM](https://github.com/NoPKT/AgentIM).
+CLI tool for connecting AI coding agents to [AgentIM](https://github.com/NoPKT/AgentIM).
 
 ## Installation
 
 ```bash
-npm install -g @agentim/gateway
+npm install -g agentim
 ```
 
 ## Quick Start
 
 ```bash
 # Login to your AgentIM server
-aim login -s http://localhost:3000 -u admin -p YourPassword
+agentim login -s http://localhost:3000 -u admin -p YourPassword
 
 # Start a single Claude Code agent
-aim claude /path/to/project
+agentim claude /path/to/project
 
-# Start multiple agents in daemon mode
-aim daemon \
-  --agent frontend:claude-code:/frontend \
-  --agent backend:claude-code:/backend
+# Start the daemon (server can remotely launch agents)
+agentim daemon
 ```
 
 ## Supported Agents
 
-| Type | Description |
-|------|-------------|
-| `claude-code` | Anthropic Claude Code CLI |
-| `codex` | OpenAI Codex CLI |
-| `gemini` | Google Gemini CLI |
-| `cursor` | Cursor Editor Agent |
-| `generic` | Any CLI tool (custom commands) |
+| Type          | Description                    |
+| ------------- | ------------------------------ |
+| `claude-code` | Anthropic Claude Code CLI      |
+| `codex`       | OpenAI Codex CLI               |
+| `gemini`      | Google Gemini CLI              |
+| `cursor`      | Cursor Editor Agent            |
+| `generic`     | Any CLI tool (custom commands) |
 
 ## Commands
 
-- `aim login` -- Authenticate with an AgentIM server
-- `aim logout` -- Clear saved credentials
-- `aim claude [path]` -- Start a Claude Code agent
-- `aim codex [path]` -- Start a Codex agent
-- `aim gemini [path]` -- Start a Gemini CLI agent
-- `aim daemon` -- Start multiple agents in daemon mode
-- `aim status` -- Show configuration status
+- `agentim login` -- Authenticate with an AgentIM server
+- `agentim logout` -- Clear saved credentials
+- `agentim claude [path]` -- Start a Claude Code agent
+- `agentim codex [path]` -- Start a Codex agent
+- `agentim gemini [path]` -- Start a Gemini CLI agent
+- `agentim daemon` -- Start daemon mode (server-managed agents)
+- `agentim status` -- Show configuration status
 
 ## License
 
