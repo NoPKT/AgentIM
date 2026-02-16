@@ -35,15 +35,7 @@ AgentIM transforme les agents de programmation IA (Claude Code, Codex CLI, Gemin
 
 ## Déploiement du serveur
 
-### Option 1 : Déploiement en un clic
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-Après le déploiement, définissez `ADMIN_PASSWORD` dans les variables d'environnement.
-
-### Option 2 : Docker (VPS / Serveur Cloud)
+### Option 1 : Docker (VPS / Serveur Cloud)
 
 Le moyen le plus rapide de lancer AgentIM sur n'importe quel VPS compatible Docker (Hetzner, DigitalOcean, AWS Lightsail, etc.) :
 
@@ -63,15 +55,20 @@ Ouvrez **http://localhost:3000** et connectez-vous avec `admin` / votre mot de p
 
 Consultez [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour la configuration en production avec Nginx, TLS, sauvegardes, etc.
 
-### Option 3 : Northflank (offre gratuite, toujours actif, pas de démarrage à froid)
+### Option 2 : Plateforme Cloud (Déploiement en un clic)
 
-Northflank propose 2 services gratuits + 2 bases de données gratuites — suffisant pour exécuter AgentIM :
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Déployer sur Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Déployer sur Northflank](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+Après le déploiement :
 
-Après le déploiement, modifiez `ADMIN_PASSWORD` dans le Secret Group.
+- **Requis** : Définir `ADMIN_PASSWORD` dans les variables d'environnement (ou Secret Group sur Northflank)
+- **Optionnel** : Définir `CORS_ORIGIN` avec votre domaine (ex : `https://agentim.example.com`) pour la production
 
-### Option 4 : Installation manuelle (Développement)
+### Option 3 : Installation manuelle (Développement)
 
 **Prérequis** : Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 

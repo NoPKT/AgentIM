@@ -35,15 +35,7 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 
 ## Server-Bereitstellung
 
-### Option 1: Ein-Klick-Bereitstellung
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-Nach der Bereitstellung setzen Sie `ADMIN_PASSWORD` in den Umgebungsvariablen.
-
-### Option 2: Docker (VPS / Cloud-Server)
+### Option 1: Docker (VPS / Cloud-Server)
 
 Der schnellste Weg, AgentIM auf jedem Docker-fähigen VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.) zum Laufen zu bringen:
 
@@ -63,15 +55,20 @@ docker compose up -d
 
 Siehe [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) für Produktionssetup mit Nginx, TLS, Backups, etc.
 
-### Option 3: Northflank (kostenloser Plan, immer aktiv, kein Kaltstart)
+### Option 2: Cloud-Plattform (Ein-Klick-Bereitstellung)
 
-Northflank bietet 2 kostenlose Dienste + 2 kostenlose Datenbanken — ausreichend für AgentIM:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Auf Northflank bereitstellen](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Auf Northflank bereitstellen](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+Nach dem Deployment:
 
-Nach dem Deployment ändern Sie das `ADMIN_PASSWORD` in der Secret Group.
+- **Erforderlich**: `ADMIN_PASSWORD` in den Umgebungsvariablen setzen (bei Northflank in der Secret Group)
+- **Optional**: `CORS_ORIGIN` auf Ihre Domain setzen (z.B. `https://agentim.example.com`) für den Produktivbetrieb
 
-### Option 4: Manuelle Installation (Entwicklung)
+### Option 3: Manuelle Installation (Entwicklung)
 
 **Voraussetzungen**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 

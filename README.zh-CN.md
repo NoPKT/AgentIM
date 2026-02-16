@@ -35,15 +35,7 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 
 ## 服务端部署
 
-### 方式一：一键部署
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-部署后在环境变量中设置 `ADMIN_PASSWORD` 即可。
-
-### 方式二：Docker（VPS / 云服务器）
+### 方式一：Docker（VPS / 云服务器）
 
 在任何支持 Docker 的 VPS 上快速启动 AgentIM（Hetzner、DigitalOcean、AWS Lightsail 等）：
 
@@ -63,15 +55,20 @@ docker compose up -d
 
 详见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 了解生产环境部署（Nginx、TLS、备份等）。
 
-### 方式三：Northflank（免费套餐）
+### 方式二：云平台（一键部署）
 
-Northflank 提供 2 个免费服务 + 2 个免费数据库，足以运行 AgentIM（始终运行，无冷启动）：
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[部署到 Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![部署到 Northflank](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+部署完成后：
 
-部署完成后，在 Secret Group 中修改 `ADMIN_PASSWORD`。
+- **必填**：在环境变量（Northflank 为 Secret Group）中设置 `ADMIN_PASSWORD`
+- **选填**：设置 `CORS_ORIGIN` 为你的域名（如 `https://agentim.example.com`），用于生产环境
 
-### 方式四：手动安装（开发环境）
+### 方式三：手动安装（开发环境）
 
 **前置要求**：Node.js 20+、pnpm 10+、PostgreSQL 16+、Redis 7+
 

@@ -35,15 +35,7 @@ AgentIM は、AIコーディングエージェント（Claude Code、Codex CLI�
 
 ## サーバーデプロイ
 
-### 方法1：ワンクリックデプロイ
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-デプロイ後、環境変数で `ADMIN_PASSWORD` を設定してください。
-
-### 方法2：Docker（VPS / クラウドサーバー）
+### 方法1：Docker（VPS / クラウドサーバー）
 
 Docker対応の任意のVPSでAgentIMを素早く起動（Hetzner、DigitalOcean、AWS Lightsail など）：
 
@@ -63,15 +55,20 @@ docker compose up -d
 
 詳細は [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) を参照（Nginx、TLS、バックアップなど）。
 
-### 方法3：Northflank（無料プラン、常時稼働、コールドスタートなし）
+### 方法2：クラウドプラットフォーム（ワンクリックデプロイ）
 
-Northflank は 2 つの無料サービス + 2 つの無料データベースを提供 —— AgentIM の運用に十分です：
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Northflank にデプロイ](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Northflank にデプロイ](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+デプロイ後：
 
-デプロイ後、Secret Group で `ADMIN_PASSWORD` を変更してください。
+- **必須**：環境変数（Northflank は Secret Group）で `ADMIN_PASSWORD` を設定
+- **任意**：本番環境では `CORS_ORIGIN` をドメインに設定（例：`https://agentim.example.com`）
 
-### 方法4：手動セットアップ（開発用）
+### 方法3：手動セットアップ（開発用）
 
 **前提条件**：Node.js 20+、pnpm 10+、PostgreSQL 16+、Redis 7+
 

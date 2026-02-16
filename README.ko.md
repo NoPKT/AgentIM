@@ -35,15 +35,7 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 
 ## 서버 배포
 
-### 방법 1: 원클릭 배포
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-배포 후 환경 변수에서 `ADMIN_PASSWORD`를 설정하세요.
-
-### 방법 2: Docker (VPS / 클라우드 서버)
+### 방법 1: Docker (VPS / 클라우드 서버)
 
 Docker를 지원하는 모든 VPS에서 AgentIM을 빠르게 시작 (Hetzner, DigitalOcean, AWS Lightsail 등):
 
@@ -63,15 +55,20 @@ docker compose up -d
 
 자세한 내용은 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)를 참조하세요 (Nginx, TLS, 백업 등).
 
-### 방법 3: Northflank (무료 플랜, 항상 실행, 콜드 스타트 없음)
+### 방법 2: 클라우드 플랫폼 (원클릭 배포)
 
-Northflank는 2개의 무료 서비스 + 2개의 무료 데이터베이스를 제공합니다 — AgentIM 운영에 충분합니다:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Northflank에 배포](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Northflank에 배포](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+배포 후:
 
-배포 후 Secret Group에서 `ADMIN_PASSWORD`를 변경하세요.
+- **필수**: 환경 변수 (Northflank는 Secret Group)에서 `ADMIN_PASSWORD` 설정
+- **선택**: 프로덕션 환경에서 `CORS_ORIGIN`을 도메인으로 설정 (예: `https://agentim.example.com`)
 
-### 방법 4: 수동 설치 (개발용)
+### 방법 3: 수동 설치 (개발용)
 
 **사전 요구 사항**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 

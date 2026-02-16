@@ -35,15 +35,7 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI, etc.) into *
 
 ## Server Deployment
 
-### Option 1: One-Click Deploy
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-After deploy, set `ADMIN_PASSWORD` in the environment variables.
-
-### Option 2: Docker (VPS / Cloud Server)
+### Option 1: Docker (VPS / Cloud Server)
 
 The fastest way to get AgentIM running on any Docker-capable VPS (Hetzner, DigitalOcean, AWS Lightsail, etc.):
 
@@ -63,15 +55,20 @@ Open **http://localhost:3000** and log in with `admin` / your password.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production setup with Nginx, TLS, backups, etc.
 
-### Option 3: Northflank (Free Tier)
+### Option 2: Cloud Platform (One-Click Deploy)
 
-Northflank offers 2 free services + 2 free databases (always-on, no cold starts):
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Deploy to Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Deploy to Northflank](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+After deploy:
 
-After deploy, change the `ADMIN_PASSWORD` in the secret group.
+- **Required**: Set `ADMIN_PASSWORD` in the environment variables (or Secret Group on Northflank)
+- **Optional**: Set `CORS_ORIGIN` to your domain (e.g. `https://agentim.example.com`) for production use
 
-### Option 4: Manual Setup (Development)
+### Option 3: Manual Setup (Development)
 
 **Prerequisites**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 

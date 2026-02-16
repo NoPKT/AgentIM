@@ -35,15 +35,7 @@ AgentIM превращает ИИ-агентов программировани�
 
 ## Развёртывание сервера
 
-### Вариант 1: Развёртывание в один клик
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
-&nbsp;&nbsp;
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
-
-После развёртывания установите `ADMIN_PASSWORD` в переменных окружения.
-
-### Вариант 2: Docker (VPS / Облачный сервер)
+### Вариант 1: Docker (VPS / Облачный сервер)
 
 Самый быстрый способ запустить AgentIM на любом VPS с поддержкой Docker (Hetzner, DigitalOcean, AWS Lightsail и др.):
 
@@ -63,15 +55,20 @@ docker compose up -d
 
 Подробнее о настройке для продакшена с Nginx, TLS, резервным копированием и т.д. см. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-### Вариант 3: Northflank (бесплатный план, постоянно работает, без холодного старта)
+### Вариант 2: Облачная платформа (развёртывание в один клик)
 
-Northflank предлагает 2 бесплатных сервиса + 2 бесплатные базы данных — этого достаточно для AgentIM:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/NoPKT/AgentIM)
+&nbsp;&nbsp;
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
+&nbsp;&nbsp;
+[Развернуть на Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
-[![Развернуть на Northflank](https://northflank.com/button.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+После развёртывания:
 
-После развёртывания измените `ADMIN_PASSWORD` в Secret Group.
+- **Обязательно**: Установите `ADMIN_PASSWORD` в переменных окружения (на Northflank — в Secret Group)
+- **Опционально**: Установите `CORS_ORIGIN` на ваш домен (напр. `https://agentim.example.com`) для продакшена
 
-### Вариант 4: Ручная установка (Разработка)
+### Вариант 3: Ручная установка (Разработка)
 
 **Требования**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
 
