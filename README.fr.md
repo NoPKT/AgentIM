@@ -61,7 +61,7 @@ Consultez [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour la configuration en prod
 &nbsp;&nbsp;
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
 &nbsp;&nbsp;
-[Déployer sur Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+[![Deploy to Northflank](https://assets.northflank.com/deploy_to_northflank_smm_36700fb050.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
 Après le déploiement :
 

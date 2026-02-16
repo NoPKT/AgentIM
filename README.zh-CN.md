@@ -61,7 +61,7 @@ docker compose up -d
 &nbsp;&nbsp;
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/9S4Cvc)
 &nbsp;&nbsp;
-[部署到 Northflank](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
+[![Deploy to Northflank](https://assets.northflank.com/deploy_to_northflank_smm_36700fb050.svg)](https://app.northflank.com/s/account/templates/new?data=6992c4abb87da316695ce04f)
 
 部署完成后：
 
