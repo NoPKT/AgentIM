@@ -168,7 +168,7 @@ aim logout    # Effacer les identifiants enregistrés
 | `DATABASE_URL` | Oui | `postgresql://...localhost` | Chaîne de connexion PostgreSQL |
 | `REDIS_URL` | Oui | `redis://localhost:6379` | Chaîne de connexion Redis |
 | `PORT` | Non | `3000` | Port du serveur |
-| `CORS_ORIGIN` | Non | `*` | Origine CORS autorisée (définir votre domaine en production) |
+| `CORS_ORIGIN` | Non | `localhost:5173` | Origine CORS autorisée (définir votre domaine en production) |
 | `ADMIN_USERNAME` | Non | `admin` | Nom d'utilisateur administrateur |
 
 Consultez [.env.example](.env.example) pour la liste complète.

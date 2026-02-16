@@ -1,8 +1,12 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module'
 import { program } from 'commander'
 import { nanoid } from 'nanoid'
 import { loadConfig, saveConfig, getConfigPath, clearConfig, wsUrlToHttpUrl } from './config.js'
 import { getDeviceInfo } from './device.js'
+
+const require = createRequire(import.meta.url)
+const { version } = require('../../package.json')
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
@@ -17,7 +21,7 @@ const log = createLogger('Gateway')
 program
   .name('aim')
   .description('AgentIM Gateway - Bridge AI coding agents to AgentIM')
-  .version('0.1.0')
+  .version(version)
 
 // ─── aim login ───
 

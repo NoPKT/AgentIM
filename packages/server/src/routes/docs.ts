@@ -1,10 +1,14 @@
+import { createRequire } from 'node:module'
 import { Hono } from 'hono'
+
+const require = createRequire(import.meta.url)
+const { version: pkgVersion } = require('../../package.json')
 
 const spec = {
   openapi: '3.0.3',
   info: {
     title: 'AgentIM API',
-    version: '0.1.0',
+    version: pkgVersion,
     description:
       'Unified IM-style platform for managing and orchestrating multiple AI coding agents.',
   },

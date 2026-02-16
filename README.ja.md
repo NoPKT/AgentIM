@@ -168,7 +168,7 @@ aim logout    # ログイン資格情報をクリア
 | `DATABASE_URL` | はい | `postgresql://...localhost` | PostgreSQL 接続文字列 |
 | `REDIS_URL` | はい | `redis://localhost:6379` | Redis 接続文字列 |
 | `PORT` | いいえ | `3000` | サーバーポート |
-| `CORS_ORIGIN` | いいえ | `*` | 許可する CORS オリジン（本番環境ではドメインを設定） |
+| `CORS_ORIGIN` | いいえ | `localhost:5173` | 許可する CORS オリジン（本番環境ではドメインを設定） |
 | `ADMIN_USERNAME` | いいえ | `admin` | 管理者ユーザー名 |
 
 完全なリストは [.env.example](.env.example) を参照してください。

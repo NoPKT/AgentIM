@@ -18,7 +18,9 @@ const COLORS: Record<LogLevel, string> = {
 const RESET = '\x1b[0m'
 
 const isProduction = process.env.NODE_ENV === 'production'
-const minLevel = LEVELS[(process.env.LOG_LEVEL as LogLevel) ?? (isProduction ? 'info' : 'debug')]
+const envLevel = process.env.LOG_LEVEL as LogLevel | undefined
+const defaultLevel: LogLevel = isProduction ? 'info' : 'debug'
+const minLevel = envLevel && envLevel in LEVELS ? LEVELS[envLevel] : LEVELS[defaultLevel]
 
 function formatDev(level: LogLevel, ctx: string, message: string, extra?: Record<string, unknown>) {
   const time = new Date().toISOString().slice(11, 23) // HH:mm:ss.SSS

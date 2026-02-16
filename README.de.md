@@ -168,7 +168,7 @@ aim logout    # Gespeicherte Anmeldedaten löschen
 | `DATABASE_URL` | Ja | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette |
 | `REDIS_URL` | Ja | `redis://localhost:6379` | Redis-Verbindungszeichenkette |
 | `PORT` | Nein | `3000` | Server-Port |
-| `CORS_ORIGIN` | Nein | `*` | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen) |
+| `CORS_ORIGIN` | Nein | `localhost:5173` | Erlaubter CORS-Ursprung (in Produktion auf Ihre Domain setzen) |
 | `ADMIN_USERNAME` | Nein | `admin` | Admin-Benutzername |
 
 Siehe [.env.example](.env.example) für die vollständige Liste.

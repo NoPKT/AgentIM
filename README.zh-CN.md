@@ -168,7 +168,7 @@ aim logout    # 清除登录凭证
 | `DATABASE_URL` | 是 | `postgresql://...localhost` | PostgreSQL 连接字符串 |
 | `REDIS_URL` | 是 | `redis://localhost:6379` | Redis 连接字符串 |
 | `PORT` | 否 | `3000` | 服务器端口 |
-| `CORS_ORIGIN` | 否 | `*` | 允许的 CORS 来源（生产环境请设置为你的域名） |
+| `CORS_ORIGIN` | 否 | `localhost:5173` | 允许的 CORS 来源（生产环境请设置为你的域名） |
 | `ADMIN_USERNAME` | 否 | `admin` | 管理员用户名 |
 
 完整列表请参见 [.env.example](.env.example)。

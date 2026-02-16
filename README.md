@@ -168,7 +168,7 @@ aim logout    # Clear saved credentials
 | `DATABASE_URL` | Yes | `postgresql://...localhost` | PostgreSQL connection string |
 | `REDIS_URL` | Yes | `redis://localhost:6379` | Redis connection string |
 | `PORT` | No | `3000` | Server port |
-| `CORS_ORIGIN` | No | `*` | Allowed CORS origin (set to your domain in production) |
+| `CORS_ORIGIN` | No | `localhost:5173` | Allowed CORS origin (set to your domain in production) |
 | `ADMIN_USERNAME` | No | `admin` | Admin username |
 
 See [.env.example](.env.example) for the full list.

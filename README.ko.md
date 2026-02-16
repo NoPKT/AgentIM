@@ -168,7 +168,7 @@ aim logout    # 로그인 자격 증명 삭제
 | `DATABASE_URL` | 예 | `postgresql://...localhost` | PostgreSQL 연결 문자열 |
 | `REDIS_URL` | 예 | `redis://localhost:6379` | Redis 연결 문자열 |
 | `PORT` | 아니오 | `3000` | 서버 포트 |
-| `CORS_ORIGIN` | 아니오 | `*` | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
+| `CORS_ORIGIN` | 아니오 | `localhost:5173` | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
 | `ADMIN_USERNAME` | 아니오 | `admin` | 관리자 사용자 이름 |
 
 전체 목록은 [.env.example](.env.example)을 참조하세요.
