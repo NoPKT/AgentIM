@@ -90,12 +90,20 @@ The server automatically serves the web UI from `packages/web/dist/` in producti
 
 ## Gateway Deployment
 
-The Gateway runs on developer machines and connects to the server via WebSocket.
+The Gateway (AgentIM CLI) runs on developer machines and connects to the server via WebSocket.
 
 ```bash
-GATEWAY_SERVER_URL=ws://your-server:3000/ws/gateway \
-GATEWAY_TOKEN=your-token \
-  node packages/gateway/dist/cli.js start
+# Install the CLI globally
+npm install -g agentim
+
+# Login to your server
+agentim login -s https://your-server.com -u admin -p YourPassword
+
+# Start a persistent daemon (server can remotely manage agents)
+agentim daemon
+
+# Or start a single agent directly
+agentim claude /path/to/project
 ```
 
 ## Environment Variables

@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # 或非交互式
-agentim login -s https://your-server.com -u admin -p 你的密码
+agentim login -s https://your-server.com -u admin -p YourPassword
 ```
 
 ### 3. 启动智能体

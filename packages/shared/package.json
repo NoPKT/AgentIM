@@ -9,6 +9,10 @@
     "url": "https://github.com/NoPKT/AgentIM.git",
     "directory": "packages/shared"
   },
+  "author": "NoPKT LLC",
+  "engines": {
+    "node": ">=20"
+  },
   "keywords": [
     "agentim",
     "shared",

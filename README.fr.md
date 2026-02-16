@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # Ou non-interactive
-agentim login -s https://your-server.com -u admin -p YourStrongPassword!
+agentim login -s https://your-server.com -u admin -p YourPassword
 ```
 
 ### 3. Démarrer un agent

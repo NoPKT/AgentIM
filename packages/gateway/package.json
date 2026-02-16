@@ -10,6 +10,10 @@
     "directory": "packages/gateway"
   },
   "homepage": "https://github.com/NoPKT/AgentIM#connecting-ai-agents",
+  "author": "NoPKT LLC",
+  "engines": {
+    "node": ">=20"
+  },
   "keywords": [
     "agentim",
     "gateway",
