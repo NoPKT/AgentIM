@@ -199,6 +199,17 @@ pnpm dev              # 開発モード（全パッケージ）
 pnpm test             # すべてのテストを実行
 ```
 
+### 技術スタック
+
+| レイヤー    | テクノロジー                                  |
+| ----------- | --------------------------------------------- |
+| モノレポ    | pnpm + Turborepo                              |
+| サーバー    | Hono + Drizzle ORM + PostgreSQL + Redis       |
+| 認証        | JWT (jose) + argon2                           |
+| Web UI      | React 19 + Vite + TailwindCSS v4 + Zustand    |
+| AgentIM CLI | commander.js + node-pty                       |
+| i18n        | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
+
 ## ライセンス
 
 Copyright (c) 2025 NoPKT LLC. All rights reserved.

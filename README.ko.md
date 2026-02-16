@@ -199,6 +199,17 @@ pnpm dev              # 개발 모드 (모든 패키지)
 pnpm test             # 모든 테스트 실행
 ```
 
+### 기술 스택
+
+| 레이어      | 기술                                          |
+| ----------- | --------------------------------------------- |
+| 모노레포    | pnpm + Turborepo                              |
+| 서버        | Hono + Drizzle ORM + PostgreSQL + Redis       |
+| 인증        | JWT (jose) + argon2                           |
+| Web UI      | React 19 + Vite + TailwindCSS v4 + Zustand    |
+| AgentIM CLI | commander.js + node-pty                       |
+| i18n        | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
+
 ## 라이선스
 
 Copyright (c) 2025 NoPKT LLC. All rights reserved.

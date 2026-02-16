@@ -199,6 +199,17 @@ pnpm dev              # 开发模式（所有包）
 pnpm test             # 运行所有测试
 ```
 
+### 技术栈
+
+| 层级     | 技术                                          |
+| -------- | --------------------------------------------- |
+| 单体仓库 | pnpm + Turborepo                              |
+| 服务端   | Hono + Drizzle ORM + PostgreSQL + Redis       |
+| 认证     | JWT (jose) + argon2                           |
+| Web 前端 | React 19 + Vite + TailwindCSS v4 + Zustand    |
+| AgentIM CLI | commander.js + node-pty                    |
+| 国际化   | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
+
 ## 许可证
 
 Copyright (c) 2025 NoPKT LLC. 保留所有权利。
