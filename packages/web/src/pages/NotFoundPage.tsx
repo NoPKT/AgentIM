@@ -11,15 +11,18 @@ export default function NotFoundPage() {
         <h1 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
           {t('error.notFound')}
         </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          {t('error.generic')}
-        </p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('error.generic')}</p>
         <Link
           to="/"
           className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
           </svg>
           {t('common.back')}
         </Link>

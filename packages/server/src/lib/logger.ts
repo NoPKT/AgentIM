@@ -9,11 +9,11 @@ const LEVELS: Record<LogLevel, number> = {
 }
 
 const COLORS: Record<LogLevel, string> = {
-  debug: '\x1b[90m',  // gray
-  info: '\x1b[36m',   // cyan
-  warn: '\x1b[33m',   // yellow
-  error: '\x1b[31m',  // red
-  fatal: '\x1b[35m',  // magenta
+  debug: '\x1b[90m', // gray
+  info: '\x1b[36m', // cyan
+  warn: '\x1b[33m', // yellow
+  error: '\x1b[31m', // red
+  fatal: '\x1b[35m', // magenta
 }
 const RESET = '\x1b[0m'
 
@@ -29,7 +29,12 @@ function formatDev(level: LogLevel, ctx: string, message: string, extra?: Record
   return `${color}${time} ${tag}${RESET}${ctxStr} ${message}${extraStr}`
 }
 
-function formatJson(level: LogLevel, ctx: string, message: string, extra?: Record<string, unknown>) {
+function formatJson(
+  level: LogLevel,
+  ctx: string,
+  message: string,
+  extra?: Record<string, unknown>,
+) {
   return JSON.stringify({
     ts: new Date().toISOString(),
     level,

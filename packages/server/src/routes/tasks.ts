@@ -43,7 +43,7 @@ taskRoutes.get('/rooms/:roomId', async (c) => {
   const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50'), 1), 100)
   const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0)
 
-  if (!await isRoomMember(userId, roomId)) {
+  if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -62,7 +62,7 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
 
-  if (!await isRoomMember(userId, roomId)) {
+  if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -103,7 +103,7 @@ taskRoutes.put('/:id', async (c) => {
     return c.json({ ok: false, error: 'Task not found' }, 404)
   }
 
-  if (!await isRoomMember(userId, existing.roomId)) {
+  if (!(await isRoomMember(userId, existing.roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -125,14 +125,18 @@ taskRoutes.put('/:id', async (c) => {
     const isAssignee = existing.assigneeId === userId
     const isAdmin = await isRoomAdmin(userId, existing.roomId)
     if (!isCreator && !isAssignee && !isAdmin) {
-      return c.json({ ok: false, error: 'Only task creator, assignee, or room admin can modify task details' }, 403)
+      return c.json(
+        { ok: false, error: 'Only task creator, assignee, or room admin can modify task details' },
+        403,
+      )
     }
   }
 
   const now = new Date().toISOString()
   const updateData: Record<string, unknown> = { updatedAt: now }
   if (parsed.data.title !== undefined) updateData.title = sanitizeText(parsed.data.title)
-  if (parsed.data.description !== undefined) updateData.description = sanitizeContent(parsed.data.description)
+  if (parsed.data.description !== undefined)
+    updateData.description = sanitizeContent(parsed.data.description)
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status
   if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
   if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType

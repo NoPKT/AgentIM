@@ -41,9 +41,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               {t('loginTitle')}
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('loginSubtitle')}
-            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('loginSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -54,7 +52,10 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 {t('username')}
               </label>
               <input
@@ -70,7 +71,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 {t('password')}
               </label>
               <input

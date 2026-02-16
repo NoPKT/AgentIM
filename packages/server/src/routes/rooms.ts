@@ -3,7 +3,12 @@ import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { rooms, roomMembers, agents, gateways } from '../db/schema.js'
-import { createRoomSchema, updateRoomSchema, addMemberSchema, NOTIFICATION_PREFS } from '@agentim/shared'
+import {
+  createRoomSchema,
+  updateRoomSchema,
+  addMemberSchema,
+  NOTIFICATION_PREFS,
+} from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
@@ -28,20 +33,14 @@ roomRoutes.use('*', authMiddleware)
 // List rooms for current user
 roomRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const memberRows = await db
-    .select()
-    .from(roomMembers)
-    .where(eq(roomMembers.memberId, userId))
+  const memberRows = await db.select().from(roomMembers).where(eq(roomMembers.memberId, userId))
 
   const roomIds = memberRows.map((m) => m.roomId)
   if (roomIds.length === 0) {
     return c.json({ ok: true, data: [] })
   }
 
-  const roomList = await db
-    .select()
-    .from(rooms)
-    .where(inArray(rooms.id, roomIds))
+  const roomList = await db.select().from(rooms).where(inArray(rooms.id, roomIds))
 
   // Attach user's pin/archive status to each room
   const memberMap = new Map(memberRows.map((m) => [m.roomId, m]))
@@ -122,7 +121,7 @@ roomRoutes.get('/:id', async (c) => {
     return c.json({ ok: false, error: 'Room not found' }, 404)
   }
 
-  if (!await isRoomMember(userId, roomId)) {
+  if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -140,7 +139,7 @@ roomRoutes.put('/:id', async (c) => {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
   }
 
-  if (!await isRoomAdmin(userId, roomId)) {
+  if (!(await isRoomAdmin(userId, roomId))) {
     return c.json({ ok: false, error: 'Only room owner or admin can update settings' }, 403)
   }
 
@@ -149,10 +148,7 @@ roomRoutes.put('/:id', async (c) => {
   if (updateData.name) {
     updateData.name = sanitizeText(updateData.name)
   }
-  await db
-    .update(rooms)
-    .set(updateData)
-    .where(eq(rooms.id, roomId))
+  await db.update(rooms).set(updateData).where(eq(rooms.id, roomId))
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
 
@@ -189,7 +185,7 @@ roomRoutes.post('/:id/members', async (c) => {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
   }
 
-  if (!await isRoomAdmin(userId, roomId)) {
+  if (!(await isRoomAdmin(userId, roomId))) {
     return c.json({ ok: false, error: 'Only room owner or admin can add members' }, 403)
   }
 
@@ -204,11 +200,7 @@ roomRoutes.post('/:id/members', async (c) => {
       return c.json({ ok: false, error: 'Agent not found' }, 404)
     }
     if (agent.visibility !== 'shared') {
-      const [gw] = await db
-        .select()
-        .from(gateways)
-        .where(eq(gateways.id, agent.gatewayId))
-        .limit(1)
+      const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
       if (!gw || gw.userId !== userId) {
         return c.json({ ok: false, error: 'You do not own this agent and it is not shared' }, 403)
       }
@@ -247,7 +239,7 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
   const memberId = c.req.param('memberId')
 
   // Self-leave is always allowed; otherwise require owner/admin
-  if (memberId !== userId && !await isRoomAdmin(userId, roomId)) {
+  if (memberId !== userId && !(await isRoomAdmin(userId, roomId))) {
     return c.json({ ok: false, error: 'Only room owner or admin can remove members' }, 403)
   }
 
@@ -311,7 +303,10 @@ roomRoutes.put('/:id/notification-pref', async (c) => {
   const pref = body?.pref
 
   if (!pref || !(NOTIFICATION_PREFS as readonly string[]).includes(pref)) {
-    return c.json({ ok: false, error: `Invalid preference. Must be one of: ${NOTIFICATION_PREFS.join(', ')}` }, 400)
+    return c.json(
+      { ok: false, error: `Invalid preference. Must be one of: ${NOTIFICATION_PREFS.join(', ')}` },
+      400,
+    )
   }
 
   await db
@@ -327,7 +322,7 @@ roomRoutes.get('/:id/members', async (c) => {
   const roomId = c.req.param('id')
   const userId = c.get('userId')
 
-  if (!await isRoomMember(userId, roomId)) {
+  if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 

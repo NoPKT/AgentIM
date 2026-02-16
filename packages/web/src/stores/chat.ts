@@ -50,19 +50,43 @@ interface ChatState {
   typingUsers: Map<string, { username: string; expiresAt: number }>
   addTypingUser: (roomId: string, userId: string, username: string) => void
   clearExpiredTyping: () => void
-  sendMessage: (roomId: string, content: string, mentions: string[], attachmentIds?: string[]) => void
+  sendMessage: (
+    roomId: string,
+    content: string,
+    mentions: string[],
+    attachmentIds?: string[],
+  ) => void
   addMessage: (message: Message) => void
-  addStreamChunk: (roomId: string, agentId: string, agentName: string, messageId: string, chunk: ParsedChunk) => void
+  addStreamChunk: (
+    roomId: string,
+    agentId: string,
+    agentName: string,
+    messageId: string,
+    chunk: ParsedChunk,
+  ) => void
   completeStream: (message: Message) => void
   addTerminalData: (agentId: string, agentName: string, data: string) => void
   clearTerminalBuffer: (agentId: string) => void
   setUserOnline: (userId: string, online: boolean) => void
   updateReadReceipt: (roomId: string, userId: string, username: string, lastReadAt: string) => void
-  createRoom: (name: string, type: 'private' | 'group', broadcastMode: boolean, systemPrompt?: string) => Promise<Room>
+  createRoom: (
+    name: string,
+    type: 'private' | 'group',
+    broadcastMode: boolean,
+    systemPrompt?: string,
+  ) => Promise<Room>
   loadRoomMembers: (roomId: string) => Promise<void>
-  addRoomMember: (roomId: string, memberId: string, memberType: 'user' | 'agent', roleDescription?: string) => Promise<void>
+  addRoomMember: (
+    roomId: string,
+    memberId: string,
+    memberType: 'user' | 'agent',
+    roleDescription?: string,
+  ) => Promise<void>
   removeRoomMember: (roomId: string, memberId: string) => Promise<void>
-  updateRoom: (roomId: string, data: { name?: string; broadcastMode?: boolean; systemPrompt?: string | null }) => Promise<void>
+  updateRoom: (
+    roomId: string,
+    data: { name?: string; broadcastMode?: boolean; systemPrompt?: string | null },
+  ) => Promise<void>
   deleteRoom: (roomId: string) => Promise<void>
   editMessage: (messageId: string, content: string) => Promise<void>
   deleteMessage: (messageId: string) => Promise<void>
@@ -136,12 +160,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ rooms: res.data })
       }
       // Load last message + server-side unread counts for each room
-      const recentRes = await api.get<Record<string, LastMessageInfo & { unread: number }>>('/messages/recent')
+      const recentRes =
+        await api.get<Record<string, LastMessageInfo & { unread: number }>>('/messages/recent')
       if (recentRes.ok && recentRes.data) {
         const lastMessages = new Map(get().lastMessages)
         const unreadCounts = new Map(get().unreadCounts)
         for (const [roomId, info] of Object.entries(recentRes.data)) {
-          lastMessages.set(roomId, { content: info.content, senderName: info.senderName, createdAt: info.createdAt })
+          lastMessages.set(roomId, {
+            content: info.content,
+            senderName: info.senderName,
+            createdAt: info.createdAt,
+          })
           if (info.unread > 0) {
             unreadCounts.set(roomId, info.unread)
           }
@@ -395,7 +424,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const msgs = new Map(get().messages)
     const roomMsgs = msgs.get(roomId)
     if (roomMsgs) {
-      msgs.set(roomId, roomMsgs.filter((m) => m.id !== messageId))
+      msgs.set(
+        roomId,
+        roomMsgs.filter((m) => m.id !== messageId),
+      )
       set({ messages: msgs })
     }
   },

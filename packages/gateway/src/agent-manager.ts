@@ -2,7 +2,15 @@ import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
 import { createLogger } from './lib/logger.js'
-import type { GatewayMessage, ServerSendToAgent, ServerStopAgent, ServerRoomContext, ServerGatewayMessage, RoomContext, ParsedChunk } from '@agentim/shared'
+import type {
+  GatewayMessage,
+  ServerSendToAgent,
+  ServerStopAgent,
+  ServerRoomContext,
+  ServerGatewayMessage,
+  RoomContext,
+  ParsedChunk,
+} from '@agentim/shared'
 
 const log = createLogger('AgentManager')
 

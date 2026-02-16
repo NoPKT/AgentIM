@@ -68,7 +68,8 @@ export const ko = {
     privateRoom: '비공개',
     groupRoom: '그룹',
     broadcastMode: '브로드캐스트 모드',
-    broadcastModeDesc: '@멘션이 없는 메시지는 AI가 최적의 에이전트에게 라우팅합니다 (AI 미설정 시 채팅에만 표시)',
+    broadcastModeDesc:
+      '@멘션이 없는 메시지는 AI가 최적의 에이전트에게 라우팅합니다 (AI 미설정 시 채팅에만 표시)',
     members: '멤버',
     addMember: '멤버 추가',
     removeMember: '멤버 제거',

@@ -75,10 +75,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     [members],
   )
 
-  const agentMap = useMemo(
-    () => new Map(agents.map((a) => [a.id, a])),
-    [agents],
-  )
+  const agentMap = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])
 
   const handleSaveName = async () => {
     if (!nameValue.trim() || nameValue === room?.name) {
@@ -151,9 +148,12 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
 
   const roleLabel = (role: string) => {
     switch (role) {
-      case 'owner': return t('roleOwner')
-      case 'admin': return t('roleAdmin')
-      default: return t('roleMember')
+      case 'owner':
+        return t('roleOwner')
+      case 'admin':
+        return t('roleAdmin')
+      default:
+        return t('roleMember')
     }
   }
 
@@ -161,10 +161,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
       )}
 
       {/* Drawer */}
@@ -181,14 +178,26 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('roomSettingsTitle')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {t('roomSettingsTitle')}
+            </h2>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               aria-label={t('close')}
             >
-              <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -227,8 +236,18 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   className="w-full text-left px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center justify-between group"
                 >
                   <span>{room?.name}</span>
-                  <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  <svg
+                    className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
                   </svg>
                 </button>
               )}
@@ -238,8 +257,12 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('broadcastMode')}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('broadcastModeDesc')}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {t('broadcastMode')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {t('broadcastModeDesc')}
+                  </p>
                 </div>
                 <button
                   role="switch"
@@ -303,19 +326,37 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   onClick={() => setEditingPrompt(true)}
                   className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center justify-between group"
                 >
-                  <span className={room?.systemPrompt ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500 italic'}>
+                  <span
+                    className={
+                      room?.systemPrompt
+                        ? 'text-gray-900 dark:text-gray-100'
+                        : 'text-gray-400 dark:text-gray-500 italic'
+                    }
+                  >
                     {room?.systemPrompt
-                      ? (room.systemPrompt.length > 80
-                          ? room.systemPrompt.slice(0, 80) + '...'
-                          : room.systemPrompt)
+                      ? room.systemPrompt.length > 80
+                        ? room.systemPrompt.slice(0, 80) + '...'
+                        : room.systemPrompt
                       : t('noSystemPrompt')}
                   </span>
-                  <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  <svg
+                    className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
                   </svg>
                 </button>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('systemPromptDesc')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {t('systemPromptDesc')}
+              </p>
             </div>
 
             {/* Notification Preference */}
@@ -342,7 +383,11 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {pref === 'all' ? t('settings.notifAll') : pref === 'mentions' ? t('settings.notifMentions') : t('settings.notifNone')}
+                    {pref === 'all'
+                      ? t('settings.notifAll')
+                      : pref === 'mentions'
+                        ? t('settings.notifMentions')
+                        : t('settings.notifNone')}
                   </button>
                 ))}
               </div>
@@ -358,8 +403,18 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   onClick={() => setShowAddAgent(true)}
                   className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   {t('addAgent')}
                 </button>
@@ -369,7 +424,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 {members.map((member) => {
                   const agent = member.memberType === 'agent' ? agentMap.get(member.memberId) : null
                   const status = agent
-                    ? statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
+                    ? statusConfig[agent.status as keyof typeof statusConfig] ||
+                      statusConfig.offline
                     : null
                   const type = agent ? typeConfig[agent.type] || typeConfig.generic : null
                   const displayName = agent ? agent.name : member.memberId
@@ -381,13 +437,16 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     >
                       {/* Avatar */}
                       <div className="relative flex-shrink-0">
-                        <div className={`
+                        <div
+                          className={`
                           w-8 h-8 rounded-full flex items-center justify-center
-                          ${member.memberType === 'agent'
-                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                            : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                          ${
+                            member.memberType === 'agent'
+                              ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                              : 'bg-gradient-to-br from-gray-400 to-gray-500'
                           }
-                        `}>
+                        `}
+                        >
                           <span className="text-xs font-medium text-white">
                             {displayName.charAt(0).toUpperCase()}
                           </span>
@@ -400,14 +459,20 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{displayName}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {displayName}
+                          </span>
                           {status && (
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`}
+                            />
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           {type && (
-                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${type.color}`}>
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${type.color}`}
+                            >
                               {type.label}
                             </span>
                           )}
@@ -424,8 +489,18 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                           className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                           title={t('removeMember')}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       )}

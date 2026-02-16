@@ -130,7 +130,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           } else if (block.type === 'tool_result') {
             return {
               type: 'tool_result',
-              content: typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+              content:
+                typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
               metadata: { toolId: block.tool_use_id },
             }
           }

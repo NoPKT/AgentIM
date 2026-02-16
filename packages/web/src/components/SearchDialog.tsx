@@ -10,7 +10,14 @@ function timeAgo(dateStr: string, locale: string): string {
   const then = new Date(dateStr).getTime()
   const diff = now - then
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return locale.startsWith('zh') ? '刚刚' : locale.startsWith('ja') ? 'たった今' : locale.startsWith('ko') ? '방금' : 'now'
+  if (mins < 1)
+    return locale.startsWith('zh')
+      ? '刚刚'
+      : locale.startsWith('ja')
+        ? 'たった今'
+        : locale.startsWith('ko')
+          ? '방금'
+          : 'now'
   if (mins < 60) return `${mins}m`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h`
@@ -107,12 +114,15 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     if (idx === -1) return text.length > 120 ? text.slice(0, 120) + '...' : text
     const start = Math.max(0, idx - 40)
     const end = Math.min(text.length, idx + q.length + 60)
-    const slice = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '')
+    const slice =
+      (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '')
     const hlIdx = slice.toLowerCase().indexOf(q.toLowerCase())
     return (
       <>
         {slice.slice(0, hlIdx)}
-        <mark className="bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 rounded px-0.5">{slice.slice(hlIdx, hlIdx + q.length)}</mark>
+        <mark className="bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 rounded px-0.5">
+          {slice.slice(hlIdx, hlIdx + q.length)}
+        </mark>
         {slice.slice(hlIdx + q.length)}
       </>
     )
@@ -122,12 +132,27 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-[10vh]">
-      <div role="dialog" aria-modal="true" aria-label={t('searchMessages')} className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('searchMessages')}
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+      >
         {/* Search Input */}
         <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               ref={inputRef}
@@ -142,11 +167,21 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             />
             {query && (
               <button
-                onClick={() => { setQuery(''); setResults([]); setSearched(false); inputRef.current?.focus() }}
+                onClick={() => {
+                  setQuery('')
+                  setResults([])
+                  setSearched(false)
+                  inputRef.current?.focus()
+                }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-400 dark:text-gray-500"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             )}
@@ -161,7 +196,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             {sender && (
               <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-md flex items-center gap-1">
                 {t('sender')}: {sender}
-                <button onClick={() => handleSenderChange('')} className="hover:text-red-500">×</button>
+                <button onClick={() => handleSenderChange('')} className="hover:text-red-500">
+                  ×
+                </button>
               </span>
             )}
           </div>

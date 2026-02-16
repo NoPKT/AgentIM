@@ -68,7 +68,8 @@ export const en = {
     privateRoom: 'Private',
     groupRoom: 'Group',
     broadcastMode: 'Broadcast Mode',
-    broadcastModeDesc: 'Messages without @mentions are routed by AI to the best-suited agent (or shown in chat only if AI routing is not configured)',
+    broadcastModeDesc:
+      'Messages without @mentions are routed by AI to the best-suited agent (or shown in chat only if AI routing is not configured)',
     members: 'Members',
     addMember: 'Add Member',
     removeMember: 'Remove Member',
@@ -226,7 +227,8 @@ export const en = {
     notifPrefUpdated: 'Notification preference updated',
     mentionNotifications: '@Mention Notifications',
     mentionNotificationsDesc: 'Get notified when someone mentions you in a message',
-    notificationPermissionDenied: 'Notification permission was denied. Please enable it in browser settings.',
+    notificationPermissionDenied:
+      'Notification permission was denied. Please enable it in browser settings.',
     notificationsEnabled: 'Notifications enabled',
     notificationsDisabled: 'Notifications disabled',
     changePassword: 'Change Password',

@@ -16,7 +16,12 @@ export function groupChunks(chunks: ParsedChunk[]): ChunkGroup[] {
   const groups: ChunkGroup[] = []
   for (const chunk of chunks) {
     const last = groups[groups.length - 1]
-    if (last && last.type === chunk.type && chunk.type !== 'tool_use' && chunk.type !== 'tool_result') {
+    if (
+      last &&
+      last.type === chunk.type &&
+      chunk.type !== 'tool_use' &&
+      chunk.type !== 'tool_result'
+    ) {
       last.content += chunk.content
     } else {
       groups.push({ type: chunk.type, content: chunk.content, metadata: chunk.metadata })
@@ -25,7 +30,13 @@ export function groupChunks(chunks: ParsedChunk[]): ChunkGroup[] {
   return groups
 }
 
-export function ThinkingBlock({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
+export function ThinkingBlock({
+  content,
+  isStreaming = false,
+}: {
+  content: string
+  isStreaming?: boolean
+}) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
@@ -64,14 +75,24 @@ export function ThinkingBlock({ content, isStreaming = false }: { content: strin
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-purple-200 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto dark:border-purple-700 dark:text-gray-400">
           {content}
-          {isStreaming && <span className="inline-block w-1.5 h-4 bg-purple-400 animate-pulse ml-0.5 align-middle" />}
+          {isStreaming && (
+            <span className="inline-block w-1.5 h-4 bg-purple-400 animate-pulse ml-0.5 align-middle" />
+          )}
         </div>
       )}
     </div>
   )
 }
 
-export function ToolUseBlock({ content, metadata, isStreaming = false }: { content: string; metadata?: Record<string, unknown>; isStreaming?: boolean }) {
+export function ToolUseBlock({
+  content,
+  metadata,
+  isStreaming = false,
+}: {
+  content: string
+  metadata?: Record<string, unknown>
+  isStreaming?: boolean
+}) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const toolName = (metadata?.toolName as string) || t('tool')
@@ -99,9 +120,24 @@ export function ToolUseBlock({ content, metadata, isStreaming = false }: { conte
         )}
 
         <span className="inline-flex items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <svg
+            className="w-3.5 h-3.5 text-blue-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
           </svg>
           <span className="font-medium text-blue-600 dark:text-blue-400">{toolName}</span>
         </span>
@@ -128,7 +164,10 @@ export function ToolResultBlock({ content }: { content: string }) {
         {isLong && !expanded ? (
           <>
             <pre className="whitespace-pre-wrap">{content.slice(0, 200)}...</pre>
-            <button onClick={() => setExpanded(true)} className="text-green-600 hover:text-green-700 mt-1 font-medium dark:text-green-400 dark:hover:text-green-300">
+            <button
+              onClick={() => setExpanded(true)}
+              className="text-green-600 hover:text-green-700 mt-1 font-medium dark:text-green-400 dark:hover:text-green-300"
+            >
               Show more
             </button>
           </>
@@ -144,8 +183,18 @@ export function ErrorBlock({ content }: { content: string }) {
   return (
     <div className="my-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
       <div className="flex items-center gap-1.5 mb-1">
-        <svg className="w-4 h-4 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        <svg
+          className="w-4 h-4 text-red-500 dark:text-red-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
         </svg>
         <span className="text-xs font-medium text-red-700 dark:text-red-300">Error</span>
       </div>
@@ -154,19 +203,33 @@ export function ErrorBlock({ content }: { content: string }) {
   )
 }
 
-export function TextBlock({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
+export function TextBlock({
+  content,
+  isStreaming = false,
+}: {
+  content: string
+  isStreaming?: boolean
+}) {
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
         {content}
       </ReactMarkdown>
-      {isStreaming && <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle" />}
+      {isStreaming && (
+        <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle" />
+      )}
     </div>
   )
 }
 
 /** Render an array of chunk groups */
-export function ChunkGroupRenderer({ groups, isStreaming = false }: { groups: ChunkGroup[]; isStreaming?: boolean }) {
+export function ChunkGroupRenderer({
+  groups,
+  isStreaming = false,
+}: {
+  groups: ChunkGroup[]
+  isStreaming?: boolean
+}) {
   return (
     <>
       {groups.map((group, i) => {
@@ -175,7 +238,14 @@ export function ChunkGroupRenderer({ groups, isStreaming = false }: { groups: Ch
           case 'thinking':
             return <ThinkingBlock key={i} content={group.content} isStreaming={isLast} />
           case 'tool_use':
-            return <ToolUseBlock key={i} content={group.content} metadata={group.metadata} isStreaming={isLast} />
+            return (
+              <ToolUseBlock
+                key={i}
+                content={group.content}
+                metadata={group.metadata}
+                isStreaming={isLast}
+              />
+            )
           case 'tool_result':
             return <ToolResultBlock key={i} content={group.content} />
           case 'error':

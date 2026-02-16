@@ -68,7 +68,8 @@ export const ja = {
     privateRoom: 'プライベート',
     groupRoom: 'グループ',
     broadcastMode: 'ブロードキャストモード',
-    broadcastModeDesc: '@メンションのないメッセージはAIが最適なエージェントにルーティングします（AI未設定時はチャットのみ表示）',
+    broadcastModeDesc:
+      '@メンションのないメッセージはAIが最適なエージェントにルーティングします（AI未設定時はチャットのみ表示）',
     members: 'メンバー',
     addMember: 'メンバー追加',
     removeMember: 'メンバー削除',
@@ -226,7 +227,8 @@ export const ja = {
     notifPrefUpdated: '通知設定が更新されました',
     mentionNotifications: '@メンション通知',
     mentionNotificationsDesc: 'メッセージであなたがメンションされた時に通知を受け取る',
-    notificationPermissionDenied: '通知の許可が拒否されました。ブラウザの設定で有効にしてください。',
+    notificationPermissionDenied:
+      '通知の許可が拒否されました。ブラウザの設定で有効にしてください。',
     notificationsEnabled: '通知が有効になりました',
     notificationsDisabled: '通知が無効になりました',
     changePassword: 'パスワード変更',

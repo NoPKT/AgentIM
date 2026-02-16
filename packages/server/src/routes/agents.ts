@@ -18,7 +18,11 @@ function enrichAgents(
     const gw = gwMap.get(agent.gatewayId)
     let capabilities: string[] | undefined
     if (agent.capabilities) {
-      try { capabilities = JSON.parse(agent.capabilities) } catch { /* ignore */ }
+      try {
+        capabilities = JSON.parse(agent.capabilities)
+      } catch {
+        /* ignore */
+      }
     }
     return {
       ...agent,
@@ -62,10 +66,7 @@ agentRoutes.get('/shared', async (c) => {
   const userId = c.get('userId')
 
   // Get all shared agents
-  const sharedAgents = await db
-    .select()
-    .from(agents)
-    .where(eq(agents.visibility, 'shared'))
+  const sharedAgents = await db.select().from(agents).where(eq(agents.visibility, 'shared'))
 
   if (sharedAgents.length === 0) {
     return c.json({ ok: true, data: [] })
@@ -73,10 +74,7 @@ agentRoutes.get('/shared', async (c) => {
 
   // Get their gateways
   const gatewayIds = [...new Set(sharedAgents.map((a) => a.gatewayId))]
-  const gwRows = await db
-    .select()
-    .from(gateways)
-    .where(inArray(gateways.id, gatewayIds))
+  const gwRows = await db.select().from(gateways).where(inArray(gateways.id, gatewayIds))
 
   const gwMap = new Map(gwRows.map((g) => [g.id, g]))
 
@@ -102,7 +100,7 @@ agentRoutes.get('/shared', async (c) => {
     const gw = gwMap.get(agent.gatewayId)
     return {
       ...agent,
-      ownerName: gw ? ownerMap.get(gw.userId) ?? undefined : undefined,
+      ownerName: gw ? (ownerMap.get(gw.userId) ?? undefined) : undefined,
     }
   })
 

@@ -1,4 +1,13 @@
-import type { Agent, Message, MessageReaction, ParsedChunk, Task, Room, RoomMember, RoomContext } from './types.js'
+import type {
+  Agent,
+  Message,
+  MessageReaction,
+  ParsedChunk,
+  Task,
+  Room,
+  RoomMember,
+  RoomContext,
+} from './types.js'
 import type { AgentStatus, TaskStatus, RoutingMode } from './constants.js'
 
 // ─── Client → Server Messages ───

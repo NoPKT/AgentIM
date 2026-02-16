@@ -1,51 +1,53 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useChatStore } from '../stores/chat.js';
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useChatStore } from '../stores/chat.js'
 
 interface CreateRoomDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen: boolean
+  onClose: () => void
 }
 
 export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogProps) {
-  const { t } = useTranslation();
-  const createRoom = useChatStore((state) => state.createRoom);
+  const { t } = useTranslation()
+  const createRoom = useChatStore((state) => state.createRoom)
 
-  const [name, setName] = useState('');
-  const [type, setType] = useState<'private' | 'group'>('private');
-  const [broadcastMode, setBroadcastMode] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState('');
+  const [name, setName] = useState('')
+  const [type, setType] = useState<'private' | 'group'>('private')
+  const [broadcastMode, setBroadcastMode] = useState(false)
+  const [systemPrompt, setSystemPrompt] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    e.preventDefault()
+    setError('')
 
     if (!name.trim()) {
-      setError(t('pleaseEnterRoomName') || 'Please enter a room name');
-      return;
+      setError(t('pleaseEnterRoomName') || 'Please enter a room name')
+      return
     }
 
-    setIsCreating(true);
+    setIsCreating(true)
     try {
-      await createRoom(name, type, broadcastMode, systemPrompt.trim() || undefined);
-      handleClose();
+      await createRoom(name, type, broadcastMode, systemPrompt.trim() || undefined)
+      handleClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('failedToCreateRoom') || 'Failed to create room');
+      setError(
+        err instanceof Error ? err.message : t('failedToCreateRoom') || 'Failed to create room',
+      )
     } finally {
-      setIsCreating(false);
+      setIsCreating(false)
     }
-  };
+  }
 
   const handleClose = () => {
-    setName('');
-    setType('private');
-    setBroadcastMode(false);
-    setSystemPrompt('');
-    setError('');
-    onClose();
-  };
+    setName('')
+    setType('private')
+    setBroadcastMode(false)
+    setSystemPrompt('')
+    setError('')
+    onClose()
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -56,13 +58,27 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen])
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="create-room-title" onClick={handleClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-room-title"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 id="create-room-title" className="text-xl font-semibold text-gray-900 dark:text-white">{t('newRoom')}</h2>
+          <h2
+            id="create-room-title"
+            className="text-xl font-semibold text-gray-900 dark:text-white"
+          >
+            {t('newRoom')}
+          </h2>
           <button
             onClick={handleClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
@@ -86,7 +102,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
           {/* Room Name */}
           <div>
-            <label htmlFor="roomName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="roomName"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               {t('roomName')}
             </label>
             <input
@@ -173,7 +192,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
           {/* System Prompt */}
           <div>
-            <label htmlFor="systemPrompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="systemPrompt"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               {t('systemPrompt')}
             </label>
             <textarea
@@ -198,8 +220,12 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                 className="mt-1 w-4 h-4 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
               />
               <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-white text-sm">{t('broadcastMode')}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('broadcastModeDesc')}</div>
+                <div className="font-medium text-gray-900 dark:text-white text-sm">
+                  {t('broadcastMode')}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {t('broadcastModeDesc')}
+                </div>
               </div>
             </label>
           </div>
@@ -218,11 +244,11 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               disabled={isCreating}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2"
             >
-              {isCreating ? (t('creating') || 'Creating...') : t('create')}
+              {isCreating ? t('creating') || 'Creating...' : t('create')}
             </button>
           </div>
         </form>
       </div>
     </div>
-  );
+  )
 }

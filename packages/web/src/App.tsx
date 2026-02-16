@@ -50,7 +50,14 @@ function AppInner() {
 
   return (
     <Routes>
-      <Route path="/login" element={<Suspense fallback={<PageLoader />}><LoginPage /></Suspense>} />
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <LoginPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/"
         element={
@@ -59,14 +66,75 @@ function AppInner() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<ErrorBoundary><Suspense fallback={<PageLoader />}><ChatPage /></Suspense></ErrorBoundary>} />
-        <Route path="room/:roomId" element={<ErrorBoundary><Suspense fallback={<PageLoader />}><ChatPage /></Suspense></ErrorBoundary>} />
-        <Route path="agents" element={<ErrorBoundary><Suspense fallback={<PageLoader />}><AgentsPage /></Suspense></ErrorBoundary>} />
-        <Route path="tasks" element={<ErrorBoundary><Suspense fallback={<PageLoader />}><TasksPage /></Suspense></ErrorBoundary>} />
-        <Route path="settings" element={<ErrorBoundary><Suspense fallback={<PageLoader />}><SettingsPage /></Suspense></ErrorBoundary>} />
-        <Route path="users" element={<ErrorBoundary><Suspense fallback={<PageLoader />}><UsersPage /></Suspense></ErrorBoundary>} />
+        <Route
+          index
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <ChatPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="room/:roomId"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <ChatPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="agents"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <AgentsPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="tasks"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <TasksPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <SettingsPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <UsersPage />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
       </Route>
-      <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFoundPage /></Suspense>} />
+      <Route
+        path="*"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <NotFoundPage />
+          </Suspense>
+        }
+      />
     </Routes>
   )
 }

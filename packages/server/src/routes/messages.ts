@@ -2,7 +2,14 @@ import { Hono } from 'hono'
 import { sql, and, eq, lt, gt, gte, lte, desc, ilike, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
-import { messages, roomMembers, messageAttachments, messageReactions, messageEdits, users } from '../db/schema.js'
+import {
+  messages,
+  roomMembers,
+  messageAttachments,
+  messageReactions,
+  messageEdits,
+  users,
+} from '../db/schema.js'
 import { messageQuerySchema, editMessageSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
@@ -28,7 +35,17 @@ async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
   return msgs.map((m) => {
     const att = attachMap.get(m.id)
     return att && att.length > 0
-      ? { ...m, attachments: att.map((a) => ({ id: a.id, messageId: a.messageId!, filename: a.filename, mimeType: a.mimeType, size: a.size, url: a.url })) }
+      ? {
+          ...m,
+          attachments: att.map((a) => ({
+            id: a.id,
+            messageId: a.messageId!,
+            filename: a.filename,
+            mimeType: a.mimeType,
+            size: a.size,
+            url: a.url,
+          })),
+        }
       : m
   })
 }
@@ -75,7 +92,10 @@ messageRoutes.get('/recent', async (c) => {
       AND u.unread > 0
   `)
 
-  const result: Record<string, { content: string; senderName: string; createdAt: string; unread: number }> = {}
+  const result: Record<
+    string,
+    { content: string; senderName: string; createdAt: string; unread: number }
+  > = {}
   for (const row of rows.rows) {
     result[row.room_id] = {
       content: row.content,
@@ -101,10 +121,7 @@ messageRoutes.post('/mark-all-read', async (c) => {
     .where(eq(roomMembers.memberId, userId))
 
   if (memberRows.length > 0) {
-    await db
-      .update(roomMembers)
-      .set({ lastReadAt: now })
-      .where(eq(roomMembers.memberId, userId))
+    await db.update(roomMembers).set({ lastReadAt: now }).where(eq(roomMembers.memberId, userId))
 
     // Broadcast read receipts to all rooms
     for (const row of memberRows) {
@@ -173,9 +190,7 @@ messageRoutes.get('/search', async (c) => {
 
   const searchPattern = `%${q}%`
   const filters = [
-    roomId
-      ? eq(messages.roomId, roomId)
-      : inArray(messages.roomId, [...userRoomIds]),
+    roomId ? eq(messages.roomId, roomId) : inArray(messages.roomId, [...userRoomIds]),
     ilike(messages.content, searchPattern),
   ]
   if (sender) filters.push(ilike(messages.senderName, `%${sender}%`))
@@ -208,7 +223,7 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
 
-  if (!await isRoomMember(userId, roomId)) {
+  if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -281,7 +296,7 @@ messageRoutes.post('/:id/reactions', async (c) => {
     return c.json({ ok: false, error: 'Message not found' }, 404)
   }
 
-  if (!await isRoomMember(userId, msg.roomId)) {
+  if (!(await isRoomMember(userId, msg.roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -412,7 +427,7 @@ messageRoutes.get('/:id/history', async (c) => {
     return c.json({ ok: false, error: 'Message not found' }, 404)
   }
 
-  if (!await isRoomMember(userId, msg.roomId)) {
+  if (!(await isRoomMember(userId, msg.roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
@@ -439,7 +454,7 @@ messageRoutes.put('/:id', async (c) => {
   if (!msg) {
     return c.json({ ok: false, error: 'Message not found' }, 404)
   }
-  if (!await isRoomMember(userId, msg.roomId)) {
+  if (!(await isRoomMember(userId, msg.roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
   if (msg.senderId !== userId || msg.senderType !== 'user') {
@@ -489,7 +504,7 @@ messageRoutes.delete('/:id', async (c) => {
   if (!msg) {
     return c.json({ ok: false, error: 'Message not found' }, 404)
   }
-  if (!await isRoomMember(userId, msg.roomId)) {
+  if (!(await isRoomMember(userId, msg.roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
   if (msg.senderId !== userId || msg.senderType !== 'user') {

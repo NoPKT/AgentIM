@@ -68,7 +68,8 @@ export const de = {
     privateRoom: 'Privat',
     groupRoom: 'Gruppe',
     broadcastMode: 'Broadcast-Modus',
-    broadcastModeDesc: 'Nachrichten ohne @Erwähnungen werden von der KI an den am besten geeigneten Agenten weitergeleitet (oder nur im Chat angezeigt, wenn kein KI-Routing konfiguriert ist)',
+    broadcastModeDesc:
+      'Nachrichten ohne @Erwähnungen werden von der KI an den am besten geeigneten Agenten weitergeleitet (oder nur im Chat angezeigt, wenn kein KI-Routing konfiguriert ist)',
     members: 'Mitglieder',
     addMember: 'Mitglied hinzufügen',
     removeMember: 'Mitglied entfernen',
@@ -94,7 +95,8 @@ export const de = {
     noAgentsAvailable: 'Keine Agenten zum Hinzufügen verfügbar',
     agentAdded: 'Agent erfolgreich hinzugefügt',
     agentRemoved: 'Agent erfolgreich entfernt',
-    confirmDeleteRoom: 'Bist du sicher, dass du diesen Raum löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.',
+    confirmDeleteRoom:
+      'Bist du sicher, dass du diesen Raum löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.',
     roomDeleted: 'Raum gelöscht',
     roomUpdated: 'Raum aktualisiert',
     roleMember: 'Mitglied',
@@ -226,14 +228,16 @@ export const de = {
     notifPrefUpdated: 'Benachrichtigungseinstellung aktualisiert',
     mentionNotifications: '@Erwähnungs-Benachrichtigungen',
     mentionNotificationsDesc: 'Werde benachrichtigt, wenn jemand dich in einer Nachricht erwähnt',
-    notificationPermissionDenied: 'Benachrichtigungsberechtigung wurde verweigert. Bitte in den Browsereinstellungen aktivieren.',
+    notificationPermissionDenied:
+      'Benachrichtigungsberechtigung wurde verweigert. Bitte in den Browsereinstellungen aktivieren.',
     notificationsEnabled: 'Benachrichtigungen aktiviert',
     notificationsDisabled: 'Benachrichtigungen deaktiviert',
     changePassword: 'Passwort ändern',
     currentPassword: 'Aktuelles Passwort',
     newPassword: 'Neues Passwort',
     confirmNewPassword: 'Neues Passwort bestätigen',
-    passwordRequirements: 'Mindestens 8 Zeichen, einschließlich Groß-, Kleinbuchstaben und einer Ziffer',
+    passwordRequirements:
+      'Mindestens 8 Zeichen, einschließlich Groß-, Kleinbuchstaben und einer Ziffer',
     passwordChanged: 'Passwort erfolgreich geändert',
     currentPasswordIncorrect: 'Aktuelles Passwort ist falsch',
     changingPassword: 'Wird geändert...',
@@ -244,7 +248,8 @@ export const de = {
     userCreated: 'Benutzer erfolgreich erstellt',
     userDeleted: 'Benutzer erfolgreich gelöscht',
     userUpdated: 'Benutzer erfolgreich aktualisiert',
-    confirmDeleteUser: 'Bist du sicher, dass du diesen Benutzer löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.',
+    confirmDeleteUser:
+      'Bist du sicher, dass du diesen Benutzer löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.',
     role: 'Rolle',
     roleAdmin: 'Admin',
     roleUser: 'Benutzer',

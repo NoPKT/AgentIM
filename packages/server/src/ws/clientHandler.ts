@@ -69,7 +69,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   // Rate limit all messages except auth and ping
   if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
     const client = connectionManager.getClient(ws)
-    if (client && await isRateLimited(client.userId)) {
+    if (client && (await isRateLimited(client.userId))) {
       connectionManager.sendToClient(ws, {
         type: 'server:error',
         code: 'RATE_LIMITED',
@@ -87,7 +87,14 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     case 'client:leave_room':
       return handleLeaveRoom(ws, msg.roomId)
     case 'client:send_message':
-      return handleSendMessage(ws, msg.roomId, msg.content, msg.mentions, msg.replyToId, msg.attachmentIds)
+      return handleSendMessage(
+        ws,
+        msg.roomId,
+        msg.content,
+        msg.mentions,
+        msg.replyToId,
+        msg.attachmentIds,
+      )
     case 'client:typing':
       return handleTyping(ws, msg.roomId)
     case 'client:stop_generation':
@@ -259,7 +266,14 @@ async function handleSendMessage(
       }))
     }
 
-    return [] as { id: string; messageId: string; filename: string; mimeType: string; size: number; url: string }[]
+    return [] as {
+      id: string
+      messageId: string
+      filename: string
+      mimeType: string
+      size: number
+      url: string
+    }[]
   })
 
   const message = {
@@ -337,9 +351,7 @@ async function routeToAgents(
     }
   } else if (room.broadcastMode) {
     // Broadcast room, no mentions — try AI Router
-    const cliAgents = agentRows.filter(
-      (a) => a.connectionType !== 'api',
-    )
+    const cliAgents = agentRows.filter((a) => a.connectionType !== 'api')
     if (cliAgents.length === 0) return
 
     const routerResult = await selectAgents(
@@ -347,7 +359,11 @@ async function routeToAgents(
       cliAgents.map((a) => {
         let capabilities: string[] | undefined
         if (a.capabilities) {
-          try { capabilities = JSON.parse(a.capabilities) } catch { /* ignore */ }
+          try {
+            capabilities = JSON.parse(a.capabilities)
+          } catch {
+            /* ignore */
+          }
         }
         return { id: a.id, name: a.name, type: a.type, capabilities }
       }),

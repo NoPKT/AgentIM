@@ -157,10 +157,7 @@ app.get('/api/health', async (c) => {
   }
 
   const healthy = Object.values(checks).every(Boolean)
-  return c.json(
-    { ok: healthy, timestamp: new Date().toISOString(), checks },
-    healthy ? 200 : 503,
-  )
+  return c.json({ ok: healthy, timestamp: new Date().toISOString(), checks }, healthy ? 200 : 503)
 })
 
 // API routes
@@ -217,7 +214,11 @@ if (existsSync(webDistPath)) {
   // SPA fallback: serve index.html for non-API, non-WS routes
   app.get('*', async (c) => {
     const reqPath = c.req.path
-    if (reqPath.startsWith('/api/') || reqPath.startsWith('/ws/') || reqPath.startsWith('/uploads/')) {
+    if (
+      reqPath.startsWith('/api/') ||
+      reqPath.startsWith('/ws/') ||
+      reqPath.startsWith('/uploads/')
+    ) {
       return c.notFound()
     }
     const { readFileSync } = await import('node:fs')

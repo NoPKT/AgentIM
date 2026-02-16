@@ -5,7 +5,8 @@ const spec = {
   info: {
     title: 'AgentIM API',
     version: '0.1.0',
-    description: 'Unified IM-style platform for managing and orchestrating multiple AI coding agents.',
+    description:
+      'Unified IM-style platform for managing and orchestrating multiple AI coding agents.',
   },
   servers: [{ url: '/api', description: 'Default server' }],
   components: {
@@ -81,7 +82,10 @@ const spec = {
           roomId: { type: 'string' },
           title: { type: 'string' },
           description: { type: 'string' },
-          status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] },
+          status: {
+            type: 'string',
+            enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
+          },
           assigneeId: { type: 'string', nullable: true },
           assigneeType: { type: 'string', enum: ['user', 'agent'], nullable: true },
           createdById: { type: 'string' },
@@ -120,7 +124,10 @@ const spec = {
             },
           },
         },
-        responses: { '200': { description: 'Login successful, returns tokens' }, '401': { description: 'Invalid credentials' } },
+        responses: {
+          '200': { description: 'Login successful, returns tokens' },
+          '401': { description: 'Invalid credentials' },
+        },
       },
     },
     '/auth/refresh': {
@@ -143,7 +150,11 @@ const spec = {
       },
     },
     '/auth/me': {
-      get: { tags: ['Auth'], summary: 'Get current user', responses: { '200': { description: 'Current user info' } } },
+      get: {
+        tags: ['Auth'],
+        summary: 'Get current user',
+        responses: { '200': { description: 'Current user info' } },
+      },
     },
     '/users': {
       get: {
@@ -157,7 +168,11 @@ const spec = {
       },
     },
     '/rooms': {
-      get: { tags: ['Rooms'], summary: 'List rooms for current user', responses: { '200': { description: 'Room list' } } },
+      get: {
+        tags: ['Rooms'],
+        summary: 'List rooms for current user',
+        responses: { '200': { description: 'Room list' } },
+      },
       post: {
         tags: ['Rooms'],
         summary: 'Create a room',
@@ -182,25 +197,73 @@ const spec = {
       },
     },
     '/rooms/{id}': {
-      get: { tags: ['Rooms'], summary: 'Get room details', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room details with members' } } },
-      put: { tags: ['Rooms'], summary: 'Update room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room updated' } } },
-      delete: { tags: ['Rooms'], summary: 'Delete room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room deleted' } } },
+      get: {
+        tags: ['Rooms'],
+        summary: 'Get room details',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Room details with members' } },
+      },
+      put: {
+        tags: ['Rooms'],
+        summary: 'Update room',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Room updated' } },
+      },
+      delete: {
+        tags: ['Rooms'],
+        summary: 'Delete room',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Room deleted' } },
+      },
     },
     '/rooms/{id}/members': {
-      get: { tags: ['Rooms'], summary: 'Get room members', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Member list' } } },
-      post: { tags: ['Rooms'], summary: 'Add member to room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '201': { description: 'Member added' } } },
+      get: {
+        tags: ['Rooms'],
+        summary: 'Get room members',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Member list' } },
+      },
+      post: {
+        tags: ['Rooms'],
+        summary: 'Add member to room',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '201': { description: 'Member added' } },
+      },
     },
     '/rooms/{id}/members/{memberId}': {
-      delete: { tags: ['Rooms'], summary: 'Remove member from room', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, { name: 'memberId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Member removed' } } },
+      delete: {
+        tags: ['Rooms'],
+        summary: 'Remove member from room',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'memberId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: { '200': { description: 'Member removed' } },
+      },
     },
     '/rooms/{id}/pin': {
-      put: { tags: ['Rooms'], summary: 'Toggle room pin', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Pin toggled' } } },
+      put: {
+        tags: ['Rooms'],
+        summary: 'Toggle room pin',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Pin toggled' } },
+      },
     },
     '/rooms/{id}/archive': {
-      put: { tags: ['Rooms'], summary: 'Toggle room archive', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Archive toggled' } } },
+      put: {
+        tags: ['Rooms'],
+        summary: 'Toggle room archive',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Archive toggled' } },
+      },
     },
     '/rooms/{id}/notification-pref': {
-      put: { tags: ['Rooms'], summary: 'Update notification preference', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Preference updated' } } },
+      put: {
+        tags: ['Rooms'],
+        summary: 'Update notification preference',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Preference updated' } },
+      },
     },
     '/messages/rooms/{roomId}': {
       get: {
@@ -210,7 +273,11 @@ const spec = {
           { name: 'roomId', in: 'path', required: true, schema: { type: 'string' } },
           { name: 'cursor', in: 'query', schema: { type: 'string' } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
-          { name: 'after', in: 'query', schema: { type: 'string', description: 'ISO timestamp for forward sync' } },
+          {
+            name: 'after',
+            in: 'query',
+            schema: { type: 'string', description: 'ISO timestamp for forward sync' },
+          },
         ],
         responses: { '200': { description: 'Paginated messages' } },
       },
@@ -231,23 +298,56 @@ const spec = {
       },
     },
     '/messages/recent': {
-      get: { tags: ['Messages'], summary: 'Get latest message + unread count per room', responses: { '200': { description: 'Recent messages map' } } },
+      get: {
+        tags: ['Messages'],
+        summary: 'Get latest message + unread count per room',
+        responses: { '200': { description: 'Recent messages map' } },
+      },
     },
     '/messages/rooms/{roomId}/read': {
-      post: { tags: ['Messages'], summary: 'Mark room as read', parameters: [{ name: 'roomId', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Room marked as read' } } },
+      post: {
+        tags: ['Messages'],
+        summary: 'Mark room as read',
+        parameters: [{ name: 'roomId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Room marked as read' } },
+      },
     },
     '/messages/mark-all-read': {
-      post: { tags: ['Messages'], summary: 'Mark all rooms as read', responses: { '200': { description: 'All rooms marked as read' } } },
+      post: {
+        tags: ['Messages'],
+        summary: 'Mark all rooms as read',
+        responses: { '200': { description: 'All rooms marked as read' } },
+      },
     },
     '/messages/{id}': {
-      put: { tags: ['Messages'], summary: 'Edit a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message edited' } } },
-      delete: { tags: ['Messages'], summary: 'Delete a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Message deleted' } } },
+      put: {
+        tags: ['Messages'],
+        summary: 'Edit a message',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Message edited' } },
+      },
+      delete: {
+        tags: ['Messages'],
+        summary: 'Delete a message',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Message deleted' } },
+      },
     },
     '/messages/{id}/history': {
-      get: { tags: ['Messages'], summary: 'Get edit history for a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Edit history' } } },
+      get: {
+        tags: ['Messages'],
+        summary: 'Get edit history for a message',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Edit history' } },
+      },
     },
     '/messages/{id}/reactions': {
-      post: { tags: ['Messages'], summary: 'Toggle reaction on a message', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Reactions updated' } } },
+      post: {
+        tags: ['Messages'],
+        summary: 'Toggle reaction on a message',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Reactions updated' } },
+      },
     },
     '/agents': {
       get: {
@@ -261,14 +361,35 @@ const spec = {
       },
     },
     '/agents/shared': {
-      get: { tags: ['Agents'], summary: 'List agents shared by other users', responses: { '200': { description: 'Shared agent list' } } },
+      get: {
+        tags: ['Agents'],
+        summary: 'List agents shared by other users',
+        responses: { '200': { description: 'Shared agent list' } },
+      },
     },
     '/agents/{id}': {
-      get: { tags: ['Agents'], summary: 'Get agent details', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent details' }, '404': { description: 'Agent not found or not accessible' } } },
-      put: { tags: ['Agents'], summary: 'Update agent settings', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Agent updated' } } },
+      get: {
+        tags: ['Agents'],
+        summary: 'Get agent details',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Agent details' },
+          '404': { description: 'Agent not found or not accessible' },
+        },
+      },
+      put: {
+        tags: ['Agents'],
+        summary: 'Update agent settings',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Agent updated' } },
+      },
     },
     '/agents/gateways/list': {
-      get: { tags: ['Agents'], summary: 'List connected gateways', responses: { '200': { description: 'Gateway list with connected agent counts' } } },
+      get: {
+        tags: ['Agents'],
+        summary: 'List connected gateways',
+        responses: { '200': { description: 'Gateway list with connected agent counts' } },
+      },
     },
     '/tasks': {
       get: {
@@ -280,7 +401,11 @@ const spec = {
         ],
         responses: { '200': { description: 'Task list' } },
       },
-      post: { tags: ['Tasks'], summary: 'Create a task', responses: { '201': { description: 'Task created' } } },
+      post: {
+        tags: ['Tasks'],
+        summary: 'Create a task',
+        responses: { '201': { description: 'Task created' } },
+      },
     },
     '/tasks/rooms/{roomId}': {
       get: {
@@ -295,14 +420,52 @@ const spec = {
       },
     },
     '/tasks/{id}': {
-      put: { tags: ['Tasks'], summary: 'Update a task', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task updated' } } },
-      delete: { tags: ['Tasks'], summary: 'Delete a task', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Task deleted' } } },
+      put: {
+        tags: ['Tasks'],
+        summary: 'Update a task',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Task updated' } },
+      },
+      delete: {
+        tags: ['Tasks'],
+        summary: 'Delete a task',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Task deleted' } },
+      },
     },
     '/upload': {
-      post: { tags: ['Upload'], summary: 'Upload a file', requestBody: { content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } } } }, responses: { '200': { description: 'File uploaded' } } },
+      post: {
+        tags: ['Upload'],
+        summary: 'Upload a file',
+        requestBody: {
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'File uploaded' } },
+      },
     },
     '/upload/avatar': {
-      post: { tags: ['Upload'], summary: 'Upload an avatar', requestBody: { content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } } } }, responses: { '200': { description: 'Avatar uploaded' } } },
+      post: {
+        tags: ['Upload'],
+        summary: 'Upload an avatar',
+        requestBody: {
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: { file: { type: 'string', format: 'binary' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Avatar uploaded' } },
+      },
     },
   },
   tags: [

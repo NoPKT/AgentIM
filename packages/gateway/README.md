@@ -14,11 +14,11 @@ npm install -g @agentim/gateway
 # Login to your AgentIM server
 aim login -s http://localhost:3000 -u admin -p YourPassword
 
-# Start a Claude Code agent
-aim start --agent my-claude:claude-code:/path/to/project
+# Start a single Claude Code agent
+aim claude /path/to/project
 
-# Start multiple agents
-aim start \
+# Start multiple agents in daemon mode
+aim daemon \
   --agent frontend:claude-code:/frontend \
   --agent backend:claude-code:/backend
 ```
@@ -36,8 +36,12 @@ aim start \
 ## Commands
 
 - `aim login` -- Authenticate with an AgentIM server
-- `aim start` -- Start one or more agents and connect to the server
 - `aim logout` -- Clear saved credentials
+- `aim claude [path]` -- Start a Claude Code agent
+- `aim codex [path]` -- Start a Codex agent
+- `aim gemini [path]` -- Start a Gemini CLI agent
+- `aim daemon` -- Start multiple agents in daemon mode
+- `aim status` -- Show configuration status
 
 ## License
 

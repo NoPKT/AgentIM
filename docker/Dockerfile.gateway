@@ -59,4 +59,4 @@ USER app
 
 ENV NODE_ENV=production
 
-CMD ["node", "packages/gateway/dist/cli.js", "start"]
+CMD ["node", "packages/gateway/dist/cli.js", "daemon"]

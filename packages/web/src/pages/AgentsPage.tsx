@@ -25,7 +25,10 @@ export default function AgentsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 animate-pulse">
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 animate-pulse"
+              >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
                   <div className="space-y-2">
@@ -49,10 +52,22 @@ export default function AgentsPage() {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="text-center max-w-md">
-          <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{t('loadFailed')}</h3>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {t('loadFailed')}
+          </h3>
           <button
             onClick={loadAgents}
             className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
@@ -81,7 +96,9 @@ export default function AgentsPage() {
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{t('noAgents')}</h3>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {t('noAgents')}
+          </h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t('noAgentsDesc')}</p>
         </div>
       </div>
@@ -131,14 +148,20 @@ function AgentCard({ agent }: { agent: Agent }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+          <div
+            className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+          >
             <span className="text-sm font-semibold text-white">
               {agent.name.charAt(0).toUpperCase()}
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">{agent.name}</h3>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {agent.name}
+            </h3>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}
+            >
               {type.label}
             </span>
           </div>
@@ -160,8 +183,13 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="space-y-2 text-sm">
         {agent.workingDirectory && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">{t('workingDir')}</dt>
-            <dd className="text-gray-900 dark:text-gray-100 truncate font-mono text-xs" title={agent.workingDirectory}>
+            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+              {t('workingDir')}
+            </dt>
+            <dd
+              className="text-gray-900 dark:text-gray-100 truncate font-mono text-xs"
+              title={agent.workingDirectory}
+            >
               {agent.workingDirectory}
             </dd>
           </div>
@@ -169,16 +197,21 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.deviceInfo && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">{t('device')}</dt>
+            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+              {t('device')}
+            </dt>
             <dd className="text-gray-900 dark:text-gray-100 truncate">
-              {agent.deviceInfo.platform} {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
+              {agent.deviceInfo.platform}{' '}
+              {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
             </dd>
           </div>
         )}
 
         {agent.capabilities && agent.capabilities.length > 0 && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-1">{t('capabilities')}</dt>
+            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-1">
+              {t('capabilities')}
+            </dt>
             <dd className="flex flex-wrap gap-1">
               {agent.capabilities.map((cap) => (
                 <span
@@ -194,7 +227,9 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.lastSeenAt && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">{t('lastSeen')}</dt>
+            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+              {t('lastSeen')}
+            </dt>
             <dd className="text-gray-900 dark:text-gray-100">
               {new Date(agent.lastSeenAt).toLocaleString([], {
                 month: 'short',
@@ -211,8 +246,12 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('visibility')}</span>
-            <span className={`ml-2 text-xs font-medium ${isShared ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t('visibility')}
+            </span>
+            <span
+              className={`ml-2 text-xs font-medium ${isShared ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}
+            >
               {isShared ? t('visibilityShared') : t('visibilityPrivate')}
             </span>
           </div>

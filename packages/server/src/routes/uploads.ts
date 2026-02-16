@@ -19,7 +19,7 @@ const MAGIC_BYTES: [string, number[], number?][] = [
   ['image/jpeg', [0xff, 0xd8, 0xff]],
   ['image/png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
   ['image/gif', [0x47, 0x49, 0x46, 0x38]],
-  ['image/webp', [0x52, 0x49, 0x46, 0x46]],  // RIFF header; also check 'WEBP' at offset 8
+  ['image/webp', [0x52, 0x49, 0x46, 0x46]], // RIFF header; also check 'WEBP' at offset 8
   ['application/pdf', [0x25, 0x50, 0x44, 0x46]],
   ['application/zip', [0x50, 0x4b, 0x03, 0x04]],
   ['application/gzip', [0x1f, 0x8b]],
@@ -27,15 +27,15 @@ const MAGIC_BYTES: [string, number[], number?][] = [
 
 function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
   // Only validate types we know the signature for
-  const signature = MAGIC_BYTES.find(([type]) => declaredType === type || declaredType.startsWith(type.split('/')[0] + '/'))
+  const signature = MAGIC_BYTES.find(
+    ([type]) => declaredType === type || declaredType.startsWith(type.split('/')[0] + '/'),
+  )
   if (!signature) return true // Unknown type — allow (MIME check already passed)
 
-  const matchesAny = MAGIC_BYTES
-    .filter(([type]) => type === declaredType)
-    .some(([, bytes]) => {
-      if (buffer.length < bytes.length) return false
-      return bytes.every((b, i) => buffer[i] === b)
-    })
+  const matchesAny = MAGIC_BYTES.filter(([type]) => type === declaredType).some(([, bytes]) => {
+    if (buffer.length < bytes.length) return false
+    return bytes.every((b, i) => buffer[i] === b)
+  })
 
   if (!matchesAny) return false
 
@@ -62,7 +62,10 @@ uploadRoutes.post('/', async (c) => {
 
   if (file.size > config.maxFileSize) {
     return c.json(
-      { ok: false, error: `File too large. Maximum size is ${Math.round(config.maxFileSize / 1024 / 1024)}MB` },
+      {
+        ok: false,
+        error: `File too large. Maximum size is ${Math.round(config.maxFileSize / 1024 / 1024)}MB`,
+      },
       400,
     )
   }
@@ -139,10 +142,7 @@ uploadRoutes.post('/avatar', async (c) => {
   const avatarUrl = `/uploads/${storedFilename}`
   const now = new Date().toISOString()
 
-  await db
-    .update(users)
-    .set({ avatarUrl, updatedAt: now })
-    .where(eq(users.id, userId))
+  await db.update(users).set({ avatarUrl, updatedAt: now }).where(eq(users.id, userId))
 
   return c.json({ ok: true, data: { avatarUrl } })
 })

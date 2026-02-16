@@ -1,15 +1,15 @@
-import { Navigate } from 'react-router';
-import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '../stores/auth.js';
+import { Navigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '../stores/auth.js'
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { t } = useTranslation();
-  const user = useAuthStore((state) => state.user);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const { t } = useTranslation()
+  const user = useAuthStore((state) => state.user)
+  const isLoading = useAuthStore((state) => state.isLoading)
 
   if (isLoading) {
     return (
@@ -19,12 +19,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <p className="text-sm text-gray-600 dark:text-gray-400">{t('loading')}</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace />
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }

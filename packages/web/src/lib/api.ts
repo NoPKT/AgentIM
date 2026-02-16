@@ -90,7 +90,11 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
         const refreshed = await refreshAccessToken()
         if (refreshed) {
           headers['Authorization'] = `Bearer ${getToken()}`
-          res = await fetch(`${BASE_URL}${path}`, { ...init, headers, signal: withTimeout(userSignal, timeout) })
+          res = await fetch(`${BASE_URL}${path}`, {
+            ...init,
+            headers,
+            signal: withTimeout(userSignal, timeout),
+          })
         }
       }
 
@@ -120,7 +124,11 @@ export interface UploadOptions {
   onProgress?: (percent: number) => void
 }
 
-async function uploadFile<T>(path: string, file: File, options: UploadOptions = {}): Promise<ApiResponse<T>> {
+async function uploadFile<T>(
+  path: string,
+  file: File,
+  options: UploadOptions = {},
+): Promise<ApiResponse<T>> {
   const { signal: userSignal, onProgress } = options
   const token = getToken()
   const headers: Record<string, string> = {}
@@ -165,7 +173,12 @@ async function uploadFile<T>(path: string, file: File, options: UploadOptions = 
     const refreshed = await refreshAccessToken()
     if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`
-      res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData, signal: withTimeout(userSignal, UPLOAD_TIMEOUT) })
+      res = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        signal: withTimeout(userSignal, UPLOAD_TIMEOUT),
+      })
     }
   }
 
@@ -178,8 +191,10 @@ export const api = {
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, ...opts }),
   put: <T>(path: string, body?: unknown, opts?: { signal?: AbortSignal | null }) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined, ...opts }),
-  delete: <T>(path: string, opts?: { signal?: AbortSignal | null }) => request<T>(path, { method: 'DELETE', ...opts }),
-  upload: <T>(path: string, file: File, options?: UploadOptions) => uploadFile<T>(path, file, options),
+  delete: <T>(path: string, opts?: { signal?: AbortSignal | null }) =>
+    request<T>(path, { method: 'DELETE', ...opts }),
+  upload: <T>(path: string, file: File, options?: UploadOptions) =>
+    uploadFile<T>(path, file, options),
   setTokens,
   clearTokens,
   getToken,

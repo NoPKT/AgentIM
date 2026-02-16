@@ -2,7 +2,12 @@ import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
 import { gatewayMessageSchema, parseMentions } from '@agentim/shared'
-import type { ServerSendToAgent, ServerRoomContext, RoomContext, RoomContextMember } from '@agentim/shared'
+import type {
+  ServerSendToAgent,
+  ServerRoomContext,
+  RoomContext,
+  RoomContextMember,
+} from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
 import { createLogger } from '../lib/logger.js'
@@ -166,7 +171,13 @@ async function handleAuth(
 
 async function handleRegisterAgent(
   ws: WSContext,
-  agent: { id: string; name: string; type: string; workingDirectory?: string; capabilities?: string[] },
+  agent: {
+    id: string
+    name: string
+    type: string
+    workingDirectory?: string
+    capabilities?: string[]
+  },
 ) {
   const gw = connectionManager.getGateway(ws)
   if (!gw) return
@@ -230,10 +241,7 @@ async function handleRegisterAgent(
 
 async function handleUnregisterAgent(ws: WSContext, agentId: string) {
   const now = new Date().toISOString()
-  await db
-    .update(agents)
-    .set({ status: 'offline', updatedAt: now })
-    .where(eq(agents.id, agentId))
+  await db.update(agents).set({ status: 'offline', updatedAt: now }).where(eq(agents.id, agentId))
 
   connectionManager.unregisterAgent(ws, agentId)
   await broadcastAgentStatus(agentId)
@@ -355,10 +363,7 @@ async function handleAgentStatus(ws: WSContext, agentId: string, status: string)
   await broadcastAgentStatus(agentId)
 }
 
-async function handleTerminalData(
-  ws: WSContext,
-  msg: { agentId: string; data: string },
-) {
+async function handleTerminalData(ws: WSContext, msg: { agentId: string; data: string }) {
   const [agent] = await db
     .select({ name: agents.name })
     .from(agents)
@@ -410,10 +415,7 @@ export async function handleGatewayDisconnect(ws: WSContext) {
     }
 
     // Mark gateway as disconnected
-    await db
-      .update(gateways)
-      .set({ disconnectedAt: now })
-      .where(eq(gateways.id, gw.gatewayId))
+    await db.update(gateways).set({ disconnectedAt: now }).where(eq(gateways.id, gw.gatewayId))
 
     connectionManager.removeGateway(ws)
   }
@@ -433,7 +435,9 @@ async function routeAgentToAgent(
 ) {
   // 1. Depth check
   if (depth >= config.maxAgentChainDepth) {
-    log.warn(`Chain depth ${depth} exceeds max ${config.maxAgentChainDepth} for conversation ${conversationId}, stopping`)
+    log.warn(
+      `Chain depth ${depth} exceeds max ${config.maxAgentChainDepth} for conversation ${conversationId}, stopping`,
+    )
     return
   }
 
@@ -510,15 +514,17 @@ export async function sendRoomContextToAgent(agentId: string, roomId: string) {
   const userMemberIds = memberRows.filter((m) => m.memberType === 'user').map((m) => m.memberId)
 
   const agentMap = new Map<string, (typeof agentRows)[number]>()
-  const agentRows = agentMemberIds.length > 0
-    ? await db.select().from(agents).where(inArray(agents.id, agentMemberIds))
-    : []
+  const agentRows =
+    agentMemberIds.length > 0
+      ? await db.select().from(agents).where(inArray(agents.id, agentMemberIds))
+      : []
   for (const a of agentRows) agentMap.set(a.id, a)
 
   const userMap = new Map<string, (typeof userRows)[number]>()
-  const userRows = userMemberIds.length > 0
-    ? await db.select().from(users).where(inArray(users.id, userMemberIds))
-    : []
+  const userRows =
+    userMemberIds.length > 0
+      ? await db.select().from(users).where(inArray(users.id, userMemberIds))
+      : []
   for (const u of userRows) userMap.set(u.id, u)
 
   const memberList: RoomContextMember[] = []
@@ -528,7 +534,11 @@ export async function sendRoomContextToAgent(agentId: string, roomId: string) {
       if (agent) {
         let capabilities: string[] | undefined
         if (agent.capabilities) {
-          try { capabilities = JSON.parse(agent.capabilities) } catch { /* ignore */ }
+          try {
+            capabilities = JSON.parse(agent.capabilities)
+          } catch {
+            /* ignore */
+          }
         }
         memberList.push({
           id: agent.id,

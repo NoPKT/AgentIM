@@ -11,7 +11,8 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
+const databaseUrl =
+  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
 const backupDir = resolve(import.meta.dirname, '../../../backups')
 
 if (!existsSync(backupDir)) {

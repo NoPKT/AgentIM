@@ -44,7 +44,9 @@ export const config = {
 
 // Security check: refuse to start in production with default JWT secret
 if (isProduction && config.jwtSecret === 'dev-secret-change-me') {
-  log.fatal('JWT_SECRET is set to the default value. Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -base64 32)')
+  log.fatal(
+    'JWT_SECRET is set to the default value. Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -base64 32)',
+  )
   process.exit(1)
 }
 
@@ -66,6 +68,8 @@ if (isProduction) {
 
 // Refuse to start with wide-open CORS in production
 if (isProduction && config.corsOrigin === '*') {
-  log.fatal('CORS_ORIGIN is set to "*" in production. Set CORS_ORIGIN to your frontend domain (e.g. https://app.example.com).')
+  log.fatal(
+    'CORS_ORIGIN is set to "*" in production. Set CORS_ORIGIN to your frontend domain (e.g. https://app.example.com).',
+  )
   process.exit(1)
 }

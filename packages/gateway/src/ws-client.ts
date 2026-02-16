@@ -132,17 +132,13 @@ export class GatewayWsClient {
   private scheduleReconnect() {
     if (!this.shouldReconnect) return
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      log.error(
-        `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Giving up.`,
-      )
+      log.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Giving up.`)
       this.onDisconnected()
       return
     }
     this.reconnectAttempts++
     this.reconnectTimer = setTimeout(() => {
-      log.info(
-        `Reconnecting... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-      )
+      log.info(`Reconnecting... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
       this.connect()
     }, this.reconnectInterval)
     this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)

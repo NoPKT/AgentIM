@@ -11,7 +11,8 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { resolve } from 'node:path'
 import { execSync } from 'node:child_process'
 
-const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
+const databaseUrl =
+  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
 
 const shouldBackup = process.argv.includes('--backup')
 

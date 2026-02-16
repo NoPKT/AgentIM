@@ -7,7 +7,11 @@ import { rooms, roomMembers } from '../db/schema.js'
  * Returns true if access is granted.
  */
 export async function isRoomMember(userId: string, roomId: string): Promise<boolean> {
-  const [room] = await db.select({ createdById: rooms.createdById }).from(rooms).where(eq(rooms.id, roomId)).limit(1)
+  const [room] = await db
+    .select({ createdById: rooms.createdById })
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1)
   if (!room) return false
   if (room.createdById === userId) return true
 

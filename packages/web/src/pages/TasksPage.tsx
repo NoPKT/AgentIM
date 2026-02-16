@@ -104,10 +104,22 @@ export default function TasksPage() {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="text-center max-w-md">
-          <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{t('loadFailed')}</h3>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {t('loadFailed')}
+          </h3>
           <button
             onClick={loadTasks}
             className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
@@ -154,7 +166,9 @@ export default function TasksPage() {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">{t('noTasks')}</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+              {t('noTasks')}
+            </h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               {t('createFirstTask') || 'Create your first task to get started'}
             </p>
@@ -240,16 +254,30 @@ function TaskCard({
   const { t } = useTranslation()
 
   const statusOptions = [
-    { value: 'pending', label: t('pending'), color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
-    { value: 'in_progress', label: t('inProgress'), color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    { value: 'completed', label: t('completed'), color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+    {
+      value: 'pending',
+      label: t('pending'),
+      color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    },
+    {
+      value: 'in_progress',
+      label: t('inProgress'),
+      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    },
+    {
+      value: 'completed',
+      label: t('completed'),
+      color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    },
   ]
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
       <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{task.title}</h3>
       {task.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">{task.description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+          {task.description}
+        </p>
       )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -263,7 +291,8 @@ function TaskCard({
           onChange={(e) => onUpdateStatus(task.id, e.target.value)}
           aria-label={t('status')}
           className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-blue-500 ${
-            statusOptions.find((s) => s.value === task.status)?.color ?? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+            statusOptions.find((s) => s.value === task.status)?.color ??
+            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
           }`}
         >
           {statusOptions.map((opt) => (
@@ -302,7 +331,9 @@ function CreateTaskDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('createTask')}</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {t('createTask')}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -319,7 +350,10 @@ function CreateTaskDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="room" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="room"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               {t('rooms') || 'Room'}
             </label>
             <select
@@ -338,7 +372,10 @@ function CreateTaskDialog({
           </div>
 
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               {t('taskTitle')}
             </label>
             <input
@@ -354,7 +391,10 @@ function CreateTaskDialog({
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               {t('taskDescription')}
             </label>
             <textarea

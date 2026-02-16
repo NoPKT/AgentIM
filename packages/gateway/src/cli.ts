@@ -69,7 +69,8 @@ program
       )
 
       const gatewayId = loadConfig()?.gatewayId ?? nanoid()
-      const wsUrl = serverBaseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:') + '/ws/gateway'
+      const wsUrl =
+        serverBaseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:') + '/ws/gateway'
 
       saveConfig({
         serverUrl: wsUrl,
@@ -145,7 +146,10 @@ program
 program
   .command('daemon')
   .description('Start the gateway daemon (multi-agent mode)')
-  .option('-a, --agent <spec...>', 'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)')
+  .option(
+    '-a, --agent <spec...>',
+    'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
+  )
   .action(async (opts) => {
     const config = loadConfig()
     if (!config) {

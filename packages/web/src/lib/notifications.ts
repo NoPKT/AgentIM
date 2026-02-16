@@ -18,13 +18,16 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 export function canShowNotifications(): boolean {
   return (
-    'Notification' in window &&
-    Notification.permission === 'granted' &&
-    getNotificationPreference()
+    'Notification' in window && Notification.permission === 'granted' && getNotificationPreference()
   )
 }
 
-export function showNotification(title: string, body: string, onClick?: () => void, tag = 'agentim-message') {
+export function showNotification(
+  title: string,
+  body: string,
+  onClick?: () => void,
+  tag = 'agentim-message',
+) {
   if (!canShowNotifications()) return
   if (document.visibilityState === 'visible') return
 

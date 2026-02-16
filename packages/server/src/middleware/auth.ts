@@ -33,7 +33,11 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
 
 export const adminMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   const userId = c.get('userId')
-  const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
   if (!user || user.role !== 'admin') {
     return c.json({ ok: false, error: 'Admin access required' }, 403)
   }

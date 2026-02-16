@@ -8,13 +8,83 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: { translation: { ...en.common, ...en.auth, ...en.chat, ...en.agent, ...en.task, ...en.settings, ...en.error } },
-      'zh-CN': { translation: { ...zhCN.common, ...zhCN.auth, ...zhCN.chat, ...zhCN.agent, ...zhCN.task, ...zhCN.settings, ...zhCN.error } },
-      ja: { translation: { ...ja.common, ...ja.auth, ...ja.chat, ...ja.agent, ...ja.task, ...ja.settings, ...ja.error } },
-      ko: { translation: { ...ko.common, ...ko.auth, ...ko.chat, ...ko.agent, ...ko.task, ...ko.settings, ...ko.error } },
-      fr: { translation: { ...fr.common, ...fr.auth, ...fr.chat, ...fr.agent, ...fr.task, ...fr.settings, ...fr.error } },
-      de: { translation: { ...de.common, ...de.auth, ...de.chat, ...de.agent, ...de.task, ...de.settings, ...de.error } },
-      ru: { translation: { ...ru.common, ...ru.auth, ...ru.chat, ...ru.agent, ...ru.task, ...ru.settings, ...ru.error } },
+      en: {
+        translation: {
+          ...en.common,
+          ...en.auth,
+          ...en.chat,
+          ...en.agent,
+          ...en.task,
+          ...en.settings,
+          ...en.error,
+        },
+      },
+      'zh-CN': {
+        translation: {
+          ...zhCN.common,
+          ...zhCN.auth,
+          ...zhCN.chat,
+          ...zhCN.agent,
+          ...zhCN.task,
+          ...zhCN.settings,
+          ...zhCN.error,
+        },
+      },
+      ja: {
+        translation: {
+          ...ja.common,
+          ...ja.auth,
+          ...ja.chat,
+          ...ja.agent,
+          ...ja.task,
+          ...ja.settings,
+          ...ja.error,
+        },
+      },
+      ko: {
+        translation: {
+          ...ko.common,
+          ...ko.auth,
+          ...ko.chat,
+          ...ko.agent,
+          ...ko.task,
+          ...ko.settings,
+          ...ko.error,
+        },
+      },
+      fr: {
+        translation: {
+          ...fr.common,
+          ...fr.auth,
+          ...fr.chat,
+          ...fr.agent,
+          ...fr.task,
+          ...fr.settings,
+          ...fr.error,
+        },
+      },
+      de: {
+        translation: {
+          ...de.common,
+          ...de.auth,
+          ...de.chat,
+          ...de.agent,
+          ...de.task,
+          ...de.settings,
+          ...de.error,
+        },
+      },
+      ru: {
+        translation: {
+          ...ru.common,
+          ...ru.auth,
+          ...ru.chat,
+          ...ru.agent,
+          ...ru.task,
+          ...ru.settings,
+          ...ru.error,
+        },
+      },
     },
     fallbackLng: 'en',
     interpolation: { escapeValue: false },

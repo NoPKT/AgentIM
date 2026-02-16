@@ -13,7 +13,10 @@ import { CursorAdapter } from './cursor.js'
 import { GenericAdapter } from './generic.js'
 import type { BaseAgentAdapter } from './base.js'
 
-export function createAdapter(type: string, opts: AdapterOptions & { command?: string; args?: string[] }): BaseAgentAdapter {
+export function createAdapter(
+  type: string,
+  opts: AdapterOptions & { command?: string; args?: string[] },
+): BaseAgentAdapter {
   switch (type) {
     case 'claude-code':
       return new ClaudeCodeAdapter(opts)

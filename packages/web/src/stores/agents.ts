@@ -38,9 +38,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   updateAgent: (update) => {
     set({
-      agents: get().agents.map((a) =>
-        a.id === update.id ? { ...a, ...update } : a,
-      ),
+      agents: get().agents.map((a) => (a.id === update.id ? { ...a, ...update } : a)),
     })
   },
 
@@ -48,9 +46,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const res = await api.put<Agent>(`/agents/${agentId}`, { visibility })
     if (res.ok && res.data) {
       set({
-        agents: get().agents.map((a) =>
-          a.id === agentId ? { ...a, visibility } : a,
-        ),
+        agents: get().agents.map((a) => (a.id === agentId ? { ...a, visibility } : a)),
       })
     }
   },

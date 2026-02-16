@@ -4,7 +4,12 @@ import { eq, ne, sql } from 'drizzle-orm'
 import { hash, verify } from 'argon2'
 import { db } from '../db/index.js'
 import { users } from '../db/schema.js'
-import { updateUserSchema, changePasswordSchema, adminCreateUserSchema, adminUpdateUserSchema } from '@agentim/shared'
+import {
+  updateUserSchema,
+  changePasswordSchema,
+  adminCreateUserSchema,
+  adminUpdateUserSchema,
+} from '@agentim/shared'
 import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText } from '../lib/sanitize.js'
 

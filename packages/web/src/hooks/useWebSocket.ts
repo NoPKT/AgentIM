@@ -121,7 +121,21 @@ export function useWebSocket() {
     })
 
     return unsub
-  }, [addMessage, addStreamChunk, completeStream, addTypingUser, addTerminalData, updateMessage, removeMessage, updateAgent, loadRooms, loadRoomMembers, setUserOnline, updateReadReceipt, updateReactions])
+  }, [
+    addMessage,
+    addStreamChunk,
+    completeStream,
+    addTypingUser,
+    addTerminalData,
+    updateMessage,
+    removeMessage,
+    updateAgent,
+    loadRooms,
+    loadRoomMembers,
+    setUserOnline,
+    updateReadReceipt,
+    updateReactions,
+  ])
 
   // On reconnect, re-join current room and sync missed messages
   useEffect(() => {

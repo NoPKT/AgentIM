@@ -1,5 +1,12 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { BaseAgentAdapter, type AdapterOptions, type ChunkCallback, type CompleteCallback, type ErrorCallback, type MessageContext } from './base.js'
+import {
+  BaseAgentAdapter,
+  type AdapterOptions,
+  type ChunkCallback,
+  type CompleteCallback,
+  type ErrorCallback,
+  type MessageContext,
+} from './base.js'
 
 export interface GenericAdapterOptions extends AdapterOptions {
   command: string

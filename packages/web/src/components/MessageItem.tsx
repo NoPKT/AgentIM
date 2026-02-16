@@ -34,35 +34,90 @@ function getAvatarGradient(name: string): string {
 function FileTypeIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.startsWith('video/')) {
     return (
-      <svg className="w-5 h-5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      <svg
+        className="w-5 h-5 text-purple-500 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+        />
       </svg>
     )
   }
   if (mimeType.startsWith('audio/')) {
     return (
-      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+      <svg
+        className="w-5 h-5 text-green-500 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+        />
       </svg>
     )
   }
   if (mimeType === 'application/pdf') {
     return (
-      <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      <svg
+        className="w-5 h-5 text-red-500 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+        />
       </svg>
     )
   }
-  if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('compress') || mimeType.includes('archive')) {
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('tar') ||
+    mimeType.includes('compress') ||
+    mimeType.includes('archive')
+  ) {
     return (
-      <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+      <svg
+        className="w-5 h-5 text-yellow-600 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+        />
       </svg>
     )
   }
   return (
-    <svg className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+    <svg
+      className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+      />
     </svg>
   )
 }
@@ -106,7 +161,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showActions, setShowActions] = useState(false)
   const [showEditHistory, setShowEditHistory] = useState(false)
-  const [editHistory, setEditHistory] = useState<{ id: string; previousContent: string; editedAt: string }[]>([])
+  const [editHistory, setEditHistory] = useState<
+    { id: string; previousContent: string; editedAt: string }[]
+  >([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
 
@@ -127,7 +184,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
     }
   }, [showActions])
 
-  const isOwnMessage = currentUser && message.senderId === currentUser.id && message.senderType === 'user'
+  const isOwnMessage =
+    currentUser && message.senderId === currentUser.id && message.senderType === 'user'
 
   // Find the replied-to message
   const repliedMessage = message.replyToId
@@ -178,7 +236,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       <div className="px-6 py-2">
         <div className="flex justify-center">
           <div className="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">{message.content}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              {message.content}
+            </p>
           </div>
         </div>
       </div>
@@ -216,7 +276,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             title={t('chat.addReaction')}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </button>
           {showEmojiPicker && (
@@ -238,12 +303,20 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           )}
         </div>
         <button
-          onClick={() => { setReplyTo(message); setShowActions(false) }}
+          onClick={() => {
+            setReplyTo(message)
+            setShowActions(false)
+          }}
           className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
           title={t('chat.reply')}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+            />
           </svg>
         </button>
         {isOwnMessage && !isEditing && (
@@ -254,12 +327,19 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               title={t('chat.editMessage')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
               </svg>
             </button>
             {confirmingDelete ? (
               <span className="flex items-center gap-1 bg-red-50 dark:bg-red-900/30 rounded-md px-1.5 py-0.5">
-                <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">{t('chat.confirmDeleteMessage')}</span>
+                <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">
+                  {t('chat.confirmDeleteMessage')}
+                </span>
                 <button
                   onClick={handleDelete}
                   className="px-1.5 py-0.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded"
@@ -280,7 +360,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 title={t('chat.deleteMessage')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
               </button>
             )}
@@ -293,9 +378,10 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div
           className={`
             flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
-            ${isAgent
-              ? `bg-gradient-to-br ${getAvatarGradient(message.senderName)}`
-              : 'bg-gradient-to-br from-gray-400 to-gray-500'
+            ${
+              isAgent
+                ? `bg-gradient-to-br ${getAvatarGradient(message.senderName)}`
+                : 'bg-gradient-to-br from-gray-400 to-gray-500'
             }
           `}
         >
@@ -308,7 +394,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div className="flex-1 min-w-0">
           {/* Sender and time */}
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{message.senderName}</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+              {message.senderName}
+            </span>
             {isAgent && (
               <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
                 {t('agents')}
@@ -333,9 +421,13 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   setLoadingHistory(true)
                   setShowEditHistory(true)
                   try {
-                    const res = await api.get<{ id: string; previousContent: string; editedAt: string }[]>(`/messages/${message.id}/history`)
+                    const res = await api.get<
+                      { id: string; previousContent: string; editedAt: string }[]
+                    >(`/messages/${message.id}/history`)
                     if (res.ok && res.data) setEditHistory(res.data)
-                  } catch { /* ignore */ }
+                  } catch {
+                    /* ignore */
+                  }
                   setLoadingHistory(false)
                 }}
               >
@@ -347,8 +439,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           {/* Replied message quote */}
           {repliedMessage && (
             <div className="mb-1.5 pl-3 border-l-2 border-blue-300 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 rounded-r-md py-1 pr-2">
-              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{repliedMessage.senderName}</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{repliedMessage.content.slice(0, 100)}</p>
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                {repliedMessage.senderName}
+              </span>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {repliedMessage.content.slice(0, 100)}
+              </p>
             </div>
           )}
 
@@ -382,7 +478,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 >
                   {t('cancel')}
                 </button>
-                <span className="text-xs text-gray-400 dark:text-gray-500">Esc {t('cancel')}, Cmd+Enter {t('save')}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  Esc {t('cancel')}, Cmd+Enter {t('save')}
+                </span>
               </div>
             </div>
           ) : chunkGroups ? (
@@ -395,7 +493,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 components={{
                   code({ className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '')
-                    const isBlock = match || (typeof children === 'string' && children.includes('\n'))
+                    const isBlock =
+                      match || (typeof children === 'string' && children.includes('\n'))
                     const codeText = String(children).replace(/\n$/, '')
                     return isBlock ? (
                       <div className="relative group/code">
@@ -416,7 +515,10 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                         </pre>
                       </div>
                     ) : (
-                      <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-sm" {...props}>
+                      <code
+                        className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-sm"
+                        {...props}
+                      >
                         {children}
                       </code>
                     )
@@ -436,7 +538,10 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   table({ children, ...props }) {
                     return (
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700" {...props}>
+                        <table
+                          className="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                          {...props}
+                        >
                           {children}
                         </table>
                       </div>
@@ -456,9 +561,13 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 {t('chat.editHistory')}
               </div>
               {loadingHistory ? (
-                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">{t('loading')}</div>
+                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                  {t('loading')}
+                </div>
               ) : editHistory.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">{t('chat.editHistoryEmpty')}</div>
+                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                  {t('chat.editHistoryEmpty')}
+                </div>
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-48 overflow-y-auto">
                   {editHistory.map((edit) => (
@@ -472,7 +581,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                           second: '2-digit',
                         })}
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{edit.previousContent}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
+                        {edit.previousContent}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -508,15 +619,27 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   >
                     <FileTypeIcon mimeType={attachment.mimeType} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{attachment.filename}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {attachment.filename}
+                      </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {attachment.size < 1024 * 1024
                           ? `${(attachment.size / 1024).toFixed(1)} KB`
                           : `${(attachment.size / 1024 / 1024).toFixed(1)} MB`}
                       </p>
                     </div>
-                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <svg
+                      className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
                     </svg>
                   </a>
                 )
@@ -532,13 +655,18 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 return (
                   <button
                     key={reaction.emoji}
-                    onClick={() => toggleReaction(message.id, reaction.emoji).catch(() => toast.error(t('error.generic')))}
+                    onClick={() =>
+                      toggleReaction(message.id, reaction.emoji).catch(() =>
+                        toast.error(t('error.generic')),
+                      )
+                    }
                     title={reaction.usernames.join(', ')}
                     className={`
                       inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors
-                      ${hasReacted
-                        ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                        : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      ${
+                        hasReacted
+                          ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                          : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }
                     `}
                   >
@@ -557,7 +685,11 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               onClick={() => setLightboxUrl(null)}
             >
               <div className="relative max-w-[90vw] max-h-[90vh]">
-                <img src={lightboxUrl} alt={t('chat.imagePreview')} className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" />
+                <img
+                  src={lightboxUrl}
+                  alt={t('chat.imagePreview')}
+                  className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+                />
                 <a
                   href={lightboxUrl}
                   target="_blank"
@@ -567,7 +699,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   title={t('chat.openOriginal')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
                   </svg>
                 </a>
                 <button
@@ -575,7 +712,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
