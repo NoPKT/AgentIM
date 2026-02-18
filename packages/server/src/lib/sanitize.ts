@@ -32,11 +32,12 @@ const DANGEROUS_PATTERNS: RegExp[] = [
  * Sanitize message content.
  * Preserves legitimate markdown and technical text (e.g. `Array<string>`, `a < b`,
  * `use onload=lazy`) while stripping only constructs that are unambiguously
- * dangerous (script/iframe/object tags and inline event-handler attributes).
+ * dangerous (script/iframe/object tags, inline event-handler attributes, and
+ * dangerous URL schemes in href/src/action/formaction attributes).
  *
- * Event-handler attributes (onclick=…, onload=…, etc.) are stripped only when
- * they appear inside HTML tag syntax (`<tag … >`), so ordinary prose or code
- * that happens to contain the text "onload=lazy" is never silently modified.
+ * Event-handler and URL-scheme stripping are applied only when they appear
+ * inside HTML tag syntax (`<tag … >`), so ordinary prose or code that happens
+ * to contain the text "onload=lazy" or "javascript:" is never silently modified.
  *
  * The primary XSS defence is client-side (rehype-sanitize); this function is
  * defence-in-depth for non-web consumers and stored-content safety.
@@ -49,12 +50,25 @@ export function sanitizeContent(input: string): string {
     result = result.replace(pattern, '')
   }
 
-  // Strip event-handler attributes (onclick, onload, onerror, …) only when
-  // they appear inside what looks like an HTML opening tag.  Running this
-  // globally on the full string would silently corrupt legitimate technical
-  // text such as "img onload=lazy" or React JSX event props in code examples.
+  // Within each HTML opening tag, strip two classes of dangerous content:
+  //   1. Event-handler attributes (onclick=…, onload=…, onerror=…, …)
+  //   2. Dangerous URL schemes in href/src/action/formaction attributes
+  //      (javascript:, vbscript:, data: — covers stored-XSS via pseudo-protocols)
+  //
+  // URL-scheme stripping notes:
+  //   • Requires \s+ before the attribute name so that substrings like `data-href`
+  //     (word boundary after `-` would also satisfy \b) are NOT matched.
+  //   • Only matches quoted attribute values ("…" / '…') to avoid false positives
+  //     from attribute values that happen to contain the text `href=javascript:…`
+  //     (e.g. title="see href=javascript:bad").  Unquoted dangerous URIs are rare
+  //     in practice and are caught by client-side rehype-sanitize.
   result = result.replace(/<[a-zA-Z][^>]*>/g, (tag) =>
-    tag.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, ''),
+    tag
+      .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+      .replace(
+        /(\s+(?:href|src|action|formaction)\s*=\s*)(?:"(?:javascript|vbscript|data):[^"]*"|'(?:javascript|vbscript|data):[^']*')/gi,
+        '$1""',
+      ),
   )
 
   return result
