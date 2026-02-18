@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
@@ -7,6 +8,15 @@ import { showNotification } from '../lib/notifications.js'
 import type { ServerMessage } from '@agentim/shared'
 
 export function useWebSocket() {
+  const navigate = useNavigate()
+  // Stable ref so the WS subscription effect never needs navigate in its deps.
+  // useNavigate() may return a new function reference on every location change
+  // under BrowserRouter; if navigate were in the effect dep list, the subscription
+  // would teardown/re-register on every route transition, creating a window where
+  // incoming WS frames (messages, reactions, read receipts) are silently dropped.
+  const navigateRef = useRef(navigate)
+  useEffect(() => { navigateRef.current = navigate })
+
   const addMessage = useChatStore((s) => s.addMessage)
   const addStreamChunk = useChatStore((s) => s.addStreamChunk)
   const completeStream = useChatStore((s) => s.completeStream)
@@ -116,9 +126,11 @@ export function useWebSocket() {
           useChatStore.getState().evictRoom(msg.roomId)
           // Re-fetch rooms to stay in sync with server (handles concurrent evictions).
           loadRooms()
-          // Navigate home if the evicted room was open.
+          // Use React Router navigate so the router updates its internal state.
+          // window.history.pushState alone would leave React Router still matching
+          // /room/:id, causing ChatPage's route-sync effect to re-set currentRoomId.
           if (wasCurrentRoom) {
-            window.history.pushState(null, '', '/')
+            navigateRef.current('/')
           }
           break
         }
