@@ -12,7 +12,7 @@ npm install -g agentim
 
 ```bash
 # Login to your AgentIM server
-agentim login -s http://localhost:3000 -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s http://localhost:3000 -u admin
 
 # Start a single Claude Code agent
 agentim claude /path/to/project

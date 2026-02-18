@@ -6,8 +6,9 @@ import {
   type CompleteCallback,
   type ErrorCallback,
   type MessageContext,
+  getSafeEnv,
 } from './base.js'
-import type { ParsedChunk } from '@agentim/shared'
+import { MAX_BUFFER_SIZE, type ParsedChunk } from '@agentim/shared'
 
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private process: ChildProcess | null = null
@@ -37,10 +38,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     this.buffer = ''
     let fullContent = ''
 
-    const args = ['-p', content, '--output-format', 'stream-json', '--verbose']
+    const prompt = this.buildPrompt(content, context)
+    const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose']
 
-    // Remove CLAUDECODE env to allow launching from within Claude Code sessions
-    const env = { ...process.env }
+    // Use safe env (sensitive vars stripped) + remove CLAUDECODE for nested sessions
+    const env = getSafeEnv()
     delete env.CLAUDECODE
     const proc = spawn('claude', args, {
       cwd: this.workingDirectory,
@@ -49,9 +51,17 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     })
 
     this.process = proc
+    this.startProcessTimer(proc)
 
     proc.stdout?.on('data', (data: Buffer) => {
       this.buffer += data.toString()
+      if (this.buffer.length > MAX_BUFFER_SIZE) {
+        this.clearProcessTimer()
+        this.isRunning = false
+        onError('Response too large')
+        this.killProcess(proc)
+        return
+      }
       const lines = this.buffer.split('\n')
       this.buffer = lines.pop() ?? ''
 
@@ -80,8 +90,16 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     })
 
     proc.on('close', (code) => {
+      this.clearProcessTimer()
       this.isRunning = false
       this.process = null
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
+
+      if (this.timedOut) {
+        onError('Process timed out')
+        return
+      }
 
       // Process remaining buffer
       if (this.buffer.trim()) {
@@ -97,16 +115,21 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         }
       }
 
-      if (code === 0 || code === null) {
+      if (code === 0) {
         onComplete(fullContent)
+      } else if (code === null) {
+        onError('Process killed by signal')
       } else {
         onError(`Process exited with code ${code}`)
       }
     })
 
     proc.on('error', (err) => {
+      this.clearProcessTimer()
       this.isRunning = false
       this.process = null
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
       onError(err.message)
     })
   }
@@ -157,14 +180,13 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
   stop() {
     if (this.process) {
-      this.process.kill('SIGTERM')
-      setTimeout(() => {
-        if (this.process) this.process.kill('SIGKILL')
-      }, 5000)
+      this.killProcess(this.process)
     }
   }
 
   dispose() {
     this.stop()
+    this.clearKillTimer()
+    this.clearProcessTimer()
   }
 }

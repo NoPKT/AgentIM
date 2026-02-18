@@ -220,13 +220,13 @@ describe('AgentManager', () => {
     })
   })
 
-  it('disposeAll cleans up all agents', () => {
+  it('disposeAll cleans up all agents', async () => {
     manager.addAgent({ type: 'claude-code', name: 'B1' })
     manager.addAgent({ type: 'claude-code', name: 'B2' })
     assert.equal(manager.listAgents().length, 2)
 
     sentMessages.length = 0
-    manager.disposeAll()
+    await manager.disposeAll()
     assert.equal(manager.listAgents().length, 0)
 
     // Should send 2 unregister messages

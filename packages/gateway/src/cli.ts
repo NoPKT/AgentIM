@@ -6,7 +6,7 @@ import { loadConfig, saveConfig, getConfigPath, clearConfig, wsUrlToHttpUrl } fr
 import { getDeviceInfo } from './device.js'
 
 const require = createRequire(import.meta.url)
-const { version } = require('../../package.json')
+const { version } = require('../package.json')
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
@@ -14,7 +14,7 @@ import { generateAgentName } from './name-generator.js'
 import { prompt, promptPassword } from './interactive.js'
 import { runWrapper } from './wrapper.js'
 import { createLogger } from './lib/logger.js'
-import type { ServerSendToAgent, ServerStopAgent } from '@agentim/shared'
+import type { ServerSendToAgent, ServerStopAgent, ServerRoomContext } from '@agentim/shared'
 
 const log = createLogger('Gateway')
 
@@ -30,12 +30,12 @@ program
   .description('Login to AgentIM server (interactive or with flags)')
   .option('-s, --server <url>', 'Server URL (e.g., http://localhost:3000)')
   .option('-u, --username <username>', 'Username')
-  .option('-p, --password <password>', 'Password')
   .action(async (opts) => {
     try {
       let serverUrl = opts.server
       let username = opts.username
-      let password = opts.password
+      // Password only accepted via env var or interactive input (never CLI args — visible in `ps`)
+      let password = process.env.AGENTIM_PASSWORD
 
       // Interactive prompts for missing values
       if (!serverUrl) {
@@ -186,7 +186,12 @@ program
           if (msg.ok) {
             log.info('Authenticated successfully')
             refreshingToken = null
-            registerAgents(agentManager, opts.agent ?? [])
+            // On reconnect, re-register existing agents instead of creating new ones
+            if (agentManager.listAgents().length > 0) {
+              agentManager.reRegisterAll()
+            } else {
+              registerAgents(agentManager, opts.agent ?? [])
+            }
             wsClient.flushQueue()
           } else {
             // Try refreshing token once (with lock to prevent concurrent refreshes)
@@ -206,8 +211,8 @@ program
               process.exit(1)
             }
           }
-        } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent') {
-          agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent)
+        } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent' || msg.type === 'server:room_context') {
+          agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent | ServerRoomContext)
         }
       },
       onDisconnected: () => {
@@ -220,15 +225,32 @@ program
     wsClient.connect()
 
     // Graceful shutdown
-    const cleanup = () => {
+    let shuttingDown = false
+    const cleanup = async () => {
+      if (shuttingDown) return
+      shuttingDown = true
       log.info('Shutting down...')
-      agentManager.disposeAll()
+      try {
+        await agentManager.disposeAll()
+      } catch (err) {
+        log.error(`Error during dispose: ${(err as Error).message}`)
+      }
       wsClient.close()
-      process.exit(0)
+      // Allow time for WS close frame to be sent before exiting
+      setTimeout(() => process.exit(0), 2000).unref()
     }
 
-    process.on('SIGINT', cleanup)
-    process.on('SIGTERM', cleanup)
+    process.on('SIGINT', () => void cleanup())
+    process.on('SIGTERM', () => void cleanup())
+    process.on('SIGHUP', () => void cleanup())
+    process.on('uncaughtException', (err) => {
+      log.error(`Uncaught exception: ${err.message}`)
+      void cleanup()
+    })
+    process.on('unhandledRejection', (reason) => {
+      log.error(`Unhandled rejection: ${reason}`)
+      void cleanup()
+    })
   })
 
 // ─── agentim status ───

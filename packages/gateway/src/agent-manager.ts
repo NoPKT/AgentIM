@@ -32,13 +32,19 @@ export class AgentManager {
     capabilities?: string[]
   }): string {
     const agentId = nanoid()
-    const adapter = createAdapter(opts.type, {
-      agentId,
-      agentName: opts.name,
-      workingDirectory: opts.workingDirectory,
-      command: opts.command,
-      args: opts.args,
-    })
+    let adapter: BaseAgentAdapter
+    try {
+      adapter = createAdapter(opts.type, {
+        agentId,
+        agentName: opts.name,
+        workingDirectory: opts.workingDirectory,
+        command: opts.command,
+        args: opts.args,
+      })
+    } catch (err) {
+      log.error(`Failed to create adapter for type "${opts.type}": ${(err as Error).message}`)
+      throw err
+    }
 
     this.adapters.set(agentId, adapter)
 
@@ -63,10 +69,37 @@ export class AgentManager {
     if (adapter) {
       adapter.dispose()
       this.adapters.delete(agentId)
+      // Clean up room contexts for this agent
+      for (const key of this.roomContexts.keys()) {
+        if (key.startsWith(`${agentId}:`)) {
+          this.roomContexts.delete(key)
+        }
+      }
       this.wsClient.send({
         type: 'gateway:unregister_agent',
         agentId,
       })
+    }
+  }
+
+  /**
+   * Re-register all existing agents with the server (after reconnect).
+   * Does NOT create new IDs — preserves room membership bindings.
+   */
+  reRegisterAll() {
+    for (const [agentId, adapter] of this.adapters) {
+      this.wsClient.send({
+        type: 'gateway:register_agent',
+        agent: {
+          id: agentId,
+          name: adapter.agentName,
+          type: adapter.type,
+          workingDirectory: adapter.workingDirectory,
+        },
+      })
+    }
+    if (this.adapters.size > 0) {
+      log.info(`Re-registered ${this.adapters.size} existing agent(s)`)
     }
   }
 
@@ -103,62 +136,72 @@ export class AgentManager {
       status: 'busy',
     })
 
-    adapter.sendMessage(
-      msg.content,
-      (chunk) => {
-        allChunks.push(chunk)
-        this.wsClient.send({
-          type: 'gateway:message_chunk',
+    try {
+      adapter.sendMessage(
+        msg.content,
+        (chunk) => {
+          allChunks.push(chunk)
+          this.wsClient.send({
+            type: 'gateway:message_chunk',
+            roomId: msg.roomId,
+            agentId: msg.agentId,
+            messageId,
+            chunk,
+          })
+        },
+        (fullContent) => {
+          this.wsClient.send({
+            type: 'gateway:message_complete',
+            roomId: msg.roomId,
+            agentId: msg.agentId,
+            messageId,
+            fullContent,
+            chunks: allChunks,
+            conversationId: msg.conversationId,
+            depth: msg.depth,
+          })
+          this.wsClient.send({
+            type: 'gateway:agent_status',
+            agentId: msg.agentId,
+            status: 'online',
+          })
+        },
+        (error) => {
+          allChunks.push({ type: 'error', content: error })
+          this.wsClient.send({
+            type: 'gateway:message_complete',
+            roomId: msg.roomId,
+            agentId: msg.agentId,
+            messageId,
+            fullContent: `Error: ${error}`,
+            chunks: allChunks,
+            conversationId: msg.conversationId,
+            depth: msg.depth,
+          })
+          this.wsClient.send({
+            type: 'gateway:agent_status',
+            agentId: msg.agentId,
+            status: 'error',
+          })
+        },
+        {
           roomId: msg.roomId,
-          agentId: msg.agentId,
-          messageId,
-          chunk,
-        })
-      },
-      (fullContent) => {
-        this.wsClient.send({
-          type: 'gateway:message_complete',
-          roomId: msg.roomId,
-          agentId: msg.agentId,
-          messageId,
-          fullContent,
-          chunks: allChunks,
+          senderName: msg.senderName,
+          routingMode: msg.routingMode,
           conversationId: msg.conversationId,
           depth: msg.depth,
-        })
-        this.wsClient.send({
-          type: 'gateway:agent_status',
-          agentId: msg.agentId,
-          status: 'online',
-        })
-      },
-      (error) => {
-        allChunks.push({ type: 'error', content: error })
-        this.wsClient.send({
-          type: 'gateway:message_complete',
-          roomId: msg.roomId,
-          agentId: msg.agentId,
-          messageId,
-          fullContent: `Error: ${error}`,
-          chunks: allChunks,
-          conversationId: msg.conversationId,
-          depth: msg.depth,
-        })
-        this.wsClient.send({
-          type: 'gateway:agent_status',
-          agentId: msg.agentId,
-          status: 'error',
-        })
-      },
-      {
-        roomId: msg.roomId,
-        senderName: msg.senderName,
-        routingMode: msg.routingMode,
-        conversationId: msg.conversationId,
-        depth: msg.depth,
-        roomContext: this.roomContexts.get(`${msg.agentId}:${msg.roomId}`),
-      },
-    )
+          roomContext: this.roomContexts.get(`${msg.agentId}:${msg.roomId}`),
+        },
+      )
+    } catch (err) {
+      // Recover from synchronous throw in sendMessage to avoid agent stuck in 'busy'
+      log.error(`Agent ${msg.agentId} sendMessage threw: ${(err as Error).message}`)
+      this.wsClient.send({
+        type: 'gateway:agent_status',
+        agentId: msg.agentId,
+        status: 'error',
+      })
+    }
   }
 
   private handleStopAgent(agentId: string) {
@@ -177,14 +220,21 @@ export class AgentManager {
     }))
   }
 
-  disposeAll() {
+  async disposeAll() {
+    const disposePromises: Promise<void>[] = []
     for (const [id, adapter] of this.adapters) {
-      adapter.dispose()
+      disposePromises.push(
+        Promise.resolve(adapter.dispose()).catch((err) =>
+          log.error(`Failed to dispose agent ${id}: ${(err as Error).message}`),
+        ),
+      )
       this.wsClient.send({
         type: 'gateway:unregister_agent',
         agentId: id,
       })
     }
+    await Promise.allSettled(disposePromises)
     this.adapters.clear()
+    this.roomContexts.clear()
   }
 }

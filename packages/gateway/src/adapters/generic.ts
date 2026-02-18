@@ -6,7 +6,9 @@ import {
   type CompleteCallback,
   type ErrorCallback,
   type MessageContext,
+  getSafeEnv,
 } from './base.js'
+import { MAX_BUFFER_SIZE } from '@agentim/shared'
 
 export interface GenericAdapterOptions extends AdapterOptions {
   command: string
@@ -47,15 +49,23 @@ export class GenericAdapter extends BaseAgentAdapter {
     const args = [...this.cmdArgs, prompt]
     const proc = spawn(this.command, args, {
       cwd: this.workingDirectory,
-      env: { ...process.env },
+      env: getSafeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc
+    this.startProcessTimer(proc)
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()
       fullContent += text
+      if (fullContent.length > MAX_BUFFER_SIZE) {
+        this.clearProcessTimer()
+        this.isRunning = false
+        onError('Response too large')
+        this.killProcess(proc)
+        return
+      }
       onChunk({ type: 'text', content: text })
     })
 
@@ -65,32 +75,41 @@ export class GenericAdapter extends BaseAgentAdapter {
     })
 
     proc.on('close', (code) => {
+      this.clearProcessTimer()
       this.isRunning = false
       this.process = null
-      if (code === 0 || code === null) {
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
+      if (this.timedOut) {
+        onError('Process timed out')
+      } else if (code === 0) {
         onComplete(fullContent)
+      } else if (code === null) {
+        onError('Process killed by signal')
       } else {
         onError(`Process exited with code ${code}`)
       }
     })
 
     proc.on('error', (err) => {
+      this.clearProcessTimer()
       this.isRunning = false
       this.process = null
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
       onError(err.message)
     })
   }
 
   stop() {
     if (this.process) {
-      this.process.kill('SIGTERM')
-      setTimeout(() => {
-        if (this.process) this.process.kill('SIGKILL')
-      }, 5000)
+      this.killProcess(this.process)
     }
   }
 
   dispose() {
     this.stop()
+    this.clearKillTimer()
+    this.clearProcessTimer()
   }
 }

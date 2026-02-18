@@ -5,7 +5,7 @@ import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
 import { createLogger } from './lib/logger.js'
-import type { ServerSendToAgent, ServerStopAgent } from '@agentim/shared'
+import type { ServerSendToAgent, ServerStopAgent, ServerRoomContext } from '@agentim/shared'
 
 const log = createLogger('Wrapper')
 
@@ -53,13 +53,19 @@ export async function runWrapper(opts: {
           log.info('Authenticated successfully')
           refreshingToken = null
 
-          // Register the single agent
-          const agentId = agentManager.addAgent({
-            type: opts.type,
-            name: agentName,
-            workingDirectory: workDir,
-          })
-          log.info(`Agent registered: ${agentName} (${opts.type}) [${agentId}]`)
+          // On reconnect, re-register existing agent instead of creating a new one
+          // to preserve room memberships that reference the old agent ID
+          if (agentManager.listAgents().length > 0) {
+            agentManager.reRegisterAll()
+            log.info(`Re-registered existing agent: ${agentName}`)
+          } else {
+            const agentId = agentManager.addAgent({
+              type: opts.type,
+              name: agentName,
+              workingDirectory: workDir,
+            })
+            log.info(`Agent registered: ${agentName} (${opts.type}) [${agentId}]`)
+          }
           log.info(`Working directory: ${workDir}`)
           log.info('Waiting for messages... (Ctrl+C to quit)')
           wsClient.flushQueue()
@@ -81,8 +87,8 @@ export async function runWrapper(opts: {
             process.exit(1)
           }
         }
-      } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent') {
-        agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent)
+      } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent' || msg.type === 'server:room_context') {
+        agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent | ServerRoomContext)
       }
     },
     onDisconnected: () => {
@@ -94,13 +100,13 @@ export async function runWrapper(opts: {
   wsClient.connect()
 
   // Graceful shutdown
-  const cleanup = () => {
+  const cleanup = async () => {
     log.info('Shutting down...')
-    agentManager.disposeAll()
+    await agentManager.disposeAll()
     wsClient.close()
     process.exit(0)
   }
 
-  process.on('SIGINT', cleanup)
-  process.on('SIGTERM', cleanup)
+  process.on('SIGINT', () => cleanup())
+  process.on('SIGTERM', () => cleanup())
 }
