@@ -21,6 +21,7 @@ import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+import { Textarea } from './ui.js'
 import {
   VideoIcon,
   MusicNoteIcon,
@@ -44,6 +45,8 @@ interface MessageItemProps {
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
 
+// ─── Sub-components ───
+
 function FileTypeIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.startsWith('video/')) {
     return <VideoIcon className="w-5 h-5 text-purple-500 flex-shrink-0" />
@@ -62,7 +65,7 @@ function FileTypeIcon({ mimeType }: { mimeType: string }) {
   ) {
     return <ArchiveIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />
   }
-  return <PaperClipIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+  return <PaperClipIcon className="w-5 h-5 text-text-muted flex-shrink-0" />
 }
 
 function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -70,7 +73,7 @@ function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; 
   return (
     <div className="relative">
       {!loaded && (
-        <div className="rounded-lg bg-gray-200 dark:bg-gray-700 max-h-60 w-48 h-32 animate-pulse" />
+        <div className="rounded-lg bg-surface-hover max-h-60 w-48 h-32 animate-pulse" />
       )}
       <img
         src={src}
@@ -96,13 +99,99 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+      className="px-2 py-1 text-xs text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
       title={t('copy')}
+      aria-label={t('copy')}
     >
       {copied ? t('copied') : t('copy')}
     </button>
   )
 }
+
+interface AttachmentListProps {
+  attachments: NonNullable<Message['attachments']>
+  onImageClick: (url: string) => void
+}
+
+function AttachmentList({ attachments, onImageClick }: AttachmentListProps) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {attachments.map((attachment) => {
+        const isImage = attachment.mimeType.startsWith('image/')
+        return isImage ? (
+          <button
+            key={attachment.id}
+            onClick={() => onImageClick(attachment.url)}
+            className="block max-w-xs cursor-zoom-in"
+          >
+            <ImageWithSkeleton
+              src={attachment.url}
+              alt={attachment.filename}
+              className="rounded-lg border border-border max-h-60 object-contain hover:brightness-90 transition-[filter]"
+            />
+          </button>
+        ) : (
+          <a
+            key={attachment.id}
+            href={attachment.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center space-x-2 px-3 py-2 bg-surface-secondary rounded-lg hover:bg-surface-hover transition-colors border border-border max-w-xs"
+          >
+            <FileTypeIcon mimeType={attachment.mimeType} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-text-primary truncate">
+                {attachment.filename}
+              </p>
+              <p className="text-xs text-text-secondary">
+                {attachment.size < 1024 * 1024
+                  ? `${(attachment.size / 1024).toFixed(1)} KB`
+                  : `${(attachment.size / 1024 / 1024).toFixed(1)} MB`}
+              </p>
+            </div>
+            <DownloadIcon className="w-4 h-4 text-text-muted flex-shrink-0" />
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+interface ReactionBarProps {
+  reactions: NonNullable<Message['reactions']>
+  currentUserId: string | undefined
+  onToggle: (emoji: string) => void
+}
+
+function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {reactions.map((reaction) => {
+        const hasReacted = currentUserId && reaction.userIds.includes(currentUserId)
+        return (
+          <button
+            key={reaction.emoji}
+            onClick={() => onToggle(reaction.emoji)}
+            title={reaction.usernames.join(', ')}
+            className={`
+              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors
+              ${
+                hasReacted
+                  ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                  : 'bg-surface-hover border border-border text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600'
+              }
+            `}
+          >
+            <span>{reaction.emoji}</span>
+            <span className="font-medium">{reaction.userIds.length}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Main Component ───
 
 export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
   const { t, i18n } = useTranslation()
@@ -196,8 +285,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
     return (
       <div className="px-6 py-2">
         <div className="flex justify-center">
-          <div className="px-4 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          <div className="px-4 py-1.5 bg-surface-hover rounded-full">
+            <p className="text-xs text-text-secondary text-center">
               {message.content}
             </p>
           </div>
@@ -213,7 +302,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       {/* Mobile action trigger */}
       {!showActions && (
         <button
-          className="absolute right-2 top-3 p-1.5 rounded-md text-gray-400 dark:text-gray-500 active:bg-gray-100 dark:active:bg-gray-700 md:hidden"
+          className="absolute right-2 top-3 p-1.5 rounded-md text-text-muted active:bg-surface-hover md:hidden"
           onClick={(e) => {
             e.stopPropagation()
             setShowActions(true)
@@ -223,6 +312,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <DotsHorizontalIcon className="w-4 h-4" aria-hidden="true" />
         </button>
       )}
+
       {/* Action buttons */}
       <div
         ref={actionsRef}
@@ -231,13 +321,14 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div className="relative">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+            className="p-1 rounded-md text-text-muted hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
             title={t('chat.addReaction')}
+            aria-label={t('chat.addReaction')}
           >
             <SmileFaceIcon className="w-4 h-4" />
           </button>
           {showEmojiPicker && (
-            <div className="absolute right-0 top-8 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1.5 flex gap-0.5">
+            <div className="absolute right-0 top-8 z-dropdown bg-surface border border-border rounded-lg shadow-lg p-1.5 flex gap-0.5">
               {REACTION_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
@@ -246,7 +337,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                     setShowEmojiPicker(false)
                     setShowActions(false)
                   }}
-                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors"
                 >
                   {emoji}
                 </button>
@@ -259,8 +350,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             setReplyTo(message)
             setShowActions(false)
           }}
-          className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+          className="p-1 rounded-md text-text-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
           title={t('chat.reply')}
+          aria-label={t('chat.reply')}
         >
           <ReplyIcon className="w-4 h-4" />
         </button>
@@ -268,8 +360,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <>
             <button
               onClick={handleEdit}
-              className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
+              className="p-1 rounded-md text-text-muted hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
               title={t('chat.editMessage')}
+              aria-label={t('chat.editMessage')}
             >
               <PencilIcon className="w-4 h-4" />
             </button>
@@ -286,7 +379,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 </button>
                 <button
                   onClick={() => setConfirmingDelete(false)}
-                  className="px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                  className="px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
                   {t('cancel')}
                 </button>
@@ -294,8 +387,9 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             ) : (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                className="p-1 rounded-md text-text-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
                 title={t('chat.deleteMessage')}
+                aria-label={t('chat.deleteMessage')}
               >
                 <TrashIcon className="w-4 h-4" />
               </button>
@@ -325,7 +419,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div className="flex-1 min-w-0">
           {/* Sender and time */}
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+            <span className="font-semibold text-text-primary text-sm">
               {message.senderName}
             </span>
             {isAgent && (
@@ -333,7 +427,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 {t('agents')}
               </span>
             )}
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-text-muted">
               {new Date(message.createdAt).toLocaleString(i18n.language, {
                 month: 'numeric',
                 day: 'numeric',
@@ -343,7 +437,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             </span>
             {message.updatedAt && (
               <button
-                className="text-xs text-gray-400 dark:text-gray-500 italic hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer"
+                className="text-xs text-text-muted italic hover:text-accent cursor-pointer"
                 onClick={async () => {
                   if (showEditHistory) {
                     setShowEditHistory(false)
@@ -373,23 +467,22 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                 {repliedMessage.senderName}
               </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-xs text-text-secondary truncate">
                 {repliedMessage.content.slice(0, 100)}
               </p>
             </div>
           )}
 
-          {/* Message content: edit mode or display */}
+          {/* Message body: edit mode or display */}
           {isEditing ? (
             <div className="mt-1">
-              <textarea
+              <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditSave()
                   if (e.key === 'Escape') setIsEditing(false)
                 }}
-                className="w-full p-2 border border-blue-300 dark:border-blue-600 dark:bg-gray-700 dark:text-gray-100 rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 autoFocus
                 disabled={isSaving}
@@ -398,18 +491,18 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 <button
                   onClick={handleEditSave}
                   disabled={isSaving || !editContent.trim()}
-                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
+                  className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
                 >
                   {isSaving ? t('settings.saving') : t('save')}
                 </button>
                 <button
                   onClick={() => setIsEditing(false)}
                   disabled={isSaving}
-                  className="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                  className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
                   {t('cancel')}
                 </button>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-text-muted">
                   Esc {t('cancel')}, Cmd+Enter {t('save')}
                 </span>
               </div>
@@ -431,7 +524,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                       <div className="relative group/code">
                         <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
                           {match && (
-                            <span className="px-1.5 py-0.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded">
+                            <span className="px-1.5 py-0.5 text-xs text-text-secondary bg-surface-hover rounded">
                               {match[1]}
                             </span>
                           )}
@@ -447,7 +540,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                       </div>
                     ) : (
                       <code
-                        className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-sm"
+                        className="px-1.5 py-0.5 bg-surface-hover rounded text-sm"
                         {...props}
                       >
                         {children}
@@ -470,7 +563,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                     return (
                       <div className="overflow-x-auto">
                         <table
-                          className="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                          className="min-w-full divide-y divide-border"
                           {...props}
                         >
                           {children}
@@ -487,23 +580,23 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
 
           {/* Edit history */}
           {showEditHistory && (
-            <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700/50 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <div className="mt-2 border border-border rounded-lg overflow-hidden">
+              <div className="px-3 py-1.5 bg-surface-secondary text-xs font-medium text-text-secondary">
                 {t('chat.editHistory')}
               </div>
               {loadingHistory ? (
-                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                <div className="px-3 py-2 text-xs text-text-muted">
                   {t('loading')}
                 </div>
               ) : editHistory.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                <div className="px-3 py-2 text-xs text-text-muted">
                   {t('chat.editHistoryEmpty')}
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-48 overflow-y-auto">
+                <div className="divide-y divide-border max-h-48 overflow-y-auto">
                   {editHistory.map((edit) => (
                     <div key={edit.id} className="px-3 py-2">
-                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mb-0.5">
+                      <div className="text-[10px] text-text-muted mb-0.5">
                         {new Date(edit.editedAt).toLocaleString(i18n.language, {
                           month: 'numeric',
                           day: 'numeric',
@@ -512,7 +605,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                           second: '2-digit',
                         })}
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
+                      <p className="text-xs text-text-secondary whitespace-pre-wrap break-words">
                         {edit.previousContent}
                       </p>
                     </div>
@@ -524,82 +617,27 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
 
           {/* Attachments */}
           {message.attachments && message.attachments.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {message.attachments.map((attachment) => {
-                const isImage = attachment.mimeType.startsWith('image/')
-                return isImage ? (
-                  <button
-                    key={attachment.id}
-                    onClick={() => setLightboxUrl(attachment.url)}
-                    className="block max-w-xs cursor-zoom-in"
-                  >
-                    <ImageWithSkeleton
-                      src={attachment.url}
-                      alt={attachment.filename}
-                      className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-60 object-contain hover:brightness-90 transition-[filter]"
-                    />
-                  </button>
-                ) : (
-                  <a
-                    key={attachment.id}
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-100 dark:border-gray-700 max-w-xs"
-                  >
-                    <FileTypeIcon mimeType={attachment.mimeType} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {attachment.filename}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {attachment.size < 1024 * 1024
-                          ? `${(attachment.size / 1024).toFixed(1)} KB`
-                          : `${(attachment.size / 1024 / 1024).toFixed(1)} MB`}
-                      </p>
-                    </div>
-                    <DownloadIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                  </a>
-                )
-              })}
-            </div>
+            <AttachmentList
+              attachments={message.attachments}
+              onImageClick={setLightboxUrl}
+            />
           )}
 
-          {/* Reactions display */}
+          {/* Reactions */}
           {message.reactions && message.reactions.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {message.reactions.map((reaction) => {
-                const hasReacted = currentUser && reaction.userIds.includes(currentUser.id)
-                return (
-                  <button
-                    key={reaction.emoji}
-                    onClick={() =>
-                      toggleReaction(message.id, reaction.emoji).catch(() =>
-                        toast.error(t('error.generic')),
-                      )
-                    }
-                    title={reaction.usernames.join(', ')}
-                    className={`
-                      inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors
-                      ${
-                        hasReacted
-                          ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                          : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }
-                    `}
-                  >
-                    <span>{reaction.emoji}</span>
-                    <span className="font-medium">{reaction.userIds.length}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <ReactionBar
+              reactions={message.reactions}
+              currentUserId={currentUser?.id}
+              onToggle={(emoji) =>
+                toggleReaction(message.id, emoji).catch(() => toast.error(t('error.generic')))
+              }
+            />
           )}
 
           {/* Image lightbox */}
           {lightboxUrl && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-black/70 backdrop-blur-sm"
               onClick={() => setLightboxUrl(null)}
             >
               <div className="relative max-w-[90vw] max-h-[90vh]">
@@ -615,12 +653,14 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   onClick={(e) => e.stopPropagation()}
                   className="absolute top-2 right-12 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                   title={t('chat.openOriginal')}
+                  aria-label={t('chat.openOriginal')}
                 >
-                  <ExternalLinkIcon className="w-5 h-5" />
+                  <ExternalLinkIcon className="w-5 h-5" aria-hidden="true" />
                 </a>
                 <button
                   onClick={() => setLightboxUrl(null)}
                   className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  aria-label={t('close')}
                 >
                   <CloseIcon className="w-5 h-5" />
                 </button>

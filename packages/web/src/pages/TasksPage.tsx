@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
-import { Button, Input, Textarea } from '../components/ui.js'
+import { Button, Input, Textarea, Select } from '../components/ui.js'
 import type { Task } from '@agentim/shared'
 
 export default function TasksPage() {
@@ -351,11 +351,10 @@ function CreateTaskDialog({
             >
               {t('rooms') || 'Room'}
             </label>
-            <select
+            <Select
               id="room"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-gray-100"
               required
             >
               {rooms.map((room) => (
@@ -363,7 +362,7 @@ function CreateTaskDialog({
                   {room.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input } from '../components/ui.js'
+import { Button, Input, Select } from '../components/ui.js'
 import type { UserRole } from '@agentim/shared'
 
 interface UserItem {
@@ -233,14 +233,13 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('role')}
                 </label>
-                <select
+                <Select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="user">{t('roleUser')}</option>
                   <option value="admin">{t('roleAdmin')}</option>
-                </select>
+                </Select>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">

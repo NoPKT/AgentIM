@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
 // ─── Button ───
 
@@ -7,13 +7,13 @@ const buttonBase =
 
 const buttonVariants = {
   primary:
-    'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
+    'bg-accent hover:bg-accent-hover text-white focus:ring-accent',
   secondary:
-    'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-400',
+    'text-text-secondary hover:bg-surface-hover focus:ring-border',
   danger:
     'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
   ghost:
-    'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-400',
+    'text-text-secondary hover:bg-surface-hover focus:ring-border',
 } as const
 
 const buttonSizes = {
@@ -41,28 +41,32 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = 'Button'
 
-// ─── Input ───
+// ─── Shared form field base ───
 
-const inputBase =
-  'w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors'
+const fieldBase =
+  'w-full border border-border bg-surface text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors'
 
-const inputSizes = {
+const fieldSizes = {
   sm: 'px-2.5 py-1.5 text-xs rounded-md',
   md: 'px-3 py-2 text-sm rounded-lg',
   lg: 'px-4 py-2.5 text-sm rounded-lg',
 } as const
 
-type InputSize = keyof typeof inputSizes
+type FieldSize = keyof typeof fieldSizes
+
+// ─── Input ───
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  inputSize?: InputSize
+  inputSize?: FieldSize
+  error?: boolean
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ inputSize = 'md', className = '', ...props }, ref) => (
+  ({ inputSize = 'md', error = false, className = '', ...props }, ref) => (
     <input
       ref={ref}
-      className={`${inputBase} ${inputSizes[inputSize]} ${className}`}
+      className={`${fieldBase} ${fieldSizes[inputSize]} ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
+      aria-invalid={error || undefined}
       {...props}
     />
   ),
@@ -72,16 +76,35 @@ Input.displayName = 'Input'
 // ─── Textarea ───
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
-  inputSize?: InputSize
+  inputSize?: FieldSize
+  error?: boolean
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ inputSize = 'md', className = '', ...props }, ref) => (
+  ({ inputSize = 'md', error = false, className = '', ...props }, ref) => (
     <textarea
       ref={ref}
-      className={`${inputBase} ${inputSizes[inputSize]} resize-none ${className}`}
+      className={`${fieldBase} ${fieldSizes[inputSize]} resize-none ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
+      aria-invalid={error || undefined}
       {...props}
     />
   ),
 )
 Textarea.displayName = 'Textarea'
+
+// ─── Select ───
+
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  inputSize?: FieldSize
+}
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ inputSize = 'md', className = '', ...props }, ref) => (
+    <select
+      ref={ref}
+      className={`${fieldBase} ${fieldSizes[inputSize]} ${className}`}
+      {...props}
+    />
+  ),
+)
+Select.displayName = 'Select'

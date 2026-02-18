@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
 import { MessageItem } from './MessageItem.js'
 import { StreamingMessage } from './StreamingMessage.js'
+import { ChatBubbleIcon, ArrowDownIcon } from './icons.js'
 
 export function MessageList() {
   const { t } = useTranslation()
@@ -71,7 +72,7 @@ export function MessageList() {
 
   if (!currentRoomId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
+      <div className="flex-1 flex items-center justify-center text-text-secondary">
         <p>{t('noMessages')}</p>
       </div>
     )
@@ -82,14 +83,14 @@ export function MessageList() {
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-start space-x-3 animate-pulse">
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+            <div className="w-8 h-8 rounded-full bg-surface-hover flex-shrink-0" />
             <div className="flex-1 space-y-2">
               <div className="flex items-center space-x-2">
-                <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="h-3 w-12 bg-gray-100 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-20 bg-surface-hover rounded" />
+                <div className="h-3 w-12 bg-surface-hover rounded" />
               </div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-              <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-1/2" />
+              <div className="h-4 bg-surface-hover rounded w-3/4" />
+              <div className="h-4 bg-surface-hover rounded w-1/2" />
             </div>
           </div>
         ))}
@@ -99,22 +100,12 @@ export function MessageList() {
 
   if (currentMessages.length === 0 && streamingMessages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
+      <div className="flex-1 flex items-center justify-center text-text-secondary">
         <div className="text-center">
-          <svg
+          <ChatBubbleIcon
             className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
             aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
+          />
           <p className="text-lg">{t('noMessages')}</p>
         </div>
       </div>
@@ -136,10 +127,10 @@ export function MessageList() {
             <button
               onClick={handleLoadMore}
               disabled={isLoading}
-              className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              className="px-4 py-2 text-sm text-accent hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
               {isLoading && (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <circle
                     className="opacity-25"
                     cx="12"
@@ -207,7 +198,7 @@ export function MessageList() {
             if (receipts.length === 0) return null
             return (
               <div className="flex items-center gap-1 px-6 py-1.5 justify-end">
-                <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
+                <span className="text-xs text-text-muted mr-1">
                   {t('chat.readBy')}
                 </span>
                 {receipts.slice(0, 5).map((r) => (
@@ -220,7 +211,7 @@ export function MessageList() {
                   </span>
                 ))}
                 {receipts.length > 5 && (
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-text-muted">
                     +{receipts.length - 5}
                   </span>
                 )}
@@ -237,22 +228,9 @@ export function MessageList() {
         <button
           onClick={scrollToBottom}
           aria-label={t('chat.scrollToBottom')}
-          className="absolute bottom-4 right-4 z-10 p-2.5 bg-white dark:bg-gray-700 shadow-lg rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
+          className="absolute bottom-4 right-4 z-dropdown p-2.5 bg-surface shadow-lg rounded-full text-text-secondary hover:bg-surface-hover transition-all border border-border"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
+          <ArrowDownIcon className="w-5 h-5" aria-hidden="true" />
         </button>
       )}
     </div>

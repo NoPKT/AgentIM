@@ -8,7 +8,8 @@ import { useRouterStore } from '../stores/routers.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { AddAgentDialog } from './AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input, Textarea } from './ui.js'
+import { Button, Input, Textarea, Select } from './ui.js'
+import { CloseIcon, PencilIcon, PlusIcon } from './icons.js'
 
 interface RoomSettingsDrawerProps {
   roomId: string
@@ -166,7 +167,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-overlay" onClick={onClose} />
       )}
 
       {/* Drawer */}
@@ -175,43 +176,31 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
         aria-modal={isOpen}
         aria-label={t('roomSettingsTitle')}
         className={`
-          fixed top-0 right-0 h-full w-full sm:w-80 bg-white dark:bg-gray-800 shadow-xl z-50
+          fixed top-0 right-0 h-full w-full sm:w-80 bg-surface shadow-xl z-modal
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-text-primary">
               {t('roomSettingsTitle')}
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
               aria-label={t('close')}
             >
-              <svg
-                className="w-5 h-5 text-gray-500 dark:text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <CloseIcon className="w-5 h-5 text-text-secondary" aria-hidden="true" />
             </button>
           </div>
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto scrollbar-thin">
             {/* Room Name */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <div className="px-5 py-4 border-b border-border">
+              <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
                 {t('roomName')}
               </label>
               {editingName ? (
@@ -235,34 +224,25 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               ) : (
                 <button
                   onClick={() => setEditingName(true)}
-                  className="w-full text-left px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center justify-between group"
+                  className="w-full text-left px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover rounded-lg transition-colors flex items-center justify-between group"
                 >
                   <span>{room?.name}</span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
+                  <PencilIcon
+                    className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-hidden="true"
+                  />
                 </button>
               )}
             </div>
 
             {/* Broadcast Mode Toggle */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+            <div className="px-5 py-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-text-primary">
                     {t('broadcastMode')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-xs text-text-secondary mt-0.5">
                     {t('broadcastModeDesc')}
                   </p>
                 </div>
@@ -274,7 +254,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   disabled={updating}
                   className={`
                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                    ${room?.broadcastMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}
+                    ${room?.broadcastMode ? 'bg-accent' : 'bg-gray-200 dark:bg-gray-600'}
                     disabled:opacity-50
                   `}
                 >
@@ -289,8 +269,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             </div>
 
             {/* System Prompt */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <div className="px-5 py-4 border-b border-border">
+              <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
                 {t('systemPrompt')}
               </label>
               {editingPrompt ? (
@@ -323,13 +303,11 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               ) : (
                 <button
                   onClick={() => setEditingPrompt(true)}
-                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center justify-between group"
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover rounded-lg transition-colors flex items-center justify-between group"
                 >
                   <span
                     className={
-                      room?.systemPrompt
-                        ? 'text-gray-900 dark:text-gray-100'
-                        : 'text-gray-400 dark:text-gray-500 italic'
+                      room?.systemPrompt ? 'text-text-primary' : 'text-text-muted italic'
                     }
                   >
                     {room?.systemPrompt
@@ -338,32 +316,23 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                         : room.systemPrompt
                       : t('noSystemPrompt')}
                   </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
+                  <PencilIcon
+                    className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2"
+                    aria-hidden="true"
+                  />
                 </button>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-text-secondary mt-1">
                 {t('systemPromptDesc')}
               </p>
             </div>
 
             {/* Router Selector */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <div className="px-5 py-4 border-b border-border">
+              <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
                 {t('router.roomRouter')}
               </label>
-              <select
+              <Select
                 value={
                   room?.routerId && !routers.some((r) => r.id === room.routerId)
                     ? '__unknown__'
@@ -383,7 +352,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   }
                 }}
                 disabled={updating}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 <option value="">{t('router.noRouter')}</option>
                 {room?.routerId && !routers.some((r) => r.id === room.routerId) && (
@@ -396,15 +364,15 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     {r.name} ({r.llmModel})
                   </option>
                 ))}
-              </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              </Select>
+              <p className="text-xs text-text-secondary mt-1">
                 {t('router.routerDesc')}
               </p>
             </div>
 
             {/* Notification Preference */}
-            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            <div className="px-5 py-4 border-b border-border">
+              <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
                 {t('settings.notificationPref')}
               </label>
               <div className="flex gap-1">
@@ -422,8 +390,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     }}
                     className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                       currentNotifPref === pref
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-hover text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     {pref === 'all'
@@ -439,26 +407,14 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             {/* Members */}
             <div className="px-5 py-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
                   {t('members')} ({members.length})
                 </h3>
                 <button
                   onClick={() => setShowAddAgent(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-accent bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
+                  <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
                   {t('addAgent')}
                 </button>
               </div>
@@ -476,7 +432,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   return (
                     <div
                       key={member.memberId}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
                     >
                       {/* Avatar */}
                       <div className="relative flex-shrink-0">
@@ -495,14 +451,14 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                           </span>
                         </div>
                         {member.memberType === 'user' && onlineUsers.has(member.memberId) && (
-                          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
+                          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-surface rounded-full" />
                         )}
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          <span className="text-sm font-medium text-text-primary truncate">
                             {displayName}
                           </span>
                           {status && (
@@ -519,7 +475,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                               {type.label}
                             </span>
                           )}
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          <span className="text-[10px] text-text-muted">
                             {roleLabel(member.role)}
                           </span>
                         </div>
@@ -529,22 +485,11 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                       {member.role !== 'owner' && (
                         <button
                           onClick={() => handleRemoveMember(member.memberId)}
-                          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                          className="p-1 rounded-md text-text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                           title={t('removeMember')}
+                          aria-label={t('removeMember')}
                         >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
+                          <CloseIcon className="w-4 h-4" aria-hidden="true" />
                         </button>
                       )}
                     </div>
@@ -555,7 +500,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
           </div>
 
           {/* Footer: Pin / Archive / Delete */}
-          <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
+          <div className="px-5 py-4 border-t border-border space-y-2">
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -573,7 +518,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                   myMember?.pinnedAt
                     ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40'
-                    : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                    : 'text-text-secondary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {myMember?.pinnedAt ? t('unpinRoom') : t('pinRoom')}
@@ -594,7 +539,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
                   myMember?.archivedAt
                     ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                    : 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                    : 'text-text-secondary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {myMember?.archivedAt ? t('unarchiveRoom') : t('archiveRoom')}
@@ -602,7 +547,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             </div>
             {showDeleteConfirm ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 dark:text-gray-400">{t('confirmDeleteRoom')}</p>
+                <p className="text-sm text-text-secondary">{t('confirmDeleteRoom')}</p>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
