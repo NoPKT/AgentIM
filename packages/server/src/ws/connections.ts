@@ -42,19 +42,12 @@ class ConnectionManager {
     username: string,
     userMaxConnections?: number | null,
   ): { ok: boolean; error?: string } {
-    // If this ws already has a client (re-auth), clean up the old counter first
     const existing = this.clients.get(ws)
-    if (existing) {
-      const oldCount = (this.onlineUsers.get(existing.userId) ?? 1) - 1
-      if (oldCount <= 0) {
-        this.onlineUsers.delete(existing.userId)
-      } else {
-        this.onlineUsers.set(existing.userId, oldCount)
-      }
-    }
 
-    // Enforce per-user connection limit
-    // Skip only if re-auth on same ws with the same user (token refresh)
+    // Check limits FIRST before mutating any counters.
+    // If we decremented the old user's counter before these checks and then
+    // returned early on failure, the existing socket would remain bound to
+    // the old user but their online count would be permanently under-reported.
     if (!existing || existing.userId !== userId) {
       const maxPerUser = userMaxConnections ?? config.maxWsConnectionsPerUser
       const currentCount = this.onlineUsers.get(userId) ?? 0
@@ -66,6 +59,16 @@ class ConnectionManager {
       if (!existing && this.clients.size >= config.maxTotalWsConnections) {
         log.warn(`Global connection limit reached (${config.maxTotalWsConnections})`)
         return { ok: false, error: 'Server at capacity' }
+      }
+    }
+
+    // Checks passed — now it is safe to update the old user's counter.
+    if (existing) {
+      const oldCount = (this.onlineUsers.get(existing.userId) ?? 1) - 1
+      if (oldCount <= 0) {
+        this.onlineUsers.delete(existing.userId)
+      } else {
+        this.onlineUsers.set(existing.userId, oldCount)
       }
     }
 
@@ -174,25 +177,27 @@ class ConnectionManager {
     gatewayId: string,
     userMaxGateways?: number | null,
   ): { ok: boolean; error?: string } {
-    // If this ws already has a gateway (re-auth), clean up the old counter first
     const existing = this.gateways.get(ws)
-    if (existing) {
-      const oldCount = (this.userGatewayCount.get(existing.userId) ?? 1) - 1
-      if (oldCount <= 0) {
-        this.userGatewayCount.delete(existing.userId)
-      } else {
-        this.userGatewayCount.set(existing.userId, oldCount)
-      }
-    }
 
-    // Enforce per-user gateway limit
-    // Skip only if re-auth on same ws with the same user (token refresh)
+    // Check limits FIRST before mutating any counters (same ordering discipline
+    // as addClient — decrementing the old count before validation would leave
+    // the counter underreported when the check fails).
     if (!existing || existing.userId !== userId) {
       const maxGateways = userMaxGateways ?? config.maxGatewaysPerUser
       const currentCount = this.userGatewayCount.get(userId) ?? 0
       if (currentCount >= maxGateways) {
         log.warn(`User ${userId} exceeded max gateways (${maxGateways})`)
         return { ok: false, error: 'Too many gateway connections' }
+      }
+    }
+
+    // Checks passed — now it is safe to update the old user's counter.
+    if (existing) {
+      const oldCount = (this.userGatewayCount.get(existing.userId) ?? 1) - 1
+      if (oldCount <= 0) {
+        this.userGatewayCount.delete(existing.userId)
+      } else {
+        this.userGatewayCount.set(existing.userId, oldCount)
       }
     }
 

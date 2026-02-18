@@ -192,7 +192,8 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
   const userId = c.get('userId')
   const q = c.req.query('q')?.trim()
   const roomId = c.req.query('roomId')
-  const limit = Math.min(parseInt(c.req.query('limit') || '20'), 50)
+  const limitRaw = parseInt(c.req.query('limit') ?? '20', 10)
+  const limit = Number.isNaN(limitRaw) || limitRaw < 1 ? 20 : Math.min(limitRaw, 50)
 
   if (!q || q.length < 2) {
     return c.json({ ok: false, error: 'Query must be at least 2 characters' }, 400)

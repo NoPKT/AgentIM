@@ -159,6 +159,11 @@ export interface ServerError {
   message: string
 }
 
+export interface ServerRoomRemoved {
+  type: 'server:room_removed'
+  roomId: string
+}
+
 export type ServerMessage =
   | ServerAuthResult
   | ServerNewMessage
@@ -170,6 +175,7 @@ export type ServerMessage =
   | ServerAgentStatus
   | ServerTaskUpdate
   | ServerRoomUpdate
+  | ServerRoomRemoved
   | ServerTerminalData
   | ServerReadReceipt
   | ServerPresence
