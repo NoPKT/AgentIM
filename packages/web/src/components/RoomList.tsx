@@ -162,6 +162,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                 aria-current={room.id === currentRoomId ? 'page' : undefined}
                 className={`
                     w-full px-3 py-2.5 text-left rounded-lg transition-all relative
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
                     ${
                       room.id === currentRoomId
                         ? 'bg-info-subtle text-info-text font-medium'

@@ -68,7 +68,7 @@ export function AppLayout() {
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           <h1 className="text-xl font-bold text-text-primary">{t('appName')}</h1>
           <button
-            className="lg:hidden p-2 rounded-md hover:bg-surface-hover text-text-secondary"
+            className="lg:hidden p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => setSidebarOpen(false)}
             aria-label={t('close')}
           >
@@ -89,9 +89,10 @@ export function AppLayout() {
               to={link.path}
               className={`
                 flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all relative
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
                 ${
                   isActive(link.path)
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    ? 'bg-info-subtle text-info-text'
                     : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
                 }
               `}
@@ -111,7 +112,7 @@ export function AppLayout() {
         {/* Mobile top bar */}
         <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
           <button
-            className="p-2 rounded-md hover:bg-surface-hover text-text-secondary"
+            className="p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => setSidebarOpen(true)}
             aria-label={t('rooms')}
             aria-expanded={sidebarOpen}

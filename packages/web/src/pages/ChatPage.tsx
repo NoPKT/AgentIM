@@ -137,7 +137,7 @@ export default function ChatPage() {
                     setTerminalAgentId(withData?.memberId ?? agentMembers[0].memberId)
                   }
                 }}
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   terminalAgentId
                     ? 'bg-surface-hover text-text-primary'
                     : 'hover:bg-surface-hover text-text-muted hover:text-text-secondary'
@@ -150,14 +150,14 @@ export default function ChatPage() {
           )}
           <button
             onClick={() => setSearchOpen(true)}
-            className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0"
+            className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={`${t('search')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K)`}
           >
             <SearchIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0"
+            className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={t('roomSettings')}
           >
             <SettingsIcon className="w-5 h-5" />
