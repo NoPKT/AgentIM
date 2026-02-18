@@ -108,6 +108,20 @@ export function useWebSocket() {
           loadRooms()
           if (msg.room?.id) loadRoomMembers(msg.room.id)
           break
+        case 'server:room_removed': {
+          // We've been evicted from a room (member removed by admin/owner).
+          // Clean up all local state for the evicted room — this also removes it
+          // from the rooms list and clears currentRoomId if we're viewing it.
+          const wasCurrentRoom = useChatStore.getState().currentRoomId === msg.roomId
+          useChatStore.getState().evictRoom(msg.roomId)
+          // Re-fetch rooms to stay in sync with server (handles concurrent evictions).
+          loadRooms()
+          // Navigate home if the evicted room was open.
+          if (wasCurrentRoom) {
+            window.history.pushState(null, '', '/')
+          }
+          break
+        }
         case 'server:read_receipt':
           updateReadReceipt(msg.roomId, msg.userId, msg.username, msg.lastReadAt)
           break

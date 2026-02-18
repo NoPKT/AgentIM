@@ -107,6 +107,8 @@ interface ChatState {
   updateNotificationPref: (roomId: string, pref: 'all' | 'mentions' | 'none') => Promise<void>
   togglePin: (roomId: string) => Promise<void>
   toggleArchive: (roomId: string) => Promise<void>
+  // Server-initiated eviction: clean up local state without an API call.
+  evictRoom: (roomId: string) => void
   reset: () => void
 }
 
@@ -578,6 +580,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch {
       toast.error('Failed to toggle pin')
     }
+  },
+
+  evictRoom: (roomId) => {
+    // Clean up all local state for a room we were server-evicted from.
+    // This mirrors deleteRoom's cleanup but skips the API call.
+    const state = get()
+    const messages = new Map(state.messages)
+    const roomMembers = new Map(state.roomMembers)
+    const lastMessages = new Map(state.lastMessages)
+    const unreadCounts = new Map(state.unreadCounts)
+    const readReceipts = new Map(state.readReceipts)
+    const hasMore = new Map(state.hasMore)
+    messages.delete(roomId)
+    roomMembers.delete(roomId)
+    lastMessages.delete(roomId)
+    unreadCounts.delete(roomId)
+    readReceipts.delete(roomId)
+    hasMore.delete(roomId)
+
+    const typingUsers = new Map(state.typingUsers)
+    for (const key of typingUsers.keys()) {
+      if (key.startsWith(`${roomId}:`)) typingUsers.delete(key)
+    }
+
+    const streaming = new Map(state.streaming)
+    for (const key of streaming.keys()) {
+      if (key.startsWith(`${roomId}:`)) streaming.delete(key)
+    }
+
+    const replyTo = state.replyTo?.roomId === roomId ? null : state.replyTo
+
+    set({
+      rooms: state.rooms.filter((r) => r.id !== roomId),
+      currentRoomId: state.currentRoomId === roomId ? null : state.currentRoomId,
+      messages,
+      roomMembers,
+      lastMessages,
+      unreadCounts,
+      readReceipts,
+      hasMore,
+      typingUsers,
+      streaming,
+      replyTo,
+    })
   },
 
   reset: () => {
