@@ -14,6 +14,23 @@
   --color-accent: #2563eb;
   --color-accent-hover: #1d4ed8;
 
+  /* Semantic status colors (text / muted-bg / subtle-bg / border) */
+  --color-info-text: #2563eb;      /* blue-600 */
+  --color-info-muted: #dbeafe;     /* blue-100 */
+  --color-info-subtle: #eff6ff;    /* blue-50  */
+  --color-info-border: #93c5fd;    /* blue-300 */
+
+  --color-success-text: #16a34a;   /* green-600 */
+  --color-success-subtle: #f0fdf4; /* green-50  */
+
+  --color-warning-text: #d97706;   /* amber-600 */
+  --color-warning-subtle: #fffbeb; /* amber-50  */
+
+  --color-danger: #dc2626;         /* red-600 — button bg */
+  --color-danger-hover: #b91c1c;   /* red-700 */
+  --color-danger-text: #dc2626;    /* red-600 — text / icon */
+  --color-danger-subtle: #fef2f2;  /* red-50   */
+
   /* Border radius */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -44,6 +61,23 @@
   --color-text-muted: #6b7280;
   --color-accent: #3b82f6;
   --color-accent-hover: #2563eb;
+
+  /* Status overrides for dark backgrounds */
+  --color-info-text: #60a5fa;      /* blue-400 */
+  --color-info-muted: #1e3464;     /* ≈ blue-900/50 on dark surface */
+  --color-info-subtle: #172435;    /* ≈ blue-900/20 on dark surface */
+  --color-info-border: #1d4ed8;    /* blue-700 */
+
+  --color-success-text: #4ade80;   /* green-400 */
+  --color-success-subtle: #0d2218; /* ≈ green-900/30 on dark surface */
+
+  --color-warning-text: #fbbf24;   /* amber-400 */
+  --color-warning-subtle: #221700; /* ≈ amber-900/30 on dark surface */
+
+  --color-danger: #ef4444;         /* red-500 */
+  --color-danger-hover: #dc2626;   /* red-600 */
+  --color-danger-text: #f87171;    /* red-400 */
+  --color-danger-subtle: #220d0d;  /* ≈ red-900/30 on dark surface */
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);

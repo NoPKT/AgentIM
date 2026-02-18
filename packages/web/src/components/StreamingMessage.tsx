@@ -42,13 +42,13 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+            <span className="font-semibold text-text-primary text-sm">
               {agentName}
             </span>
-            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
+            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
               {t('agents')}
             </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-text-muted">
               {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
@@ -57,18 +57,18 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
           <ChunkGroupRenderer groups={groups} isStreaming />
 
           {/* Status line */}
-          <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+          <div className="mt-2 flex items-center gap-2 text-xs text-info-text">
             <div className="flex space-x-1">
               <span
-                className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
                 style={{ animationDelay: '0ms' }}
               />
               <span
-                className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
                 style={{ animationDelay: '150ms' }}
               />
               <span
-                className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-bounce"
+                className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
                 style={{ animationDelay: '300ms' }}
               />
             </div>

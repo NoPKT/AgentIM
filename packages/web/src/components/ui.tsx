@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { twMerge } from 'tailwind-merge'
 
 // ─── Button ───
 
@@ -11,7 +12,7 @@ const buttonVariants = {
   secondary:
     'text-text-secondary hover:bg-surface-hover focus:ring-border',
   danger:
-    'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
+    'bg-danger hover:bg-danger-hover text-white focus:ring-danger',
   ghost:
     'text-text-secondary hover:bg-surface-hover focus:ring-border',
 } as const
@@ -31,10 +32,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', className = '', ...props }, ref) => (
+  ({ variant = 'primary', size = 'md', className, ...props }, ref) => (
     <button
       ref={ref}
-      className={`${buttonBase} ${buttonVariants[variant]} ${buttonSizes[size]} ${className}`}
+      className={twMerge(`${buttonBase} ${buttonVariants[variant]} ${buttonSizes[size]}`, className)}
       {...props}
     />
   ),
@@ -62,10 +63,10 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ inputSize = 'md', error = false, className = '', ...props }, ref) => (
+  ({ inputSize = 'md', error = false, className, ...props }, ref) => (
     <input
       ref={ref}
-      className={`${fieldBase} ${fieldSizes[inputSize]} ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
+      className={twMerge(`${fieldBase} ${fieldSizes[inputSize]} ${error ? 'border-danger focus:ring-danger' : ''}`, className)}
       aria-invalid={error || undefined}
       {...props}
     />
@@ -81,10 +82,10 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ inputSize = 'md', error = false, className = '', ...props }, ref) => (
+  ({ inputSize = 'md', error = false, className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={`${fieldBase} ${fieldSizes[inputSize]} resize-none ${error ? 'border-red-500 focus:ring-red-500' : ''} ${className}`}
+      className={twMerge(`${fieldBase} ${fieldSizes[inputSize]} resize-none ${error ? 'border-danger focus:ring-danger' : ''}`, className)}
       aria-invalid={error || undefined}
       {...props}
     />
@@ -99,10 +100,10 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ inputSize = 'md', className = '', ...props }, ref) => (
+  ({ inputSize = 'md', className, ...props }, ref) => (
     <select
       ref={ref}
-      className={`${fieldBase} ${fieldSizes[inputSize]} ${className}`}
+      className={twMerge(`${fieldBase} ${fieldSizes[inputSize]}`, className)}
       {...props}
     />
   ),

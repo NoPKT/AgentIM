@@ -4,17 +4,8 @@ import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
-
-// Allow class attributes on code/span elements for syntax highlighting
-const sanitizeSchema = {
-  ...defaultSchema,
-  attributes: {
-    ...defaultSchema.attributes,
-    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
-    span: [...(defaultSchema.attributes?.span ?? []), 'className'],
-  },
-}
+import rehypeSanitize from 'rehype-sanitize'
+import { markdownSanitizeSchema } from '../lib/markdown.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
 import { toast } from '../stores/toast.js'
@@ -99,7 +90,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="px-2 py-1 text-xs text-text-secondary hover:text-text-primary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+      className="px-2 py-1 text-xs text-text-secondary hover:text-text-primary bg-surface-hover rounded transition-colors"
       title={t('copy')}
       aria-label={t('copy')}
     >
@@ -177,8 +168,8 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
               inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors
               ${
                 hasReacted
-                  ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                  : 'bg-surface-hover border border-border text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-info-muted border border-info-border text-info-text'
+                  : 'bg-surface-hover border border-border text-text-secondary hover:bg-surface-hover'
               }
             `}
           >
@@ -298,7 +289,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
   const isAgent = message.senderType === 'agent'
 
   return (
-    <div className="px-6 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors group/msg relative">
+    <div className="px-6 py-3 hover:bg-surface-hover/50 transition-colors group/msg relative">
       {/* Mobile action trigger */}
       {!showActions && (
         <button
@@ -321,7 +312,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div className="relative">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1 rounded-md text-text-muted hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+            className="p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle"
             title={t('chat.addReaction')}
             aria-label={t('chat.addReaction')}
           >
@@ -350,7 +341,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             setReplyTo(message)
             setShowActions(false)
           }}
-          className="p-1 rounded-md text-text-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+          className="p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle"
           title={t('chat.reply')}
           aria-label={t('chat.reply')}
         >
@@ -360,20 +351,20 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <>
             <button
               onClick={handleEdit}
-              className="p-1 rounded-md text-text-muted hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
+              className="p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle"
               title={t('chat.editMessage')}
               aria-label={t('chat.editMessage')}
             >
               <PencilIcon className="w-4 h-4" />
             </button>
             {confirmingDelete ? (
-              <span className="flex items-center gap-1 bg-red-50 dark:bg-red-900/30 rounded-md px-1.5 py-0.5">
-                <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">
+              <span className="flex items-center gap-1 bg-danger-subtle rounded-md px-1.5 py-0.5">
+                <span className="text-xs text-danger-text whitespace-nowrap">
                   {t('chat.confirmDeleteMessage')}
                 </span>
                 <button
                   onClick={handleDelete}
-                  className="px-1.5 py-0.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded"
+                  className="px-1.5 py-0.5 text-xs font-medium text-white bg-danger hover:bg-danger-hover rounded"
                 >
                   {t('delete')}
                 </button>
@@ -387,7 +378,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             ) : (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="p-1 rounded-md text-text-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                className="p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle"
                 title={t('chat.deleteMessage')}
                 aria-label={t('chat.deleteMessage')}
               >
@@ -423,7 +414,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               {message.senderName}
             </span>
             {isAgent && (
-              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
+              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
                 {t('agents')}
               </span>
             )}
@@ -463,8 +454,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
 
           {/* Replied message quote */}
           {repliedMessage && (
-            <div className="mb-1.5 pl-3 border-l-2 border-blue-300 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 rounded-r-md py-1 pr-2">
-              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+            <div className="mb-1.5 pl-3 border-l-2 border-info-border bg-info-subtle/50 rounded-r-md py-1 pr-2">
+              <span className="text-xs font-medium text-info-text">
                 {repliedMessage.senderName}
               </span>
               <p className="text-xs text-text-secondary truncate">
@@ -513,7 +504,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeSanitize, sanitizeSchema], rehypeHighlight]}
+                rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
                 components={{
                   code({ className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '')
@@ -550,7 +541,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   a({ children, ...props }) {
                     return (
                       <a
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                        className="text-accent hover:text-accent-hover underline"
                         target="_blank"
                         rel="noopener noreferrer"
                         {...props}

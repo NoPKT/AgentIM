@@ -3,16 +3,8 @@ import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
-
-const sanitizeSchema = {
-  ...defaultSchema,
-  attributes: {
-    ...defaultSchema.attributes,
-    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
-    span: [...(defaultSchema.attributes?.span ?? []), 'className'],
-  },
-}
+import rehypeSanitize from 'rehype-sanitize'
+import { markdownSanitizeSchema } from '../lib/markdown.js'
 import type { ParsedChunk } from '@agentim/shared'
 
 export interface ChunkGroup {
@@ -58,7 +50,7 @@ export function ThinkingBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors w-full text-left group dark:text-gray-400 dark:hover:text-gray-300"
+        className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors w-full text-left group"
       >
         <svg
           className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
@@ -78,12 +70,12 @@ export function ThinkingBlock({
 
         <span className="font-medium">{isStreaming ? t('thinking') : t('thought')}</span>
         {!expanded && summary && (
-          <span className="text-gray-400 truncate flex-1 dark:text-gray-500">{summary}</span>
+          <span className="text-text-muted truncate flex-1">{summary}</span>
         )}
       </button>
 
       {expanded && (
-        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-purple-200 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto dark:border-purple-700 dark:text-gray-400">
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-purple-200 dark:border-purple-700 text-sm text-text-secondary whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
           {content}
           {isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-purple-400 animate-pulse ml-0.5 align-middle" />
@@ -114,7 +106,7 @@ export function ToolUseBlock({
         className="flex items-center gap-2 text-xs w-full text-left"
       >
         <svg
-          className={`w-3.5 h-3.5 text-gray-400 transition-transform flex-shrink-0 dark:text-gray-500 ${expanded ? 'rotate-90' : ''}`}
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -149,13 +141,13 @@ export function ToolUseBlock({
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          <span className="font-medium text-blue-600 dark:text-blue-400">{toolName}</span>
+          <span className="font-medium text-info-text">{toolName}</span>
         </span>
       </button>
 
       {expanded && (
-        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-blue-200 dark:border-blue-700">
-          <pre className="text-xs text-gray-600 bg-gray-50 rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto dark:text-gray-400 dark:bg-gray-800">
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-info-border">
+          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto">
             {content}
           </pre>
         </div>
@@ -171,13 +163,13 @@ export function ToolResultBlock({ content }: { content: string }) {
 
   return (
     <div className="my-1 ml-5 pl-3 border-l-2 border-green-200 dark:border-green-700">
-      <div className="text-xs text-gray-600 bg-green-50 rounded-md p-2 overflow-x-auto dark:text-gray-400 dark:bg-green-900/30">
+      <div className="text-xs text-text-secondary bg-success-subtle rounded-md p-2 overflow-x-auto">
         {isLong && !expanded ? (
           <>
             <pre className="whitespace-pre-wrap">{content.slice(0, 200)}...</pre>
             <button
               onClick={() => setExpanded(true)}
-              className="text-green-600 hover:text-green-700 mt-1 font-medium dark:text-green-400 dark:hover:text-green-300"
+              className="text-success-text hover:opacity-80 mt-1 font-medium"
             >
               {t('showMore')}
             </button>
@@ -193,10 +185,10 @@ export function ToolResultBlock({ content }: { content: string }) {
 export function ErrorBlock({ content }: { content: string }) {
   const { t } = useTranslation()
   return (
-    <div className="my-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
+    <div className="my-2 px-3 py-2 bg-danger-subtle border border-danger/20 rounded-lg">
       <div className="flex items-center gap-1.5 mb-1">
         <svg
-          className="w-4 h-4 text-red-500 dark:text-red-400"
+          className="w-4 h-4 text-danger-text"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -208,9 +200,9 @@ export function ErrorBlock({ content }: { content: string }) {
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
           />
         </svg>
-        <span className="text-xs font-medium text-red-700 dark:text-red-300">{t('error')}</span>
+        <span className="text-xs font-medium text-danger-text">{t('error')}</span>
       </div>
-      <pre className="text-xs text-red-600 whitespace-pre-wrap dark:text-red-400">{content}</pre>
+      <pre className="text-xs text-danger-text whitespace-pre-wrap">{content}</pre>
     </div>
   )
 }
@@ -224,7 +216,7 @@ export function TextBlock({
 }) {
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, sanitizeSchema], rehypeHighlight]}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}>
         {content}
       </ReactMarkdown>
       {isStreaming && (
