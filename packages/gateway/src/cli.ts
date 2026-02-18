@@ -165,6 +165,10 @@ program
     const deviceInfo = getDeviceInfo()
     let agentManager: AgentManager
     let refreshingToken: Promise<void> | null = null
+    // Track whether we already performed one token refresh this connection.
+    // If auth fails *after* a successful refresh it is a permanent error
+    // (e.g. gateway ID conflict, connection-limit) — not an expired-token issue.
+    let hasRefreshed = false
 
     const authenticate = (wsClient: GatewayWsClient) => {
       wsClient.send({
@@ -178,7 +182,9 @@ program
     const wsClient = new GatewayWsClient({
       url: config.serverUrl,
       onConnected: () => {
+        // Reset per-connection refresh state on every new connection.
         refreshingToken = null
+        hasRefreshed = false
         authenticate(wsClient)
       },
       onMessage: async (msg) => {
@@ -194,18 +200,25 @@ program
             }
             wsClient.flushQueue()
           } else {
-            // Try refreshing token once (with lock to prevent concurrent refreshes)
-            if (!refreshingToken && config.refreshToken) {
+            // First failure: try a token refresh (guarded by lock + one-shot flag).
+            // Second failure after a successful refresh: permanent error — exit.
+            if (!refreshingToken && config.refreshToken && !hasRefreshed) {
               log.info('Auth failed, refreshing token...')
               refreshingToken = tokenManager.refresh().then(
-                () => authenticate(wsClient),
+                () => {
+                  hasRefreshed = true
+                  refreshingToken = null
+                  authenticate(wsClient)
+                },
                 (err: any) => {
                   log.error(`Token refresh failed: ${err.message}`)
                   log.error('Please re-login: agentim login')
                   process.exit(1)
                 },
               )
-            } else if (!config.refreshToken) {
+            } else {
+              // No refresh token, refresh already attempted, or concurrent refresh
+              // in flight — treat as a permanent auth failure.
               log.error(`Auth failed: ${msg.error}`)
               log.error('Please re-login: agentim login')
               process.exit(1)
