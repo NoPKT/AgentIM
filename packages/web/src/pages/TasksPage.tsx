@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
-import { Button, Input, Textarea, Select } from '../components/ui.js'
+import { Button, Input, Modal, Textarea, Select } from '../components/ui.js'
+import { CloseIcon } from '../components/icons.js'
 import type { Task } from '@agentim/shared'
 
 export default function TasksPage() {
@@ -323,23 +324,17 @@ function CreateTaskDialog({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+    <Modal isOpen={true} onClose={onClose} aria-labelledby="create-task-title">
+      <div className="bg-surface rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 id="create-task-title" className="text-xl font-semibold text-text-primary">
             {t('createTask')}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="text-text-muted hover:text-text-secondary transition-colors"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <CloseIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -347,7 +342,7 @@ function CreateTaskDialog({
           <div>
             <label
               htmlFor="room"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium text-text-primary mb-2"
             >
               {t('rooms') || 'Room'}
             </label>
@@ -368,7 +363,7 @@ function CreateTaskDialog({
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium text-text-primary mb-2"
             >
               {t('taskTitle')}
             </label>
@@ -386,7 +381,7 @@ function CreateTaskDialog({
           <div>
             <label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium text-text-primary mb-2"
             >
               {t('taskDescription')}
             </label>
@@ -409,6 +404,6 @@ function CreateTaskDialog({
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   )
 }

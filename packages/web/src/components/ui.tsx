@@ -1,10 +1,10 @@
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 // ─── Button ───
 
 const buttonBase =
-  'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+  'inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
 const buttonVariants = {
   primary:
@@ -109,3 +109,57 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ),
 )
 Select.displayName = 'Select'
+
+// ─── Modal ───
+
+interface ModalProps {
+  isOpen: boolean
+  onClose: () => void
+  children: ReactNode
+  /** Extra classes on the backdrop/container (e.g. "items-start pt-[10vh]" for top-aligned dialogs) */
+  className?: string
+  'aria-labelledby'?: string
+}
+
+/**
+ * Standardised modal backdrop.
+ * – Consistent backdrop: bg-black/50 backdrop-blur-sm z-modal
+ * – ESC key closes the dialog automatically
+ * – Click on backdrop (outside content) closes the dialog
+ * – Sets role="dialog" and aria-modal="true"
+ */
+export function Modal({
+  isOpen,
+  onClose,
+  children,
+  className,
+  'aria-labelledby': labelledBy,
+}: ModalProps) {
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      className={twMerge(
+        'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4',
+        className,
+      )}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={labelledBy}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      {children}
+    </div>
+  )
+}

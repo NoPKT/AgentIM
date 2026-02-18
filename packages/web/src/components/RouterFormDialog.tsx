@@ -4,7 +4,7 @@ import type { Router } from '@agentim/shared'
 import { useRouterStore } from '../stores/routers.js'
 import { useAuthStore } from '../stores/auth.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input } from './ui.js'
+import { Button, Input, Modal } from './ui.js'
 
 interface RouterFormDialogProps {
   isOpen: boolean
@@ -145,243 +145,235 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {isEditing ? t('router.editRouter') : t('router.createRouter')}
-            </h2>
+    <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="router-form-title">
+      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 id="router-form-title" className="text-lg font-semibold text-text-primary">
+            {isEditing ? t('router.editRouter') : t('router.createRouter')}
+          </h2>
+        </div>
+
+        <div className="px-6 py-4 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              {t('router.name')} *
+            </label>
+            <Input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('router.enterName') || ''}
+            />
           </div>
 
-          <div className="px-6 py-4 space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('router.name')} *
-              </label>
-              <Input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t('router.enterName') || ''}
-              />
-            </div>
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              {t('router.description')}
+            </label>
+            <Input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('router.enterDescription') || ''}
+            />
+          </div>
 
-            {/* Description */}
+          {/* Scope (only on create, admin only) */}
+          {!isEditing && isAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('router.description')}
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                {t('router.scope')}
               </label>
-              <Input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('router.enterDescription') || ''}
-              />
-            </div>
-
-            {/* Scope (only on create, admin only) */}
-            {!isEditing && isAdmin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('router.scope')}
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setScope('personal')}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      scope === 'personal'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {t('router.scopePersonal')}
-                  </button>
-                  <button
-                    onClick={() => setScope('global')}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      scope === 'global'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {t('router.scopeGlobal')}
-                  </button>
-                </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setScope('personal')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    scope === 'personal'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface-hover text-text-secondary'
+                  }`}
+                >
+                  {t('router.scopePersonal')}
+                </button>
+                <button
+                  onClick={() => setScope('global')}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    scope === 'global'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface-hover text-text-secondary'
+                  }`}
+                >
+                  {t('router.scopeGlobal')}
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* LLM Config */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                {t('router.llmConfig')}
+          {/* LLM Config */}
+          <div className="border-t border-border pt-4">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">
+              {t('router.llmConfig')}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.llmBaseUrl')} *
+                </label>
+                <Input
+                  type="url"
+                  value={llmBaseUrl}
+                  onChange={(e) => setLlmBaseUrl(e.target.value)}
+                  placeholder={t('router.enterLlmBaseUrl') || ''}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.llmApiKey')} {isEditing ? '' : '*'}
+                </label>
+                <Input
+                  type="password"
+                  value={llmApiKey}
+                  onChange={(e) => setLlmApiKey(e.target.value)}
+                  placeholder={
+                    isEditing
+                      ? t('router.leaveEmptyToKeep') || ''
+                      : t('router.enterLlmApiKey') || ''
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.llmModel')} *
+                </label>
+                <Input
+                  type="text"
+                  value={llmModel}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                  placeholder={t('router.enterLlmModel') || ''}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Routing Protection */}
+          <div className="border-t border-border pt-4">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">
+              {t('router.routingProtection')}
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.maxChainDepth')}
+                </label>
+                <Input
+                  type="number"
+                  value={maxChainDepth}
+                  onChange={(e) => setMaxChainDepth(parseInt(e.target.value) || 5)}
+                  min={1}
+                  max={100}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.rateLimitWindow')}
+                </label>
+                <Input
+                  type="number"
+                  value={rateLimitWindow}
+                  onChange={(e) => setRateLimitWindow(parseInt(e.target.value) || 60)}
+                  min={1}
+                  max={3600}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('router.rateLimitMax')}
+                </label>
+                <Input
+                  type="number"
+                  value={rateLimitMax}
+                  onChange={(e) => setRateLimitMax(parseInt(e.target.value) || 20)}
+                  min={1}
+                  max={1000}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Visibility (only for global scope) */}
+          {(scope === 'global' || (isEditing && router?.scope === 'global')) && isAdmin && (
+            <div className="border-t border-border pt-4">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">
+                {t('router.visibility')}
               </h3>
-              <div className="space-y-3">
+              <div className="flex gap-1 mb-3">
+                {(['all', 'whitelist', 'blacklist'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setVisibility(v)}
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      visibility === v
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-hover text-text-secondary'
+                    }`}
+                  >
+                    {t(`router.visibility${v.charAt(0).toUpperCase() + v.slice(1)}`)}
+                  </button>
+                ))}
+              </div>
+              {visibility !== 'all' && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.llmBaseUrl')} *
-                  </label>
-                  <Input
-                    type="url"
-                    value={llmBaseUrl}
-                    onChange={(e) => setLlmBaseUrl(e.target.value)}
-                    placeholder={t('router.enterLlmBaseUrl') || ''}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.llmApiKey')} {isEditing ? '' : '*'}
-                  </label>
-                  <Input
-                    type="password"
-                    value={llmApiKey}
-                    onChange={(e) => setLlmApiKey(e.target.value)}
-                    placeholder={
-                      isEditing
-                        ? t('router.leaveEmptyToKeep') || ''
-                        : t('router.enterLlmApiKey') || ''
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.llmModel')} *
+                  <label className="block text-xs font-medium text-text-muted mb-1">
+                    {t('router.visibilityList')}
                   </label>
                   <Input
                     type="text"
-                    value={llmModel}
-                    onChange={(e) => setLlmModel(e.target.value)}
-                    placeholder={t('router.enterLlmModel') || ''}
+                    value={visibilityList}
+                    onChange={(e) => setVisibilityList(e.target.value)}
+                    placeholder="user-id-1, user-id-2"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Routing Protection */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                {t('router.routingProtection')}
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.maxChainDepth')}
-                  </label>
-                  <Input
-                    type="number"
-                    value={maxChainDepth}
-                    onChange={(e) => setMaxChainDepth(parseInt(e.target.value) || 5)}
-                    min={1}
-                    max={100}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.rateLimitWindow')}
-                  </label>
-                  <Input
-                    type="number"
-                    value={rateLimitWindow}
-                    onChange={(e) => setRateLimitWindow(parseInt(e.target.value) || 60)}
-                    min={1}
-                    max={3600}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {t('router.rateLimitMax')}
-                  </label>
-                  <Input
-                    type="number"
-                    value={rateLimitMax}
-                    onChange={(e) => setRateLimitMax(parseInt(e.target.value) || 20)}
-                    min={1}
-                    max={1000}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Visibility (only for global scope) */}
-            {(scope === 'global' || (isEditing && router?.scope === 'global')) && isAdmin && (
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                  {t('router.visibility')}
-                </h3>
-                <div className="flex gap-1 mb-3">
-                  {(['all', 'whitelist', 'blacklist'] as const).map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setVisibility(v)}
-                      className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                        visibility === v
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}
-                    >
-                      {t(`router.visibility${v.charAt(0).toUpperCase() + v.slice(1)}`)}
-                    </button>
-                  ))}
-                </div>
-                {visibility !== 'all' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      {t('router.visibilityList')}
-                    </label>
-                    <Input
-                      type="text"
-                      value={visibilityList}
-                      onChange={(e) => setVisibilityList(e.target.value)}
-                      placeholder="user-id-1, user-id-2"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div>
-              {isEditing && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleTest}
-                  disabled={testing}
-                >
-                  {testing ? t('testing') : t('router.testConnection')}
-                </Button>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={onClose}>
-                {t('common.cancel')}
-              </Button>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+          <div>
+            {isEditing && (
               <Button
-                onClick={handleSubmit}
-                disabled={saving || !name.trim() || !llmBaseUrl.trim() || !llmModel.trim() || (!isEditing && !llmApiKey.trim())}
+                variant="ghost"
+                size="sm"
+                onClick={handleTest}
+                disabled={testing}
               >
-                {saving
-                  ? isEditing
-                    ? t('common.saving')
-                    : t('common.creating')
-                  : isEditing
-                    ? t('common.save')
-                    : t('common.create')}
+                {testing ? t('testing') : t('router.testConnection')}
               </Button>
-            </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !name.trim() || !llmBaseUrl.trim() || !llmModel.trim() || (!isEditing && !llmApiKey.trim())}
+            >
+              {saving
+                ? isEditing
+                  ? t('common.saving')
+                  : t('common.creating')
+                : isEditing
+                  ? t('common.save')
+                  : t('common.create')}
+            </Button>
           </div>
         </div>
       </div>
-    </>
+    </Modal>
   )
 }

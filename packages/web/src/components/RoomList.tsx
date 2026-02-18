@@ -5,7 +5,7 @@ import { useChatStore } from '../stores/chat.js'
 import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
 import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
-import { Button, Input } from './ui.js'
+import { Button, Input, Modal } from './ui.js'
 
 function timeAgo(dateStr: string, t: (key: string) => string): string {
   const now = Date.now()
@@ -218,14 +218,13 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       </nav>
 
       {/* New Room Dialog */}
-      {showNewRoomDialog && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-modal p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold mb-4 text-text-primary">
+      <Modal
+        isOpen={showNewRoomDialog}
+        onClose={() => { setShowNewRoomDialog(false); setNewRoomName('') }}
+        aria-labelledby="new-room-title"
+      >
+        <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 id="new-room-title" className="text-xl font-semibold mb-4 text-text-primary">
               {t('newRoom')}
             </h2>
 
@@ -269,7 +268,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             </div>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

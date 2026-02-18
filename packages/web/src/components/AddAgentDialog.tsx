@@ -4,7 +4,8 @@ import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input } from './ui.js'
+import { Button, Input, Modal } from './ui.js'
+import { SearchIcon } from './icons.js'
 import type { Agent } from '@agentim/shared'
 
 interface AddAgentDialogProps {
@@ -71,17 +72,6 @@ export function AddAgentDialog({
     }
   }
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
-
   const renderAgentRow = (agent: Agent, showOwner = false) => {
     const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
     const type = typeConfig[agent.type] || typeConfig.generic
@@ -89,7 +79,7 @@ export function AddAgentDialog({
     return (
       <div
         key={agent.id}
-        className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+        className="px-6 py-3 flex items-center gap-3 hover:bg-surface-hover transition-colors"
       >
         {/* Avatar */}
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
@@ -101,7 +91,7 @@ export function AddAgentDialog({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
+            <span className="font-medium text-text-primary text-sm truncate">
               {agent.name}
             </span>
             <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
@@ -113,7 +103,7 @@ export function AddAgentDialog({
               {type.label}
             </span>
             {showOwner && agent.ownerName && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+              <span className="text-xs text-text-muted truncate">
                 {t('ownedBy', { name: agent.ownerName })}
               </span>
             )}
@@ -124,7 +114,7 @@ export function AddAgentDialog({
         <button
           onClick={() => handleAdd(agent.id)}
           disabled={adding === agent.id}
-          className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 flex-shrink-0"
+          className="px-3 py-1.5 text-sm font-medium text-info-text bg-info-subtle rounded-lg hover:bg-info-muted transition-colors disabled:opacity-50 flex-shrink-0"
         >
           {adding === agent.id ? t('adding') : t('addAgent')}
         </button>
@@ -135,37 +125,19 @@ export function AddAgentDialog({
   const hasNoAgents = availableMyAgents.length === 0 && availableSharedAgents.length === 0
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="add-agent-title">
+      <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 id="add-agent-title" className="text-lg font-semibold text-text-primary">
             {t('addAgentToRoom')}
           </h2>
         </div>
 
         {/* Search + Filter */}
-        <div className="px-6 py-3 space-y-3 border-b border-gray-100 dark:border-gray-700">
+        <div className="px-6 py-3 space-y-3 border-b border-border">
           <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <Input
               type="text"
               value={search}
@@ -181,9 +153,9 @@ export function AddAgentDialog({
               type="checkbox"
               checked={onlineOnly}
               onChange={(e) => setOnlineOnly(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+              className="rounded border-border text-accent focus:ring-accent"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-text-secondary">
               {t('filterOnlineOnly')}
             </span>
           </label>
@@ -192,7 +164,7 @@ export function AddAgentDialog({
         {/* Agent List */}
         <div className="max-h-80 overflow-y-auto">
           {hasNoAgents ? (
-            <div className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="px-6 py-8 text-center text-sm text-text-secondary">
               {t('noAgentsAvailable')}
             </div>
           ) : (
@@ -200,8 +172,8 @@ export function AddAgentDialog({
               {/* My Agents Section */}
               {availableMyAgents.length > 0 && (
                 <>
-                  <div className="px-6 py-2 bg-gray-50 dark:bg-gray-700/30 sticky top-0">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <div className="px-6 py-2 bg-surface-secondary sticky top-0">
+                    <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                       {t('myAgents')}
                     </span>
                   </div>
@@ -212,8 +184,8 @@ export function AddAgentDialog({
               {/* Shared Agents Section */}
               {availableSharedAgents.length > 0 && (
                 <>
-                  <div className="px-6 py-2 bg-gray-50 dark:bg-gray-700/30 sticky top-0">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <div className="px-6 py-2 bg-surface-secondary sticky top-0">
+                    <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                       {t('sharedAgents')}
                     </span>
                   </div>
@@ -225,12 +197,12 @@ export function AddAgentDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+        <div className="px-6 py-3 border-t border-border flex justify-end">
           <Button variant="secondary" onClick={onClose}>
             {t('close')}
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { useRouterStore } from '../stores/routers.js'
-import { Button, Input, Textarea, Select } from './ui.js'
+import { Button, Input, Modal, Textarea, Select } from './ui.js'
 import { CloseIcon, LockIcon, GroupIcon } from './icons.js'
 
 interface CreateRoomDialogProps {
@@ -61,16 +61,6 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     if (isOpen) loadRouters()
   }, [isOpen, loadRouters])
 
-  // Escape key handler
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
-
   // Focus trap
   useEffect(() => {
     if (!isOpen) return
@@ -111,20 +101,11 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     }
   }, [isOpen])
 
-  if (!isOpen) return null
-
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-room-title"
-      onClick={handleClose}
-    >
+    <Modal isOpen={isOpen} onClose={handleClose} aria-labelledby="create-room-title">
       <div
         ref={dialogRef}
         className="bg-surface rounded-lg shadow-lg max-w-md w-full p-6"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <h2
@@ -297,6 +278,6 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   )
 }
