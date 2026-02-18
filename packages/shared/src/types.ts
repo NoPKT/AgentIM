@@ -9,6 +9,8 @@ import type {
   MessageType,
   TaskStatus,
   ChunkType,
+  RouterScope,
+  RouterVisibility,
 } from './constants.js'
 
 // ─── Core Entities ───
@@ -57,12 +59,31 @@ export interface Gateway {
   createdAt: string
 }
 
+export interface Router {
+  id: string
+  name: string
+  description?: string | null
+  scope: RouterScope
+  createdById: string
+  llmBaseUrl: string
+  llmApiKey: string
+  llmModel: string
+  maxChainDepth: number
+  rateLimitWindow: number
+  rateLimitMax: number
+  visibility: RouterVisibility
+  visibilityList: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Room {
   id: string
   name: string
   type: RoomType
   broadcastMode: boolean
   systemPrompt?: string
+  routerId?: string | null
   createdById: string
   pinnedAt?: string | null
   archivedAt?: string | null
@@ -79,6 +100,7 @@ export interface RoomMember {
   notificationPref?: 'all' | 'mentions' | 'none'
   pinnedAt?: string
   archivedAt?: string
+  lastReadAt?: string
   joinedAt: string
 }
 

@@ -31,6 +31,12 @@ export type AgentConnectionType = (typeof AGENT_CONNECTION_TYPES)[number]
 export const NOTIFICATION_PREFS = ['all', 'mentions', 'none'] as const
 export type NotificationPref = (typeof NOTIFICATION_PREFS)[number]
 
+export const ROUTER_SCOPES = ['global', 'personal'] as const
+export type RouterScope = (typeof ROUTER_SCOPES)[number]
+
+export const ROUTER_VISIBILITIES = ['all', 'whitelist', 'blacklist'] as const
+export type RouterVisibility = (typeof ROUTER_VISIBILITIES)[number]
+
 export const USER_ROLES = ['admin', 'user'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
@@ -41,7 +47,7 @@ export const ALLOWED_MIME_TYPES = [
   'image/png',
   'image/gif',
   'image/webp',
-  'image/svg+xml',
+  // SVG intentionally excluded — can contain <script> tags leading to XSS
   'application/pdf',
   'text/plain',
   'text/markdown',
@@ -53,4 +59,12 @@ export const ALLOWED_MIME_TYPES = [
 export const MAX_MESSAGE_LENGTH = 100_000
 export const MAX_ROOM_NAME_LENGTH = 100
 export const MAX_USERNAME_LENGTH = 50
+export const MAX_SYSTEM_PROMPT_LENGTH = 10_000
+export const MAX_BUFFER_SIZE = 10 * 1024 * 1024 // 10 MB
 export const DEFAULT_PAGE_SIZE = 50
+
+export const MEMBER_TYPES = ['user', 'agent'] as const
+export type MemberType = (typeof MEMBER_TYPES)[number]
+
+export const SENDER_TYPES = ['user', 'agent', 'system'] as const
+export type SenderType = (typeof SENDER_TYPES)[number]

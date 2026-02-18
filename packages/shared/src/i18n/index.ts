@@ -27,4 +27,5 @@ export const I18N_NAMESPACES = [
   'task',
   'settings',
   'error',
+  'router',
 ] as const

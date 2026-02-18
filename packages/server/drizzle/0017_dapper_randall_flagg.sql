@@ -1,0 +1,2 @@
+CREATE INDEX "room_members_room_type_idx" ON "room_members" USING btree ("room_id","member_type");--> statement-breakpoint
+CREATE INDEX "room_members_member_type_idx" ON "room_members" USING btree ("member_id","member_type");

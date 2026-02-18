@@ -1,0 +1,2 @@
+CREATE INDEX "audit_logs_target_idx" ON "audit_logs" USING btree ("target_id","target_type");--> statement-breakpoint
+CREATE INDEX "attachments_uploaded_by_idx" ON "message_attachments" USING btree ("uploaded_by");

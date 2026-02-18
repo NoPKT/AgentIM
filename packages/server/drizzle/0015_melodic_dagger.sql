@@ -1,0 +1,1 @@
+CREATE INDEX "rooms_router_idx" ON "rooms" USING btree ("router_id");

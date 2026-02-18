@@ -11,9 +11,14 @@ import {
   CHUNK_TYPES,
   ROUTING_MODES,
   USER_ROLES,
+  ROUTER_SCOPES,
+  ROUTER_VISIBILITIES,
   MAX_MESSAGE_LENGTH,
   MAX_ROOM_NAME_LENGTH,
   MAX_USERNAME_LENGTH,
+  MAX_SYSTEM_PROMPT_LENGTH,
+  MEMBER_TYPES,
+  SENDER_TYPES,
 } from './constants.js'
 
 // ─── Password Complexity ───
@@ -35,7 +40,12 @@ export const registerSchema = z.object({
     .max(MAX_USERNAME_LENGTH)
     .regex(/^[a-zA-Z0-9_-]+$/),
   password: passwordSchema,
-  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
+  displayName: z
+    .string()
+    .min(1)
+    .max(MAX_USERNAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .optional(),
 })
 
 export const loginSchema = z.object({
@@ -44,28 +54,86 @@ export const loginSchema = z.object({
 })
 
 export const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
+  refreshToken: z.string().min(1).max(2000),
 })
 
 // ─── Room ───
 
 export const createRoomSchema = z.object({
-  name: z.string().min(1).max(MAX_ROOM_NAME_LENGTH),
+  name: z
+    .string()
+    .min(1)
+    .max(MAX_ROOM_NAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace'),
   type: z.enum(ROOM_TYPES).default('group'),
   broadcastMode: z.boolean().default(false),
-  systemPrompt: z.string().max(10000).optional(),
-  memberIds: z.array(z.string()).optional(),
+  systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
+  routerId: z.string().max(100).optional(),
+  memberIds: z.array(z.string().max(100)).max(100).optional(),
 })
 
 export const updateRoomSchema = z.object({
-  name: z.string().min(1).max(MAX_ROOM_NAME_LENGTH).optional(),
+  name: z
+    .string()
+    .min(1)
+    .max(MAX_ROOM_NAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace')
+    .optional(),
   broadcastMode: z.boolean().optional(),
-  systemPrompt: z.string().max(10000).nullable().optional(),
+  systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).nullable().optional(),
+  routerId: z.string().max(100).nullable().optional(),
+})
+
+// ─── Router ───
+
+export const createRouterSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace'),
+  description: z.string().max(1000).optional(),
+  scope: z.enum(ROUTER_SCOPES).default('personal'),
+  llmBaseUrl: z.string().url().max(500),
+  llmApiKey: z.string().min(1).max(500),
+  llmModel: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((s) => s.trim().length > 0, 'Model cannot be only whitespace'),
+  maxChainDepth: z.number().int().min(1).max(100).default(5),
+  rateLimitWindow: z.number().int().min(1).max(3600).default(60),
+  rateLimitMax: z.number().int().min(1).max(1000).default(20),
+  visibility: z.enum(ROUTER_VISIBILITIES).default('all'),
+  visibilityList: z.array(z.string().max(100)).max(500).default([]),
+})
+
+export const updateRouterSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace')
+    .optional(),
+  description: z.string().max(1000).nullable().optional(),
+  llmBaseUrl: z.string().url().max(500).optional(),
+  llmApiKey: z.string().min(1).max(500).optional(),
+  llmModel: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((s) => s.trim().length > 0, 'Model cannot be only whitespace')
+    .optional(),
+  maxChainDepth: z.number().int().min(1).max(100).optional(),
+  rateLimitWindow: z.number().int().min(1).max(3600).optional(),
+  rateLimitMax: z.number().int().min(1).max(1000).optional(),
+  visibility: z.enum(ROUTER_VISIBILITIES).optional(),
+  visibilityList: z.array(z.string().max(100)).max(500).optional(),
 })
 
 export const addMemberSchema = z.object({
-  memberId: z.string().min(1),
-  memberType: z.enum(['user', 'agent']),
+  memberId: z.string().min(1).max(100),
+  memberType: z.enum(MEMBER_TYPES),
   role: z.enum(MEMBER_ROLES).default('member'),
   roleDescription: z.string().max(500).optional(),
 })
@@ -74,9 +142,9 @@ export const addMemberSchema = z.object({
 
 export const sendMessageSchema = z.object({
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
-  mentions: z.array(z.string()).default([]),
+  mentions: z.array(z.string()).max(50).default([]),
   replyToId: z.string().optional(),
-  attachmentIds: z.array(z.string()).optional(),
+  attachmentIds: z.array(z.string()).max(20).optional(),
 })
 
 export const editMessageSchema = z.object({
@@ -91,17 +159,26 @@ export const messageQuerySchema = z.object({
 // ─── Task ───
 
 export const createTaskSchema = z.object({
-  title: z.string().min(1).max(200),
+  title: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((s) => s.trim().length > 0, 'Title cannot be only whitespace'),
   description: z.string().max(10000).default(''),
-  assigneeId: z.string().optional(),
+  assigneeId: z.string().max(100).optional(),
   assigneeType: z.enum(['user', 'agent']).optional(),
 })
 
 export const updateTaskSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
+  title: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine((s) => s.trim().length > 0, 'Title cannot be only whitespace')
+    .optional(),
   description: z.string().max(10000).optional(),
   status: z.enum(TASK_STATUSES).optional(),
-  assigneeId: z.string().nullable().optional(),
+  assigneeId: z.string().max(100).nullable().optional(),
   assigneeType: z.enum(['user', 'agent']).nullable().optional(),
 })
 
@@ -114,8 +191,13 @@ export const updateAgentSchema = z.object({
 // ─── User ───
 
 export const updateUserSchema = z.object({
-  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
-  avatarUrl: z.string().url().optional(),
+  displayName: z
+    .string()
+    .min(1)
+    .max(MAX_USERNAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .optional(),
+  avatarUrl: z.string().startsWith('/uploads/').max(500).optional(),
 })
 
 export const changePasswordSchema = z.object({
@@ -130,28 +212,40 @@ export const adminCreateUserSchema = z.object({
     .max(MAX_USERNAME_LENGTH)
     .regex(/^[a-zA-Z0-9_-]+$/),
   password: passwordSchema,
-  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
+  displayName: z
+    .string()
+    .min(1)
+    .max(MAX_USERNAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .optional(),
   role: z.enum(USER_ROLES).default('user'),
 })
 
 export const adminUpdateUserSchema = z.object({
-  displayName: z.string().min(1).max(MAX_USERNAME_LENGTH).optional(),
+  displayName: z
+    .string()
+    .min(1)
+    .max(MAX_USERNAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .optional(),
   role: z.enum(USER_ROLES).optional(),
   password: passwordSchema.optional(),
+  maxWsConnections: z.number().int().min(1).max(1000).nullable().optional(),
+  maxGateways: z.number().int().min(1).max(1000).nullable().optional(),
 })
 
 // ─── WebSocket Protocol Validators ───
 
 const parsedChunkSchema = z.object({
   type: z.enum(CHUNK_TYPES),
-  content: z.string(),
+  content: z.string().max(1_000_000),
   metadata: z.record(z.unknown()).optional(),
 })
 
 // Client messages
 export const clientAuthSchema = z.object({
   type: z.literal('client:auth'),
-  token: z.string().min(1),
+  token: z.string().min(1).max(2000),
 })
 
 export const clientJoinRoomSchema = z.object({
@@ -168,9 +262,9 @@ export const clientSendMessageSchema = z.object({
   type: z.literal('client:send_message'),
   roomId: z.string().min(1),
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
-  mentions: z.array(z.string()).default([]),
+  mentions: z.array(z.string()).max(50).default([]),
   replyToId: z.string().optional(),
-  attachmentIds: z.array(z.string()).optional(),
+  attachmentIds: z.array(z.string()).max(20).optional(),
 })
 
 export const clientTypingSchema = z.object({
@@ -202,7 +296,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 // Gateway messages
 export const gatewayAuthSchema = z.object({
   type: z.literal('gateway:auth'),
-  token: z.string().min(1),
+  token: z.string().min(1).max(2000),
   gatewayId: z.string().min(1),
   deviceInfo: z.object({
     hostname: z.string(),
@@ -217,7 +311,7 @@ export const gatewayRegisterAgentSchema = z.object({
   agent: z.object({
     id: z.string().min(1),
     name: z.string().min(1),
-    type: z.string(),
+    type: z.enum(AGENT_TYPES),
     workingDirectory: z.string().optional(),
     capabilities: z.array(z.string()).optional(),
   }),
@@ -241,9 +335,9 @@ export const gatewayMessageCompleteSchema = z.object({
   roomId: z.string().min(1),
   agentId: z.string().min(1),
   messageId: z.string().min(1),
-  fullContent: z.string(),
-  chunks: z.array(parsedChunkSchema).optional(),
-  conversationId: z.string().optional(),
+  fullContent: z.string().max(10_000_000),
+  chunks: z.array(parsedChunkSchema).max(10_000).optional(),
+  conversationId: z.string().max(100).optional(),
   depth: z.number().int().min(0).optional(),
 })
 
@@ -256,7 +350,7 @@ export const gatewayAgentStatusSchema = z.object({
 export const gatewayTerminalDataSchema = z.object({
   type: z.literal('gateway:terminal_data'),
   agentId: z.string().min(1),
-  data: z.string(),
+  data: z.string().max(1_000_000),
 })
 
 export const gatewayTaskUpdateSchema = z.object({
@@ -304,7 +398,7 @@ const messageSchema = z.object({
   id: z.string(),
   roomId: z.string(),
   senderId: z.string(),
-  senderType: z.enum(['user', 'agent', 'system']),
+  senderType: z.enum(SENDER_TYPES),
   senderName: z.string(),
   type: z.enum(MESSAGE_TYPES),
   content: z.string(),
@@ -360,6 +454,7 @@ const roomSchema = z.object({
   type: z.enum(ROOM_TYPES),
   broadcastMode: z.boolean(),
   systemPrompt: z.string().optional(),
+  routerId: z.string().nullable().optional(),
   createdById: z.string(),
   pinnedAt: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),
@@ -370,12 +465,13 @@ const roomSchema = z.object({
 const roomMemberSchema = z.object({
   roomId: z.string(),
   memberId: z.string(),
-  memberType: z.enum(['user', 'agent']),
+  memberType: z.enum(MEMBER_TYPES),
   role: z.enum(MEMBER_ROLES),
   roleDescription: z.string().optional(),
   notificationPref: z.enum(['all', 'mentions', 'none']).optional(),
   pinnedAt: z.string().optional(),
   archivedAt: z.string().optional(),
+  lastReadAt: z.string().optional(),
   joinedAt: z.string(),
 })
 
@@ -533,7 +629,7 @@ export const serverSendToAgentSchema = z.object({
   messageId: z.string(),
   content: z.string(),
   senderName: z.string(),
-  senderType: z.enum(['user', 'agent']),
+  senderType: z.enum(MEMBER_TYPES),
   routingMode: z.enum(ROUTING_MODES),
   conversationId: z.string(),
   depth: z.number().int().min(0),

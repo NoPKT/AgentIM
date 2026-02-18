@@ -7,11 +7,19 @@ function env(key: string, fallback: string): string {
   return process.env[key] ?? fallback
 }
 
+/** Parse an integer env var, returning fallback when missing or NaN (but NOT when 0). */
+function intEnv(key: string, fallback: number): number {
+  const raw = process.env[key]
+  if (raw === undefined || raw === '') return fallback
+  const val = parseInt(raw, 10)
+  return Number.isNaN(val) ? fallback : val
+}
+
 const isProduction = process.env.NODE_ENV === 'production'
 
 export const config = {
   isProduction,
-  port: parseInt(env('PORT', '3000'), 10),
+  port: Math.max(1, Math.min(65535, intEnv('PORT', 3000))),
   host: env('HOST', '0.0.0.0'),
   databaseUrl: env('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/agentim'),
   redisUrl: env('REDIS_URL', 'redis://localhost:6379'),
@@ -25,27 +33,43 @@ export const config = {
   sentryDsn: process.env.SENTRY_DSN || '',
   // File upload
   uploadDir: env('UPLOAD_DIR', './uploads'),
-  maxFileSize: parseInt(env('MAX_FILE_SIZE', String(MAX_FILE_SIZE)), 10),
+  maxFileSize: Math.max(1, intEnv('MAX_FILE_SIZE', MAX_FILE_SIZE)),
   allowedMimeTypes: ALLOWED_MIME_TYPES as readonly string[],
   // AI Router (optional — uses OpenAI-compatible API)
   routerLlmBaseUrl: process.env.ROUTER_LLM_BASE_URL || '',
   routerLlmApiKey: process.env.ROUTER_LLM_API_KEY || '',
   routerLlmModel: process.env.ROUTER_LLM_MODEL || '',
   // Routing protection
-  maxAgentChainDepth: parseInt(env('MAX_AGENT_CHAIN_DEPTH', '5'), 10),
-  agentRateLimitWindow: parseInt(env('AGENT_RATE_LIMIT_WINDOW', '60'), 10),
-  agentRateLimitMax: parseInt(env('AGENT_RATE_LIMIT_MAX', '20'), 10),
+  maxAgentChainDepth: Math.max(1, Math.min(100, intEnv('MAX_AGENT_CHAIN_DEPTH', 5))),
+  agentRateLimitWindow: Math.max(1, Math.min(3600, intEnv('AGENT_RATE_LIMIT_WINDOW', 60))),
+  agentRateLimitMax: Math.max(1, Math.min(1000, intEnv('AGENT_RATE_LIMIT_MAX', 20))),
   // Periodic cleanup intervals (ms)
-  orphanFileCheckInterval: parseInt(env('ORPHAN_FILE_CHECK_INTERVAL', '3600000'), 10),
-  tokenCleanupInterval: parseInt(env('TOKEN_CLEANUP_INTERVAL', '3600000'), 10),
+  orphanFileCheckInterval: Math.max(60000, intEnv('ORPHAN_FILE_CHECK_INTERVAL', 3600000)),
+  tokenCleanupInterval: Math.max(60000, intEnv('TOKEN_CLEANUP_INTERVAL', 3600000)),
   // Client WebSocket rate limiting
-  clientRateLimitWindow: parseInt(env('CLIENT_RATE_LIMIT_WINDOW', '10'), 10),
+  clientRateLimitWindow: Math.max(1, Math.min(300, intEnv('CLIENT_RATE_LIMIT_WINDOW', 10))),
+  // WebSocket connection limits (global defaults, can be overridden per-user)
+  maxWsConnectionsPerUser: Math.max(1, Math.min(100, intEnv('MAX_WS_CONNECTIONS_PER_USER', 10))),
+  maxTotalWsConnections: Math.max(10, Math.min(100000, intEnv('MAX_TOTAL_WS_CONNECTIONS', 5000))),
+  maxGatewaysPerUser: Math.max(1, Math.min(100, intEnv('MAX_GATEWAYS_PER_USER', 20))),
+  // Trust proxy headers (X-Forwarded-For, X-Real-IP) for client IP resolution
+  // Set to true only when running behind a trusted reverse proxy (nginx, cloudflare, etc.)
+  trustProxy: env('TRUST_PROXY', 'false') === 'true',
+  // WebSocket protocol constants
+  wsAuthTimeoutMs: 10_000,
+  maxWsMessageSize: 64 * 1024, // 64 KB (client messages)
+  maxGatewayMessageSize: 256 * 1024, // 256 KB (gateway messages include agent output)
+  maxAttachmentsPerMessage: 20,
+  maxReactionsPerMessage: 20,
+  typingDebounceMs: 1_000,
+  routerTestTimeoutMs: 10_000,
+  maxRefreshTokensPerUser: 10,
 }
 
-// Security check: refuse to start in production with default JWT secret
-if (isProduction && config.jwtSecret === 'dev-secret-change-me') {
+// Security check: refuse to start in production with weak JWT secret
+if (isProduction && (config.jwtSecret === 'dev-secret-change-me' || config.jwtSecret.length < 32)) {
   log.fatal(
-    'JWT_SECRET is set to the default value. Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -base64 32)',
+    'JWT_SECRET is missing or too short (min 32 chars). Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -base64 32)',
   )
   process.exit(1)
 }
@@ -66,10 +90,26 @@ if (isProduction) {
   }
 }
 
-// Refuse to start with wide-open CORS in production
-if (isProduction && config.corsOrigin === '*') {
+// Refuse to start with wide-open or empty CORS in production
+if (isProduction && (!config.corsOrigin || config.corsOrigin === '*')) {
   log.fatal(
-    'CORS_ORIGIN is set to "*" in production. Set CORS_ORIGIN to your frontend domain (e.g. https://app.example.com).',
+    'CORS_ORIGIN must be set to your frontend domain in production (e.g. https://app.example.com). It cannot be empty or "*".',
+  )
+  process.exit(1)
+}
+
+// Validate ENCRYPTION_KEY format if set
+if (process.env.ENCRYPTION_KEY) {
+  const keyLen = Buffer.from(process.env.ENCRYPTION_KEY, 'base64').length
+  if (keyLen !== 32) {
+    log.fatal(
+      `ENCRYPTION_KEY must be exactly 32 bytes (got ${keyLen}). Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)`,
+    )
+    process.exit(1)
+  }
+} else if (isProduction) {
+  log.fatal(
+    'ENCRYPTION_KEY must be set in production — Router API keys cannot be stored securely without it. Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
   )
   process.exit(1)
 }
