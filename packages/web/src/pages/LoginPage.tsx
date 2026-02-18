@@ -41,19 +41,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-surface-secondary px-4">
       <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-8">
+        <div className="bg-surface rounded-lg border border-border shadow-sm p-8">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-semibold text-text-primary mb-2">
               {t('loginTitle')}
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{t('loginSubtitle')}</p>
+            <p className="text-sm text-text-secondary">{t('loginSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-md text-sm">
+              <div className="bg-danger-subtle border border-danger/20 text-danger-text px-4 py-3 rounded-md text-sm">
                 {error}
               </div>
             )}
@@ -61,7 +61,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium text-text-primary mb-2"
               >
                 {t('username')}
               </label>
@@ -79,7 +79,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium text-text-primary mb-2"
               >
                 {t('password')}
               </label>

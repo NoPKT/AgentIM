@@ -98,7 +98,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       {/* New Room Button */}
       <button
         onClick={() => setShowNewRoomDialog(true)}
-        className="w-full mb-4 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 shadow-sm"
+        className="w-full mb-4 px-4 py-2.5 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors flex items-center justify-center space-x-2 shadow-sm"
       >
         <PlusIcon className="w-5 h-5" />
         <span>{t('newRoom')}</span>
@@ -107,7 +107,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       {/* Room List */}
       <nav className="space-y-1" aria-label={t('rooms')}>
         <div className="flex items-center justify-between px-2 mb-2">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
             {showArchived ? t('archivedRooms') : t('rooms')}
           </h3>
           <div className="flex items-center gap-1">
@@ -123,7 +123,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                     toast.error(t('error'))
                   }
                 }}
-                className="text-[10px] px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                className="text-[10px] px-1.5 py-0.5 rounded text-text-muted hover:text-info-text transition-colors"
                 title={t('markAllRead')}
               >
                 {t('markAllRead')}
@@ -133,8 +133,8 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
               onClick={() => setShowArchived(!showArchived)}
               className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
                 showArchived
-                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                  ? 'bg-info-muted text-info-text'
+                  : 'text-text-muted hover:text-text-secondary'
               }`}
             >
               {showArchived ? t('rooms') : t('archivedRooms')}
@@ -143,11 +143,11 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         </div>
         {rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
-            <ChatBubbleIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            <ChatBubbleIcon className="w-10 h-10 text-text-muted mb-3" />
+            <p className="text-sm font-medium text-text-secondary mb-1">
               {t('noResults')}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-text-muted">
               {t('createFirstRoom')}
             </p>
           </div>
@@ -164,14 +164,14 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                     w-full px-3 py-2.5 text-left rounded-lg transition-all relative
                     ${
                       room.id === currentRoomId
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        ? 'bg-info-subtle text-info-text font-medium'
+                        : 'text-text-primary hover:bg-surface-hover'
                     }
                   `}
               >
                 {/* Active indicator */}
                 {room.id === currentRoomId && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-r-full" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-accent rounded-r-full" />
                 )}
                 <div className="flex items-center space-x-2.5">
                   <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
@@ -185,25 +185,25 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                       </span>
                       <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
                         {room.broadcastMode && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
                             BC
                           </span>
                         )}
                         {lastMsg && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          <span className="text-[10px] text-text-muted">
                             {timeAgo(lastMsg.createdAt, t)}
                           </span>
                         )}
                         {unread > 0 && room.id !== currentRoomId && (
-                          <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-blue-600 rounded-full">
+                          <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-accent rounded-full">
                             {unread > 99 ? '99+' : unread}
                           </span>
                         )}
                       </div>
                     </div>
                     {lastMsg && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                        <span className="text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-text-muted truncate mt-0.5">
+                        <span className="text-text-secondary">
                           {lastMsg.senderName}:{' '}
                         </span>
                         {lastMsg.content.slice(0, 50)}
@@ -220,19 +220,19 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       {/* New Room Dialog */}
       {showNewRoomDialog && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-modal p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+          <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold mb-4 text-text-primary">
               {t('newRoom')}
             </h2>
 
             <div className="space-y-4">
               {/* Room Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-primary mb-1">
                   {t('roomName')}
                 </label>
                 <Input
