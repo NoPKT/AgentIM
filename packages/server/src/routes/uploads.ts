@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, isNull, lt, and } from 'drizzle-orm'
-import { resolve, extname } from 'node:path'
+import { resolve, extname, basename } from 'node:path'
 import { writeFile, unlink } from 'node:fs/promises'
 import { db } from '../db/index.js'
 import { messageAttachments, users } from '../db/schema.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { uploadRateLimit } from '../middleware/rateLimit.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
 
@@ -25,14 +26,29 @@ const MAGIC_BYTES: [string, number[], number?][] = [
   ['application/gzip', [0x1f, 0x8b]],
 ]
 
-function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
-  // Only validate types we know the signature for
-  const signature = MAGIC_BYTES.find(
-    ([type]) => declaredType === type || declaredType.startsWith(type.split('/')[0] + '/'),
-  )
-  if (!signature) return true // Unknown type — allow (MIME check already passed)
+/** Text-based MIME types that should be validated as valid UTF-8 without null bytes */
+const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'application/json'])
 
-  const matchesAny = MAGIC_BYTES.filter(([type]) => type === declaredType).some(([, bytes]) => {
+function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
+  // For text-based types, verify the content is valid UTF-8 and contains no null bytes
+  if (TEXT_MIME_TYPES.has(declaredType)) {
+    // Null bytes indicate binary data disguised as text
+    if (buffer.includes(0x00)) return false
+    // Validate UTF-8 by round-tripping through TextDecoder
+    try {
+      const decoder = new TextDecoder('utf-8', { fatal: true })
+      decoder.decode(buffer)
+    } catch {
+      return false
+    }
+    return true
+  }
+
+  // Only validate types we have signatures for (exact match only)
+  const signatures = MAGIC_BYTES.filter(([type]) => type === declaredType)
+  if (signatures.length === 0) return true // No known signature — allow (MIME check already passed)
+
+  const matchesAny = signatures.some(([, bytes]) => {
     if (buffer.length < bytes.length) return false
     return bytes.every((b, i) => buffer[i] === b)
   })
@@ -49,6 +65,7 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
 export const uploadRoutes = new Hono<AuthEnv>()
 
 uploadRoutes.use('*', authMiddleware)
+uploadRoutes.use('*', uploadRateLimit)
 
 // Upload a file (returns attachment record for later association with a message)
 uploadRoutes.post('/', async (c) => {
@@ -161,20 +178,31 @@ export async function cleanupOrphanAttachments() {
 
   if (orphans.length === 0) return
 
+  const unlinkedIds: string[] = []
   for (const orphan of orphans) {
-    const filePath = resolve(config.uploadDir, orphan.url.replace(/^\/uploads\//, ''))
+    // Use basename to prevent path traversal
+    const filename = basename(orphan.url)
+    const filePath = resolve(config.uploadDir, filename)
     try {
       await unlink(filePath)
-    } catch {
-      // File may already be deleted
+      unlinkedIds.push(orphan.id)
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        // File already gone — safe to remove DB record
+        unlinkedIds.push(orphan.id)
+      } else {
+        // Real I/O error — keep DB record for retry
+        log.warn(`Failed to unlink orphan file ${filename}: ${err?.message}`)
+      }
     }
   }
 
-  const orphanIds = orphans.map((o) => o.id)
-  const { inArray } = await import('drizzle-orm')
-  await db.delete(messageAttachments).where(inArray(messageAttachments.id, orphanIds))
+  if (unlinkedIds.length > 0) {
+    const { inArray } = await import('drizzle-orm')
+    await db.delete(messageAttachments).where(inArray(messageAttachments.id, unlinkedIds))
+  }
 
-  log.info(`Cleaned up ${orphans.length} orphan attachment(s)`)
+  log.info(`Cleaned up ${unlinkedIds.length} orphan attachment(s)`)
 }
 
 let cleanupTimer: ReturnType<typeof setInterval> | null = null

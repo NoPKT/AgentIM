@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { rooms, roomMembers, agents, gateways } from '../db/schema.js'
+import { rooms, roomMembers, agents, gateways, routers, users } from '../db/schema.js'
 import {
   createRoomSchema,
   updateRoomSchema,
@@ -12,8 +12,33 @@ import {
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
+import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents } from '../ws/gatewayHandler.js'
+
+async function checkRouterAccess(
+  userId: string,
+  routerId: string,
+): Promise<{ ok: true } | { ok: false; status: 404 | 403; error: string }> {
+  const [router] = await db
+    .select()
+    .from(routers)
+    .where(eq(routers.id, routerId))
+    .limit(1)
+  if (!router) {
+    return { ok: false, status: 404, error: 'Router not found' }
+  }
+  const [me] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  if (me?.role !== 'admin' && !isRouterVisibleToUser(router, userId)) {
+    return { ok: false, status: 403, error: 'Router not accessible' }
+  }
+  return { ok: true }
+}
 
 async function broadcastRoomUpdate(roomId: string) {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
@@ -29,6 +54,8 @@ async function broadcastRoomUpdate(roomId: string) {
 export const roomRoutes = new Hono<AuthEnv>()
 
 roomRoutes.use('*', authMiddleware)
+roomRoutes.use('/:id/*', validateIdParams)
+roomRoutes.use('/:id', validateIdParams)
 
 // List rooms for current user
 roomRoutes.get('/', async (c) => {
@@ -59,54 +86,81 @@ roomRoutes.get('/', async (c) => {
 // Create room
 roomRoutes.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = createRoomSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed', details: parsed.error.flatten() }, 400)
+    return c.json({ ok: false, error: 'Validation failed' }, 400)
   }
 
   const id = nanoid()
   const now = new Date().toISOString()
 
-  const [room] = await db.transaction(async (tx) => {
-    await tx.insert(rooms).values({
-      id,
-      name: sanitizeText(parsed.data.name),
-      type: parsed.data.type,
-      broadcastMode: parsed.data.broadcastMode,
-      systemPrompt: parsed.data.systemPrompt ?? null,
-      createdById: userId,
-      createdAt: now,
-      updatedAt: now,
-    })
+  // Validate routerId if provided
+  if (parsed.data.routerId) {
+    const check = await checkRouterAccess(userId, parsed.data.routerId)
+    if (!check.ok) return c.json({ ok: false, error: check.error }, check.status)
+  }
 
-    // Add creator as owner
-    await tx.insert(roomMembers).values({
-      roomId: id,
-      memberId: userId,
-      memberType: 'user',
-      role: 'owner',
-      lastReadAt: now,
-      joinedAt: now,
-    })
+  let room
+  try {
+    ;[room] = await db.transaction(async (tx) => {
+      await tx.insert(rooms).values({
+        id,
+        name: sanitizeText(parsed.data.name),
+        type: parsed.data.type,
+        broadcastMode: parsed.data.broadcastMode,
+        systemPrompt: parsed.data.systemPrompt ?? null,
+        routerId: parsed.data.routerId ?? null,
+        createdById: userId,
+        createdAt: now,
+        updatedAt: now,
+      })
 
-    // Add additional members (deduplicate and exclude creator)
-    const uniqueMemberIds = [...new Set(parsed.data.memberIds)].filter((id) => id !== userId)
-    if (uniqueMemberIds.length > 0) {
-      await tx.insert(roomMembers).values(
-        uniqueMemberIds.map((memberId) => ({
-          roomId: id,
-          memberId,
-          memberType: 'user' as const,
-          role: 'member' as const,
-          lastReadAt: now,
-          joinedAt: now,
-        })),
-      )
+      // Add creator as owner
+      await tx.insert(roomMembers).values({
+        roomId: id,
+        memberId: userId,
+        memberType: 'user',
+        role: 'owner',
+        lastReadAt: now,
+        joinedAt: now,
+      })
+
+      // Add additional members (deduplicate and exclude creator)
+      const uniqueMemberIds = [...new Set(parsed.data.memberIds)].filter((id) => id !== userId)
+      if (uniqueMemberIds.length > 0) {
+        // Verify all users exist
+        const existingUsers = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(inArray(users.id, uniqueMemberIds))
+        if (existingUsers.length !== uniqueMemberIds.length) {
+          throw Object.assign(new Error('One or more users not found'), { status: 400 })
+        }
+        await tx.insert(roomMembers).values(
+          uniqueMemberIds.map((memberId) => ({
+            roomId: id,
+            memberId,
+            memberType: 'user' as const,
+            role: 'member' as const,
+            lastReadAt: now,
+            joinedAt: now,
+          })),
+        )
+      }
+
+      return tx.select().from(rooms).where(eq(rooms.id, id)).limit(1)
+    })
+  } catch (err: unknown) {
+    if ((err as { status?: number })?.status === 400) {
+      return c.json({ ok: false, error: (err as Error).message }, 400)
     }
-
-    return tx.select().from(rooms).where(eq(rooms.id, id)).limit(1)
-  })
+    if ((err as { code?: string })?.code === '23503') {
+      return c.json({ ok: false, error: 'Router no longer exists' }, 409)
+    }
+    throw err
+  }
 
   return c.json({ ok: true, data: room }, 201)
 })
@@ -133,7 +187,8 @@ roomRoutes.get('/:id', async (c) => {
 roomRoutes.put('/:id', async (c) => {
   const roomId = c.req.param('id')
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = updateRoomSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
@@ -143,12 +198,25 @@ roomRoutes.put('/:id', async (c) => {
     return c.json({ ok: false, error: 'Only room owner or admin can update settings' }, 403)
   }
 
+  // Validate routerId if provided
+  if (parsed.data.routerId !== undefined && parsed.data.routerId !== null) {
+    const check = await checkRouterAccess(userId, parsed.data.routerId)
+    if (!check.ok) return c.json({ ok: false, error: check.error }, check.status)
+  }
+
   const now = new Date().toISOString()
   const updateData = { ...parsed.data, updatedAt: now }
   if (updateData.name) {
     updateData.name = sanitizeText(updateData.name)
   }
-  await db.update(rooms).set(updateData).where(eq(rooms.id, roomId))
+  try {
+    await db.update(rooms).set(updateData).where(eq(rooms.id, roomId))
+  } catch (err: unknown) {
+    if ((err as { code?: string })?.code === '23503') {
+      return c.json({ ok: false, error: 'Router no longer exists' }, 409)
+    }
+    throw err
+  }
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
 
@@ -179,7 +247,8 @@ roomRoutes.delete('/:id', async (c) => {
 roomRoutes.post('/:id/members', async (c) => {
   const roomId = c.req.param('id')
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = addMemberSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
@@ -187,6 +256,18 @@ roomRoutes.post('/:id/members', async (c) => {
 
   if (!(await isRoomAdmin(userId, roomId))) {
     return c.json({ ok: false, error: 'Only room owner or admin can add members' }, 403)
+  }
+
+  // Verify member exists
+  if (parsed.data.memberType === 'user') {
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, parsed.data.memberId))
+      .limit(1)
+    if (!user) {
+      return c.json({ ok: false, error: 'User not found' }, 404)
+    }
   }
 
   // Agent ownership / visibility check
@@ -243,9 +324,18 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
     return c.json({ ok: false, error: 'Only room owner or admin can remove members' }, 403)
   }
 
+  // Prevent removing the room creator — would orphan the room
+  const [room] = await db.select({ createdById: rooms.createdById }).from(rooms).where(eq(rooms.id, roomId)).limit(1)
+  if (room && room.createdById === memberId) {
+    return c.json({ ok: false, error: 'Cannot remove the room creator' }, 400)
+  }
+
   await db
     .delete(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, memberId)))
+
+  // Evict removed member from WS room state (keeps joinedRooms in sync with DB)
+  connectionManager.evictUserFromRoom(memberId, roomId)
 
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
@@ -299,10 +389,11 @@ roomRoutes.put('/:id/archive', async (c) => {
 roomRoutes.put('/:id/notification-pref', async (c) => {
   const roomId = c.req.param('id')
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const pref = body?.pref
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const pref = (body as Record<string, unknown>)?.pref
 
-  if (!pref || !(NOTIFICATION_PREFS as readonly string[]).includes(pref)) {
+  if (!pref || typeof pref !== 'string' || !(NOTIFICATION_PREFS as readonly string[]).includes(pref)) {
     return c.json(
       { ok: false, error: `Invalid preference. Must be one of: ${NOTIFICATION_PREFS.join(', ')}` },
       400,
@@ -311,7 +402,7 @@ roomRoutes.put('/:id/notification-pref', async (c) => {
 
   await db
     .update(roomMembers)
-    .set({ notificationPref: pref })
+    .set({ notificationPref: pref as string })
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
 
   return c.json({ ok: true })
@@ -326,6 +417,10 @@ roomRoutes.get('/:id/members', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const members = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
+  const members = await db
+    .select()
+    .from(roomMembers)
+    .where(eq(roomMembers.roomId, roomId))
+    .limit(500)
   return c.json({ ok: true, data: members })
 })

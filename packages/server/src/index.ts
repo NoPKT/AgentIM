@@ -2,10 +2,11 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { createNodeWebSocket } from '@hono/node-ws'
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, accessSync, constants } from 'node:fs'
 import { resolve } from 'node:path'
 import { config } from './config.js'
 import { createLogger } from './lib/logger.js'
@@ -28,7 +29,9 @@ import { agentRoutes } from './routes/agents.js'
 import { taskRoutes } from './routes/tasks.js'
 import { refreshTokens } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
+import { routerRoutes } from './routes/routers.js'
 import { docsRoutes } from './routes/docs.js'
+import { connectionManager } from './ws/connections.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
 
@@ -63,19 +66,28 @@ async function seedAdmin() {
       .where(eq(users.id, existing.id))
     log.info(`Admin user updated: ${config.adminUsername}`)
   } else {
-    // Create admin user
+    // Create admin user (handle race condition with concurrent instances)
     const id = nanoid()
     const passwordHash = await hash(config.adminPassword)
-    await db.insert(users).values({
-      id,
-      username: config.adminUsername,
-      passwordHash,
-      displayName: config.adminUsername,
-      role: 'admin',
-      createdAt: now,
-      updatedAt: now,
-    })
-    log.info(`Admin user created: ${config.adminUsername}`)
+    try {
+      await db.insert(users).values({
+        id,
+        username: config.adminUsername,
+        passwordHash,
+        displayName: config.adminUsername,
+        role: 'admin',
+        createdAt: now,
+        updatedAt: now,
+      })
+      log.info(`Admin user created: ${config.adminUsername}`)
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code === '23505') {
+        // UNIQUE constraint violation — another instance already created the admin
+        log.info(`Admin user already exists (concurrent seed): ${config.adminUsername}`)
+      } else {
+        throw err
+      }
+    }
   }
 }
 
@@ -86,6 +98,12 @@ const uploadDir = resolve(config.uploadDir)
 if (!existsSync(uploadDir)) {
   mkdirSync(uploadDir, { recursive: true })
   log.info(`Upload directory created: ${uploadDir}`)
+}
+try {
+  accessSync(uploadDir, constants.W_OK)
+} catch {
+  log.fatal(`Upload directory is not writable: ${uploadDir}`)
+  process.exit(1)
 }
 
 const app = new Hono()
@@ -102,11 +120,13 @@ app.use(
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", 'data:', 'blob:'],
-            connectSrc: ["'self'", 'ws:', 'wss:'],
+            connectSrc: ["'self'", 'wss:'],
             fontSrc: ["'self'"],
             objectSrc: ["'none'"],
             frameAncestors: ["'none'"],
             baseUri: ["'self'"],
+            formAction: ["'self'"],
+            workerSrc: ["'self'"],
           },
         }
       : {},
@@ -130,15 +150,15 @@ app.use('/api/*', async (c, next) => {
 // Global error handler
 app.onError((err, c) => {
   captureException(err)
-  log.error(`Unhandled error: ${err.message}`)
+  log.error(`Unhandled error: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
   const status = 'status' in err && typeof err.status === 'number' ? err.status : 500
   return c.json(
     { ok: false, error: config.isProduction ? 'Internal server error' : err.message },
-    status as any,
+    status as ContentfulStatusCode,
   )
 })
 
-// Health check (verifies DB + Redis connectivity)
+// Health check (verifies DB + Redis + filesystem connectivity)
 app.get('/api/health', async (c) => {
   const checks: Record<string, boolean> = {}
 
@@ -156,6 +176,13 @@ app.get('/api/health', async (c) => {
     checks.redis = false
   }
 
+  try {
+    accessSync(uploadDir, constants.W_OK)
+    checks.filesystem = true
+  } catch {
+    checks.filesystem = false
+  }
+
   const healthy = Object.values(checks).every(Boolean)
   return c.json({ ok: healthy, timestamp: new Date().toISOString(), checks }, healthy ? 200 : 503)
 })
@@ -168,9 +195,21 @@ app.route('/api/messages', messageRoutes)
 app.route('/api/agents', agentRoutes)
 app.route('/api/tasks', taskRoutes)
 app.route('/api/upload', uploadRoutes)
+app.route('/api/routers', routerRoutes)
 app.route('/api/docs', docsRoutes)
 
-// Serve uploaded files
+// Serve uploaded files with security headers
+app.use('/uploads/*', async (c, next) => {
+  await next()
+  // Prevent MIME sniffing
+  c.header('X-Content-Type-Options', 'nosniff')
+  // Force download for non-safe types (prevent SVG XSS, HTML injection, etc.)
+  const contentType = c.res.headers.get('Content-Type') ?? ''
+  const safeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  if (!safeTypes.some((t) => contentType.startsWith(t))) {
+    c.header('Content-Disposition', 'attachment')
+  }
+})
 app.use(
   '/uploads/*',
   serveStatic({
@@ -180,14 +219,32 @@ app.use(
 )
 
 // WebSocket endpoints
+// Auto-disconnect unauthenticated connections after timeout
+const WS_AUTH_TIMEOUT_MS = config.wsAuthTimeoutMs
+const wsAuthTimers = new WeakMap<object, ReturnType<typeof setTimeout>>()
+
 app.get(
   '/ws/client',
   upgradeWebSocket(() => ({
+    onOpen(_, ws) {
+      wsAuthTimers.set(ws, setTimeout(() => {
+        // If still not authenticated after timeout, close the connection
+        const client = connectionManager.getClient(ws)
+        if (!client) {
+          try { ws.close(4001, 'Authentication timeout') } catch {}
+        }
+      }, WS_AUTH_TIMEOUT_MS))
+    },
     onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
       handleClientMessage(ws, raw)
     },
     onClose(_, ws) {
+      const timer = wsAuthTimers.get(ws)
+      if (timer) {
+        clearTimeout(timer)
+        wsAuthTimers.delete(ws)
+      }
       handleClientDisconnect(ws)
     },
   })),
@@ -196,11 +253,24 @@ app.get(
 app.get(
   '/ws/gateway',
   upgradeWebSocket(() => ({
+    onOpen(_, ws) {
+      wsAuthTimers.set(ws, setTimeout(() => {
+        const gw = connectionManager.getGateway(ws)
+        if (!gw) {
+          try { ws.close(4001, 'Authentication timeout') } catch {}
+        }
+      }, WS_AUTH_TIMEOUT_MS))
+    },
     onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
       handleGatewayMessage(ws, raw)
     },
     onClose(_, ws) {
+      const timer = wsAuthTimers.get(ws)
+      if (timer) {
+        clearTimeout(timer)
+        wsAuthTimers.delete(ws)
+      }
       handleGatewayDisconnect(ws)
     },
   })),
@@ -264,12 +334,23 @@ startTokenCleanup()
 log.info(`Running at http://${config.host}:${config.port}`)
 
 // Graceful shutdown
+const SHUTDOWN_TIMEOUT_MS = 10_000
+
 async function shutdown(signal: string) {
   log.info(`${signal} received, shutting down gracefully...`)
   stopOrphanCleanup()
   stopTokenCleanup()
-  server.close(() => {
-    log.info('HTTP server closed')
+  await new Promise<void>((resolve) => {
+    const forceTimer = setTimeout(() => {
+      log.warn('Shutdown timeout reached, forcing close')
+      resolve()
+    }, SHUTDOWN_TIMEOUT_MS)
+    forceTimer.unref()
+    server.close(() => {
+      clearTimeout(forceTimer)
+      log.info('HTTP server closed')
+      resolve()
+    })
   })
   await closeDb()
   log.info('Database connection closed')

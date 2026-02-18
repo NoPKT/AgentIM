@@ -1,7 +1,7 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
-import { gatewayMessageSchema, parseMentions } from '@agentim/shared'
+import { gatewayMessageSchema, parseMentions, TASK_STATUSES } from '@agentim/shared'
 import type {
   ServerSendToAgent,
   ServerRoomContext,
@@ -10,26 +10,37 @@ import type {
 } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
+import { isTokenRevoked } from '../lib/tokenRevocation.js'
 import { createLogger } from '../lib/logger.js'
+import { captureException } from '../lib/sentry.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
 import { getRedis } from '../lib/redis.js'
 import { config } from '../config.js'
+import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('GatewayHandler')
 
-const MAX_MESSAGE_SIZE = 256 * 1024 // 256 KB (gateway messages can be larger due to agent output)
+const MAX_MESSAGE_SIZE = config.maxGatewayMessageSize
 
-async function isAgentRateLimited(agentId: string): Promise<boolean> {
+async function isAgentRateLimited(
+  agentId: string,
+  rateLimitWindow?: number,
+  rateLimitMax?: number,
+): Promise<boolean> {
   try {
     const redis = getRedis()
     const key = `ws:agent_rate:${agentId}`
     const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, config.agentRateLimitWindow)
-    return count > config.agentRateLimitMax
+    // Only set EXPIRE on first increment to use fixed time buckets
+    if (count === 1) {
+      await redis.expire(key, rateLimitWindow ?? config.agentRateLimitWindow)
+    }
+    return count > (rateLimitMax ?? config.agentRateLimitMax)
   } catch {
-    return false
+    log.warn('Redis unavailable for agent rate limiting, rejecting request (fail-closed)')
+    return true
   }
 }
 
@@ -82,29 +93,43 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
 
   const msg = parsed.data
 
-  switch (msg.type) {
-    case 'gateway:auth':
-      return handleAuth(ws, msg)
-    case 'gateway:register_agent':
-      return handleRegisterAgent(ws, msg.agent)
-    case 'gateway:unregister_agent':
-      return handleUnregisterAgent(ws, msg.agentId)
-    case 'gateway:message_chunk':
-      return handleMessageChunk(ws, msg)
-    case 'gateway:message_complete':
-      return handleMessageComplete(ws, msg)
-    case 'gateway:agent_status':
-      return handleAgentStatus(ws, msg.agentId, msg.status)
-    case 'gateway:terminal_data':
-      return handleTerminalData(ws, msg)
-    case 'gateway:task_update':
-      return handleTaskUpdate(msg.taskId, msg.status, msg.result)
-    case 'gateway:ping':
-      ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
+  // All messages except auth and ping require authentication
+  if (msg.type !== 'gateway:auth' && msg.type !== 'gateway:ping') {
+    const gw = connectionManager.getGateway(ws)
+    if (!gw) {
+      log.warn('Unauthenticated gateway attempted to send message')
       return
-    default:
-      log.warn(`Unknown gateway message type: ${(msg as { type: string }).type}`)
-      return
+    }
+  }
+
+  try {
+    switch (msg.type) {
+      case 'gateway:auth':
+        return await handleAuth(ws, msg)
+      case 'gateway:register_agent':
+        return await handleRegisterAgent(ws, msg.agent)
+      case 'gateway:unregister_agent':
+        return await handleUnregisterAgent(ws, msg.agentId)
+      case 'gateway:message_chunk':
+        return await handleMessageChunk(ws, msg)
+      case 'gateway:message_complete':
+        return await handleMessageComplete(ws, msg)
+      case 'gateway:agent_status':
+        return await handleAgentStatus(ws, msg.agentId, msg.status)
+      case 'gateway:terminal_data':
+        return await handleTerminalData(ws, msg)
+      case 'gateway:task_update':
+        return await handleTaskUpdate(ws, msg.taskId, msg.status, msg.result)
+      case 'gateway:ping':
+        ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
+        return
+      default:
+        log.warn(`Unknown gateway message type: ${(msg as { type: string }).type}`)
+        return
+    }
+  } catch (err) {
+    log.error(`Error handling gateway message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
+    captureException(err)
   }
 }
 
@@ -124,31 +149,43 @@ async function handleAuth(
       )
       return
     }
+    // Check if the token was revoked (logout / password change)
+    if (payload.iat && (await isTokenRevoked(payload.sub, payload.iat * 1000))) {
+      ws.send(
+        JSON.stringify({
+          type: 'server:gateway_auth_result',
+          ok: false,
+          error: 'Token revoked',
+        }),
+      )
+      return
+    }
 
-    connectionManager.addGateway(ws, payload.sub, msg.gatewayId)
-
-    // Upsert gateway in DB
-    const now = new Date().toISOString()
-    const [existing] = await db
-      .select()
-      .from(gateways)
-      .where(eq(gateways.id, msg.gatewayId))
+    // Fetch per-user gateway limit override
+    const [gwUser] = await db
+      .select({ maxGateways: users.maxGateways })
+      .from(users)
+      .where(eq(users.id, payload.sub))
       .limit(1)
-    if (existing) {
-      await db
-        .update(gateways)
-        .set({
-          userId: payload.sub,
-          connectedAt: now,
-          disconnectedAt: null,
-          hostname: msg.deviceInfo.hostname,
-          platform: msg.deviceInfo.platform,
-          arch: msg.deviceInfo.arch,
-          nodeVersion: msg.deviceInfo.nodeVersion,
-        })
-        .where(eq(gateways.id, msg.gatewayId))
-    } else {
-      await db.insert(gateways).values({
+
+    const result = connectionManager.addGateway(ws, payload.sub, msg.gatewayId, gwUser?.maxGateways)
+    if (!result.ok) {
+      ws.send(
+        JSON.stringify({
+          type: 'server:gateway_auth_result',
+          ok: false,
+          error: result.error ?? 'Gateway connection limit exceeded',
+        }),
+      )
+      return
+    }
+
+    // Atomic upsert gateway — eliminates TOCTOU race
+    // Only allow the same user to reclaim their own gateway (prevents ID hijacking)
+    const now = new Date().toISOString()
+    const [upserted] = await db
+      .insert(gateways)
+      .values({
         id: msg.gatewayId,
         userId: payload.sub,
         name: msg.deviceInfo.hostname,
@@ -159,6 +196,32 @@ async function handleAuth(
         connectedAt: now,
         createdAt: now,
       })
+      .onConflictDoUpdate({
+        target: gateways.id,
+        set: {
+          connectedAt: now,
+          disconnectedAt: null,
+          hostname: msg.deviceInfo.hostname,
+          platform: msg.deviceInfo.platform,
+          arch: msg.deviceInfo.arch,
+          nodeVersion: msg.deviceInfo.nodeVersion,
+        },
+        // Only update if the gateway belongs to this user
+        where: eq(gateways.userId, payload.sub),
+      })
+      .returning({ id: gateways.id })
+
+    if (!upserted) {
+      // Gateway ID exists but belongs to a different user
+      connectionManager.removeGateway(ws)
+      ws.send(
+        JSON.stringify({
+          type: 'server:gateway_auth_result',
+          ok: false,
+          error: 'Gateway ID belongs to another user',
+        }),
+      )
+      return
     }
 
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
@@ -185,6 +248,24 @@ async function handleRegisterAgent(
   const now = new Date().toISOString()
   const capabilitiesJson = agent.capabilities ? JSON.stringify(agent.capabilities) : null
 
+  // Reject if agent ID already exists and belongs to a different user's gateway
+  const [existingAgent] = await db
+    .select({ gatewayId: agents.gatewayId })
+    .from(agents)
+    .where(eq(agents.id, agent.id))
+    .limit(1)
+  if (existingAgent && existingAgent.gatewayId) {
+    const [existingGw] = await db
+      .select({ userId: gateways.userId })
+      .from(gateways)
+      .where(eq(gateways.id, existingAgent.gatewayId))
+      .limit(1)
+    if (existingGw && existingGw.userId !== gw.userId) {
+      log.warn(`Gateway ${gw.gatewayId} attempted to register agent ${agent.id} owned by another user`)
+      return
+    }
+  }
+
   // Mark any existing agents with same gateway + name as offline (orphan cleanup)
   await db
     .update(agents)
@@ -197,24 +278,10 @@ async function handleRegisterAgent(
       ),
     )
 
-  // Upsert agent in DB
-  const [existing] = await db.select().from(agents).where(eq(agents.id, agent.id)).limit(1)
-  if (existing) {
-    await db
-      .update(agents)
-      .set({
-        name: agent.name,
-        type: agent.type,
-        status: 'online',
-        workingDirectory: agent.workingDirectory,
-        capabilities: capabilitiesJson,
-        connectionType: 'cli',
-        lastSeenAt: now,
-        updatedAt: now,
-      })
-      .where(eq(agents.id, agent.id))
-  } else {
-    await db.insert(agents).values({
+  // Atomic upsert — eliminates TOCTOU race between SELECT and INSERT
+  await db
+    .insert(agents)
+    .values({
       id: agent.id,
       name: agent.name,
       type: agent.type,
@@ -227,7 +294,19 @@ async function handleRegisterAgent(
       createdAt: now,
       updatedAt: now,
     })
-  }
+    .onConflictDoUpdate({
+      target: agents.id,
+      set: {
+        name: agent.name,
+        type: agent.type,
+        status: 'online',
+        workingDirectory: agent.workingDirectory,
+        capabilities: capabilitiesJson,
+        connectionType: 'cli',
+        lastSeenAt: now,
+        updatedAt: now,
+      },
+    })
 
   connectionManager.registerAgent(ws, agent.id)
   await broadcastAgentStatus(agent.id)
@@ -240,12 +319,20 @@ async function handleRegisterAgent(
 }
 
 async function handleUnregisterAgent(ws: WSContext, agentId: string) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(agentId)) {
+    log.warn(`Gateway attempted to unregister agent ${agentId} it does not own`)
+    return
+  }
+
   const now = new Date().toISOString()
   await db.update(agents).set({ status: 'offline', updatedAt: now }).where(eq(agents.id, agentId))
 
   connectionManager.unregisterAgent(ws, agentId)
   await broadcastAgentStatus(agentId)
 }
+
+const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
 
 async function handleMessageChunk(
   ws: WSContext,
@@ -256,6 +343,30 @@ async function handleMessageChunk(
     chunk: { type: string; content: string; metadata?: Record<string, unknown> }
   },
 ) {
+  // Verify the agent belongs to this gateway
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to send chunk for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  // Verify agent is a member of this room (prevents cross-room injection)
+  const [chunkMembership] = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, msg.roomId), eq(roomMembers.memberId, msg.agentId), eq(roomMembers.memberType, 'agent')))
+    .limit(1)
+  if (!chunkMembership) {
+    log.warn(`Agent ${msg.agentId} is not a member of room ${msg.roomId}, dropping chunk`)
+    return
+  }
+
+  // Validate chunk size to prevent memory abuse
+  if (msg.chunk.content.length > MAX_CHUNK_SIZE) {
+    log.warn(`Agent ${msg.agentId} sent oversized chunk (${msg.chunk.content.length} bytes), dropping`)
+    return
+  }
+
   const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
 
@@ -281,8 +392,31 @@ async function handleMessageComplete(
     depth?: number
   },
 ) {
+  // Verify the agent belongs to this gateway
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to complete message for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  // Verify agent is a member of this room (prevents cross-room injection)
+  const [completeMembership] = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, msg.roomId), eq(roomMembers.memberId, msg.agentId), eq(roomMembers.memberType, 'agent')))
+    .limit(1)
+  if (!completeMembership) {
+    log.warn(`Agent ${msg.agentId} is not a member of room ${msg.roomId}, dropping message`)
+    return
+  }
+
   // Agent rate limiting — save the message but skip routing if limited
-  const rateLimited = await isAgentRateLimited(msg.agentId)
+  const msgRouterCfg = await getRouterConfig(msg.roomId)
+  const rateLimited = await isAgentRateLimited(
+    msg.agentId,
+    msgRouterCfg?.rateLimitWindow,
+    msgRouterCfg?.rateLimitMax,
+  )
   if (rateLimited) {
     log.warn(`Agent ${msg.agentId} rate limited, message saved but not routed`)
   }
@@ -349,11 +483,19 @@ async function handleMessageComplete(
       mentionedNames,
       conversationId,
       depth,
+      msgRouterCfg,
     )
   }
 }
 
 async function handleAgentStatus(ws: WSContext, agentId: string, status: string) {
+  // Verify the agent belongs to this gateway
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(agentId)) {
+    log.warn(`Gateway attempted to update status for unregistered agent ${agentId}`)
+    return
+  }
+
   const now = new Date().toISOString()
   await db
     .update(agents)
@@ -364,6 +506,13 @@ async function handleAgentStatus(ws: WSContext, agentId: string, status: string)
 }
 
 async function handleTerminalData(ws: WSContext, msg: { agentId: string; data: string }) {
+  // Verify the agent belongs to this gateway
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to send terminal data for unowned agent ${msg.agentId}`)
+    return
+  }
+
   const [agent] = await db
     .select({ name: agents.name })
     .from(agents)
@@ -383,21 +532,53 @@ async function handleTerminalData(ws: WSContext, msg: { agentId: string; data: s
   }
 }
 
-async function handleTaskUpdate(taskId: string, status: string, result?: string) {
+async function handleTaskUpdate(ws: WSContext, taskId: string, status: string, result?: string) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || gw.agentIds.size === 0) {
+    log.warn('Gateway with no registered agents attempted to update task')
+    return
+  }
+
+  // Validate status is a known value before writing to DB
+  if (!(TASK_STATUSES as readonly string[]).includes(status)) {
+    log.warn(`Invalid task status "${status}" for task ${taskId}, ignoring`)
+    return
+  }
+
+  // Verify the task belongs to a room where one of the gateway's agents is a member
+  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
+  if (!task) {
+    log.warn(`Task ${taskId} not found, ignoring update`)
+    return
+  }
+
+  const gwAgentIds = [...gw.agentIds]
+  const memberCheck = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, task.roomId),
+        eq(roomMembers.memberType, 'agent'),
+        inArray(roomMembers.memberId, gwAgentIds),
+      ),
+    )
+    .limit(1)
+  if (memberCheck.length === 0) {
+    log.warn(`Gateway ${gw.gatewayId} has no agents in room ${task.roomId}, rejecting task update`)
+    return
+  }
+
   const now = new Date().toISOString()
   const updateData: Record<string, unknown> = { status, updatedAt: now }
   if (result) updateData.description = result
 
   await db.update(tasks).set(updateData).where(eq(tasks.id, taskId))
 
-  // Broadcast task update to room clients
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
-  if (task) {
-    connectionManager.broadcastToRoom(task.roomId, {
-      type: 'server:task_update',
-      task,
-    })
-  }
+  connectionManager.broadcastToRoom(task.roomId, {
+    type: 'server:task_update',
+    task: { ...task, ...updateData },
+  })
 }
 
 export async function handleGatewayDisconnect(ws: WSContext) {
@@ -407,15 +588,23 @@ export async function handleGatewayDisconnect(ws: WSContext) {
 
     // Mark all agents as offline and broadcast
     for (const agentId of gw.agentIds) {
-      await db
-        .update(agents)
-        .set({ status: 'offline', updatedAt: now })
-        .where(eq(agents.id, agentId))
-      await broadcastAgentStatus(agentId)
+      try {
+        await db
+          .update(agents)
+          .set({ status: 'offline', updatedAt: now })
+          .where(eq(agents.id, agentId))
+        await broadcastAgentStatus(agentId)
+      } catch (err) {
+        log.error(`Failed to mark agent ${agentId} offline: ${(err as Error).message}`)
+      }
     }
 
     // Mark gateway as disconnected
-    await db.update(gateways).set({ disconnectedAt: now }).where(eq(gateways.id, gw.gatewayId))
+    try {
+      await db.update(gateways).set({ disconnectedAt: now }).where(eq(gateways.id, gw.gatewayId))
+    } catch (err) {
+      log.error(`Failed to mark gateway ${gw.gatewayId} disconnected: ${(err as Error).message}`)
+    }
 
     connectionManager.removeGateway(ws)
   }
@@ -432,11 +621,14 @@ async function routeAgentToAgent(
   mentionedNames: string[],
   conversationId: string,
   depth: number,
+  routerCfg?: RouterConfig | null,
 ) {
-  // 1. Depth check
-  if (depth >= config.maxAgentChainDepth) {
+  // 1. Depth check — use room router config with env var fallback
+  const maxDepth = routerCfg?.maxChainDepth ?? config.maxAgentChainDepth
+
+  if (depth >= maxDepth) {
     log.warn(
-      `Chain depth ${depth} exceeds max ${config.maxAgentChainDepth} for conversation ${conversationId}, stopping`,
+      `Chain depth ${depth} exceeds max ${maxDepth} for conversation ${conversationId}, stopping`,
     )
     return
   }
@@ -585,7 +777,7 @@ export async function sendRoomContextToAllAgents(roomId: string) {
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberType, 'agent')))
 
-  for (const member of agentMembers) {
-    await sendRoomContextToAgent(member.memberId, roomId)
-  }
+  await Promise.allSettled(
+    agentMembers.map((member) => sendRoomContextToAgent(member.memberId, roomId)),
+  )
 }

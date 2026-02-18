@@ -1,5 +1,5 @@
-import { config } from '../config.js'
 import { createLogger } from './logger.js'
+import type { RouterConfig } from './routerConfig.js'
 
 const log = createLogger('RouterLLM')
 
@@ -8,14 +8,15 @@ const ROUTER_TIMEOUT = 5000
 export async function selectAgents(
   content: string,
   agents: Array<{ id: string; name: string; type: string; capabilities?: string[] }>,
+  routerConfig: Pick<RouterConfig, 'llmBaseUrl' | 'llmApiKey' | 'llmModel'>,
   roomSystemPrompt?: string,
 ): Promise<string[] | null> {
-  if (!config.routerLlmBaseUrl || !config.routerLlmApiKey) return null
+  if (!routerConfig.llmBaseUrl || !routerConfig.llmApiKey) return null
   if (agents.length === 0) return []
 
   const agentDescriptions = agents
     .map((a) => {
-      const caps = a.capabilities?.length ? ` (capabilities: ${a.capabilities.join(', ')})` : ''
+      const caps = a.capabilities?.length ? ` (capabilities: ${a.capabilities.slice(0, 10).join(', ')})` : ''
       return `- id: "${a.id}", name: "${a.name}", type: "${a.type}"${caps}`
     })
     .join('\n')
@@ -36,14 +37,14 @@ export async function selectAgents(
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), ROUTER_TIMEOUT)
 
-    const res = await fetch(`${config.routerLlmBaseUrl}/chat/completions`, {
+    const res = await fetch(`${routerConfig.llmBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.routerLlmApiKey}`,
+        Authorization: `Bearer ${routerConfig.llmApiKey}`,
       },
       body: JSON.stringify({
-        model: config.routerLlmModel,
+        model: routerConfig.llmModel,
         messages: [
           { role: 'system', content: systemContent },
           { role: 'user', content: userContent },

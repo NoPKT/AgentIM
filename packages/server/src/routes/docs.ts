@@ -153,9 +153,9 @@ const spec = {
         responses: { '200': { description: 'New tokens' } },
       },
     },
-    '/auth/me': {
+    '/users/me': {
       get: {
-        tags: ['Auth'],
+        tags: ['Users'],
         summary: 'Get current user',
         responses: { '200': { description: 'Current user info' } },
       },
@@ -405,11 +405,6 @@ const spec = {
         ],
         responses: { '200': { description: 'Task list' } },
       },
-      post: {
-        tags: ['Tasks'],
-        summary: 'Create a task',
-        responses: { '201': { description: 'Task created' } },
-      },
     },
     '/tasks/rooms/{roomId}': {
       get: {
@@ -421,6 +416,14 @@ const spec = {
           { name: 'offset', in: 'query', schema: { type: 'integer', default: 0 } },
         ],
         responses: { '200': { description: 'Task list for room' } },
+      },
+      post: {
+        tags: ['Tasks'],
+        summary: 'Create a task in a room',
+        parameters: [
+          { name: 'roomId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: { '201': { description: 'Task created' } },
       },
     },
     '/tasks/{id}': {

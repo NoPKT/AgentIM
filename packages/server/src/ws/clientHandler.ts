@@ -1,22 +1,25 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { clientMessageSchema, parseMentions } from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
+import { isTokenRevoked } from '../lib/tokenRevocation.js'
 import { createLogger } from '../lib/logger.js'
+import { captureException } from '../lib/sentry.js'
 import { config } from '../config.js'
 import { db } from '../db/index.js'
-import { messages, rooms, roomMembers, agents, messageAttachments } from '../db/schema.js'
+import { messages, rooms, roomMembers, agents, messageAttachments, users } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { getRedis } from '../lib/redis.js'
 import { selectAgents } from '../lib/routerLlm.js'
+import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('ClientHandler')
 
-const MAX_MESSAGE_SIZE = 64 * 1024 // 64 KB
+const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const RATE_LIMIT_MAX = 30 // max 30 messages per window
 
 async function isRateLimited(userId: string): Promise<boolean> {
@@ -24,11 +27,14 @@ async function isRateLimited(userId: string): Promise<boolean> {
     const redis = getRedis()
     const key = `ws:rate:${userId}`
     const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, config.clientRateLimitWindow)
+    // Only set EXPIRE on first increment to use fixed time buckets
+    if (count === 1) {
+      await redis.expire(key, config.clientRateLimitWindow)
+    }
     return count > RATE_LIMIT_MAX
   } catch {
-    // If Redis is unavailable, allow the request
-    return false
+    log.warn('Redis unavailable for WS rate limiting, rejecting request (fail-closed)')
+    return true
   }
 }
 
@@ -66,10 +72,22 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
 
   const msg = parsed.data
 
-  // Rate limit all messages except auth and ping
-  if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
+  // Auth and ping bypass authentication check
+  const isPublicMsg = msg.type === 'client:auth' || msg.type === 'client:ping'
+
+  if (!isPublicMsg) {
     const client = connectionManager.getClient(ws)
-    if (client && (await isRateLimited(client.userId))) {
+    if (!client) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:error',
+        code: 'NOT_AUTHENTICATED',
+        message: 'Please authenticate first',
+      })
+      return
+    }
+
+    // Rate limit authenticated messages
+    if (await isRateLimited(client.userId)) {
       connectionManager.sendToClient(ws, {
         type: 'server:error',
         code: 'RATE_LIMITED',
@@ -79,32 +97,42 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     }
   }
 
-  switch (msg.type) {
-    case 'client:auth':
-      return handleAuth(ws, msg.token)
-    case 'client:join_room':
-      return handleJoinRoom(ws, msg.roomId)
-    case 'client:leave_room':
-      return handleLeaveRoom(ws, msg.roomId)
-    case 'client:send_message':
-      return handleSendMessage(
-        ws,
-        msg.roomId,
-        msg.content,
-        msg.mentions,
-        msg.replyToId,
-        msg.attachmentIds,
-      )
-    case 'client:typing':
-      return handleTyping(ws, msg.roomId)
-    case 'client:stop_generation':
-      return handleStopGeneration(ws, msg.roomId, msg.agentId)
-    case 'client:ping':
-      ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
-      return
-    default:
-      log.warn(`Unknown client message type: ${(msg as { type: string }).type}`)
-      return
+  try {
+    switch (msg.type) {
+      case 'client:auth':
+        return await handleAuth(ws, msg.token)
+      case 'client:join_room':
+        return await handleJoinRoom(ws, msg.roomId)
+      case 'client:leave_room':
+        return handleLeaveRoom(ws, msg.roomId)
+      case 'client:send_message':
+        return await handleSendMessage(
+          ws,
+          msg.roomId,
+          msg.content,
+          msg.mentions,
+          msg.replyToId,
+          msg.attachmentIds,
+        )
+      case 'client:typing':
+        return handleTyping(ws, msg.roomId)
+      case 'client:stop_generation':
+        return handleStopGeneration(ws, msg.roomId, msg.agentId)
+      case 'client:ping':
+        ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
+        return
+      default:
+        log.warn(`Unknown client message type: ${(msg as { type: string }).type}`)
+        return
+    }
+  } catch (err) {
+    log.error(`Error handling client message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
+    captureException(err)
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'INTERNAL_ERROR',
+      message: 'An internal error occurred',
+    })
   }
 }
 
@@ -119,8 +147,32 @@ async function handleAuth(ws: WSContext, token: string) {
       })
       return
     }
+    // Check if the token was revoked (logout / password change)
+    if (payload.iat && (await isTokenRevoked(payload.sub, payload.iat * 1000))) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:auth_result',
+        ok: false,
+        error: 'Token revoked',
+      })
+      return
+    }
+    // Fetch per-user connection limit override
+    const [user] = await db
+      .select({ maxWsConnections: users.maxWsConnections })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1)
+
     const wasOnline = connectionManager.isUserOnline(payload.sub)
-    connectionManager.addClient(ws, payload.sub, payload.username)
+    const result = connectionManager.addClient(ws, payload.sub, payload.username, user?.maxWsConnections)
+    if (!result.ok) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:auth_result',
+        ok: false,
+        error: result.error ?? 'Connection limit exceeded',
+      })
+      return
+    }
     connectionManager.sendToClient(ws, {
       type: 'server:auth_result',
       ok: true,
@@ -225,6 +277,9 @@ async function handleSendMessage(
   const id = nanoid()
   const now = new Date().toISOString()
 
+  // Use server-parsed mentions instead of trusting client input
+  const serverParsedMentions = parseMentions(content)
+
   // Atomic: persist message + link attachments in a single transaction
   const attachments = await db.transaction(async (tx) => {
     await tx.insert(messages).values({
@@ -236,9 +291,13 @@ async function handleSendMessage(
       type: 'text',
       content,
       replyToId,
-      mentions: JSON.stringify(mentions),
+      mentions: JSON.stringify(serverParsedMentions),
       createdAt: now,
     })
+
+    if (attachmentIds && attachmentIds.length > 20) {
+      throw new Error('Too many attachments (max 20)')
+    }
 
     if (attachmentIds && attachmentIds.length > 0) {
       await tx
@@ -248,6 +307,7 @@ async function handleSendMessage(
           and(
             inArray(messageAttachments.id, attachmentIds),
             eq(messageAttachments.uploadedBy, client.userId),
+            isNull(messageAttachments.messageId),
           ),
         )
 
@@ -285,7 +345,7 @@ async function handleSendMessage(
     type: 'text' as const,
     content,
     replyToId,
-    mentions,
+    mentions: serverParsedMentions,
     ...(attachments.length > 0 ? { attachments } : {}),
     createdAt: now,
   }
@@ -297,7 +357,7 @@ async function handleSendMessage(
   })
 
   // Route to agents based on server-parsed mentions and broadcast mode
-  await routeToAgents(room, message, mentions)
+  await routeToAgents(room, message, serverParsedMentions)
 }
 
 async function routeToAgents(
@@ -350,9 +410,12 @@ async function routeToAgents(
       if (agent) targetAgents.push(agent)
     }
   } else if (room.broadcastMode) {
-    // Broadcast room, no mentions — try AI Router
+    // Broadcast room, no mentions — try AI Router via room's router config
     const cliAgents = agentRows.filter((a) => a.connectionType !== 'api')
     if (cliAgents.length === 0) return
+
+    const routerCfg = await getRouterConfig(roomId)
+    if (!routerCfg) return // No router configured → don't route
 
     const routerResult = await selectAgents(
       message.content,
@@ -367,11 +430,12 @@ async function routeToAgents(
         }
         return { id: a.id, name: a.name, type: a.type, capabilities }
       }),
+      routerCfg,
       room.systemPrompt ?? undefined,
     )
 
     if (routerResult === null || routerResult.length === 0) {
-      // No AI Router configured or no agents selected — don't route
+      // No agents selected — don't route
       return
     }
 
@@ -405,9 +469,19 @@ async function routeToAgents(
   }
 }
 
-function handleTyping(ws: WSContext, roomId: string) {
+async function handleTyping(ws: WSContext, roomId: string) {
   const client = connectionManager.getClient(ws)
   if (!client || !client.joinedRooms.has(roomId)) return
+
+  // Debounce typing events: max 1 per second per user per room
+  try {
+    const redis = getRedis()
+    const key = `ws:typing:${client.userId}:${roomId}`
+    const allowed = await redis.set(key, '1', 'EX', 1, 'NX')
+    if (!allowed) return // Already sent recently, silently drop
+  } catch {
+    // Redis unavailable, allow through
+  }
 
   connectionManager.broadcastToRoom(
     roomId,
@@ -421,9 +495,17 @@ function handleTyping(ws: WSContext, roomId: string) {
   )
 }
 
-function handleStopGeneration(ws: WSContext, roomId: string, agentId: string) {
+async function handleStopGeneration(ws: WSContext, roomId: string, agentId: string) {
   const client = connectionManager.getClient(ws)
   if (!client || !client.joinedRooms.has(roomId)) return
+
+  // Verify the agent is a member of this room (prevent cross-room interference)
+  const [membership] = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, agentId)))
+    .limit(1)
+  if (!membership) return
 
   const stopMsg: ServerStopAgent = {
     type: 'server:stop_agent',
@@ -435,8 +517,20 @@ function handleStopGeneration(ws: WSContext, roomId: string, agentId: string) {
 export function handleClientDisconnect(ws: WSContext) {
   const client = connectionManager.getClient(ws)
   connectionManager.removeClient(ws)
+  if (!client) return
+
+  // Broadcast typing_stop for each room the disconnected user had joined
+  for (const roomId of client.joinedRooms) {
+    connectionManager.broadcastToRoom(roomId, {
+      type: 'server:typing',
+      roomId,
+      userId: client.userId,
+      username: client.username,
+    })
+  }
+
   // Broadcast offline presence if this was the user's last connection
-  if (client && !connectionManager.isUserOnline(client.userId)) {
+  if (!connectionManager.isUserOnline(client.userId)) {
     connectionManager.broadcastToAll({
       type: 'server:presence',
       userId: client.userId,

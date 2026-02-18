@@ -4,10 +4,12 @@ import { db } from '../db/index.js'
 import { agents, gateways, users } from '../db/schema.js'
 import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 
 export const agentRoutes = new Hono<AuthEnv>()
 
 agentRoutes.use('*', authMiddleware)
+agentRoutes.use('/:id', validateIdParams)
 
 function enrichAgents(
   agentRows: (typeof agents.$inferSelect)[],
@@ -64,9 +66,16 @@ agentRoutes.get('/', async (c) => {
 // List shared agents from other users
 agentRoutes.get('/shared', async (c) => {
   const userId = c.get('userId')
+  const limit = Math.min(Math.max(Number(c.req.query('limit')) || 100, 1), 500)
+  const offset = Number(c.req.query('offset')) || 0
 
-  // Get all shared agents
-  const sharedAgents = await db.select().from(agents).where(eq(agents.visibility, 'shared'))
+  // Get all shared agents (paginated)
+  const sharedAgents = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.visibility, 'shared'))
+    .limit(limit)
+    .offset(offset)
 
   if (sharedAgents.length === 0) {
     return c.json({ ok: true, data: [] })
@@ -111,10 +120,11 @@ agentRoutes.get('/shared', async (c) => {
 agentRoutes.put('/:id', async (c) => {
   const agentId = c.req.param('id')
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = updateAgentSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed', details: parsed.error.flatten() }, 400)
+    return c.json({ ok: false, error: 'Validation failed' }, 400)
   }
 
   // Verify ownership: agent → gateway → userId

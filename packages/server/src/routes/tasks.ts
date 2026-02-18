@@ -7,10 +7,13 @@ import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText, sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
+import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 
 export const taskRoutes = new Hono<AuthEnv>()
 
 taskRoutes.use('*', authMiddleware)
+taskRoutes.use('/:id', validateIdParams)
+taskRoutes.use('/rooms/:roomId', validateIdParams)
 
 // List all tasks for current user's rooms
 taskRoutes.get('/', async (c) => {
@@ -66,10 +69,18 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = createTaskSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
+  }
+
+  // Validate assignee is a member of the room
+  if (parsed.data.assigneeId) {
+    if (!(await isRoomMember(parsed.data.assigneeId, roomId))) {
+      return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
+    }
   }
 
   const id = nanoid()
@@ -107,7 +118,8 @@ taskRoutes.put('/:id', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = updateTaskSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ ok: false, error: 'Validation failed' }, 400)
@@ -128,6 +140,24 @@ taskRoutes.put('/:id', async (c) => {
       return c.json(
         { ok: false, error: 'Only task creator, assignee, or room admin can modify task details' },
         403,
+      )
+    }
+  }
+
+  // Validate assignee is a member of the room
+  if (parsed.data.assigneeId !== undefined && parsed.data.assigneeId !== null) {
+    if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId))) {
+      return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
+    }
+  }
+
+  // Validate status transition — prevent nonsensical backwards transitions
+  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+    const TERMINAL_STATUSES = new Set(['completed', 'cancelled'])
+    if (TERMINAL_STATUSES.has(existing.status) && parsed.data.status === 'in_progress') {
+      return c.json(
+        { ok: false, error: `Cannot transition from "${existing.status}" to "in_progress"` },
+        400,
       )
     }
   }
