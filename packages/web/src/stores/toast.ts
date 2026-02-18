@@ -14,6 +14,7 @@ interface ToastState {
   removeToast: (id: number) => void
 }
 
+const MAX_TOASTS = 20
 let nextId = 0
 
 export const useToastStore = create<ToastState>((set, get) => ({
@@ -21,7 +22,9 @@ export const useToastStore = create<ToastState>((set, get) => ({
 
   addToast: (type, message, duration = 3000) => {
     const id = nextId++
-    set({ toasts: [...get().toasts, { id, type, message }] })
+    const toasts = [...get().toasts, { id, type, message }]
+    // Drop oldest toasts if over limit
+    set({ toasts: toasts.length > MAX_TOASTS ? toasts.slice(-MAX_TOASTS) : toasts })
     setTimeout(() => get().removeToast(id), duration)
   },
 

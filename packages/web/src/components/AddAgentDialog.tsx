@@ -4,6 +4,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { toast } from '../stores/toast.js'
+import { Button, Input } from './ui.js'
 import type { Agent } from '@agentim/shared'
 
 interface AddAgentDialogProps {
@@ -125,7 +126,7 @@ export function AddAgentDialog({
           disabled={adding === agent.id}
           className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50 flex-shrink-0"
         >
-          {adding === agent.id ? '...' : t('addAgent')}
+          {adding === agent.id ? t('adding') : t('addAgent')}
         </button>
       </div>
     )
@@ -165,12 +166,13 @@ export function AddAgentDialog({
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <input
+            <Input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('search')}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label={t('search')}
+              className="pl-10"
               autoFocus
             />
           </div>
@@ -224,12 +226,9 @@ export function AddAgentDialog({
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
+          <Button variant="secondary" onClick={onClose}>
             {t('close')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

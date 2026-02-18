@@ -1,21 +1,8 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ParsedChunk } from '@agentim/shared'
+import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
-
-const agentAvatarGradients: Record<string, string> = {
-  a: 'from-purple-500 to-violet-600',
-  b: 'from-blue-500 to-indigo-600',
-  c: 'from-cyan-500 to-teal-600',
-  d: 'from-emerald-500 to-green-600',
-  e: 'from-amber-500 to-orange-600',
-  f: 'from-rose-500 to-pink-600',
-}
-
-function getAvatarGradient(name: string): string {
-  const key = name.charAt(0).toLowerCase()
-  return agentAvatarGradients[key] || 'from-blue-500 to-indigo-600'
-}
 
 interface StreamingMessageProps {
   agentName: string

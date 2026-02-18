@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
+import { Button, Input, Textarea } from '../components/ui.js'
 import type { Task } from '@agentim/shared'
 
 export default function TasksPage() {
@@ -120,12 +121,9 @@ export default function TasksPage() {
           <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('loadFailed')}
           </h3>
-          <button
-            onClick={loadTasks}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
+          <Button onClick={loadTasks} className="mt-4">
             {t('retry')}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -142,12 +140,9 @@ export default function TasksPage() {
               {t('tasksCount', { count: tasks.length })}
             </p>
           </div>
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
+          <Button onClick={() => setIsDialogOpen(true)}>
             {t('newTask')}
-          </button>
+          </Button>
         </div>
 
         {/* Empty State */}
@@ -378,12 +373,11 @@ function CreateTaskDialog({
             >
               {t('taskTitle')}
             </label>
-            <input
+            <Input
               id="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-gray-100"
               placeholder={t('enterTaskTitle') || 'Enter task title'}
               autoFocus
               required
@@ -397,31 +391,22 @@ function CreateTaskDialog({
             >
               {t('taskDescription')}
             </label>
-            <textarea
+            <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none dark:bg-gray-700 dark:text-gray-100"
               rows={4}
               placeholder={t('enterTaskDescription') || 'Enter task description (optional)'}
             />
           </div>
 
           <div className="flex gap-3 justify-end pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
+            <Button type="button" variant="secondary" onClick={onClose}>
               {t('cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={!roomId}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
+            </Button>
+            <Button type="submit" disabled={!roomId}>
               {t('create')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

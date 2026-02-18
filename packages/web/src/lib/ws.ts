@@ -30,6 +30,11 @@ export class WsClient {
     return this._status
   }
 
+  /** Keep the stored token in sync when the API layer refreshes it */
+  updateToken(token: string) {
+    this._token = token
+  }
+
   private setStatus(status: ConnectionStatus) {
     if (this._status === status) return
     this._status = status
@@ -41,6 +46,22 @@ export class WsClient {
   connect(token: string) {
     this._token = token
     this.shouldReconnect = true
+    // Clear any pending reconnect timer to prevent concurrent connections
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    // Clean up old WebSocket before creating new one to prevent orphaned connections
+    if (this.ws) {
+      this.ws.onopen = null
+      this.ws.onmessage = null
+      this.ws.onclose = null
+      this.ws.onerror = null
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close()
+      }
+      this.ws = null
+    }
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const url = `${protocol}//${location.host}/ws/client`
     this.ws = new WebSocket(url)
@@ -96,15 +117,30 @@ export class WsClient {
     this._token = null
     this.pendingQueue.length = 0
     this.setStatus('disconnected')
+    // NOTE: Do NOT clear handler sets here — useWebSocket registers handlers
+    // once at mount time and relies on them surviving disconnect/reconnect cycles.
+    // The useEffect cleanup (unsub callbacks) handles deregistration properly.
   }
 
   send(msg: ClientMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg))
+      try {
+        this.ws.send(JSON.stringify(msg))
+      } catch {
+        // Send failed — queue for retry on reconnect
+        if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
+          if (this.pendingQueue.length < MAX_QUEUE_SIZE) {
+            this.pendingQueue.push(msg)
+          }
+        }
+        return
+      }
     } else if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
       // Queue non-auth, non-ping messages for replay on reconnect
       if (this.pendingQueue.length < MAX_QUEUE_SIZE) {
         this.pendingQueue.push(msg)
+      } else {
+        console.warn('[WS] Send queue full, message may be lost. Please check your connection.')
       }
     }
   }
@@ -140,7 +176,12 @@ export class WsClient {
     this.stopHeartbeat()
     this.pingTimer = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'client:ping', ts: Date.now() }))
+        this.clearPongTimeout()
+        try {
+          this.ws.send(JSON.stringify({ type: 'client:ping', ts: Date.now() }))
+        } catch {
+          return
+        }
         this.pongTimer = setTimeout(() => {
           console.warn('[WS] Pong timeout, reconnecting...')
           this.ws?.close()

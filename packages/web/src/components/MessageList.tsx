@@ -62,7 +62,7 @@ export function MessageList() {
   }, [currentMessages.length, streamingMessages.length, streamingMessages[0]?.chunks.length])
 
   const handleLoadMore = () => {
-    if (!currentRoomId || !currentHasMore) return
+    if (!currentRoomId || !currentHasMore || isLoading) return
     const oldestMessage = currentMessages[0]
     if (oldestMessage) {
       loadMessages(currentRoomId, oldestMessage.createdAt)
@@ -125,7 +125,7 @@ export function MessageList() {
     <div className="flex-1 relative min-h-0">
       <div
         ref={parentRef}
-        className="h-full overflow-y-auto"
+        className="h-full overflow-y-auto scrollbar-thin"
         role="log"
         aria-live="polite"
         aria-label={t('chat.rooms')}

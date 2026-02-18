@@ -3,6 +3,16 @@ import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
+    span: [...(defaultSchema.attributes?.span ?? []), 'className'],
+  },
+}
 import type { ParsedChunk } from '@agentim/shared'
 
 export interface ChunkGroup {
@@ -155,6 +165,7 @@ export function ToolUseBlock({
 }
 
 export function ToolResultBlock({ content }: { content: string }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const isLong = content.length > 200
 
@@ -168,7 +179,7 @@ export function ToolResultBlock({ content }: { content: string }) {
               onClick={() => setExpanded(true)}
               className="text-green-600 hover:text-green-700 mt-1 font-medium dark:text-green-400 dark:hover:text-green-300"
             >
-              Show more
+              {t('showMore')}
             </button>
           </>
         ) : (
@@ -180,6 +191,7 @@ export function ToolResultBlock({ content }: { content: string }) {
 }
 
 export function ErrorBlock({ content }: { content: string }) {
+  const { t } = useTranslation()
   return (
     <div className="my-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/30 dark:border-red-800">
       <div className="flex items-center gap-1.5 mb-1">
@@ -196,7 +208,7 @@ export function ErrorBlock({ content }: { content: string }) {
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
           />
         </svg>
-        <span className="text-xs font-medium text-red-700 dark:text-red-300">Error</span>
+        <span className="text-xs font-medium text-red-700 dark:text-red-300">{t('error')}</span>
       </div>
       <pre className="text-xs text-red-600 whitespace-pre-wrap dark:text-red-400">{content}</pre>
     </div>
@@ -212,7 +224,7 @@ export function TextBlock({
 }) {
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, sanitizeSchema], rehypeHighlight]}>
         {content}
       </ReactMarkdown>
       {isStreaming && (
@@ -233,25 +245,26 @@ export function ChunkGroupRenderer({
   return (
     <>
       {groups.map((group, i) => {
+        const key = `${group.type}-${i}`
         const isLast = isStreaming && i === groups.length - 1
         switch (group.type) {
           case 'thinking':
-            return <ThinkingBlock key={i} content={group.content} isStreaming={isLast} />
+            return <ThinkingBlock key={key} content={group.content} isStreaming={isLast} />
           case 'tool_use':
             return (
               <ToolUseBlock
-                key={i}
+                key={key}
                 content={group.content}
                 metadata={group.metadata}
                 isStreaming={isLast}
               />
             )
           case 'tool_result':
-            return <ToolResultBlock key={i} content={group.content} />
+            return <ToolResultBlock key={key} content={group.content} />
           case 'error':
-            return <ErrorBlock key={i} content={group.content} />
+            return <ErrorBlock key={key} content={group.content} />
           case 'text':
-            return <TextBlock key={i} content={group.content} isStreaming={isLast} />
+            return <TextBlock key={key} content={group.content} isStreaming={isLast} />
           default:
             return null
         }

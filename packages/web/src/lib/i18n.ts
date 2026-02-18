@@ -17,6 +17,7 @@ i18n
           ...en.task,
           ...en.settings,
           ...en.error,
+          ...en.router,
         },
       },
       'zh-CN': {
@@ -28,6 +29,7 @@ i18n
           ...zhCN.task,
           ...zhCN.settings,
           ...zhCN.error,
+          ...zhCN.router,
         },
       },
       ja: {
@@ -39,6 +41,7 @@ i18n
           ...ja.task,
           ...ja.settings,
           ...ja.error,
+          ...ja.router,
         },
       },
       ko: {
@@ -50,6 +53,7 @@ i18n
           ...ko.task,
           ...ko.settings,
           ...ko.error,
+          ...ko.router,
         },
       },
       fr: {
@@ -61,6 +65,7 @@ i18n
           ...fr.task,
           ...fr.settings,
           ...fr.error,
+          ...fr.router,
         },
       },
       de: {
@@ -72,6 +77,7 @@ i18n
           ...de.task,
           ...de.settings,
           ...de.error,
+          ...de.router,
         },
       },
       ru: {
@@ -83,6 +89,7 @@ i18n
           ...ru.task,
           ...ru.settings,
           ...ru.error,
+          ...ru.router,
         },
       },
     },

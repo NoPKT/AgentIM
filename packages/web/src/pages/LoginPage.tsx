@@ -1,12 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
+import { Button, Input } from '../components/ui.js'
 
 export default function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const login = useAuthStore((state) => state.login)
+  const user = useAuthStore((state) => state.user)
+
+  // Redirect already-authenticated users away from login page
+  useEffect(() => {
+    if (user) navigate('/', { replace: true })
+  }, [user, navigate])
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -58,12 +65,11 @@ export default function LoginPage() {
               >
                 {t('username')}
               </label>
-              <input
+              <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400"
                 placeholder={t('enterUsername')}
                 disabled={isLoading}
                 autoComplete="username"
@@ -77,25 +83,20 @@ export default function LoginPage() {
               >
                 {t('password')}
               </label>
-              <input
+              <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400"
                 placeholder={t('enterPassword')}
                 disabled={isLoading}
                 autoComplete="current-password"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
+            <Button type="submit" disabled={isLoading} size="lg" className="w-full">
               {isLoading ? t('loggingIn') : t('login')}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

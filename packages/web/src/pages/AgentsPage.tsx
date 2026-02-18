@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
+import { Button } from '../components/ui.js'
 import type { Agent, AgentVisibility } from '@agentim/shared'
 
 export default function AgentsPage() {
@@ -68,12 +69,9 @@ export default function AgentsPage() {
           <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('loadFailed')}
           </h3>
-          <button
-            onClick={loadAgents}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
+          <Button onClick={loadAgents} className="mt-4">
             {t('retry')}
-          </button>
+          </Button>
         </div>
       </div>
     )

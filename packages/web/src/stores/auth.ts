@@ -1,6 +1,9 @@
 import { create } from 'zustand'
-import { api } from '../lib/api.js'
+import { api, setOnAuthExpired } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
+import { useChatStore } from './chat.js'
+import { useAgentStore } from './agents.js'
+import { useRouterStore } from './routers.js'
 import type { UserRole } from '@agentim/shared'
 
 interface AuthUser {
@@ -42,6 +45,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     await api.post('/auth/logout').catch(() => {})
     api.clearTokens()
     wsClient.disconnect()
+    useChatStore.getState().reset()
+    useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
+    useRouterStore.setState({ routers: [], loading: false })
+    // Clear all draft entries from localStorage
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('draft:')) localStorage.removeItem(key)
+    }
     set({ user: null })
   },
 
@@ -82,3 +93,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }))
   },
 }))
+
+// Register callback so api.ts can reset auth state when token refresh fails
+setOnAuthExpired(() => {
+  useChatStore.getState().reset()
+  useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
+  useRouterStore.setState({ routers: [], loading: false })
+  useAuthStore.setState({ user: null })
+})

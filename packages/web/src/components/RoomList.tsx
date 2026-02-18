@@ -4,20 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
+import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
+import { Button, Input } from './ui.js'
 
-function timeAgo(dateStr: string, locale: string): string {
+function timeAgo(dateStr: string, t: (key: string) => string): string {
   const now = Date.now()
   const then = new Date(dateStr).getTime()
   const diff = now - then
   const mins = Math.floor(diff / 60000)
-  if (mins < 1)
-    return locale.startsWith('zh')
-      ? '刚刚'
-      : locale.startsWith('ja')
-        ? 'たった今'
-        : locale.startsWith('ko')
-          ? '방금'
-          : 'now'
+  if (mins < 1) return t('justNow')
   if (mins < 60) return `${mins}m`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h`
@@ -26,7 +21,7 @@ function timeAgo(dateStr: string, locale: string): string {
 }
 
 export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const {
     rooms,
@@ -105,9 +100,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         onClick={() => setShowNewRoomDialog(true)}
         className="w-full mb-4 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 shadow-sm"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
+        <PlusIcon className="w-5 h-5" />
         <span>{t('newRoom')}</span>
       </button>
 
@@ -149,7 +142,15 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
           </div>
         </div>
         {rooms.length === 0 ? (
-          <p className="px-2 py-4 text-sm text-gray-500 dark:text-gray-400">{t('noResults')}</p>
+          <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+            <ChatBubbleIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+              {t('noResults')}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              {t('createFirstRoom')}
+            </p>
+          </div>
         ) : (
           sortedRooms.map((room) => {
             const lastMsg = lastMessages.get(room.id)
@@ -173,30 +174,12 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-r-full" />
                 )}
                 <div className="flex items-center space-x-2.5">
-                  <svg
-                    className="w-4.5 h-4.5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
+                  <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="truncate text-sm flex items-center gap-1">
                         {room.pinnedAt && (
-                          <svg
-                            className="w-3 h-3 text-amber-500 flex-shrink-0"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M10 2L8 8H2l5 4-2 6 5-4 5 4-2-6 5-4h-6L10 2z" />
-                          </svg>
+                          <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                         )}
                         {room.name}
                       </span>
@@ -208,7 +191,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                         )}
                         {lastMsg && (
                           <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                            {timeAgo(lastMsg.createdAt, i18n.language)}
+                            {timeAgo(lastMsg.createdAt, t)}
                           </span>
                         )}
                         {unread > 0 && room.id !== currentRoomId && (
@@ -252,11 +235,10 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('roomName')}
                 </label>
-                <input
+                <Input
                   type="text"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   placeholder={t('enterRoomName')}
                   autoFocus
                   onKeyDown={(e) => {
@@ -268,23 +250,22 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
 
             {/* Buttons */}
             <div className="mt-6 flex justify-end space-x-3">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowNewRoomDialog(false)
                   setNewRoomName('')
                 }}
                 disabled={isCreating}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {t('cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleCreateRoom}
                 disabled={!newRoomName.trim() || isCreating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreating ? t('loading') : t('create')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

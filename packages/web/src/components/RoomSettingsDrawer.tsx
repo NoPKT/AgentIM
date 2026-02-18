@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
 import { useAgentStore } from '../stores/agents.js'
+import { useRouterStore } from '../stores/routers.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { AddAgentDialog } from './AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
+import { Button, Input, Textarea } from './ui.js'
 
 interface RoomSettingsDrawerProps {
   roomId: string
@@ -28,6 +30,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const removeRoomMember = useChatStore((s) => s.removeRoomMember)
   const agents = useAgentStore((s) => s.agents)
   const onlineUsers = useChatStore((s) => s.onlineUsers)
+  const routers = useRouterStore((s) => s.routers)
+  const loadRouters = useRouterStore((s) => s.loadRouters)
 
   const currentUser = useAuthStore((s) => s.user)
   const room = rooms.find((r) => r.id === roomId)
@@ -51,8 +55,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   useEffect(() => {
     if (isOpen && roomId) {
       loadRoomMembers(roomId)
+      loadRouters()
     }
-  }, [isOpen, roomId, loadRoomMembers])
+  }, [isOpen, roomId, loadRoomMembers, loadRouters])
 
   useEffect(() => {
     if (!isOpen) return
@@ -203,7 +208,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
             {/* Room Name */}
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
@@ -211,24 +216,21 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               </label>
               {editingName ? (
                 <div className="flex gap-2">
-                  <input
+                  <Input
+                    inputSize="sm"
                     type="text"
                     value={nameValue}
                     onChange={(e) => setNameValue(e.target.value)}
-                    className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleSaveName()
                       if (e.key === 'Escape') setEditingName(false)
                     }}
                   />
-                  <button
-                    onClick={handleSaveName}
-                    disabled={updating}
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
+                  <Button size="sm" onClick={handleSaveName} disabled={updating}>
                     {t('save')}
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <button
@@ -293,32 +295,29 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               </label>
               {editingPrompt ? (
                 <div className="space-y-2">
-                  <textarea
+                  <Textarea
+                    inputSize="sm"
                     value={promptValue}
                     onChange={(e) => setPromptValue(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows={4}
                     maxLength={10000}
                     autoFocus
                     placeholder={t('systemPromptPlaceholder') || ''}
                   />
                   <div className="flex gap-2 justify-end">
-                    <button
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => {
                         setPromptValue(room?.systemPrompt ?? '')
                         setEditingPrompt(false)
                       }}
-                      className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                     >
                       {t('cancel')}
-                    </button>
-                    <button
-                      onClick={handleSavePrompt}
-                      disabled={updating}
-                      className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
+                    </Button>
+                    <Button size="sm" onClick={handleSavePrompt} disabled={updating}>
                       {t('save')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -356,6 +355,50 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {t('systemPromptDesc')}
+              </p>
+            </div>
+
+            {/* Router Selector */}
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                {t('router.roomRouter')}
+              </label>
+              <select
+                value={
+                  room?.routerId && !routers.some((r) => r.id === room.routerId)
+                    ? '__unknown__'
+                    : (room?.routerId ?? '')
+                }
+                onChange={async (e) => {
+                  if (e.target.value === '__unknown__') return
+                  const routerId = e.target.value || null
+                  setUpdating(true)
+                  try {
+                    await updateRoom(roomId, { routerId })
+                    toast.success(t('roomUpdated'))
+                  } catch {
+                    toast.error(t('error'))
+                  } finally {
+                    setUpdating(false)
+                  }
+                }}
+                disabled={updating}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <option value="">{t('router.noRouter')}</option>
+                {room?.routerId && !routers.some((r) => r.id === room.routerId) && (
+                  <option value="__unknown__" disabled>
+                    ({t('router.noRouterSelected')})
+                  </option>
+                )}
+                {routers.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.llmModel})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {t('router.routerDesc')}
               </p>
             </div>
 
@@ -561,18 +604,17 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               <div className="space-y-3">
                 <p className="text-sm text-gray-600 dark:text-gray-400">{t('confirmDeleteRoom')}</p>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="flex-1"
                   >
                     {t('cancel')}
-                  </button>
-                  <button
-                    onClick={handleDeleteRoom}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                  >
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={handleDeleteRoom} className="flex-1">
                     {t('delete')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (

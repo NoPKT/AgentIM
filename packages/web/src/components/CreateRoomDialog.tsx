@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
+import { useRouterStore } from '../stores/routers.js'
+import { Button, Input, Textarea } from './ui.js'
 
 interface CreateRoomDialogProps {
   isOpen: boolean
@@ -10,11 +12,14 @@ interface CreateRoomDialogProps {
 export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogProps) {
   const { t } = useTranslation()
   const createRoom = useChatStore((state) => state.createRoom)
+  const routers = useRouterStore((s) => s.routers)
+  const loadRouters = useRouterStore((s) => s.loadRouters)
 
   const [name, setName] = useState('')
   const [type, setType] = useState<'private' | 'group'>('private')
   const [broadcastMode, setBroadcastMode] = useState(false)
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [routerId, setRouterId] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,7 +34,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
     setIsCreating(true)
     try {
-      await createRoom(name, type, broadcastMode, systemPrompt.trim() || undefined)
+      await createRoom(name, type, broadcastMode, systemPrompt.trim() || undefined, routerId || undefined)
       handleClose()
     } catch (err) {
       setError(
@@ -45,9 +50,14 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     setType('private')
     setBroadcastMode(false)
     setSystemPrompt('')
+    setRouterId('')
     setError('')
     onClose()
   }
+
+  useEffect(() => {
+    if (isOpen) loadRouters()
+  }, [isOpen, loadRouters])
 
   useEffect(() => {
     if (!isOpen) return
@@ -108,12 +118,11 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
             >
               {t('roomName')}
             </label>
-            <input
+            <Input
               id="roomName"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder={t('enterRoomName') || 'Enter room name'}
               autoFocus
               required
@@ -198,16 +207,39 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
             >
               {t('systemPrompt')}
             </label>
-            <textarea
+            <Textarea
               id="systemPrompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder={t('systemPromptPlaceholder') || 'Describe room purpose...'}
               rows={3}
               maxLength={10000}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('systemPromptDesc')}</p>
+          </div>
+
+          {/* Router */}
+          <div>
+            <label
+              htmlFor="routerId"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              {t('router.roomRouter')}
+            </label>
+            <select
+              id="routerId"
+              value={routerId}
+              onChange={(e) => setRouterId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="">{t('router.noRouter')}</option>
+              {routers.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.llmModel})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('router.routerDesc')}</p>
           </div>
 
           {/* Broadcast Mode */}
@@ -232,20 +264,12 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400 focus:ring-offset-2"
-            >
+            <Button type="button" variant="secondary" onClick={handleClose}>
               {t('cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={isCreating}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2"
-            >
-              {isCreating ? t('creating') || 'Creating...' : t('create')}
-            </button>
+            </Button>
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? t('creating') : t('create')}
+            </Button>
           </div>
         </form>
       </div>

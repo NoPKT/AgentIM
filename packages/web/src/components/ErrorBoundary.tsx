@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from './ui.js'
 
 interface Props {
   children: ReactNode
@@ -47,18 +48,10 @@ function ErrorFallback({
           {error?.message || t('error.network')}
         </p>
         <div className="flex gap-3 justify-center">
-          <button
-            onClick={onRetry}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            {t('retry')}
-          </button>
-          <button
-            onClick={onGoHome}
-            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-          >
+          <Button onClick={onRetry}>{t('retry')}</Button>
+          <Button variant="secondary" onClick={onGoHome}>
             {t('back')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -120,7 +120,7 @@ export function AppLayout() {
         </div>
 
         {/* Room List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
           <RoomList onRoomSelect={closeSidebar} />
         </div>
 

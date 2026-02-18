@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
+import { Button, Input } from '../components/ui.js'
 import type { UserRole } from '@agentim/shared'
 
 interface UserItem {
@@ -162,12 +163,9 @@ export default function UsersPage() {
           <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
             {t('loadFailed')}
           </h3>
-          <button
-            onClick={loadUsers}
-            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
+          <Button onClick={loadUsers} className="mt-4">
             {t('retry')}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -185,12 +183,9 @@ export default function UsersPage() {
               {t('userManagementDesc')}
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
+          <Button onClick={() => setShowCreate(!showCreate)}>
             {t('createUser')}
-          </button>
+          </Button>
         </div>
 
         {/* Create User Form */}
@@ -204,11 +199,10 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('username')}
                 </label>
-                <input
+                <Input
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder={t('enterUsername')}
                 />
               </div>
@@ -216,11 +210,10 @@ export default function UsersPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('password')}
                 </label>
-                <input
+                <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder={t('enterPassword')}
                 />
               </div>
@@ -229,11 +222,10 @@ export default function UsersPage() {
                   {t('displayName')}{' '}
                   <span className="text-gray-400 dark:text-gray-500">({t('optional')})</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder={t('enterDisplayName')}
                 />
               </div>
@@ -252,19 +244,15 @@ export default function UsersPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>
                 {t('cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleCreateUser}
                 disabled={isCreating || !newUsername.trim() || !newPassword.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
               >
                 {isCreating ? t('creatingUser') : t('create')}
-              </button>
+              </Button>
             </div>
           </div>
         )}

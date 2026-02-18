@@ -11,7 +11,6 @@ export function useWebSocket() {
   const addStreamChunk = useChatStore((s) => s.addStreamChunk)
   const completeStream = useChatStore((s) => s.completeStream)
   const addTypingUser = useChatStore((s) => s.addTypingUser)
-  const clearExpiredTyping = useChatStore((s) => s.clearExpiredTyping)
   const addTerminalData = useChatStore((s) => s.addTerminalData)
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
@@ -24,6 +23,7 @@ export function useWebSocket() {
 
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
+      try {
       switch (msg.type) {
         case 'server:new_message': {
           addMessage(msg.message)
@@ -117,6 +117,19 @@ export function useWebSocket() {
         case 'server:reaction_update':
           updateReactions(msg.roomId, msg.messageId, msg.reactions)
           break
+        case 'server:auth_result':
+          if (!msg.ok) {
+            console.warn('[WS] Auth failed:', msg.error)
+            // Token rejected by server — force logout
+            useAuthStore.getState().logout()
+          }
+          break
+        case 'server:error':
+          console.warn('[WS Server Error]', msg.code, msg.message)
+          break
+      }
+      } catch (err) {
+        console.error('[WS] Error handling message:', msg.type, err)
       }
     })
 
@@ -140,11 +153,13 @@ export function useWebSocket() {
   // On reconnect, re-join current room and sync missed messages
   useEffect(() => {
     const unsub = wsClient.onReconnect(() => {
-      const { currentRoomId, syncMissedMessages } = useChatStore.getState()
+      const { currentRoomId, syncMissedMessages, loadRoomMembers } = useChatStore.getState()
       if (currentRoomId) {
         wsClient.send({ type: 'client:join_room', roomId: currentRoomId })
         // Incrementally sync messages missed during disconnect
         syncMissedMessages(currentRoomId)
+        // Refresh room members (may have changed during disconnect)
+        loadRoomMembers(currentRoomId)
       }
       // Reload rooms/unread counts to catch any updates during disconnect
       loadRooms()
@@ -152,9 +167,21 @@ export function useWebSocket() {
     return unsub
   }, [loadRooms])
 
+  // Clear streaming state on disconnect (streams are interrupted)
+  useEffect(() => {
+    const unsub = wsClient.onStatusChange((status) => {
+      if (status === 'disconnected') {
+        useChatStore.getState().clearStreamingState()
+      }
+    })
+    return unsub
+  }, [])
+
   // Periodically clear expired typing indicators
   useEffect(() => {
-    const timer = setInterval(clearExpiredTyping, 2000)
+    const timer = setInterval(() => {
+      useChatStore.getState().clearExpiredTyping()
+    }, 2000)
     return () => clearInterval(timer)
-  }, [clearExpiredTyping])
+  }, [])
 }

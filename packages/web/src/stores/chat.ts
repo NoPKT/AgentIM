@@ -10,6 +10,7 @@ interface StreamingMessage {
   agentId: string
   agentName: string
   chunks: ParsedChunk[]
+  lastChunkAt: number
 }
 
 interface LastMessageInfo {
@@ -67,6 +68,8 @@ interface ChatState {
   completeStream: (message: Message) => void
   addTerminalData: (agentId: string, agentName: string, data: string) => void
   clearTerminalBuffer: (agentId: string) => void
+  clearStreamingState: () => void
+  cleanupStaleStreams: () => void
   setUserOnline: (userId: string, online: boolean) => void
   updateReadReceipt: (roomId: string, userId: string, username: string, lastReadAt: string) => void
   createRoom: (
@@ -74,6 +77,7 @@ interface ChatState {
     type: 'private' | 'group',
     broadcastMode: boolean,
     systemPrompt?: string,
+    routerId?: string,
   ) => Promise<Room>
   loadRoomMembers: (roomId: string) => Promise<void>
   addRoomMember: (
@@ -85,7 +89,12 @@ interface ChatState {
   removeRoomMember: (roomId: string, memberId: string) => Promise<void>
   updateRoom: (
     roomId: string,
-    data: { name?: string; broadcastMode?: boolean; systemPrompt?: string | null },
+    data: {
+      name?: string
+      broadcastMode?: boolean
+      systemPrompt?: string | null
+      routerId?: string | null
+    },
   ) => Promise<void>
   deleteRoom: (roomId: string) => Promise<void>
   editMessage: (messageId: string, content: string) => Promise<void>
@@ -98,6 +107,7 @@ interface ChatState {
   updateNotificationPref: (roomId: string, pref: 'all' | 'mentions' | 'none') => Promise<void>
   togglePin: (roomId: string) => Promise<void>
   toggleArchive: (roomId: string) => Promise<void>
+  reset: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -126,18 +136,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   updateReadReceipt: (roomId, userId, username, lastReadAt) => {
+    const MAX_RECEIPTS_PER_ROOM = 100
     const readReceipts = new Map(get().readReceipts)
     const receipts = (readReceipts.get(roomId) ?? []).filter((r) => r.userId !== userId)
     receipts.push({ userId, username, lastReadAt })
-    readReceipts.set(roomId, receipts)
+    // Cap per-room receipts to prevent unbounded growth
+    readReceipts.set(roomId, receipts.length > MAX_RECEIPTS_PER_ROOM ? receipts.slice(-MAX_RECEIPTS_PER_ROOM) : receipts)
     set({ readReceipts })
   },
 
   addTypingUser: (roomId, userId, username) => {
+    const MAX_TYPING_ENTRIES = 500
     const key = `${roomId}:${userId}`
     const typingUsers = new Map(get().typingUsers)
     typingUsers.set(key, { username, expiresAt: Date.now() + 4000 })
-    set({ typingUsers })
+    // Safety cap — clearExpiredTyping handles normal cleanup
+    if (typingUsers.size > MAX_TYPING_ENTRIES) {
+      const entries = [...typingUsers.entries()].sort((a, b) => a[1].expiresAt - b[1].expiresAt)
+      const toKeep = entries.slice(-MAX_TYPING_ENTRIES)
+      set({ typingUsers: new Map(toKeep) })
+    } else {
+      set({ typingUsers })
+    }
   },
 
   clearExpiredTyping: () => {
@@ -173,6 +193,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
           if (info.unread > 0) {
             unreadCounts.set(roomId, info.unread)
+          } else {
+            unreadCounts.delete(roomId)
           }
         }
         set({ lastMessages, unreadCounts })
@@ -200,6 +222,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadMessages: async (roomId, cursor) => {
+    // Prevent duplicate concurrent loads for the same room
+    if (get().loadingMessages.has(roomId)) return
     const loadingMessages = new Set(get().loadingMessages)
     loadingMessages.add(roomId)
     set({ loadingMessages })
@@ -216,8 +240,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (res.ok && res.data) {
         const existing = get().messages.get(roomId) ?? []
         // Messages come newest first, reverse for display
+        const MAX_CACHED_MESSAGES = 1000
         const newMsgs = res.data.items.reverse()
-        const combined = cursor ? [...newMsgs, ...existing] : newMsgs
+        let combined = cursor ? [...newMsgs, ...existing] : newMsgs
+        if (combined.length > MAX_CACHED_MESSAGES) {
+          combined = combined.slice(-MAX_CACHED_MESSAGES)
+        }
         const msgs = new Map(get().messages)
         msgs.set(roomId, combined)
         const hasMore = new Map(get().hasMore)
@@ -263,9 +291,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addMessage: (message) => {
+    const MAX_CACHED_MESSAGES = 1000
     const msgs = new Map(get().messages)
     const roomMsgs = msgs.get(message.roomId) ?? []
-    msgs.set(message.roomId, [...roomMsgs, message])
+    // Dedup: skip if message already exists (race between WS and REST)
+    if (roomMsgs.some((m) => m.id === message.id)) return
+    let updated = [...roomMsgs, message]
+    if (updated.length > MAX_CACHED_MESSAGES) {
+      updated = updated.slice(-MAX_CACHED_MESSAGES)
+    }
+    msgs.set(message.roomId, updated)
 
     const lastMessages = new Map(get().lastMessages)
     lastMessages.set(message.roomId, {
@@ -284,34 +319,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
+    const MAX_CHUNKS_PER_STREAM = 2000
     const streaming = new Map(get().streaming)
     const key = `${roomId}:${agentId}`
     const existing = streaming.get(key)
+    const now = Date.now()
     if (existing) {
-      existing.chunks.push(chunk)
-      streaming.set(key, { ...existing })
+      const chunks = existing.chunks.length >= MAX_CHUNKS_PER_STREAM
+        ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
+        : [...existing.chunks, chunk]
+      streaming.set(key, { ...existing, chunks, lastChunkAt: now })
     } else {
-      streaming.set(key, { messageId, agentId, agentName, chunks: [chunk] })
+      streaming.set(key, { messageId, agentId, agentName, chunks: [chunk], lastChunkAt: now })
     }
     set({ streaming })
   },
 
   completeStream: (message) => {
+    // Add message first, then clean up streaming state
+    // This ensures message is visible even if addMessage triggers re-renders
+    get().addMessage(message)
+
     const streaming = new Map(get().streaming)
     const key = `${message.roomId}:${message.senderId}`
     streaming.delete(key)
     set({ streaming })
-
-    get().addMessage(message)
   },
 
   addTerminalData: (agentId, agentName, data) => {
+    const MAX_TERMINAL_LINES = 500
     const terminalBuffers = new Map(get().terminalBuffers)
     const existing = terminalBuffers.get(agentId)
     if (existing) {
+      const lines = [...existing.lines, data]
       terminalBuffers.set(agentId, {
         agentName,
-        lines: [...existing.lines, data],
+        lines: lines.length > MAX_TERMINAL_LINES ? lines.slice(-MAX_TERMINAL_LINES) : lines,
       })
     } else {
       terminalBuffers.set(agentId, { agentName, lines: [data] })
@@ -325,9 +368,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ terminalBuffers })
   },
 
-  createRoom: async (name, type, broadcastMode, systemPrompt?) => {
+  clearStreamingState: () => {
+    set({ streaming: new Map(), terminalBuffers: new Map() })
+  },
+
+  cleanupStaleStreams: () => {
+    const STALE_TIMEOUT = 120_000 // 2 minutes
+    const now = Date.now()
+    const streaming = new Map(get().streaming)
+    let changed = false
+    for (const [key, stream] of streaming) {
+      if (now - stream.lastChunkAt > STALE_TIMEOUT) {
+        streaming.delete(key)
+        changed = true
+      }
+    }
+    if (changed) set({ streaming })
+  },
+
+  createRoom: async (name, type, broadcastMode, systemPrompt?, routerId?) => {
     const body: Record<string, unknown> = { name, type, broadcastMode }
     if (systemPrompt) body.systemPrompt = systemPrompt
+    if (routerId) body.routerId = routerId
     const res = await api.post<Room>('/rooms', body)
     if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to create room')
     set({ rooms: [...get().rooms, res.data] })
@@ -368,9 +430,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
   deleteRoom: async (roomId) => {
     const res = await api.delete(`/rooms/${roomId}`)
     if (!res.ok) throw new Error(res.error ?? 'Failed to delete room')
+
+    // Clean up all Map/Set entries associated with this room
+    const messages = new Map(get().messages)
+    const roomMembers = new Map(get().roomMembers)
+    const lastMessages = new Map(get().lastMessages)
+    const unreadCounts = new Map(get().unreadCounts)
+    const readReceipts = new Map(get().readReceipts)
+    const hasMore = new Map(get().hasMore)
+    messages.delete(roomId)
+    roomMembers.delete(roomId)
+    lastMessages.delete(roomId)
+    unreadCounts.delete(roomId)
+    readReceipts.delete(roomId)
+    hasMore.delete(roomId)
+
+    // Clean up typing users for this room
+    const typingUsers = new Map(get().typingUsers)
+    for (const key of typingUsers.keys()) {
+      if (key.startsWith(`${roomId}:`)) typingUsers.delete(key)
+    }
+
+    // Clean up streaming entries for this room
+    const streaming = new Map(get().streaming)
+    for (const key of streaming.keys()) {
+      if (key.startsWith(`${roomId}:`)) streaming.delete(key)
+    }
+
+    // Clear replyTo if it references a message from the deleted room
+    const replyTo = get().replyTo?.roomId === roomId ? null : get().replyTo
+
     set({
       rooms: get().rooms.filter((r) => r.id !== roomId),
       currentRoomId: get().currentRoomId === roomId ? null : get().currentRoomId,
+      messages,
+      roomMembers,
+      lastMessages,
+      unreadCounts,
+      readReceipts,
+      hasMore,
+      typingUsers,
+      streaming,
+      replyTo,
     })
   },
 
@@ -479,6 +580,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  reset: () => {
+    set({
+      rooms: [],
+      currentRoomId: null,
+      messages: new Map(),
+      streaming: new Map(),
+      hasMore: new Map(),
+      loadingMessages: new Set(),
+      roomMembers: new Map(),
+      lastMessages: new Map(),
+      unreadCounts: new Map(),
+      replyTo: null,
+      typingUsers: new Map(),
+      terminalBuffers: new Map(),
+      onlineUsers: new Set(),
+      readReceipts: new Map(),
+    })
+  },
+
   toggleArchive: async (roomId) => {
     try {
       const res = await api.put<{ archived: boolean }>(`/rooms/${roomId}/archive`)
@@ -523,7 +643,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const unique = newMsgs.filter((m) => !existingIds.has(m.id))
         if (unique.length > 0) {
           const msgs = new Map(get().messages)
-          msgs.set(roomId, [...existing, ...unique])
+          const combined = [...existing, ...unique]
+          combined.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          msgs.set(roomId, combined)
           set({ messages: msgs })
         }
       }

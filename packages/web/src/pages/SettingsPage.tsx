@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { useThemeStore } from '../stores/theme.js'
+import { useRouterStore } from '../stores/routers.js'
 import { api } from '../lib/api.js'
 import {
   getNotificationPreference,
@@ -9,6 +10,9 @@ import {
   requestNotificationPermission,
 } from '../lib/notifications.js'
 import { toast } from '../stores/toast.js'
+import { Button, Input } from '../components/ui.js'
+import { RouterFormDialog } from '../components/RouterFormDialog.js'
+import type { Router } from '@agentim/shared'
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -27,6 +31,33 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  // Router state
+  const routers = useRouterStore((s) => s.routers)
+  const routersLoading = useRouterStore((s) => s.loading)
+  const loadRouters = useRouterStore((s) => s.loadRouters)
+  const deleteRouterAction = useRouterStore((s) => s.deleteRouter)
+  const [showRouterForm, setShowRouterForm] = useState(false)
+  const [editingRouter, setEditingRouter] = useState<Router | null>(null)
+  const [deletingRouterId, setDeletingRouterId] = useState<string | null>(null)
+  const isAdmin = user?.role === 'admin'
+
+  useEffect(() => {
+    loadRouters()
+  }, [loadRouters])
+
+  const myRouters = routers.filter((r) => r.scope === 'personal' && r.createdById === user?.id)
+  const globalRouters = routers.filter((r) => r.scope === 'global')
+
+  const handleDeleteRouter = async (id: string) => {
+    try {
+      await deleteRouterAction(id)
+      toast.success(t('router.deleted'))
+      setDeletingRouterId(null)
+    } catch {
+      toast.error(t('error.generic'))
+    }
+  }
 
   const languages = [
     { code: 'en', label: 'English', flag: '\u{1F1FA}\u{1F1F8}' },
@@ -125,6 +156,10 @@ export default function SettingsPage() {
       toast.error(t('passwordTooShort'))
       return
     }
+    if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      toast.error(t('passwordRequirements'))
+      return
+    }
     if (newPassword !== confirmNewPassword) {
       toast.error(t('passwordsDoNotMatch'))
       return
@@ -138,9 +173,9 @@ export default function SettingsPage() {
       })
       if (res.ok) {
         toast.success(t('passwordChanged'))
-        setCurrentPassword('')
-        setNewPassword('')
-        setConfirmNewPassword('')
+        // Server invalidated all refresh tokens — log out so user re-authenticates
+        await useAuthStore.getState().logout()
+        return
       } else {
         toast.error(res.error || t('error'))
       }
@@ -254,12 +289,12 @@ export default function SettingsPage() {
                 >
                   {t('username')}
                 </label>
-                <input
+                <Input
                   id="username"
                   type="text"
                   value={user?.username || ''}
                   disabled
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  className="bg-gray-50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {t('usernameCannotBeChanged')}
@@ -290,24 +325,19 @@ export default function SettingsPage() {
                 >
                   {t('displayName')}
                 </label>
-                <input
+                <Input
                   id="displayName"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white"
                   placeholder={t('enterDisplayName')}
                 />
               </div>
 
               <div className="flex items-center justify-end pt-2">
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={isSaving}
-                  className="ml-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
+                <Button onClick={handleSaveProfile} disabled={isSaving} className="ml-auto">
                   {isSaving ? t('saving') : t('save')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -327,12 +357,11 @@ export default function SettingsPage() {
                 >
                   {t('currentPassword')}
                 </label>
-                <input
+                <Input
                   id="currentPassword"
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white"
                   autoComplete="current-password"
                 />
               </div>
@@ -343,12 +372,11 @@ export default function SettingsPage() {
                 >
                   {t('newPassword')}
                 </label>
-                <input
+                <Input
                   id="newPassword"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white"
                   autoComplete="new-password"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -362,25 +390,23 @@ export default function SettingsPage() {
                 >
                   {t('confirmNewPassword')}
                 </label>
-                <input
+                <Input
                   id="confirmNewPassword"
                   type="password"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors dark:bg-gray-700 dark:text-white"
                   autoComplete="new-password"
                 />
               </div>
               <div className="flex items-center justify-end pt-2">
-                <button
+                <Button
                   onClick={handleChangePassword}
                   disabled={
                     isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword
                   }
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   {isChangingPassword ? t('changingPassword') : t('changePassword')}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -554,6 +580,183 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* My Routers Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t('router.myRouters')}
+                </h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  {t('router.routerDesc')}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingRouter(null)
+                  setShowRouterForm(true)
+                }}
+              >
+                {t('router.createRouter')}
+              </Button>
+            </div>
+            <div className="px-6 py-4">
+              {routersLoading && routers.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                </div>
+              ) : myRouters.length === 0 && globalRouters.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('router.noRouters')}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {t('router.noRoutersDesc')}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {myRouters.map((router) => (
+                    <div
+                      key={router.id}
+                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {router.name}
+                          </span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                            {router.llmModel}
+                          </span>
+                        </div>
+                        {router.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                            {router.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 ml-3">
+                        <button
+                          onClick={() => {
+                            setEditingRouter(router)
+                            setShowRouterForm(true)
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        {deletingRouterId === router.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteRouter(router.id)}
+                              className="p-1.5 text-red-600 dark:text-red-400 rounded-md bg-red-50 dark:bg-red-900/30"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => setDeletingRouterId(null)}
+                              className="p-1.5 text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingRouterId(router.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Global routers (read-only for non-admins) */}
+                  {globalRouters.map((router) => (
+                    <div
+                      key={router.id}
+                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {router.name}
+                          </span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                            {t('router.scopeGlobal')}
+                          </span>
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                            {router.llmModel}
+                          </span>
+                        </div>
+                        {router.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                            {router.description}
+                          </p>
+                        )}
+                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1 ml-3">
+                          <button
+                            onClick={() => {
+                              setEditingRouter(router)
+                              setShowRouterForm(true)
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          {deletingRouterId === router.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDeleteRouter(router.id)}
+                                className="p-1.5 text-red-600 dark:text-red-400 rounded-md bg-red-50 dark:bg-red-900/30"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setDeletingRouterId(null)}
+                                className="p-1.5 text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeletingRouterId(router.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* About Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -578,6 +781,15 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <RouterFormDialog
+        isOpen={showRouterForm}
+        onClose={() => {
+          setShowRouterForm(false)
+          setEditingRouter(null)
+        }}
+        router={editingRouter}
+      />
     </div>
   )
 }

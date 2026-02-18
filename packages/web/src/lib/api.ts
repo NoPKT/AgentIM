@@ -1,4 +1,11 @@
 import type { ApiResponse } from '@agentim/shared'
+import { wsClient } from './ws.js'
+
+// Lazy import to avoid circular dependency (auth store imports api)
+let _onAuthExpired: (() => void) | null = null
+export function setOnAuthExpired(cb: () => void) {
+  _onAuthExpired = cb
+}
 
 const BASE_URL = '/api'
 const DEFAULT_TIMEOUT = 15_000
@@ -18,6 +25,8 @@ function getToken(): string | null {
 function setTokens(access: string, refresh: string) {
   accessToken = access
   localStorage.setItem('agentim_refresh_token', refresh)
+  // Keep WS client in sync so reconnections use the fresh token
+  wsClient.updateToken(access)
 }
 
 function clearTokens() {
@@ -40,26 +49,39 @@ function withTimeout(signal?: AbortSignal | null, timeout = DEFAULT_TIMEOUT): Ab
   return controller.signal
 }
 
+let refreshPromise: Promise<boolean> | null = null
+
 async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = localStorage.getItem('agentim_refresh_token')
-  if (!refreshToken) return false
+  // Deduplicate concurrent refresh calls
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('agentim_refresh_token')
+    if (!refreshToken) return false
+
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        signal: withTimeout(null, 10_000),
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      if (data.ok && data.data) {
+        setTokens(data.data.accessToken, data.data.refreshToken)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  })()
 
   try {
-    const res = await fetch(`${BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-      signal: withTimeout(null, 10_000),
-    })
-    if (!res.ok) return false
-    const data = await res.json()
-    if (data.ok && data.data) {
-      setTokens(data.data.accessToken, data.data.refreshToken)
-      return true
-    }
-    return false
-  } catch {
-    return false
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
   }
 }
 
@@ -95,6 +117,11 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
             headers,
             signal: withTimeout(userSignal, timeout),
           })
+        } else {
+          // Refresh failed — clear stale tokens, disconnect WS, and reset auth state
+          clearTokens()
+          wsClient.disconnect()
+          _onAuthExpired?.()
         }
       }
 
@@ -173,12 +200,19 @@ async function uploadFile<T>(
     const refreshed = await refreshAccessToken()
     if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`
+      // Recreate FormData — some browsers don't allow reusing after fetch
+      const retryFormData = new FormData()
+      retryFormData.append('file', file)
       res = await fetch(`${BASE_URL}${path}`, {
         method: 'POST',
         headers,
-        body: formData,
+        body: retryFormData,
         signal: withTimeout(userSignal, UPLOAD_TIMEOUT),
       })
+    } else {
+      clearTokens()
+      wsClient.disconnect()
+      _onAuthExpired?.()
     }
   }
 

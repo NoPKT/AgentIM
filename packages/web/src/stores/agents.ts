@@ -21,11 +21,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   loadAgents: async () => {
     set({ isLoading: true, loadError: false })
-    const res = await api.get<Agent[]>('/agents')
-    if (res.ok && res.data) {
-      set({ agents: res.data, isLoading: false })
-    } else {
-      set({ isLoading: false, loadError: true })
+    try {
+      const res = await api.get<Agent[]>('/agents')
+      if (res.ok && res.data) {
+        set({ agents: res.data })
+      } else {
+        set({ loadError: true })
+      }
+    } catch {
+      set({ loadError: true })
+    } finally {
+      set({ isLoading: false })
     }
   },
 

@@ -160,6 +160,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               value={query}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder={t('searchMessages')}
+              aria-label={t('searchMessages')}
               className="w-full pl-11 pr-10 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') onClose()
@@ -216,7 +217,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         </div>
 
         {/* Results */}
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto scrollbar-thin">
           {loading && (
             <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
               {t('loading')}
