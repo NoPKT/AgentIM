@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # Or non-interactive
-agentim login -s https://your-server.com -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
 ### 3. Start an Agent
@@ -142,7 +142,7 @@ agentim claude
 agentim claude /path/to/project
 
 # Give it a custom name
-agentim -n my-frontend claude /path/to/frontend
+agentim claude -n my-frontend /path/to/frontend
 
 # Other agent types
 agentim codex /path/to/project

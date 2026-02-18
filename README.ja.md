@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # または非対話式
-agentim login -s https://your-server.com -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
 ### 3. エージェントを起動
@@ -142,7 +142,7 @@ agentim claude
 agentim claude /path/to/project
 
 # カスタム名を指定
-agentim -n my-frontend claude /path/to/frontend
+agentim claude -n my-frontend /path/to/frontend
 
 # その他のエージェントタイプ
 agentim codex /path/to/project

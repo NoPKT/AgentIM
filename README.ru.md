@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # Или неинтерактивный
-agentim login -s https://your-server.com -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
 ### 3. Запуск агента
@@ -142,7 +142,7 @@ agentim claude
 agentim claude /path/to/project
 
 # Задать пользовательское имя
-agentim -n my-frontend claude /path/to/frontend
+agentim claude -n my-frontend /path/to/frontend
 
 # Другие типы агентов
 agentim codex /path/to/project

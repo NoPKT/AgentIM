@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # 或非交互式
-agentim login -s https://your-server.com -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
 ### 3. 启动智能体
@@ -142,7 +142,7 @@ agentim claude
 agentim claude /path/to/project
 
 # 自定义名称
-agentim -n my-frontend claude /path/to/frontend
+agentim claude -n my-frontend /path/to/frontend
 
 # 其他智能体类型
 agentim codex /path/to/project

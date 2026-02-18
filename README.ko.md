@@ -129,7 +129,7 @@ npm install -g agentim
 agentim login
 
 # 또는 비대화식
-agentim login -s https://your-server.com -u admin -p YourPassword
+AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
 ### 3. 에이전트 시작
@@ -142,7 +142,7 @@ agentim claude
 agentim claude /path/to/project
 
 # 커스텀 이름 지정
-agentim -n my-frontend claude /path/to/frontend
+agentim claude -n my-frontend /path/to/frontend
 
 # 다른 에이전트 유형
 agentim codex /path/to/project

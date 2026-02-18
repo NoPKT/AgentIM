@@ -97,7 +97,7 @@ The Gateway (AgentIM CLI) runs on developer machines and connects to the server 
 npm install -g agentim
 
 # Login to your server
-agentim login -s https://your-server.com -u admin -p YourPassword
+agentim login -s https://your-server.com -u admin
 
 # Start a persistent daemon (server can remotely manage agents)
 agentim daemon
