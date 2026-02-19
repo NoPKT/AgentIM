@@ -106,7 +106,7 @@ export function MessageList() {
       <div className="flex-1 flex items-center justify-center text-text-secondary">
         <div className="text-center">
           <ChatBubbleIcon
-            className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
+            className="w-16 h-16 mx-auto mb-4 text-border"
             aria-hidden="true"
           />
           <p className="text-lg">{t('noMessages')}</p>
@@ -130,7 +130,7 @@ export function MessageList() {
             <button
               onClick={handleLoadMore}
               disabled={isLoading}
-              className="px-4 py-2 text-sm text-accent hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              className="px-4 py-2 text-sm text-accent hover:bg-info-subtle rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
               {isLoading && (
                 <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -208,7 +208,7 @@ export function MessageList() {
                   <span
                     key={r.userId}
                     title={r.username}
-                    className="w-5 h-5 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-[9px] font-medium text-white"
+                    className="w-5 h-5 rounded-full bg-text-muted flex items-center justify-center text-[9px] font-medium text-white"
                   >
                     {r.username.charAt(0).toUpperCase()}
                   </span>

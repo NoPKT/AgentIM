@@ -190,7 +190,7 @@ export function Modal({
     <div
       ref={backdropRef}
       className={twMerge(
-        'fixed inset-0 bg-backdrop backdrop-blur-sm flex items-center justify-center z-modal p-4',
+        'fixed inset-0 bg-backdrop backdrop-blur-sm flex items-center justify-center z-modal p-2 sm:p-4',
         className,
       )}
       role="dialog"

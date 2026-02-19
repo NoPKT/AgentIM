@@ -12,6 +12,7 @@ import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+import { twMerge } from 'tailwind-merge'
 import { Textarea } from './ui.js'
 import {
   VideoIcon,
@@ -61,14 +62,14 @@ function FileTypeIcon({ mimeType }: { mimeType: string }) {
 function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [loaded, setLoaded] = useState(false)
   return (
-    <div className="relative min-w-48 min-h-32">
+    <div className="relative min-w-32 max-w-full min-h-32">
       {!loaded && (
         <div className="absolute inset-0 rounded-lg bg-surface-hover animate-pulse" />
       )}
       <img
         src={src}
         alt={alt}
-        className={`${className ?? ''} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={twMerge('transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0', className)}
         loading="lazy"
         onLoad={() => setLoaded(true)}
       />
@@ -303,7 +304,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       {/* Mobile action trigger */}
       {!showActions && (
         <button
-          className="absolute right-1 top-2 p-3 rounded-md text-text-muted active:bg-surface-hover md:hidden"
+          className="absolute right-1 top-2 p-3 rounded-md text-text-muted active:bg-surface-hover md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={(e) => {
             e.stopPropagation()
             setShowActions(true)
@@ -317,12 +318,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       {/* Action buttons */}
       <div
         ref={actionsRef}
-        className={`absolute right-4 top-2 flex items-center gap-1 transition-all ${showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto'}`}
+        className={`absolute right-4 top-2 flex items-center gap-1 transition-all ${showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
       >
         <div className="relative">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle"
+            className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={t('chat.addReaction')}
             aria-label={t('chat.addReaction')}
           >
@@ -338,7 +339,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                     setShowEmojiPicker(false)
                     setShowActions(false)
                   }}
-                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors"
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {emoji}
                 </button>
@@ -351,7 +352,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             setReplyTo(message)
             setShowActions(false)
           }}
-          className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle"
+          className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           title={t('chat.reply')}
           aria-label={t('chat.reply')}
         >
@@ -361,7 +362,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <>
             <button
               onClick={handleEdit}
-              className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle"
+              className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               title={t('chat.editMessage')}
               aria-label={t('chat.editMessage')}
             >
@@ -388,7 +389,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             ) : (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle"
+                className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title={t('chat.deleteMessage')}
                 aria-label={t('chat.deleteMessage')}
               >
@@ -431,7 +432,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             </span>
             {message.updatedAt && (
               <button
-                className="text-xs text-text-muted italic hover:text-accent cursor-pointer"
+                className="text-xs text-text-muted italic hover:text-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                 onClick={async () => {
                   if (showEditHistory) {
                     setShowEditHistory(false)
