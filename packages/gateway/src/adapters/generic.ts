@@ -10,6 +10,11 @@ import {
 } from './base.js'
 import { MAX_BUFFER_SIZE } from '@agentim/shared'
 
+/** Characters that are unsafe in command names (shell metacharacters / path traversal).
+ * Parentheses are intentionally allowed because spawn() does not use a shell,
+ * and legitimate paths such as C:\Program Files (x86)\... contain them. */
+const UNSAFE_COMMAND_PATTERN = /[;&|`${}[\]<>!#~*?\n\r]/
+
 export interface GenericAdapterOptions extends AdapterOptions {
   command: string
   args?: string[]
@@ -22,7 +27,15 @@ export class GenericAdapter extends BaseAgentAdapter {
 
   constructor(opts: GenericAdapterOptions) {
     super(opts)
-    this.command = opts.command
+
+    // Validate command path to prevent injection
+    const cmd = opts.command.trim()
+    if (!cmd) throw new Error('GenericAdapter: command must not be empty')
+    if (UNSAFE_COMMAND_PATTERN.test(cmd)) {
+      throw new Error(`GenericAdapter: command contains unsafe characters: "${cmd}"`)
+    }
+
+    this.command = cmd
     this.cmdArgs = opts.args ?? []
   }
 

@@ -6,6 +6,7 @@ import type {
   GatewayMessage,
   ServerSendToAgent,
   ServerStopAgent,
+  ServerRemoveAgent,
   ServerRoomContext,
   ServerGatewayMessage,
   RoomContext,
@@ -16,6 +17,7 @@ const log = createLogger('AgentManager')
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
+  private agentCapabilities = new Map<string, string[]>()
   private roomContexts = new Map<string, RoomContext>()
   private wsClient: GatewayWsClient
 
@@ -47,6 +49,9 @@ export class AgentManager {
     }
 
     this.adapters.set(agentId, adapter)
+    if (opts.capabilities?.length) {
+      this.agentCapabilities.set(agentId, opts.capabilities)
+    }
 
     // Register with server
     this.wsClient.send({
@@ -69,6 +74,7 @@ export class AgentManager {
     if (adapter) {
       adapter.dispose()
       this.adapters.delete(agentId)
+      this.agentCapabilities.delete(agentId)
       // Clean up room contexts for this agent
       for (const key of this.roomContexts.keys()) {
         if (key.startsWith(`${agentId}:`)) {
@@ -95,6 +101,7 @@ export class AgentManager {
           name: adapter.agentName,
           type: adapter.type,
           workingDirectory: adapter.workingDirectory,
+          capabilities: this.agentCapabilities.get(agentId),
         },
       })
     }
@@ -103,11 +110,13 @@ export class AgentManager {
     }
   }
 
-  handleServerMessage(msg: ServerSendToAgent | ServerStopAgent | ServerRoomContext) {
+  handleServerMessage(msg: ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
     } else if (msg.type === 'server:stop_agent') {
       this.handleStopAgent(msg.agentId)
+    } else if (msg.type === 'server:remove_agent') {
+      this.handleRemoveAgent(msg.agentId)
     } else if (msg.type === 'server:room_context') {
       this.handleRoomContext(msg)
     }
@@ -204,6 +213,21 @@ export class AgentManager {
     }
   }
 
+  private handleRemoveAgent(agentId: string) {
+    const adapter = this.adapters.get(agentId)
+    if (adapter) {
+      adapter.dispose()
+      this.adapters.delete(agentId)
+      this.agentCapabilities.delete(agentId)
+      for (const key of this.roomContexts.keys()) {
+        if (key.startsWith(`${agentId}:`)) {
+          this.roomContexts.delete(key)
+        }
+      }
+      log.info(`Agent ${agentId} removed by server`)
+    }
+  }
+
   private handleStopAgent(agentId: string) {
     const adapter = this.adapters.get(agentId)
     if (adapter) {
@@ -235,6 +259,7 @@ export class AgentManager {
     }
     await Promise.allSettled(disposePromises)
     this.adapters.clear()
+    this.agentCapabilities.clear()
     this.roomContexts.clear()
   }
 }

@@ -69,8 +69,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!line.trim()) continue
         try {
           const event = JSON.parse(line)
-          const chunk = this.parseEvent(event)
-          if (chunk) {
+          for (const chunk of this.parseEvent(event)) {
             if (chunk.type === 'text') {
               fullContent += chunk.content
             }
@@ -105,8 +104,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (this.buffer.trim()) {
         try {
           const event = JSON.parse(this.buffer)
-          const chunk = this.parseEvent(event)
-          if (chunk) {
+          for (const chunk of this.parseEvent(event)) {
             if (chunk.type === 'text') fullContent += chunk.content
             onChunk(chunk)
           }
@@ -134,48 +132,50 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     })
   }
 
-  private parseEvent(event: any): ParsedChunk | null {
+  private parseEvent(event: any): ParsedChunk[] {
+    const chunks: ParsedChunk[] = []
+
     // Claude Code stream-json format
     if (event.type === 'assistant' && event.message) {
-      // Content block with text
+      // Emit every content block (text, thinking, tool_use, tool_result)
       if (event.message.content) {
         for (const block of event.message.content) {
           if (block.type === 'text') {
-            return { type: 'text', content: block.text }
+            chunks.push({ type: 'text', content: block.text })
           } else if (block.type === 'thinking') {
-            return { type: 'thinking', content: block.thinking }
+            chunks.push({ type: 'thinking', content: block.thinking })
           } else if (block.type === 'tool_use') {
-            return {
+            chunks.push({
               type: 'tool_use',
               content: JSON.stringify(block, null, 2),
               metadata: { toolName: block.name, toolId: block.id },
-            }
+            })
           } else if (block.type === 'tool_result') {
-            return {
+            chunks.push({
               type: 'tool_result',
               content:
                 typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
               metadata: { toolId: block.tool_use_id },
-            }
+            })
           }
         }
       }
+      return chunks
     }
 
     // Content block delta (streaming)
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
-        return { type: 'text', content: event.delta.text }
-      }
-      if (event.delta?.type === 'thinking_delta') {
-        return { type: 'thinking', content: event.delta.thinking }
+        chunks.push({ type: 'text', content: event.delta.text })
+      } else if (event.delta?.type === 'thinking_delta') {
+        chunks.push({ type: 'thinking', content: event.delta.thinking })
       }
     }
 
     // Result event — skip to avoid duplicating text already emitted by assistant events.
     // The fullContent is accumulated from assistant chunks and passed to onComplete.
 
-    return null
+    return chunks
   }
 
   stop() {

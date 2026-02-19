@@ -14,7 +14,7 @@ import { generateAgentName } from './name-generator.js'
 import { prompt, promptPassword } from './interactive.js'
 import { runWrapper } from './wrapper.js'
 import { createLogger } from './lib/logger.js'
-import type { ServerSendToAgent, ServerStopAgent, ServerRoomContext } from '@agentim/shared'
+import type { ServerSendToAgent, ServerStopAgent, ServerRemoveAgent, ServerRoomContext } from '@agentim/shared'
 
 const log = createLogger('Gateway')
 
@@ -224,8 +224,8 @@ program
               process.exit(1)
             }
           }
-        } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent' || msg.type === 'server:room_context') {
-          agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent | ServerRoomContext)
+        } else if (msg.type === 'server:send_to_agent' || msg.type === 'server:stop_agent' || msg.type === 'server:remove_agent' || msg.type === 'server:room_context') {
+          agentManager.handleServerMessage(msg as ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext)
         }
       },
       onDisconnected: () => {

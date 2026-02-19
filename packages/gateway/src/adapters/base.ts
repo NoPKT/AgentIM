@@ -1,7 +1,10 @@
 import type { ChildProcess } from 'node:child_process'
 import type { ParsedChunk, RoutingMode, RoomContext } from '@agentim/shared'
 
-const PROCESS_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+const PROCESS_TIMEOUT_MS = Math.max(
+  30_000,
+  parseInt(process.env.AGENTIM_PROCESS_TIMEOUT_MS ?? '', 10) || 5 * 60 * 1000,
+) // default 5 minutes, minimum 30 seconds
 const MAX_PROMPT_LENGTH = 200_000 // ~200KB cap to prevent oversized prompts
 
 /**
