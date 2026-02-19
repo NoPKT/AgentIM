@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@import 'highlight.js/styles/github.css' layer(hljs);
+@plugin '@tailwindcss/typography';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -9,8 +11,8 @@
   --color-surface-hover: #f3f4f6;
   --color-border: #e5e7eb;
   --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-muted: #9ca3af;
+  --color-text-secondary: #4b5563;   /* Gray-600 — 7.5:1 on white */
+  --color-text-muted: #6b7280;       /* Gray-500 — 4.6:1 on white (WCAG AA) */
   --color-accent: #2563eb;
   --color-accent-hover: #1d4ed8;
 
@@ -22,14 +24,17 @@
 
   --color-success-text: #16a34a;   /* green-600 */
   --color-success-subtle: #f0fdf4; /* green-50  */
+  --color-success-muted: #dcfce7;  /* green-100 */
 
   --color-warning-text: #d97706;   /* amber-600 */
   --color-warning-subtle: #fffbeb; /* amber-50  */
+  --color-warning-muted: #fef3c7;  /* amber-100 */
 
   --color-danger: #dc2626;         /* red-600 — button bg */
   --color-danger-hover: #b91c1c;   /* red-700 */
   --color-danger-text: #dc2626;    /* red-600 — text / icon */
   --color-danger-subtle: #fef2f2;  /* red-50   */
+  --color-danger-muted: #fee2e2;   /* red-100  */
 
   /* Border radius */
   --radius-sm: 0.375rem;
@@ -38,10 +43,38 @@
   --radius-xl: 1rem;
   --radius-full: 9999px;
 
+  /* Skeleton loading */
+  --color-skeleton: #e5e7eb;     /* gray-200 */
+
+  /* Code block background (slightly more contrast than surface-hover) */
+  --color-code-bg: #f3f4f6;      /* gray-100 */
+
+  /* Modal backdrop */
+  --color-backdrop: rgb(0 0 0 / 0.5);
+
+  /* Badge / neutral chip */
+  --color-badge-bg: #f3f4f6;       /* gray-100 */
+  --color-badge-text: #374151;     /* gray-700 */
+
+  /* Role badge (admin/special) */
+  --color-role-bg: #f3e8ff;        /* purple-100 */
+  --color-role-text: #6b21a8;      /* purple-800 */
+
+  /* File-type icon colors */
+  --color-file-video: #a855f7;   /* purple-500 */
+  --color-file-audio: #22c55e;   /* green-500 */
+
+  /* Terminal viewer */
+  --color-terminal-bg: #1e1e1e;
+  --color-terminal-header: #2d3748;
+  --color-terminal-text: #d1d5db;
+  --color-terminal-btn-hover: #4a5568;
+
   /* Z-index layers */
   --z-dropdown: 10;
   --z-sticky: 20;
   --z-overlay: 40;
+  --z-sidebar: 45;
   --z-modal: 50;
   --z-toast: 60;
 
@@ -57,8 +90,8 @@
   --color-surface-hover: #374151;
   --color-border: #374151;
   --color-text-primary: #f3f4f6;
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #6b7280;
+  --color-text-secondary: #d1d5db;   /* Gray-300 — 10:1 on dark surface */
+  --color-text-muted: #9ca3af;       /* Gray-400 — 5.8:1 on dark surface (WCAG AA) */
   --color-accent: #3b82f6;
   --color-accent-hover: #2563eb;
 
@@ -78,6 +111,29 @@
   --color-danger-hover: #dc2626;   /* red-600 */
   --color-danger-text: #f87171;    /* red-400 */
   --color-danger-subtle: #220d0d;  /* ≈ red-900/30 on dark surface */
+
+  --color-success-muted: #143d24;  /* ≈ green-900/40 on dark surface */
+  --color-warning-muted: #2e1f07; /* ≈ amber-900/40 on dark surface */
+  --color-danger-muted: #3b1111;  /* ≈ red-900/40 on dark surface */
+
+  --color-skeleton: #4b5563;      /* gray-600 */
+  --color-code-bg: #374151;       /* gray-700 */
+
+  --color-badge-bg: #374151;      /* gray-700 */
+  --color-badge-text: #e5e7eb;    /* gray-200 */
+
+  --color-role-bg: #30254f;       /* ≈ purple-900/30 on dark surface */
+  --color-role-text: #d8b4fe;     /* purple-300 */
+
+  /* File-type icon colors (dark mode: lighter variants for contrast) */
+  --color-file-video: #c084fc;   /* purple-400 */
+  --color-file-audio: #4ade80;   /* green-400 */
+
+  /* Terminal viewer (dark — slightly darker for contrast) */
+  --color-terminal-bg: #1a1a2e;
+  --color-terminal-header: #16213e;
+  --color-terminal-text: #c9d1d9;
+  --color-terminal-btn-hover: #1f3460;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
@@ -122,3 +178,53 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-text-muted);
 }
+
+/*
+ * Dark mode code highlighting.
+ * Source: highlight.js github-dark theme (v11.x)
+ *   https://github.com/highlightjs/highlight.js/blob/main/src/styles/github-dark.css
+ *
+ * CSS @import cannot be nested under .dark{}, so these rules are inlined here.
+ * When updating highlight.js, compare against the upstream file above.
+ */
+.dark .hljs { color: #c9d1d9; background: #0d1117 }
+.dark .hljs-doctag,
+.dark .hljs-keyword,
+.dark .hljs-meta .hljs-keyword,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable,
+.dark .hljs-type,
+.dark .hljs-variable.language_ { color: #ff7b72 }
+.dark .hljs-title,
+.dark .hljs-title.class_,
+.dark .hljs-title.class_.inherited__,
+.dark .hljs-title.function_ { color: #d2a8ff }
+.dark .hljs-attr,
+.dark .hljs-attribute,
+.dark .hljs-literal,
+.dark .hljs-meta,
+.dark .hljs-number,
+.dark .hljs-operator,
+.dark .hljs-variable,
+.dark .hljs-selector-attr,
+.dark .hljs-selector-class,
+.dark .hljs-selector-id { color: #79c0ff }
+.dark .hljs-regexp,
+.dark .hljs-string,
+.dark .hljs-meta .hljs-string { color: #a5d6ff }
+.dark .hljs-built_in,
+.dark .hljs-symbol { color: #ffa657 }
+.dark .hljs-comment,
+.dark .hljs-code,
+.dark .hljs-formula { color: #8b949e }
+.dark .hljs-name,
+.dark .hljs-quote,
+.dark .hljs-selector-tag,
+.dark .hljs-selector-pseudo { color: #7ee787 }
+.dark .hljs-subst { color: #c9d1d9 }
+.dark .hljs-section { color: #1f6feb; font-weight: bold }
+.dark .hljs-bullet { color: #f2cc60 }
+.dark .hljs-emphasis { color: #c9d1d9; font-style: italic }
+.dark .hljs-strong { color: #c9d1d9; font-weight: bold }
+.dark .hljs-addition { color: #aff5b4; background-color: #033a16 }
+.dark .hljs-deletion { color: #ffdcd7; background-color: #67060c }

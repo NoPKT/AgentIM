@@ -70,28 +70,30 @@ export default function TasksPage() {
     pending: tasks.filter((t) => t.status === 'pending'),
     in_progress: tasks.filter((t) => t.status === 'in_progress'),
     completed: tasks.filter((t) => t.status === 'completed'),
+    failed: tasks.filter((t) => t.status === 'failed'),
+    cancelled: tasks.filter((t) => t.status === 'cancelled'),
   }
 
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
+      <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-6 animate-pulse">
-            <div className="h-8 w-24 bg-gray-200 dark:bg-gray-600 rounded" />
-            <div className="mt-2 h-4 w-32 bg-gray-100 dark:bg-gray-700 rounded" />
+            <div className="h-8 w-24 bg-skeleton rounded" />
+            <div className="mt-2 h-4 w-32 bg-surface-hover rounded" />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 animate-pulse">
-                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-600 rounded mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-surface-hover rounded-lg p-4 animate-pulse">
+                <div className="h-5 w-20 bg-skeleton rounded mb-4" />
                 <div className="space-y-3">
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-600 rounded" />
-                    <div className="h-3 w-full bg-gray-100 dark:bg-gray-700 rounded" />
+                  <div className="bg-surface rounded-lg p-4 space-y-2">
+                    <div className="h-4 w-3/4 bg-skeleton rounded" />
+                    <div className="h-3 w-full bg-surface-hover rounded" />
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-600 rounded" />
-                    <div className="h-3 w-2/3 bg-gray-100 dark:bg-gray-700 rounded" />
+                  <div className="bg-surface rounded-lg p-4 space-y-2">
+                    <div className="h-4 w-1/2 bg-skeleton rounded" />
+                    <div className="h-3 w-2/3 bg-surface-hover rounded" />
                   </div>
                 </div>
               </div>
@@ -104,10 +106,10 @@ export default function TasksPage() {
 
   if (loadError) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
         <div className="text-center max-w-md">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-12 w-12 text-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -119,7 +121,7 @@ export default function TasksPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">
             {t('loadFailed')}
           </h3>
           <Button onClick={loadTasks} className="mt-4">
@@ -131,13 +133,13 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
+    <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('tasks')}</h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <h1 className="text-2xl font-bold text-text-primary">{t('tasks')}</h1>
+            <p className="mt-1 text-sm text-text-secondary">
               {t('tasksCount', { count: tasks.length })}
             </p>
           </div>
@@ -148,9 +150,9 @@ export default function TasksPage() {
 
         {/* Empty State */}
         {tasks.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="text-center py-12 bg-surface rounded-lg border border-border">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+              className="mx-auto h-12 w-12 text-text-muted"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -162,10 +164,10 @@ export default function TasksPage() {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="mt-4 text-lg font-medium text-text-primary">
               {t('noTasks')}
             </h3>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-2 text-sm text-text-secondary">
               {t('createFirstTask') || 'Create your first task to get started'}
             </p>
           </div>
@@ -173,23 +175,35 @@ export default function TasksPage() {
 
         {/* Task Groups */}
         {tasks.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             <TaskColumn
               title={t('pending')}
               tasks={groupedTasks.pending}
-              badgeColor="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+              badgeColor="bg-badge-bg text-badge-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
               title={t('inProgress')}
               tasks={groupedTasks.in_progress}
-              badgeColor="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              badgeColor="bg-info-muted text-info-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
               title={t('completed')}
               tasks={groupedTasks.completed}
-              badgeColor="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+              badgeColor="bg-success-muted text-success-text"
+              onUpdateStatus={handleUpdateStatus}
+            />
+            <TaskColumn
+              title={t('failed')}
+              tasks={groupedTasks.failed}
+              badgeColor="bg-danger-muted text-danger-text"
+              onUpdateStatus={handleUpdateStatus}
+            />
+            <TaskColumn
+              title={t('cancelled')}
+              tasks={groupedTasks.cancelled}
+              badgeColor="bg-warning-muted text-warning-text"
               onUpdateStatus={handleUpdateStatus}
             />
           </div>
@@ -220,9 +234,9 @@ function TaskColumn({
   onUpdateStatus: (taskId: string, status: string) => void
 }) {
   return (
-    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
+    <div className="bg-surface-hover rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+        <h2 className="font-semibold text-text-primary">{title}</h2>
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor}`}>
           {tasks.length}
         </span>
@@ -233,7 +247,7 @@ function TaskColumn({
           <TaskCard key={task.id} task={task} onUpdateStatus={onUpdateStatus} />
         ))}
         {tasks.length === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">--</p>
+          <p className="text-sm text-text-muted text-center py-4">--</p>
         )}
       </div>
     </div>
@@ -253,30 +267,40 @@ function TaskCard({
     {
       value: 'pending',
       label: t('pending'),
-      color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+      color: 'bg-badge-bg text-badge-text',
     },
     {
       value: 'in_progress',
       label: t('inProgress'),
-      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+      color: 'bg-info-muted text-info-text',
     },
     {
       value: 'completed',
       label: t('completed'),
-      color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      color: 'bg-success-muted text-success-text',
+    },
+    {
+      value: 'failed',
+      label: t('failed'),
+      color: 'bg-danger-muted text-danger-text',
+    },
+    {
+      value: 'cancelled',
+      label: t('cancelled'),
+      color: 'bg-warning-muted text-warning-text',
     },
   ]
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-      <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">{task.title}</h3>
+    <div className="bg-surface rounded-lg border border-border p-4 hover:shadow-md transition-shadow">
+      <h3 className="font-medium text-text-primary mb-2">{task.title}</h3>
       {task.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+        <p className="text-sm text-text-secondary line-clamp-2 mb-3">
           {task.description}
         </p>
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-text-muted">
           {new Date(task.createdAt).toLocaleDateString([], {
             month: 'short',
             day: 'numeric',
@@ -286,9 +310,9 @@ function TaskCard({
           value={task.status}
           onChange={(e) => onUpdateStatus(task.id, e.target.value)}
           aria-label={t('status')}
-          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-blue-500 ${
+          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-accent ${
             statusOptions.find((s) => s.value === task.status)?.color ??
-            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+            'bg-badge-bg text-badge-text'
           }`}
         >
           {statusOptions.map((opt) => (

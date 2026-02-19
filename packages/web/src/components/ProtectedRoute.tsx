@@ -1,12 +1,14 @@
 import { Navigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
+import type { UserRole } from '@agentim/shared'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
+  requiredRole?: UserRole
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.user)
   const isLoading = useAuthStore((state) => state.isLoading)
@@ -24,6 +26,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (requiredRole === 'admin' && user.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>

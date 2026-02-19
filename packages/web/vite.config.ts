@@ -37,7 +37,7 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              expiration: { maxEntries: 200, maxAgeSeconds: 3600 },
             },
           },
           {
@@ -45,7 +45,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'uploads-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
             },
           },
         ],

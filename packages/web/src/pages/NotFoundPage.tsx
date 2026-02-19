@@ -5,16 +5,16 @@ export default function NotFoundPage() {
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-surface-secondary px-4">
       <div className="text-center">
-        <p className="text-7xl font-bold text-gray-200 dark:text-gray-700">404</p>
-        <h1 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+        <p className="text-7xl font-bold text-border">404</p>
+        <h1 className="mt-4 text-xl font-semibold text-text-primary">
           {t('error.notFound')}
         </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('error.generic')}</p>
+        <p className="mt-2 text-sm text-text-muted">{t('error.generic')}</p>
         <Link
           to="/"
-          className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path

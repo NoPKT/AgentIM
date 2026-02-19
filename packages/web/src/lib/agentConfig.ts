@@ -33,23 +33,23 @@ export function getTypeConfig(t: TFunction) {
   return {
     'claude-code': {
       label: t('claudeCode'),
-      color: 'bg-purple-100 text-purple-800',
+      color: 'bg-role-bg text-role-text',
     },
     codex: {
       label: t('codex'),
-      color: 'bg-blue-100 text-blue-800',
+      color: 'bg-info-muted text-info-text',
     },
     gemini: {
       label: t('gemini'),
-      color: 'bg-cyan-100 text-cyan-800',
+      color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
     },
     cursor: {
       label: t('cursor'),
-      color: 'bg-indigo-100 text-indigo-800',
+      color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
     },
     generic: {
       label: t('generic'),
-      color: 'bg-gray-100 text-gray-800',
+      color: 'bg-badge-bg text-badge-text',
     },
   } as Record<string, { label: string; color: string }>
 }

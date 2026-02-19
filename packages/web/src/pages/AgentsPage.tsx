@@ -18,28 +18,28 @@ export default function AgentsPage() {
 
   if (isLoading && agents.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
+      <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6 animate-pulse">
-            <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="mt-2 h-4 w-48 bg-gray-100 dark:bg-gray-700 rounded" />
+            <div className="h-8 w-32 bg-skeleton rounded" />
+            <div className="mt-2 h-4 w-48 bg-surface-hover rounded" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 animate-pulse"
+                className="bg-surface rounded-xl border border-border p-5 animate-pulse"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+                  <div className="w-10 h-10 rounded-full bg-skeleton" />
                   <div className="space-y-2">
-                    <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-                    <div className="h-3 w-16 bg-gray-100 dark:bg-gray-700 rounded" />
+                    <div className="h-4 w-24 bg-skeleton rounded" />
+                    <div className="h-3 w-16 bg-surface-hover rounded" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="h-3 w-full bg-gray-100 dark:bg-gray-700 rounded" />
-                  <div className="h-3 w-2/3 bg-gray-100 dark:bg-gray-700 rounded" />
+                  <div className="h-3 w-full bg-surface-hover rounded" />
+                  <div className="h-3 w-2/3 bg-surface-hover rounded" />
                 </div>
               </div>
             ))}
@@ -51,10 +51,10 @@ export default function AgentsPage() {
 
   if (loadError && agents.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
         <div className="text-center max-w-md">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-12 w-12 text-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -66,7 +66,7 @@ export default function AgentsPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">
             {t('loadFailed')}
           </h3>
           <Button onClick={loadAgents} className="mt-4">
@@ -79,10 +79,10 @@ export default function AgentsPage() {
 
   if (agents.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
         <div className="text-center max-w-md">
           <svg
-            className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-16 w-16 text-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -94,21 +94,21 @@ export default function AgentsPage() {
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">
             {t('noAgents')}
           </h3>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t('noAgentsDesc')}</p>
+          <p className="mt-2 text-sm text-text-secondary">{t('noAgentsDesc')}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 py-6">
+    <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('agents')}</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-text-primary">{t('agents')}</h1>
+          <p className="mt-1 text-sm text-text-secondary">
             {t('agentsConnected', { count: agents.length })}
           </p>
         </div>
@@ -142,7 +142,7 @@ function AgentCard({ agent }: { agent: Agent }) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+    <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -154,7 +154,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+            <h3 className="font-semibold text-text-primary truncate">
               {agent.name}
             </h3>
             <span
@@ -174,18 +174,18 @@ function AgentCard({ agent }: { agent: Agent }) {
           )}
           <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
         </span>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{status.label}</span>
+        <span className="text-sm font-medium text-text-secondary">{status.label}</span>
       </div>
 
       {/* Details */}
       <div className="space-y-2 text-sm">
         {agent.workingDirectory && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+            <dt className="text-text-muted text-xs font-medium mb-0.5">
               {t('workingDir')}
             </dt>
             <dd
-              className="text-gray-900 dark:text-gray-100 truncate font-mono text-xs"
+              className="text-text-primary truncate font-mono text-xs"
               title={agent.workingDirectory}
             >
               {agent.workingDirectory}
@@ -195,10 +195,10 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.deviceInfo && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+            <dt className="text-text-muted text-xs font-medium mb-0.5">
               {t('device')}
             </dt>
-            <dd className="text-gray-900 dark:text-gray-100 truncate">
+            <dd className="text-text-primary truncate">
               {agent.deviceInfo.platform}{' '}
               {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
             </dd>
@@ -207,7 +207,7 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.capabilities && agent.capabilities.length > 0 && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-1">
+            <dt className="text-text-muted text-xs font-medium mb-1">
               {t('capabilities')}
             </dt>
             <dd className="flex flex-wrap gap-1">
@@ -225,10 +225,10 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.lastSeenAt && (
           <div>
-            <dt className="text-gray-500 dark:text-gray-400 text-xs font-medium mb-0.5">
+            <dt className="text-text-muted text-xs font-medium mb-0.5">
               {t('lastSeen')}
             </dt>
-            <dd className="text-gray-900 dark:text-gray-100">
+            <dd className="text-text-primary">
               {new Date(agent.lastSeenAt).toLocaleString([], {
                 month: 'short',
                 day: 'numeric',
@@ -241,14 +241,14 @@ function AgentCard({ agent }: { agent: Agent }) {
       </div>
 
       {/* Visibility Toggle */}
-      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+      <div className="mt-4 pt-3 border-t border-border">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            <span className="text-xs font-medium text-text-muted">
               {t('visibility')}
             </span>
             <span
-              className={`ml-2 text-xs font-medium ${isShared ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}
+              className={`ml-2 text-xs font-medium ${isShared ? 'text-success-text' : 'text-text-muted'}`}
             >
               {isShared ? t('visibilityShared') : t('visibilityPrivate')}
             </span>

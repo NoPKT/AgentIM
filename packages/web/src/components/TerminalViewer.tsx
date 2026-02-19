@@ -25,15 +25,20 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   useEffect(() => {
     if (!containerRef.current) return
 
+    // Read CSS custom property for terminal background
+    const style = getComputedStyle(document.documentElement)
+    const termBg = style.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
+    const termFg = style.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
+
     const term = new Terminal({
       cursorBlink: false,
       disableStdin: true,
       fontSize: 13,
       fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
       theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
+        background: termBg,
+        foreground: termFg,
+        cursor: termFg,
       },
       scrollback: 5000,
       convertEol: true,
@@ -53,7 +58,17 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
     })
     observer.observe(containerRef.current)
 
+    // Update xterm theme when dark/light mode toggles
+    const themeObserver = new MutationObserver(() => {
+      const s = getComputedStyle(document.documentElement)
+      const bg = s.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
+      const fg = s.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
+      term.options.theme = { background: bg, foreground: fg, cursor: fg }
+    })
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+
     return () => {
+      themeObserver.disconnect()
       observer.disconnect()
       term.dispose()
       termRef.current = null
@@ -61,12 +76,24 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
     }
   }, [])
 
-  // Write new data to terminal
+  // Write new data to terminal.
+  // The store caps lines at 500 via slice(-500), so when the cap is reached
+  // lines.length stays the same while the array reference changes.
+  // Detect this case and write the newest entry instead of skipping.
   useEffect(() => {
     if (!termRef.current || !lines) return
     const term = termRef.current
-    for (let i = writtenRef.current; i < lines.length; i++) {
-      term.write(lines[i])
+
+    if (lines.length <= writtenRef.current) {
+      // Buffer was truncated (or same length after cap) — write the newest entry
+      if (lines.length > 0) {
+        term.write(lines[lines.length - 1])
+      }
+    } else {
+      // Normal append
+      for (let i = writtenRef.current; i < lines.length; i++) {
+        term.write(lines[i])
+      }
     }
     writtenRef.current = lines.length
   }, [lines])
@@ -79,9 +106,9 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   }, [collapsed])
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-900 flex flex-col">
+    <div className="border-t border-border bg-(--color-terminal-bg) flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800 text-gray-300 text-xs">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-(--color-terminal-header) text-(--color-terminal-text) text-xs">
         <div className="flex items-center gap-2">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -102,7 +129,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
               termRef.current?.clear()
               writtenRef.current = 0
             }}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
             title={t('clear')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,7 +143,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           </button>
           <button
             onClick={() => setCollapsed((c) => !c)}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
             title={collapsed ? t('expand') : t('collapse')}
           >
             <svg
@@ -135,7 +162,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           </button>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
             title={t('close')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

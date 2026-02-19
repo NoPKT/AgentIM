@@ -33,6 +33,7 @@ interface ReadReceipt {
 interface ChatState {
   rooms: Room[]
   currentRoomId: string | null
+  joinedRooms: Set<string>
   messages: Map<string, Message[]>
   streaming: Map<string, StreamingMessage>
   hasMore: Map<string, boolean>
@@ -115,6 +116,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
   currentRoomId: null,
+  joinedRooms: new Set(),
   messages: new Map(),
   streaming: new Map(),
   hasMore: new Map(),
@@ -207,10 +209,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setCurrentRoom: (roomId) => {
-    const prev = get().currentRoomId
-    if (prev) wsClient.send({ type: 'client:leave_room', roomId: prev })
     set({ currentRoomId: roomId })
-    wsClient.send({ type: 'client:join_room', roomId })
+    // Join the room if not already subscribed — keep previous rooms
+    // subscribed so we receive real-time unread/notification updates.
+    if (!get().joinedRooms.has(roomId)) {
+      wsClient.send({ type: 'client:join_room', roomId })
+      const joinedRooms = new Set(get().joinedRooms)
+      joinedRooms.add(roomId)
+      set({ joinedRooms })
+    }
 
     // Mark room as read (optimistic + server sync)
     const unreadCounts = new Map(get().unreadCounts)
@@ -440,12 +447,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const unreadCounts = new Map(get().unreadCounts)
     const readReceipts = new Map(get().readReceipts)
     const hasMore = new Map(get().hasMore)
+    const joinedRooms = new Set(get().joinedRooms)
     messages.delete(roomId)
     roomMembers.delete(roomId)
     lastMessages.delete(roomId)
     unreadCounts.delete(roomId)
     readReceipts.delete(roomId)
     hasMore.delete(roomId)
+    joinedRooms.delete(roomId)
 
     // Clean up typing users for this room
     const typingUsers = new Map(get().typingUsers)
@@ -465,6 +474,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       rooms: get().rooms.filter((r) => r.id !== roomId),
       currentRoomId: get().currentRoomId === roomId ? null : get().currentRoomId,
+      joinedRooms,
       messages,
       roomMembers,
       lastMessages,
@@ -592,12 +602,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const unreadCounts = new Map(state.unreadCounts)
     const readReceipts = new Map(state.readReceipts)
     const hasMore = new Map(state.hasMore)
+    const joinedRooms = new Set(state.joinedRooms)
     messages.delete(roomId)
     roomMembers.delete(roomId)
     lastMessages.delete(roomId)
     unreadCounts.delete(roomId)
     readReceipts.delete(roomId)
     hasMore.delete(roomId)
+    joinedRooms.delete(roomId)
 
     const typingUsers = new Map(state.typingUsers)
     for (const key of typingUsers.keys()) {
@@ -614,6 +626,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       rooms: state.rooms.filter((r) => r.id !== roomId),
       currentRoomId: state.currentRoomId === roomId ? null : state.currentRoomId,
+      joinedRooms,
       messages,
       roomMembers,
       lastMessages,
@@ -630,6 +643,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       rooms: [],
       currentRoomId: null,
+      joinedRooms: new Set(),
       messages: new Map(),
       streaming: new Map(),
       hasMore: new Map(),

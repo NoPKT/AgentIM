@@ -20,7 +20,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'))
 function PageLoader() {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }
@@ -119,11 +119,13 @@ function AppInner() {
         <Route
           path="users"
           element={
-            <ErrorBoundary>
-              <Suspense fallback={<PageLoader />}>
-                <UsersPage />
-              </Suspense>
-            </ErrorBoundary>
+            <ProtectedRoute requiredRole="admin">
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <UsersPage />
+                </Suspense>
+              </ErrorBoundary>
+            </ProtectedRoute>
           }
         />
       </Route>

@@ -55,12 +55,15 @@ export function MessageList() {
     overscan: 5,
   })
 
-  // 自动滚动到底部(新消息或流式消息更新时)
+  // 自动滚动到底部(新消息或流式消息更新时), throttled to avoid layout thrashing
+  const scrollRAF = useRef(0)
   useEffect(() => {
-    if (scrollToBottomRef.current) {
-      scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [currentMessages.length, streamingMessages.length, streamingMessages[0]?.chunks.length])
+    if (!scrollToBottomRef.current || isScrolledUp) return
+    cancelAnimationFrame(scrollRAF.current)
+    scrollRAF.current = requestAnimationFrame(() => {
+      scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
+  }, [currentMessages.length, streamingMessages.length, streamingMessages[0]?.chunks.length, isScrolledUp])
 
   const handleLoadMore = () => {
     if (!currentRoomId || !currentHasMore || isLoading) return

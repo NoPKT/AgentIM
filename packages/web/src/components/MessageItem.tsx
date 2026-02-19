@@ -28,7 +28,6 @@ import {
   PencilIcon,
   TrashIcon,
 } from './icons.js'
-import 'highlight.js/styles/github.css'
 
 interface MessageItemProps {
   message: Message
@@ -40,13 +39,13 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
 
 function FileTypeIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.startsWith('video/')) {
-    return <VideoIcon className="w-5 h-5 text-purple-500 flex-shrink-0" />
+    return <VideoIcon className="w-5 h-5 text-file-video flex-shrink-0" />
   }
   if (mimeType.startsWith('audio/')) {
-    return <MusicNoteIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+    return <MusicNoteIcon className="w-5 h-5 text-file-audio flex-shrink-0" />
   }
   if (mimeType === 'application/pdf') {
-    return <DocumentIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
+    return <DocumentIcon className="w-5 h-5 text-danger-text flex-shrink-0" />
   }
   if (
     mimeType.includes('zip') ||
@@ -54,7 +53,7 @@ function FileTypeIcon({ mimeType }: { mimeType: string }) {
     mimeType.includes('compress') ||
     mimeType.includes('archive')
   ) {
-    return <ArchiveIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+    return <ArchiveIcon className="w-5 h-5 text-warning-text flex-shrink-0" />
   }
   return <PaperClipIcon className="w-5 h-5 text-text-muted flex-shrink-0" />
 }
@@ -62,14 +61,14 @@ function FileTypeIcon({ mimeType }: { mimeType: string }) {
 function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [loaded, setLoaded] = useState(false)
   return (
-    <div className="relative">
+    <div className="relative min-w-48 min-h-32">
       {!loaded && (
-        <div className="rounded-lg bg-surface-hover max-h-60 w-48 h-32 animate-pulse" />
+        <div className="absolute inset-0 rounded-lg bg-surface-hover animate-pulse" />
       )}
       <img
         src={src}
         alt={alt}
-        className={`${className ?? ''} ${loaded ? '' : 'absolute inset-0 opacity-0'}`}
+        className={`${className ?? ''} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         loading="lazy"
         onLoad={() => setLoaded(true)}
       />
@@ -208,22 +207,33 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
   const [loadingHistory, setLoadingHistory] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
 
-  // Close actions on outside click/tap (mobile)
+  // Close actions on outside click/tap (mobile) or Escape key
   useEffect(() => {
     if (!showActions) return
-    const handler = (e: Event) => {
+    const clickHandler = (e: Event) => {
       if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
         setShowActions(false)
         setShowEmojiPicker(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showEmojiPicker) {
+          setShowEmojiPicker(false)
+        } else {
+          setShowActions(false)
+        }
+      }
     }
-  }, [showActions])
+    document.addEventListener('mousedown', clickHandler)
+    document.addEventListener('touchstart', clickHandler)
+    document.addEventListener('keydown', keyHandler)
+    return () => {
+      document.removeEventListener('mousedown', clickHandler)
+      document.removeEventListener('touchstart', clickHandler)
+      document.removeEventListener('keydown', keyHandler)
+    }
+  }, [showActions, showEmojiPicker])
 
   const isOwnMessage =
     currentUser && message.senderId === currentUser.id && message.senderType === 'user'
@@ -293,7 +303,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       {/* Mobile action trigger */}
       {!showActions && (
         <button
-          className="absolute right-2 top-3 p-1.5 rounded-md text-text-muted active:bg-surface-hover md:hidden"
+          className="absolute right-1 top-2 p-3 rounded-md text-text-muted active:bg-surface-hover md:hidden"
           onClick={(e) => {
             e.stopPropagation()
             setShowActions(true)
@@ -312,7 +322,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
         <div className="relative">
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle"
+            className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle"
             title={t('chat.addReaction')}
             aria-label={t('chat.addReaction')}
           >
@@ -328,7 +338,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                     setShowEmojiPicker(false)
                     setShowActions(false)
                   }}
-                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors"
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors"
                 >
                   {emoji}
                 </button>
@@ -341,7 +351,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             setReplyTo(message)
             setShowActions(false)
           }}
-          className="p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle"
+          className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle"
           title={t('chat.reply')}
           aria-label={t('chat.reply')}
         >
@@ -351,7 +361,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           <>
             <button
               onClick={handleEdit}
-              className="p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle"
+              className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle"
               title={t('chat.editMessage')}
               aria-label={t('chat.editMessage')}
             >
@@ -378,7 +388,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             ) : (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle"
+                className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle"
                 title={t('chat.deleteMessage')}
                 aria-label={t('chat.deleteMessage')}
               >
@@ -392,14 +402,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       <div className="flex items-start space-x-3">
         {/* Avatar */}
         <div
-          className={`
-            flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
-            ${
-              isAgent
-                ? `bg-gradient-to-br ${getAvatarGradient(message.senderName)}`
-                : 'bg-gradient-to-br from-gray-400 to-gray-500'
-            }
-          `}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${getAvatarGradient(message.senderName)}`}
         >
           <span className="text-sm font-medium text-white">
             {message.senderName.charAt(0).toUpperCase()}
@@ -628,7 +631,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           {/* Image lightbox */}
           {lightboxUrl && (
             <div
-              className="fixed inset-0 z-modal flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 backdrop-blur-sm"
               onClick={() => setLightboxUrl(null)}
             >
               <div className="relative max-w-[90vw] max-h-[90vh]">

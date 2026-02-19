@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 // ─── Button ───
@@ -128,6 +128,9 @@ interface ModalProps {
  * – Click on backdrop (outside content) closes the dialog
  * – Sets role="dialog" and aria-modal="true"
  */
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export function Modal({
   isOpen,
   onClose,
@@ -135,21 +138,59 @@ export function Modal({
   className,
   'aria-labelledby': labelledBy,
 }: ModalProps) {
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   useEffect(() => {
-    if (!isOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    if (!isOpen || !backdropRef.current) return
+    const el = backdropRef.current
+    const previous = document.activeElement as HTMLElement | null
+
+    // Respect autoFocus on children; only force-focus if nothing inside is focused
+    if (!el.contains(document.activeElement)) {
+      const first = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+      first?.focus()
     }
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseRef.current()
+        return
+      }
+      if (e.key === 'Tab') {
+        const focusable = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        if (focusable.length === 0) return
+        const firstEl = focusable[0]
+        const lastEl = focusable[focusable.length - 1]
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault()
+            lastEl.focus()
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault()
+            firstEl.focus()
+          }
+        }
+      }
+    }
+
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [isOpen, onClose])
+    return () => {
+      document.removeEventListener('keydown', handler)
+      previous?.focus()
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
   return (
     <div
+      ref={backdropRef}
       className={twMerge(
-        'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-modal p-4',
+        'fixed inset-0 bg-backdrop backdrop-blur-sm flex items-center justify-center z-modal p-4',
         className,
       )}
       role="dialog"

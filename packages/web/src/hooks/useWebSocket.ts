@@ -17,37 +17,27 @@ export function useWebSocket() {
   const navigateRef = useRef(navigate)
   useEffect(() => { navigateRef.current = navigate })
 
-  const addMessage = useChatStore((s) => s.addMessage)
-  const addStreamChunk = useChatStore((s) => s.addStreamChunk)
-  const completeStream = useChatStore((s) => s.completeStream)
-  const addTypingUser = useChatStore((s) => s.addTypingUser)
-  const addTerminalData = useChatStore((s) => s.addTerminalData)
-  const updateMessage = useChatStore((s) => s.updateMessage)
-  const removeMessage = useChatStore((s) => s.removeMessage)
-  const updateAgent = useAgentStore((s) => s.updateAgent)
-  const loadRooms = useChatStore((s) => s.loadRooms)
-  const loadRoomMembers = useChatStore((s) => s.loadRoomMembers)
-  const setUserOnline = useChatStore((s) => s.setUserOnline)
-  const updateReadReceipt = useChatStore((s) => s.updateReadReceipt)
-  const updateReactions = useChatStore((s) => s.updateReactions)
-
+  // Single stable subscription — access store actions via getState() to avoid
+  // depending on 13+ selector references that would cause frequent re-subscriptions.
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
       try {
+      const chat = useChatStore.getState()
+      const agentStore = useAgentStore.getState()
+
       switch (msg.type) {
         case 'server:new_message': {
-          addMessage(msg.message)
+          chat.addMessage(msg.message)
           // Desktop notifications for messages from other users
           const user = useAuthStore.getState().user
           if (user && msg.message.senderId !== user.id) {
-            const currentRoomId = useChatStore.getState().currentRoomId
-            const rooms = useChatStore.getState().rooms
+            const currentRoomId = chat.currentRoomId
+            const rooms = chat.rooms
             const room = rooms.find((r) => r.id === msg.message.roomId)
             const roomName = room?.name ?? msg.message.roomId
             const navigateToRoom = () => {
               useChatStore.getState().setCurrentRoom(msg.message.roomId)
-              window.location.hash = ''
-              window.history.pushState(null, '', `/room/${msg.message.roomId}`)
+              navigateRef.current(`/room/${msg.message.roomId}`)
             }
 
             const isMentioned =
@@ -74,14 +64,14 @@ export function useWebSocket() {
           break
         }
         case 'server:message_chunk':
-          addStreamChunk(msg.roomId, msg.agentId, msg.agentName, msg.messageId, msg.chunk)
+          chat.addStreamChunk(msg.roomId, msg.agentId, msg.agentName, msg.messageId, msg.chunk)
           break
         case 'server:message_complete': {
-          completeStream(msg.message)
+          chat.completeStream(msg.message)
           // Notify for completed agent messages in non-current rooms
-          const currentRoomId = useChatStore.getState().currentRoomId
+          const currentRoomId = chat.currentRoomId
           if (msg.message.roomId !== currentRoomId) {
-            const rooms = useChatStore.getState().rooms
+            const rooms = chat.rooms
             const room = rooms.find((r) => r.id === msg.message.roomId)
             const roomName = room?.name ?? msg.message.roomId
             showNotification(
@@ -89,59 +79,56 @@ export function useWebSocket() {
               msg.message.content.slice(0, 120),
               () => {
                 useChatStore.getState().setCurrentRoom(msg.message.roomId)
-                window.location.hash = ''
-                window.history.pushState(null, '', `/room/${msg.message.roomId}`)
+                navigateRef.current(`/room/${msg.message.roomId}`)
               },
             )
           }
           break
         }
         case 'server:typing':
-          addTypingUser(msg.roomId, msg.userId, msg.username)
+          chat.addTypingUser(msg.roomId, msg.userId, msg.username)
           break
         case 'server:agent_status':
-          updateAgent(msg.agent)
+          agentStore.updateAgent(msg.agent)
           break
         case 'server:terminal_data':
-          addTerminalData(msg.agentId, msg.agentName, msg.data)
+          chat.addTerminalData(msg.agentId, msg.agentName, msg.data)
           break
         case 'server:task_update':
           window.dispatchEvent(new CustomEvent('agentim:task_update', { detail: msg.task }))
           break
         case 'server:message_edited':
-          updateMessage(msg.message)
+          chat.updateMessage(msg.message)
           break
         case 'server:message_deleted':
-          removeMessage(msg.roomId, msg.messageId)
+          chat.removeMessage(msg.roomId, msg.messageId)
           break
         case 'server:room_update':
-          loadRooms()
-          if (msg.room?.id) loadRoomMembers(msg.room.id)
+          chat.loadRooms()
+          if (msg.room?.id) chat.loadRoomMembers(msg.room.id)
           break
         case 'server:room_removed': {
           // We've been evicted from a room (member removed by admin/owner).
           // Clean up all local state for the evicted room — this also removes it
           // from the rooms list and clears currentRoomId if we're viewing it.
-          const wasCurrentRoom = useChatStore.getState().currentRoomId === msg.roomId
-          useChatStore.getState().evictRoom(msg.roomId)
+          const wasCurrentRoom = chat.currentRoomId === msg.roomId
+          chat.evictRoom(msg.roomId)
           // Re-fetch rooms to stay in sync with server (handles concurrent evictions).
-          loadRooms()
+          chat.loadRooms()
           // Use React Router navigate so the router updates its internal state.
-          // window.history.pushState alone would leave React Router still matching
-          // /room/:id, causing ChatPage's route-sync effect to re-set currentRoomId.
           if (wasCurrentRoom) {
             navigateRef.current('/')
           }
           break
         }
         case 'server:read_receipt':
-          updateReadReceipt(msg.roomId, msg.userId, msg.username, msg.lastReadAt)
+          chat.updateReadReceipt(msg.roomId, msg.userId, msg.username, msg.lastReadAt)
           break
         case 'server:presence':
-          setUserOnline(msg.userId, msg.online)
+          chat.setUserOnline(msg.userId, msg.online)
           break
         case 'server:reaction_update':
-          updateReactions(msg.roomId, msg.messageId, msg.reactions)
+          chat.updateReactions(msg.roomId, msg.messageId, msg.reactions)
           break
         case 'server:auth_result':
           if (!msg.ok) {
@@ -160,28 +147,21 @@ export function useWebSocket() {
     })
 
     return unsub
-  }, [
-    addMessage,
-    addStreamChunk,
-    completeStream,
-    addTypingUser,
-    addTerminalData,
-    updateMessage,
-    removeMessage,
-    updateAgent,
-    loadRooms,
-    loadRoomMembers,
-    setUserOnline,
-    updateReadReceipt,
-    updateReactions,
-  ])
+  }, [])
 
-  // On reconnect, re-join current room and sync missed messages
+  // On reconnect, re-join all previously subscribed rooms and sync missed messages
   useEffect(() => {
     const unsub = wsClient.onReconnect(() => {
-      const { currentRoomId, syncMissedMessages, loadRoomMembers } = useChatStore.getState()
+      const { currentRoomId, joinedRooms, syncMissedMessages, loadRoomMembers, loadRooms } = useChatStore.getState()
+
+      // Server-side subscriptions are reset on reconnect, so re-join
+      // ALL rooms that were subscribed (not just the current one) to
+      // keep receiving real-time updates and notifications.
+      for (const roomId of joinedRooms) {
+        wsClient.send({ type: 'client:join_room', roomId })
+      }
+
       if (currentRoomId) {
-        wsClient.send({ type: 'client:join_room', roomId: currentRoomId })
         // Incrementally sync messages missed during disconnect
         syncMissedMessages(currentRoomId)
         // Refresh room members (may have changed during disconnect)
@@ -191,7 +171,7 @@ export function useWebSocket() {
       loadRooms()
     })
     return unsub
-  }, [loadRooms])
+  }, [])
 
   // Clear streaming state on disconnect (streams are interrupted)
   useEffect(() => {
@@ -208,6 +188,14 @@ export function useWebSocket() {
     const timer = setInterval(() => {
       useChatStore.getState().clearExpiredTyping()
     }, 2000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Periodically clean up stale streaming messages (e.g. agent crashed mid-stream)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      useChatStore.getState().cleanupStaleStreams()
+    }, 30_000)
     return () => clearInterval(timer)
   }, [])
 }

@@ -282,19 +282,19 @@ export function MessageInput() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 px-4 pb-4 pt-2">
+    <div className="bg-surface px-4 pb-4 pt-2">
       {/* Disconnected warning */}
       {isDisconnected && (
         <div
-          className={`mb-2 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${
+          className={`mb-2 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border ${
             connectionStatus === 'reconnecting'
-              ? 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800'
-              : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+              ? 'bg-warning-subtle text-warning-text border-warning-text/20'
+              : 'bg-danger-subtle text-danger-text border-danger/20'
           }`}
         >
           <span
             className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-              connectionStatus === 'reconnecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+              connectionStatus === 'reconnecting' ? 'bg-warning-text animate-pulse' : 'bg-danger'
             }`}
           />
           {connectionStatus === 'reconnecting' ? t('reconnecting') : t('disconnected')}
@@ -303,22 +303,22 @@ export function MessageInput() {
 
       {/* Reply preview */}
       {replyTo && (
-        <div className="mb-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl flex items-center justify-between">
+        <div className="mb-2 px-4 py-2 bg-info-subtle border border-info-border rounded-xl flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <ReplyIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              <ReplyIcon className="w-3.5 h-3.5 text-info-text flex-shrink-0" />
+              <span className="text-xs font-medium text-info-text">
                 {replyTo.senderName}
               </span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+            <p className="text-xs text-text-muted truncate mt-0.5">
               {replyTo.content.slice(0, 80)}
             </p>
           </div>
           <button
             onClick={() => setReplyTo(null)}
             aria-label={t('close')}
-            className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0 ml-2"
+            className="p-1 rounded-md text-text-muted hover:text-text-secondary hover:bg-surface-hover flex-shrink-0 ml-2"
           >
             <CloseIcon className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -326,23 +326,23 @@ export function MessageInput() {
       )}
 
       <div
-        className="relative border border-gray-200 dark:border-gray-600 rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-shadow"
+        className="relative border border-border rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent transition-shadow"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
         {/* Mention menu */}
         {showMentionMenu && filteredAgents.length > 0 && (
-          <div className="absolute bottom-full mb-2 left-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl max-h-48 overflow-y-auto z-10 w-64">
-            <div className="p-2.5 border-b border-gray-100 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('mentionHint')}</p>
+          <div className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-10 w-64">
+            <div className="p-2.5 border-b border-border">
+              <p className="text-xs text-text-muted">{t('mentionHint')}</p>
             </div>
             {filteredAgents.map((agent, index) => (
               <button
                 key={agent.id}
                 onClick={() => insertMention(agent.name)}
                 className={`
-                  w-full px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
-                  ${index === selectedMentionIndex ? 'bg-blue-50 dark:bg-blue-900/30' : ''}
+                  w-full px-3 py-2.5 text-left hover:bg-surface-hover transition-colors
+                  ${index === selectedMentionIndex ? 'bg-info-subtle' : ''}
                 `}
               >
                 <div className="flex items-center space-x-2.5">
@@ -352,13 +352,13 @@ export function MessageInput() {
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    <p className="text-sm font-medium text-text-primary truncate">
                       {agent.name}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{agent.type}</p>
+                    <p className="text-xs text-text-muted">{agent.type}</p>
                   </div>
                   {agent.status === 'online' && (
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="w-2 h-2 bg-success-text rounded-full"></span>
                   )}
                 </div>
               </button>
@@ -374,10 +374,10 @@ export function MessageInput() {
                 key={att.id}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border ${
                   att.error
-                    ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                    ? 'bg-danger-subtle border-danger/20 text-danger-text'
                     : att.uploading
-                      ? 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-                      : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                      ? 'bg-surface-secondary border-border text-text-muted'
+                      : 'bg-info-subtle border-info-border text-info-text'
                 }`}
               >
                 {att.uploading && (
@@ -423,7 +423,7 @@ export function MessageInput() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isDisconnected}
-              className="w-10 h-10 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-10 h-10 flex items-center justify-center text-text-muted hover:text-text-secondary rounded-full hover:bg-surface-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label={t('chat.attachFile')}
             >
               <PaperClipIcon className="w-5 h-5" />
@@ -459,7 +459,7 @@ export function MessageInput() {
             <button
               onClick={handleSend}
               disabled={!hasContent || isDisconnected || isUploading}
-              className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-full hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label={t('send')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,7 +475,7 @@ export function MessageInput() {
         </div>
 
         <div className="px-4 pb-2 hidden sm:block">
-          <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('sendWithCmd')}</p>
+          <p className="text-[10px] text-text-muted">{t('sendWithCmd')}</p>
         </div>
       </div>
     </div>

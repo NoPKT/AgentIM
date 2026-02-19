@@ -2,6 +2,15 @@ import { Component, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui.js'
 
+type ErrorReporter = (error: Error, componentStack?: string) => void
+
+let _errorReporter: ErrorReporter | null = null
+
+/** Register an external error reporter (e.g. Sentry) for production use. */
+export function setErrorReporter(reporter: ErrorReporter) {
+  _errorReporter = reporter
+}
+
 interface Props {
   children: ReactNode
 }
@@ -70,6 +79,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack)
+    _errorReporter?.(error, info.componentStack ?? undefined)
   }
 
   render() {

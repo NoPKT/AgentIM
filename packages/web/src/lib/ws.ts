@@ -25,6 +25,14 @@ export class WsClient {
   private _status: ConnectionStatus = 'disconnected'
   private _token: string | null = null
   private pendingQueue: ClientMessage[] = []
+  private _tokenRefresher: (() => Promise<string | null>) | null = null
+  private _boundOnline: (() => void) | null = null
+  private _boundOffline: (() => void) | null = null
+
+  /** Register a callback that refreshes the access token before reconnecting. */
+  setTokenRefresher(fn: () => Promise<string | null>) {
+    this._tokenRefresher = fn
+  }
 
   get status(): ConnectionStatus {
     return this._status
@@ -62,24 +70,18 @@ export class WsClient {
       }
       this.ws = null
     }
+    this.listenNetwork()
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const url = `${protocol}//${location.host}/ws/client`
     this.ws = new WebSocket(url)
 
     this.ws.onopen = () => {
-      const isReconnect = this.wasConnected
       this.reconnectInterval = 1000
       this.reconnectAttempts = 0
       this.send({ type: 'client:auth', token })
       this.setStatus('connected')
       this.startHeartbeat()
-      this.flushQueue()
-      if (isReconnect) {
-        for (const handler of this.reconnectHandlers) {
-          handler()
-        }
-      }
-      this.wasConnected = true
+      // Queue flush and reconnect handlers are deferred until server:auth_result
     }
 
     this.ws.onmessage = (evt) => {
@@ -88,6 +90,16 @@ export class WsClient {
         if (msg.type === 'server:pong') {
           this.clearPongTimeout()
           return
+        }
+        // Defer queue flush and reconnect handlers until auth succeeds
+        if (msg.type === 'server:auth_result' && msg.ok) {
+          this.flushQueue()
+          if (this.wasConnected) {
+            for (const handler of this.reconnectHandlers) {
+              handler()
+            }
+          }
+          this.wasConnected = true
         }
         for (const handler of this.handlers) {
           handler(msg)
@@ -111,6 +123,7 @@ export class WsClient {
     this.shouldReconnect = false
     this.wasConnected = false
     this.stopHeartbeat()
+    this.unlistenNetwork()
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.ws?.close()
     this.ws = null
@@ -214,11 +227,60 @@ export class WsClient {
     }
     this.reconnectAttempts++
     this.setStatus('reconnecting')
-    const token = this._token
-    this.reconnectTimer = setTimeout(() => {
-      this.connect(token)
+    this.reconnectTimer = setTimeout(async () => {
+      // Try to refresh the token before reconnecting (it may have expired during disconnect)
+      if (this._tokenRefresher) {
+        try {
+          const freshToken = await this._tokenRefresher()
+          if (freshToken) {
+            this._token = freshToken
+          } else if (!this._token) {
+            // Token refresh failed and no token available — give up
+            this.setStatus('disconnected')
+            return
+          }
+        } catch {
+          // Refresh failed — try reconnecting with existing token
+        }
+      }
+      if (this._token) this.connect(this._token)
     }, this.reconnectInterval)
     this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, 15000)
+  }
+
+  /** Register browser online/offline listeners to accelerate reconnection */
+  private listenNetwork() {
+    if (this._boundOnline) return
+    this._boundOnline = () => {
+      if (this.shouldReconnect && this._token && !this.connected) {
+        // Reset backoff so reconnection is immediate
+        this.reconnectInterval = 1000
+        this.reconnectAttempts = 0
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer)
+          this.reconnectTimer = null
+        }
+        this.scheduleReconnect()
+      }
+    }
+    this._boundOffline = () => {
+      if (this.connected) {
+        this.setStatus('reconnecting')
+      }
+    }
+    window.addEventListener('online', this._boundOnline)
+    window.addEventListener('offline', this._boundOffline)
+  }
+
+  private unlistenNetwork() {
+    if (this._boundOnline) {
+      window.removeEventListener('online', this._boundOnline)
+      this._boundOnline = null
+    }
+    if (this._boundOffline) {
+      window.removeEventListener('offline', this._boundOffline)
+      this._boundOffline = null
+    }
   }
 }
 

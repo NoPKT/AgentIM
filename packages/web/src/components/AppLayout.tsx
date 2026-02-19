@@ -45,7 +45,7 @@ export function AppLayout() {
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <div className="flex h-screen bg-surface-secondary">
+    <div className="flex h-dvh bg-surface-secondary">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -57,7 +57,7 @@ export function AppLayout() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-modal
+          fixed lg:static inset-y-0 left-0 z-sidebar
           w-72 bg-surface border-r border-border shadow-sm
           flex flex-col
           transform transition-transform duration-300 ease-in-out

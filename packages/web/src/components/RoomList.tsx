@@ -268,7 +268,6 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
               </Button>
             </div>
           </div>
-        </div>
       </Modal>
     </div>
   )

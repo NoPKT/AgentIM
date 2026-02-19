@@ -90,10 +90,10 @@ export default function UsersPage() {
 
   if (!isAdmin) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
         <div className="text-center max-w-md">
           <svg
-            className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-16 w-16 text-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -105,7 +105,7 @@ export default function UsersPage() {
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">
             {t('forbidden')}
           </h3>
         </div>
@@ -115,26 +115,26 @@ export default function UsersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-6">
+      <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-6 py-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6 animate-pulse">
-            <div className="h-8 w-40 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="mt-2 h-4 w-56 bg-gray-100 dark:bg-gray-700 rounded" />
+            <div className="h-8 w-40 bg-skeleton rounded" />
+            <div className="mt-2 h-4 w-56 bg-surface-hover rounded" />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="bg-gray-50 dark:bg-gray-700 px-6 py-3 flex gap-6">
-              <div className="h-3 w-20 bg-gray-200 dark:bg-gray-600 rounded" />
-              <div className="h-3 w-24 bg-gray-200 dark:bg-gray-600 rounded" />
-              <div className="h-3 w-12 bg-gray-200 dark:bg-gray-600 rounded" />
+          <div className="bg-surface rounded-lg border border-border overflow-hidden">
+            <div className="bg-surface-hover px-6 py-3 flex gap-6">
+              <div className="h-3 w-20 bg-skeleton rounded" />
+              <div className="h-3 w-24 bg-skeleton rounded" />
+              <div className="h-3 w-12 bg-skeleton rounded" />
             </div>
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-6 animate-pulse"
+                className="px-6 py-4 border-t border-border flex gap-6 animate-pulse"
               >
-                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="h-4 w-32 bg-gray-100 dark:bg-gray-700 rounded" />
-                <div className="h-4 w-14 bg-gray-100 dark:bg-gray-700 rounded-full" />
+                <div className="h-4 w-24 bg-skeleton rounded" />
+                <div className="h-4 w-32 bg-surface-hover rounded" />
+                <div className="h-4 w-14 bg-surface-hover rounded-full" />
               </div>
             ))}
           </div>
@@ -145,10 +145,10 @@ export default function UsersPage() {
 
   if (loadError) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
         <div className="text-center max-w-md">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-12 w-12 text-text-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -160,7 +160,7 @@ export default function UsersPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">
             {t('loadFailed')}
           </h3>
           <Button onClick={loadUsers} className="mt-4">
@@ -172,14 +172,14 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-6">
+    <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-6 py-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-text-primary">
               {t('userManagement')}
             </h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-1 text-sm text-text-secondary">
               {t('userManagementDesc')}
             </p>
           </div>
@@ -190,13 +190,13 @@ export default function UsersPage() {
 
         {/* Create User Form */}
         {showCreate && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-surface rounded-lg border border-border shadow-sm p-6 mb-6">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">
               {t('createUser')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   {t('username')}
                 </label>
                 <Input
@@ -207,7 +207,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   {t('password')}
                 </label>
                 <Input
@@ -218,9 +218,9 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   {t('displayName')}{' '}
-                  <span className="text-gray-400 dark:text-gray-500">({t('optional')})</span>
+                  <span className="text-text-muted">({t('optional')})</span>
                 </label>
                 <Input
                   type="text"
@@ -230,7 +230,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-secondary mb-1">
                   {t('role')}
                 </label>
                 <Select
@@ -257,37 +257,37 @@ export default function UsersPage() {
         )}
 
         {/* User List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="bg-surface rounded-lg border border-border shadow-sm overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
+            <thead className="bg-surface-hover border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                   {t('username')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                   {t('displayName')}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                   {t('role')}
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" />
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-border">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                <tr key={u.id} className="hover:bg-surface-hover">
+                  <td className="px-6 py-4 text-sm font-medium text-text-primary">
                     {u.username}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                  <td className="px-6 py-4 text-sm text-text-secondary">
                     {u.displayName}
                   </td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         u.role === 'admin'
-                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                          ? 'bg-role-bg text-role-text'
+                          : 'bg-badge-bg text-badge-text'
                       }`}
                     >
                       {u.role === 'admin' ? t('roleAdmin') : t('roleUser')}
@@ -297,7 +297,7 @@ export default function UsersPage() {
                     {u.id !== currentUser?.id && (
                       <button
                         onClick={() => handleDeleteUser(u.id)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium transition-colors"
+                        className="text-danger-text hover:text-danger-hover text-sm font-medium transition-colors"
                       >
                         {t('delete')}
                       </button>
@@ -309,7 +309,7 @@ export default function UsersPage() {
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
+                    className="px-6 py-8 text-center text-sm text-text-muted"
                   >
                     {t('noUsers')}
                   </td>
