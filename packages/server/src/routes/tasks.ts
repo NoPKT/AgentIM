@@ -93,7 +93,7 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
     title: sanitizeText(parsed.data.title),
     description: sanitizeContent(parsed.data.description ?? ''),
     assigneeId: parsed.data.assigneeId,
-    assigneeType: parsed.data.assigneeType,
+    assigneeType: parsed.data.assigneeId ? (parsed.data.assigneeType ?? 'user') : parsed.data.assigneeType,
     createdById: userId,
     createdAt: now,
     updatedAt: now,
@@ -154,26 +154,39 @@ taskRoutes.put('/:id', async (c) => {
     parsed.data.assigneeType = null
   }
 
-  // If assigneeType changes (non-null), re-validate the effective assigneeId
+  // Compute effective values after merging request with existing record.
+  // Normalize legacy data: missing assigneeType defaults to 'user' when assigneeId is present
+  // (task creation previously allowed omitting assigneeType, storing null in DB).
+  const effectiveAssigneeId = parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : existing.assigneeId
+  const rawEffectiveType = parsed.data.assigneeType !== undefined ? parsed.data.assigneeType : existing.assigneeType
+  const effectiveAssigneeType = effectiveAssigneeId && !rawEffectiveType ? 'user' : rawEffectiveType
+
+  // Reject mismatched combinations that would leave orphaned fields
+  if (!effectiveAssigneeId && effectiveAssigneeType) {
+    return c.json(
+      { ok: false, error: 'assigneeId is required when assigneeType is set' },
+      400,
+    )
+  }
+
+  // If assigneeType changes (non-null) but assigneeId stays the same, re-validate
   if (
     parsed.data.assigneeType !== undefined &&
     parsed.data.assigneeType !== null &&
-    parsed.data.assigneeId === undefined
+    parsed.data.assigneeId === undefined &&
+    effectiveAssigneeId
   ) {
-    const effectiveId = existing.assigneeId
-    if (effectiveId) {
-      if (!(await isRoomMember(effectiveId, existing.roomId, undefined, parsed.data.assigneeType as 'user' | 'agent'))) {
-        return c.json(
-          { ok: false, error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId' },
-          400,
-        )
-      }
+    if (!(await isRoomMember(effectiveAssigneeId, existing.roomId, undefined, parsed.data.assigneeType as 'user' | 'agent'))) {
+      return c.json(
+        { ok: false, error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId' },
+        400,
+      )
     }
   }
 
   // Validate assignee is a member of the room
   if (parsed.data.assigneeId !== undefined && parsed.data.assigneeId !== null) {
-    const assigneeType = (parsed.data.assigneeType ?? existing.assigneeType ?? 'user') as 'user' | 'agent'
+    const assigneeType = (effectiveAssigneeType ?? 'user') as 'user' | 'agent'
     if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId, undefined, assigneeType))) {
       return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
     }
@@ -198,6 +211,10 @@ taskRoutes.put('/:id', async (c) => {
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status
   if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
   if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType
+  // Auto-repair legacy data: backfill missing assigneeType when assigneeId is present
+  if (existing.assigneeId && !existing.assigneeType && updateData.assigneeType === undefined) {
+    updateData.assigneeType = 'user'
+  }
 
   await db.update(tasks).set(updateData).where(eq(tasks.id, taskId))
 
@@ -213,6 +230,10 @@ taskRoutes.delete('/:id', async (c) => {
   const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
   if (!existing) {
     return c.json({ ok: false, error: 'Task not found' }, 404)
+  }
+
+  if (!(await isRoomMember(userId, existing.roomId))) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
   const isCreator = existing.createdById === userId

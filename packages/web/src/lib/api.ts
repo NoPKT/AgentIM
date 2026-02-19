@@ -191,7 +191,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
     try {
       let res = await fetch(`${BASE_URL}${path}`, { ...init, headers, signal: t.signal })
 
-      if (res.status === 401 && token) {
+      if (res.status === 401 && (token || _getStoredRefreshToken())) {
         t.clear()
         const refreshed = await refreshAccessToken()
         if (refreshed) {
@@ -285,7 +285,7 @@ async function uploadFile<T>(
     const result = await doXhrUpload(headers, formData)
 
     // Handle 401 → refresh → retry, same as the fetch branch
-    if (result.status === 401 && token) {
+    if (result.status === 401 && (token || _getStoredRefreshToken())) {
       const refreshed = await refreshAccessToken()
       if (refreshed) {
         headers['Authorization'] = `Bearer ${getToken()}`
@@ -305,7 +305,7 @@ async function uploadFile<T>(
   let res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData, signal: t.signal })
   t.clear()
 
-  if (res.status === 401 && token) {
+  if (res.status === 401 && (token || _getStoredRefreshToken())) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`
