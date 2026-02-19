@@ -145,14 +145,21 @@ taskRoutes.put('/:id', async (c) => {
     }
   }
 
-  // Validate assignee consistency: if assigneeType changes, assigneeId must also be provided
-  // to prevent inconsistent pairs (e.g. userId + assigneeType: "agent")
+  // Validate assignee consistency: assigneeId and assigneeType must stay paired.
+  // If either is set to null, clear both to prevent orphaned fields.
+  if (parsed.data.assigneeType === null && parsed.data.assigneeId === undefined) {
+    parsed.data.assigneeId = null
+  }
+  if (parsed.data.assigneeId === null && parsed.data.assigneeType === undefined) {
+    parsed.data.assigneeType = null
+  }
+
+  // If assigneeType changes (non-null), re-validate the effective assigneeId
   if (
     parsed.data.assigneeType !== undefined &&
     parsed.data.assigneeType !== null &&
     parsed.data.assigneeId === undefined
   ) {
-    // assigneeType is being changed without a new assigneeId — re-validate the existing one
     const effectiveId = existing.assigneeId
     if (effectiveId) {
       if (!(await isRoomMember(effectiveId, existing.roomId, undefined, parsed.data.assigneeType as 'user' | 'agent'))) {

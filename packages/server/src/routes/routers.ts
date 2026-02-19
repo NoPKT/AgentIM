@@ -13,7 +13,7 @@ import { encryptSecret, decryptSecret } from '../lib/crypto.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
 
-const routerTestRateLimit = rateLimitMiddleware(60_000, 5)
+const routerTestRateLimit = rateLimitMiddleware(60_000, 5, 'router-test')
 
 const log = createLogger('Routers')
 

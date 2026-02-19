@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
+import { resolve, basename } from 'node:path'
+import { unlink } from 'node:fs/promises'
 import { db } from '../db/index.js'
-import { rooms, roomMembers, agents, gateways, routers, users } from '../db/schema.js'
+import { rooms, roomMembers, messages, messageAttachments, agents, gateways, routers, users } from '../db/schema.js'
 import {
   createRoomSchema,
   updateRoomSchema,
@@ -10,13 +12,17 @@ import {
   NOTIFICATION_PREFS,
 } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { config } from '../config.js'
 import { sanitizeText } from '../lib/sanitize.js'
+import { createLogger } from '../lib/logger.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
+
+const log = createLogger('Rooms')
 
 async function checkRouterAccess(
   userId: string,
@@ -255,7 +261,36 @@ roomRoutes.delete('/:id', async (c) => {
     .filter((m) => m.memberType === 'user')
     .map((m) => m.memberId)
 
+  // Collect attachment file URLs before cascade-deleting (DB records will be gone after)
+  const roomMessageIds = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(eq(messages.roomId, roomId))
+  const msgIds = roomMessageIds.map((m) => m.id)
+  let attachmentUrls: string[] = []
+  if (msgIds.length > 0) {
+    const attachments = await db
+      .select({ url: messageAttachments.url })
+      .from(messageAttachments)
+      .where(inArray(messageAttachments.messageId, msgIds))
+    attachmentUrls = attachments.map((a) => a.url)
+  }
+
   await db.delete(rooms).where(eq(rooms.id, roomId))
+
+  // Clean up attachment files from disk (best-effort, non-blocking)
+  if (attachmentUrls.length > 0) {
+    const uploadDir = resolve(config.uploadDir)
+    for (const url of attachmentUrls) {
+      const filename = basename(url)
+      const filePath = resolve(uploadDir, filename)
+      unlink(filePath).catch((err) => {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          log.warn(`Failed to unlink attachment ${filename}: ${(err as Error).message}`)
+        }
+      })
+    }
+  }
 
   // Notify all connected members that the room has been removed
   for (const memberId of userMemberIds) {
@@ -359,8 +394,12 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
   const userId = c.get('userId')
   const memberId = c.req.param('memberId')
 
-  // Self-leave is always allowed; otherwise require owner/admin
-  if (memberId !== userId && !(await isRoomAdmin(userId, roomId))) {
+  // Self-leave: verify the caller is actually a member before proceeding
+  if (memberId === userId) {
+    if (!(await isRoomMember(userId, roomId))) {
+      return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+    }
+  } else if (!(await isRoomAdmin(userId, roomId))) {
     return c.json({ ok: false, error: 'Only room owner or admin can remove members' }, 403)
   }
 
