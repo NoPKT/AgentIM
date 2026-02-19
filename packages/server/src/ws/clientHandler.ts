@@ -21,6 +21,29 @@ const log = createLogger('ClientHandler')
 
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const RATE_LIMIT_MAX = 30 // max 30 messages per window
+const MAX_JSON_DEPTH = 10
+
+/** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
+function safeJsonParse(raw: string, maxDepth: number): unknown {
+  const result = JSON.parse(raw)
+  checkDepth(result, maxDepth, 0)
+  return result
+}
+
+function checkDepth(value: unknown, maxDepth: number, current: number): void {
+  if (current > maxDepth) {
+    throw new Error('JSON nesting depth exceeded')
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      checkDepth(item, maxDepth, current + 1)
+    }
+  } else if (value !== null && typeof value === 'object') {
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      checkDepth((value as Record<string, unknown>)[key], maxDepth, current + 1)
+    }
+  }
+}
 
 async function isRateLimited(userId: string): Promise<boolean> {
   try {
@@ -50,12 +73,13 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
 
   let data: unknown
   try {
-    data = JSON.parse(raw)
-  } catch {
+    data = safeJsonParse(raw, MAX_JSON_DEPTH)
+  } catch (err) {
+    const isDepth = (err as Error).message?.includes('depth')
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'INVALID_JSON',
-      message: 'Invalid JSON',
+      code: isDepth ? 'JSON_TOO_DEEP' : 'INVALID_JSON',
+      message: isDepth ? 'JSON nesting depth exceeded' : 'Invalid JSON',
     })
     return
   }
@@ -215,7 +239,13 @@ async function handleJoinRoom(ws: WSContext, roomId: string) {
     const [membership] = await db
       .select()
       .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, client.userId)))
+      .where(
+        and(
+          eq(roomMembers.roomId, roomId),
+          eq(roomMembers.memberId, client.userId),
+          eq(roomMembers.memberType, 'user'),
+        ),
+      )
       .limit(1)
 
     if (!membership) {
@@ -246,33 +276,6 @@ async function handleSendMessage(
   const client = connectionManager.getClient(ws)
   if (!client) return
 
-  // Verify user is a member of this room
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
-  if (!room) {
-    connectionManager.sendToClient(ws, {
-      type: 'server:error',
-      code: 'ROOM_NOT_FOUND',
-      message: 'Room not found',
-    })
-    return
-  }
-
-  if (room.createdById !== client.userId) {
-    const [membership] = await db
-      .select()
-      .from(roomMembers)
-      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, client.userId)))
-      .limit(1)
-    if (!membership) {
-      connectionManager.sendToClient(ws, {
-        type: 'server:error',
-        code: 'NOT_A_MEMBER',
-        message: 'You are not a member of this room',
-      })
-      return
-    }
-  }
-
   const content = sanitizeContent(rawContent)
   const id = nanoid()
   const now = new Date().toISOString()
@@ -280,9 +283,40 @@ async function handleSendMessage(
   // Use server-parsed mentions instead of trusting client input
   const serverParsedMentions = parseMentions(content)
 
-  // Atomic: persist message + link attachments in a single transaction
-  const attachments = await db.transaction(async (tx) => {
-    await tx.insert(messages).values({
+  // Atomic: verify membership + persist message + link attachments in a single
+  // transaction to eliminate the TOCTOU race between the membership check and
+  // the INSERT (member could be removed between the two steps otherwise).
+  let room: typeof rooms.$inferSelect | undefined
+  let attachmentResult: {
+    id: string
+    messageId: string
+    filename: string
+    mimeType: string
+    size: number
+    url: string
+  }[]
+
+  try {
+    const txResult = await db.transaction(async (tx) => {
+      const [foundRoom] = await tx.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
+      if (!foundRoom) return { error: 'ROOM_NOT_FOUND' as const }
+
+      if (foundRoom.createdById !== client.userId) {
+        const [membership] = await tx
+          .select()
+          .from(roomMembers)
+          .where(
+            and(
+              eq(roomMembers.roomId, roomId),
+              eq(roomMembers.memberId, client.userId),
+              eq(roomMembers.memberType, 'user'),
+            ),
+          )
+          .limit(1)
+        if (!membership) return { error: 'NOT_A_MEMBER' as const }
+      }
+
+      await tx.insert(messages).values({
       id,
       roomId,
       senderId: client.userId,
@@ -316,25 +350,55 @@ async function handleSendMessage(
         .from(messageAttachments)
         .where(eq(messageAttachments.messageId, id))
 
-      return rows.map((r) => ({
-        id: r.id,
-        messageId: id,
-        filename: r.filename,
-        mimeType: r.mimeType,
-        size: r.size,
-        url: r.url,
-      }))
+      return {
+        room: foundRoom,
+        attachments: rows.map((r) => ({
+          id: r.id,
+          messageId: id,
+          filename: r.filename,
+          mimeType: r.mimeType,
+          size: r.size,
+          url: r.url,
+        })),
+      }
     }
 
-    return [] as {
-      id: string
-      messageId: string
-      filename: string
-      mimeType: string
-      size: number
-      url: string
-    }[]
+    return {
+      room: foundRoom,
+      attachments: [] as {
+        id: string
+        messageId: string
+        filename: string
+        mimeType: string
+        size: number
+        url: string
+      }[],
+    }
   })
+
+  if ('error' in txResult) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: txResult.error,
+      message:
+        txResult.error === 'ROOM_NOT_FOUND'
+          ? 'Room not found'
+          : 'You are not a member of this room',
+    })
+    return
+  }
+
+  room = txResult.room
+  attachmentResult = txResult.attachments
+  } catch (err) {
+    log.error(`Transaction error in handleSendMessage: ${(err as Error).message}`)
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'INTERNAL_ERROR',
+      message: 'Failed to send message',
+    })
+    return
+  }
 
   const message = {
     id,
@@ -346,7 +410,7 @@ async function handleSendMessage(
     content,
     replyToId,
     mentions: serverParsedMentions,
-    ...(attachments.length > 0 ? { attachments } : {}),
+    ...(attachmentResult.length > 0 ? { attachments: attachmentResult } : {}),
     createdAt: now,
   }
 
@@ -357,7 +421,7 @@ async function handleSendMessage(
   })
 
   // Route to agents based on server-parsed mentions and broadcast mode
-  await routeToAgents(room, message, serverParsedMentions)
+  await routeToAgents(room!, message, serverParsedMentions)
 }
 
 async function routeToAgents(
@@ -519,7 +583,7 @@ export function handleClientDisconnect(ws: WSContext) {
   connectionManager.removeClient(ws)
   if (!client) return
 
-  // Broadcast typing_stop for each room the disconnected user had joined
+  // Broadcast server:typing so the frontend clears this user's typing indicator via timeout
   for (const roomId of client.joinedRooms) {
     connectionManager.broadcastToRoom(roomId, {
       type: 'server:typing',

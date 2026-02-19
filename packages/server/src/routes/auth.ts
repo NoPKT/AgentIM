@@ -9,6 +9,7 @@ import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { authRateLimit } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
+import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
 
@@ -214,8 +215,9 @@ authRoutes.post('/refresh', async (c) => {
 authRoutes.post('/logout', authMiddleware, async (c) => {
   const userId = c.get('userId')
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  // Revoke all outstanding access tokens immediately
+  // Revoke all outstanding access tokens and disconnect active WS sessions
   await revokeUserTokens(userId)
+  connectionManager.disconnectUser(userId)
   logAudit({ userId, action: 'logout', ipAddress: getClientIp(c) })
   return c.json({ ok: true })
 })

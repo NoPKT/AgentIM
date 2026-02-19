@@ -40,6 +40,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist .turbo",
+    "lint": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {

@@ -40,6 +40,7 @@ function isPrivateIp(ip: string): boolean {
     if (lower.startsWith('fc') || lower.startsWith('fd')) return true
     if (lower.startsWith('fe80')) return true
     if (lower === '::' || lower === '::1') return true
+    // IPv4-mapped IPv6 in dotted form: ::ffff:127.0.0.1
     const mapped = lower.match(/^::ffff:(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
     if (mapped) {
       const [, ma, mb] = mapped.map(Number)
@@ -47,6 +48,17 @@ function isPrivateIp(ip: string): boolean {
       if (ma === 172 && mb >= 16 && mb <= 31) return true
       if (ma === 192 && mb === 168) return true
       if (ma === 169 && mb === 254) return true
+    }
+    // IPv4-mapped IPv6 in hex form: ::ffff:7f00:1 (= ::ffff:127.0.0.1)
+    const hexMapped = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+    if (hexMapped) {
+      const hi = parseInt(hexMapped[1], 16)
+      const lo = parseInt(hexMapped[2], 16)
+      const a = (hi >> 8) & 0xff
+      const b = hi & 0xff
+      const c = (lo >> 8) & 0xff
+      const d = lo & 0xff
+      return isPrivateIp(`${a}.${b}.${c}.${d}`)
     }
   }
   return false
@@ -345,6 +357,7 @@ routerRoutes.post('/:id/test', routerTestRateLimit, async (c) => {
     }
     const res = await fetch(`${router.llmBaseUrl}/chat/completions`, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,

@@ -15,7 +15,8 @@ import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
-import { sendRoomContextToAllAgents } from '../ws/gatewayHandler.js'
+import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
+import { logAudit, getClientIp } from '../lib/audit.js'
 
 async function checkRouterAccess(
   userId: string,
@@ -40,17 +41,6 @@ async function checkRouterAccess(
   return { ok: true }
 }
 
-async function broadcastRoomUpdate(roomId: string) {
-  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
-  if (!room) return
-  const members = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
-  connectionManager.broadcastToRoom(roomId, {
-    type: 'server:room_update',
-    room,
-    members,
-  })
-}
-
 export const roomRoutes = new Hono<AuthEnv>()
 
 roomRoutes.use('*', authMiddleware)
@@ -60,7 +50,10 @@ roomRoutes.use('/:id', validateIdParams)
 // List rooms for current user
 roomRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const memberRows = await db.select().from(roomMembers).where(eq(roomMembers.memberId, userId))
+  const memberRows = await db
+    .select()
+    .from(roomMembers)
+    .where(and(eq(roomMembers.memberId, userId), eq(roomMembers.memberType, 'user')))
 
   const roomIds = memberRows.map((m) => m.roomId)
   if (roomIds.length === 0) {
@@ -162,6 +155,15 @@ roomRoutes.post('/', async (c) => {
     throw err
   }
 
+  logAudit({
+    userId,
+    action: 'room_create',
+    targetId: id,
+    targetType: 'room',
+    metadata: { name: parsed.data.name, type: parsed.data.type },
+    ipAddress: getClientIp(c),
+  })
+
   return c.json({ ok: true, data: room }, 201)
 })
 
@@ -220,6 +222,14 @@ roomRoutes.put('/:id', async (c) => {
 
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
 
+  logAudit({
+    userId,
+    action: 'room_update',
+    targetId: roomId,
+    targetType: 'room',
+    ipAddress: getClientIp(c),
+  })
+
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
 
@@ -239,7 +249,28 @@ roomRoutes.delete('/:id', async (c) => {
     return c.json({ ok: false, error: 'Only room creator can delete' }, 403)
   }
 
+  // Collect members before deletion so we can notify them
+  const memberRows = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
+  const userMemberIds = memberRows
+    .filter((m) => m.memberType === 'user')
+    .map((m) => m.memberId)
+
   await db.delete(rooms).where(eq(rooms.id, roomId))
+
+  // Notify all connected members that the room has been removed
+  for (const memberId of userMemberIds) {
+    connectionManager.evictUserFromRoom(memberId, roomId)
+  }
+
+  logAudit({
+    userId,
+    action: 'room_delete',
+    targetId: roomId,
+    targetType: 'room',
+    metadata: { name: room.name },
+    ipAddress: getClientIp(c),
+  })
+
   return c.json({ ok: true })
 })
 
@@ -307,6 +338,15 @@ roomRoutes.post('/:id/members', async (c) => {
     throw err
   }
 
+  logAudit({
+    userId,
+    action: 'member_add',
+    targetId: parsed.data.memberId,
+    targetType: 'member',
+    metadata: { roomId, memberType: parsed.data.memberType, role: parsed.data.role },
+    ipAddress: getClientIp(c),
+  })
+
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
 
@@ -337,6 +377,15 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
   // Evict removed member from WS room state (keeps joinedRooms in sync with DB)
   connectionManager.evictUserFromRoom(memberId, roomId)
 
+  logAudit({
+    userId,
+    action: 'member_remove',
+    targetId: memberId,
+    targetType: 'member',
+    metadata: { roomId, selfLeave: memberId === userId },
+    ipAddress: getClientIp(c),
+  })
+
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
 
@@ -351,7 +400,13 @@ roomRoutes.put('/:id/pin', async (c) => {
   const [member] = await db
     .select()
     .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
     .limit(1)
   if (!member) return c.json({ ok: false, error: 'Not a member' }, 404)
 
@@ -359,7 +414,13 @@ roomRoutes.put('/:id/pin', async (c) => {
   await db
     .update(roomMembers)
     .set({ pinnedAt })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
 
   return c.json({ ok: true, data: { pinned: !!pinnedAt } })
 })
@@ -372,7 +433,13 @@ roomRoutes.put('/:id/archive', async (c) => {
   const [member] = await db
     .select()
     .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
     .limit(1)
   if (!member) return c.json({ ok: false, error: 'Not a member' }, 404)
 
@@ -380,7 +447,13 @@ roomRoutes.put('/:id/archive', async (c) => {
   await db
     .update(roomMembers)
     .set({ archivedAt })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
 
   return c.json({ ok: true, data: { archived: !!archivedAt } })
 })
@@ -400,10 +473,21 @@ roomRoutes.put('/:id/notification-pref', async (c) => {
     )
   }
 
-  await db
+  const result = await db
     .update(roomMembers)
     .set({ notificationPref: pref as string })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
+    .returning({ roomId: roomMembers.roomId })
+
+  if (result.length === 0) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
 
   return c.json({ ok: true })
 })

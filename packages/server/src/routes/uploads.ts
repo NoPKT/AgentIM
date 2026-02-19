@@ -2,17 +2,32 @@ import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, isNull, lt, and } from 'drizzle-orm'
 import { resolve, extname, basename } from 'node:path'
-import { writeFile, unlink } from 'node:fs/promises'
+import { writeFile, unlink, readdir } from 'node:fs/promises'
 import { db } from '../db/index.js'
 import { messageAttachments, users } from '../db/schema.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { uploadRateLimit } from '../middleware/rateLimit.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
+import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Uploads')
 
 const AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+
+/** Map validated MIME types to canonical file extensions */
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'application/zip': '.zip',
+  'application/gzip': '.gz',
+  'text/plain': '.txt',
+  'text/markdown': '.md',
+  'application/json': '.json',
+}
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024 // 2MB
 
 // Magic byte signatures for content-based type validation
@@ -56,8 +71,8 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
   if (!matchesAny) return false
 
   // Extra check for WebP: bytes 8-11 should be 'WEBP'
-  if (declaredType === 'image/webp' && buffer.length >= 12) {
-    return buffer.toString('ascii', 8, 12) === 'WEBP'
+  if (declaredType === 'image/webp') {
+    return buffer.length >= 12 && buffer.toString('ascii', 8, 12) === 'WEBP'
   }
   return true
 }
@@ -97,7 +112,7 @@ uploadRoutes.post('/', async (c) => {
   }
 
   const id = nanoid()
-  const ext = extname(file.name) || ''
+  const ext = MIME_TO_EXT[file.type] || extname(file.name) || ''
   const storedFilename = `${id}${ext}`
   const filePath = resolve(config.uploadDir, storedFilename)
   await writeFile(filePath, buffer)
@@ -114,6 +129,15 @@ uploadRoutes.post('/', async (c) => {
     url,
     uploadedBy: userId,
     createdAt: now,
+  })
+
+  logAudit({
+    userId,
+    action: 'file_upload',
+    targetId: id,
+    targetType: 'file',
+    metadata: { filename: file.name, mimeType: file.type, size: file.size },
+    ipAddress: getClientIp(c),
   })
 
   return c.json({
@@ -151,9 +175,23 @@ uploadRoutes.post('/avatar', async (c) => {
     return c.json({ ok: false, error: 'File content does not match declared type' }, 400)
   }
 
-  const ext = extname(file.name) || '.jpg'
+  const ext = MIME_TO_EXT[file.type] || extname(file.name) || '.jpg'
   const storedFilename = `avatar_${userId}${ext}`
   const filePath = resolve(config.uploadDir, storedFilename)
+
+  // Remove previous avatar files with different extensions to prevent storage leakage
+  const prefix = `avatar_${userId}`
+  try {
+    const files = await readdir(config.uploadDir)
+    for (const f of files) {
+      if (f.startsWith(prefix) && f !== storedFilename) {
+        await unlink(resolve(config.uploadDir, f)).catch(() => {})
+      }
+    }
+  } catch {
+    // Upload dir may not exist yet; writeFile below will create the file
+  }
+
   await writeFile(filePath, buffer)
 
   const avatarUrl = `/uploads/${storedFilename}`
@@ -208,9 +246,17 @@ export async function cleanupOrphanAttachments() {
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
 
 export function startOrphanCleanup() {
-  cleanupTimer = setInterval(cleanupOrphanAttachments, config.orphanFileCheckInterval)
+  cleanupTimer = setInterval(() => {
+    cleanupOrphanAttachments().catch((err) => {
+      log.error(`Orphan cleanup failed: ${(err as Error).message}`)
+    })
+  }, config.orphanFileCheckInterval)
   // Run once at startup after a short delay
-  setTimeout(cleanupOrphanAttachments, 10_000)
+  setTimeout(() => {
+    cleanupOrphanAttachments().catch((err) => {
+      log.error(`Initial orphan cleanup failed: ${(err as Error).message}`)
+    })
+  }, 10_000)
 }
 
 export function stopOrphanCleanup() {

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, inArray, desc } from 'drizzle-orm'
+import { and, eq, inArray, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tasks, roomMembers } from '../db/schema.js'
 import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
@@ -18,13 +18,13 @@ taskRoutes.use('/rooms/:roomId', validateIdParams)
 // List all tasks for current user's rooms
 taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50'), 1), 100)
-  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0)
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '') || 50, 1), 100)
+  const offset = Math.max(parseInt(c.req.query('offset') ?? '') || 0, 0)
 
   const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
-    .where(eq(roomMembers.memberId, userId))
+    .where(and(eq(roomMembers.memberId, userId), eq(roomMembers.memberType, 'user')))
   const roomIds = memberRows.map((r) => r.roomId)
   if (roomIds.length === 0) {
     return c.json({ ok: true, data: [] })
@@ -43,8 +43,8 @@ taskRoutes.get('/', async (c) => {
 taskRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') || '50'), 1), 100)
-  const offset = Math.max(parseInt(c.req.query('offset') || '0'), 0)
+  const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '') || 50, 1), 100)
+  const offset = Math.max(parseInt(c.req.query('offset') ?? '') || 0, 0)
 
   if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
@@ -78,7 +78,8 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
 
   // Validate assignee is a member of the room
   if (parsed.data.assigneeId) {
-    if (!(await isRoomMember(parsed.data.assigneeId, roomId))) {
+    const assigneeType = parsed.data.assigneeType ?? 'user'
+    if (!(await isRoomMember(parsed.data.assigneeId, roomId, undefined, assigneeType))) {
       return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
     }
   }
@@ -144,9 +145,29 @@ taskRoutes.put('/:id', async (c) => {
     }
   }
 
+  // Validate assignee consistency: if assigneeType changes, assigneeId must also be provided
+  // to prevent inconsistent pairs (e.g. userId + assigneeType: "agent")
+  if (
+    parsed.data.assigneeType !== undefined &&
+    parsed.data.assigneeType !== null &&
+    parsed.data.assigneeId === undefined
+  ) {
+    // assigneeType is being changed without a new assigneeId — re-validate the existing one
+    const effectiveId = existing.assigneeId
+    if (effectiveId) {
+      if (!(await isRoomMember(effectiveId, existing.roomId, undefined, parsed.data.assigneeType as 'user' | 'agent'))) {
+        return c.json(
+          { ok: false, error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId' },
+          400,
+        )
+      }
+    }
+  }
+
   // Validate assignee is a member of the room
   if (parsed.data.assigneeId !== undefined && parsed.data.assigneeId !== null) {
-    if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId))) {
+    const assigneeType = (parsed.data.assigneeType ?? existing.assigneeType ?? 'user') as 'user' | 'agent'
+    if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId, undefined, assigneeType))) {
       return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
     }
   }

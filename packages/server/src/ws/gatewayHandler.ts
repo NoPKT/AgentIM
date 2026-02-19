@@ -23,6 +23,29 @@ import { buildAgentNameMap } from '../lib/agentUtils.js'
 const log = createLogger('GatewayHandler')
 
 const MAX_MESSAGE_SIZE = config.maxGatewayMessageSize
+const MAX_JSON_DEPTH = 15 // gateway messages may have deeper nesting (chunks with metadata)
+
+/** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
+function safeJsonParse(raw: string, maxDepth: number): unknown {
+  const result = JSON.parse(raw)
+  checkDepth(result, maxDepth, 0)
+  return result
+}
+
+function checkDepth(value: unknown, maxDepth: number, current: number): void {
+  if (current > maxDepth) {
+    throw new Error('JSON nesting depth exceeded')
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      checkDepth(item, maxDepth, current + 1)
+    }
+  } else if (value !== null && typeof value === 'object') {
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      checkDepth((value as Record<string, unknown>)[key], maxDepth, current + 1)
+    }
+  }
+}
 
 async function isAgentRateLimited(
   agentId: string,
@@ -75,13 +98,17 @@ async function broadcastAgentStatus(agentId: string) {
 }
 
 export async function handleGatewayMessage(ws: WSContext, raw: string) {
-  if (raw.length > MAX_MESSAGE_SIZE) return
+  if (raw.length > MAX_MESSAGE_SIZE) {
+    log.warn(`Gateway sent oversized message (${raw.length} bytes), dropping`)
+    return
+  }
 
   let data: unknown
   try {
-    data = JSON.parse(raw)
-  } catch {
-    log.warn('Gateway sent invalid JSON, dropping message')
+    data = safeJsonParse(raw, MAX_JSON_DEPTH)
+  } catch (err) {
+    const isDepth = (err as Error).message?.includes('depth')
+    log.warn(`Gateway sent ${isDepth ? 'too deeply nested' : 'invalid'} JSON, dropping message`)
     return
   }
 
@@ -225,9 +252,12 @@ async function handleAuth(
     }
 
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
-  } catch {
+  } catch (err) {
+    // Roll back in-memory gateway registration to avoid phantom authenticated sockets
+    connectionManager.removeGateway(ws)
+    log.error(`Gateway auth failed: ${(err as Error).message}`)
     ws.send(
-      JSON.stringify({ type: 'server:gateway_auth_result', ok: false, error: 'Invalid token' }),
+      JSON.stringify({ type: 'server:gateway_auth_result', ok: false, error: 'Authentication failed' }),
     )
   }
 }
@@ -244,6 +274,14 @@ async function handleRegisterAgent(
 ) {
   const gw = connectionManager.getGateway(ws)
   if (!gw) return
+
+  // Reject re-registration of agents deleted while this gateway was offline
+  if (connectionManager.isAgentDeleted(agent.id)) {
+    connectionManager.clearAgentDeleted(agent.id)
+    log.info(`Rejecting re-registration of deleted agent ${agent.id}, notifying gateway`)
+    ws.send(JSON.stringify({ type: 'server:remove_agent', agentId: agent.id }))
+    return
+  }
 
   const now = new Date().toISOString()
   const capabilitiesJson = agent.capabilities ? JSON.stringify(agent.capabilities) : null
@@ -333,6 +371,7 @@ async function handleUnregisterAgent(ws: WSContext, agentId: string) {
 }
 
 const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
+const MAX_FULL_CONTENT_SIZE = 10 * 1024 * 1024 // 10 MB per complete message
 
 async function handleMessageChunk(
   ws: WSContext,
@@ -396,6 +435,12 @@ async function handleMessageComplete(
   const gw = connectionManager.getGateway(ws)
   if (!gw || !gw.agentIds.has(msg.agentId)) {
     log.warn(`Gateway attempted to complete message for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  // Reject oversized messages to prevent OOM
+  if (msg.fullContent.length > MAX_FULL_CONTENT_SIZE) {
+    log.warn(`Agent ${msg.agentId} sent oversized message (${msg.fullContent.length} bytes), dropping`)
     return
   }
 
@@ -612,6 +657,54 @@ export async function handleGatewayDisconnect(ws: WSContext) {
 
 // ─── Agent-to-Agent Routing ───
 
+// In-memory fallback for loop detection when Redis is unavailable.
+// Key = visitedKey, Value = { agents: Set<string>, expiresAt: number }
+const visitedFallback = new Map<string, { agents: Set<string>; expiresAt: number }>()
+const MAX_FALLBACK_ENTRIES = 10_000 // prevent unbounded memory growth
+
+function fallbackSadd(key: string, value: string, ttlSeconds: number) {
+  // Enforce size limit — evict oldest entries when full
+  if (visitedFallback.size >= MAX_FALLBACK_ENTRIES && !visitedFallback.has(key)) {
+    const oldestKey = visitedFallback.keys().next().value
+    if (oldestKey) visitedFallback.delete(oldestKey)
+    log.warn(`Visited set fallback reached ${MAX_FALLBACK_ENTRIES} entries, evicting oldest`)
+  }
+
+  let entry = visitedFallback.get(key)
+  if (!entry || Date.now() > entry.expiresAt) {
+    entry = { agents: new Set(), expiresAt: Date.now() + ttlSeconds * 1000 }
+    visitedFallback.set(key, entry)
+  } else {
+    // Refresh TTL on each insert, matching Redis EXPIRE behavior
+    entry.expiresAt = Date.now() + ttlSeconds * 1000
+  }
+  entry.agents.add(value)
+}
+
+function fallbackSismember(key: string, value: string): boolean {
+  const entry = visitedFallback.get(key)
+  if (!entry || Date.now() > entry.expiresAt) {
+    visitedFallback.delete(key)
+    return false
+  }
+  return entry.agents.has(value)
+}
+
+// Periodically evict expired entries to prevent unbounded growth
+setInterval(() => {
+  const now = Date.now()
+  let evicted = 0
+  for (const [key, entry] of visitedFallback) {
+    if (now > entry.expiresAt) {
+      visitedFallback.delete(key)
+      evicted++
+    }
+  }
+  if (evicted > 0) {
+    log.debug(`Evicted ${evicted} expired visited-set entries (remaining: ${visitedFallback.size})`)
+  }
+}, 60_000).unref()
+
 async function routeAgentToAgent(
   roomId: string,
   senderAgentId: string,
@@ -646,16 +739,19 @@ async function routeAgentToAgent(
 
   const agentNameMap = buildAgentNameMap(agentRows)
 
-  // 2. Redis visited set for loop detection
-  const redis = getRedis()
+  // 2. Redis visited set for loop detection (with in-memory fallback)
   const visitedKey = `conv:${conversationId}:visited`
+  const VISITED_TTL = 300 // 5 minutes
+  let useRedis = true
 
   // Add sender to visited set
   try {
+    const redis = getRedis()
     await redis.sadd(visitedKey, senderAgentId)
-    await redis.expire(visitedKey, 300) // 5 minute TTL
+    await redis.expire(visitedKey, VISITED_TTL)
   } catch {
-    // If Redis fails, continue without visited tracking
+    useRedis = false
+    fallbackSadd(visitedKey, senderAgentId, VISITED_TTL)
   }
 
   // Resolve mentioned agents, excluding the sender
@@ -667,13 +763,24 @@ async function routeAgentToAgent(
 
     // Check visited set — prevent A→B→A loops
     try {
-      const visited = await redis.sismember(visitedKey, agent.id)
+      let visited: boolean
+      if (useRedis) {
+        const redis = getRedis()
+        visited = !!(await redis.sismember(visitedKey, agent.id))
+      } else {
+        visited = fallbackSismember(visitedKey, agent.id)
+      }
       if (visited) {
         log.warn(`Agent ${agent.id} already visited in conversation ${conversationId}, skipping`)
         continue
       }
-    } catch {
-      // If Redis fails, allow the message through (depth check still applies)
+    } catch (err) {
+      // If both Redis and fallback fail, block the message (fail-closed) to prevent
+      // infinite loops. The depth check alone may not catch A→B→A within limits.
+      log.error(
+        `Loop detection failed for agent ${agent.id} in conversation ${conversationId}: ${(err as Error).message}. Blocking to prevent potential loop.`,
+      )
+      continue
     }
 
     const sendMsg: ServerSendToAgent = {
@@ -769,6 +876,17 @@ export async function sendRoomContextToAgent(agentId: string, roomId: string) {
   }
 
   connectionManager.sendToGateway(agentId, msg)
+}
+
+export async function broadcastRoomUpdate(roomId: string) {
+  const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
+  if (!room) return
+  const memberRows = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
+  connectionManager.broadcastToRoom(roomId, {
+    type: 'server:room_update',
+    room,
+    members: memberRows,
+  })
 }
 
 export async function sendRoomContextToAllAgents(roomId: string) {

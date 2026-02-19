@@ -21,6 +21,7 @@ import { isRoomMember } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
+import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Messages')
 
@@ -138,10 +139,13 @@ messageRoutes.post('/mark-all-read', async (c) => {
   const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
-    .where(eq(roomMembers.memberId, userId))
+    .where(and(eq(roomMembers.memberId, userId), eq(roomMembers.memberType, 'user')))
 
   if (memberRows.length > 0) {
-    await db.update(roomMembers).set({ lastReadAt: now }).where(eq(roomMembers.memberId, userId))
+    await db
+      .update(roomMembers)
+      .set({ lastReadAt: now })
+      .where(and(eq(roomMembers.memberId, userId), eq(roomMembers.memberType, 'user')))
 
     // Broadcast read receipts to all rooms
     for (const row of memberRows) {
@@ -173,7 +177,13 @@ messageRoutes.post('/rooms/:roomId/read', async (c) => {
   await db
     .update(roomMembers)
     .set({ lastReadAt: now })
-    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberId, userId)))
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
 
   // Broadcast read receipt to room members
   connectionManager.broadcastToRoom(roomId, {
@@ -206,7 +216,7 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
   const memberRows = await db
     .select({ roomId: roomMembers.roomId })
     .from(roomMembers)
-    .where(eq(roomMembers.memberId, userId))
+    .where(and(eq(roomMembers.memberId, userId), eq(roomMembers.memberType, 'user')))
   const userRoomIds = new Set(memberRows.map((m) => m.roomId))
 
   if (roomId && !userRoomIds.has(roomId)) {
@@ -224,12 +234,14 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
     return c.json({ ok: false, error: 'Invalid "to" date format' }, 400)
   }
 
-  const searchPattern = `%${q}%`
+  // Escape LIKE special characters so user input is treated literally
+  const escapeLike = (s: string) => s.replace(/[%_\\]/g, (ch) => `\\${ch}`)
+  const searchPattern = `%${escapeLike(q)}%`
   const filters = [
     roomId ? eq(messages.roomId, roomId) : inArray(messages.roomId, [...userRoomIds]),
     ilike(messages.content, searchPattern),
   ]
-  if (sender) filters.push(ilike(messages.senderName, `%${sender}%`))
+  if (sender) filters.push(ilike(messages.senderName, `%${escapeLike(sender)}%`))
   if (dateFrom) filters.push(gte(messages.createdAt, new Date(dateFrom).toISOString()))
   if (dateTo) filters.push(lte(messages.createdAt, new Date(dateTo).toISOString()))
 
@@ -553,7 +565,7 @@ messageRoutes.delete('/:id', async (c) => {
   const result = await db.transaction(async (tx) => {
     const [msg] = await tx.select().from(messages).where(eq(messages.id, messageId)).limit(1)
     if (!msg) return { error: 'Message not found', status: 404 as const }
-    if (!(await isRoomMember(userId, msg.roomId))) return { error: 'Not a member of this room', status: 403 as const }
+    if (!(await isRoomMember(userId, msg.roomId, tx))) return { error: 'Not a member of this room', status: 403 as const }
     if (msg.senderId !== userId || msg.senderType !== 'user') return { error: 'Only the sender can delete this message', status: 403 as const }
 
     // Collect attachment URLs to delete after transaction commits
@@ -581,6 +593,15 @@ messageRoutes.delete('/:id', async (c) => {
       }
     }
   }
+
+  logAudit({
+    userId,
+    action: 'file_delete',
+    targetId: messageId,
+    targetType: 'file',
+    metadata: { roomId: result.roomId, attachmentCount: result.attachmentUrls.length },
+    ipAddress: getClientIp(c),
+  })
 
   // Broadcast deletion to room
   connectionManager.broadcastToRoom(result.roomId, {

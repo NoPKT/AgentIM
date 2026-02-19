@@ -14,7 +14,7 @@ npm install @agentim/shared
 - **Protocol** -- WebSocket message types for client, gateway, and server communication
 - **Validators** -- Zod schemas for input validation
 - **Constants** -- Agent types, routing modes, status codes
-- **i18n** -- Translation strings for English, Chinese, Japanese, and Korean
+- **i18n** -- Translation strings for English, Chinese, Japanese, Korean, French, German, and Russian
 - **Mentions** -- `@mention` parsing utilities
 
 ## Usage

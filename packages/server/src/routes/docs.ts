@@ -153,11 +153,30 @@ const spec = {
         responses: { '200': { description: 'New tokens' } },
       },
     },
+    '/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Logout (revoke all tokens)',
+        responses: { '200': { description: 'Logged out' } },
+      },
+    },
     '/users/me': {
       get: {
         tags: ['Users'],
         summary: 'Get current user',
         responses: { '200': { description: 'Current user info' } },
+      },
+      put: {
+        tags: ['Users'],
+        summary: 'Update current user profile',
+        responses: { '200': { description: 'User updated' } },
+      },
+    },
+    '/users/me/password': {
+      put: {
+        tags: ['Users'],
+        summary: 'Change current user password',
+        responses: { '200': { description: 'Password changed' } },
       },
     },
     '/users': {
@@ -169,6 +188,25 @@ const spec = {
           { name: 'offset', in: 'query', schema: { type: 'integer' } },
         ],
         responses: { '200': { description: 'List of users' } },
+      },
+      post: {
+        tags: ['Users'],
+        summary: 'Create user (admin)',
+        responses: { '201': { description: 'User created' } },
+      },
+    },
+    '/users/{id}': {
+      put: {
+        tags: ['Users'],
+        summary: 'Update user (admin)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'User updated' } },
+      },
+      delete: {
+        tags: ['Users'],
+        summary: 'Delete user (admin)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'User deleted' } },
       },
     },
     '/rooms': {
@@ -474,6 +512,46 @@ const spec = {
         responses: { '200': { description: 'Avatar uploaded' } },
       },
     },
+    '/routers': {
+      get: {
+        tags: ['Routers'],
+        summary: 'List routers visible to current user',
+        responses: { '200': { description: 'Router list' } },
+      },
+      post: {
+        tags: ['Routers'],
+        summary: 'Create a router configuration',
+        responses: { '201': { description: 'Router created' } },
+      },
+    },
+    '/routers/{id}': {
+      get: {
+        tags: ['Routers'],
+        summary: 'Get router details',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Router details' } },
+      },
+      put: {
+        tags: ['Routers'],
+        summary: 'Update router configuration',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Router updated' } },
+      },
+      delete: {
+        tags: ['Routers'],
+        summary: 'Delete a router',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Router deleted' } },
+      },
+    },
+    '/routers/{id}/test': {
+      post: {
+        tags: ['Routers'],
+        summary: 'Test LLM connection for a router',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Connection test result' } },
+      },
+    },
   },
   tags: [
     { name: 'System', description: 'System endpoints' },
@@ -484,6 +562,7 @@ const spec = {
     { name: 'Agents', description: 'AI agent management' },
     { name: 'Tasks', description: 'Task management' },
     { name: 'Upload', description: 'File uploads' },
+    { name: 'Routers', description: 'AI router configuration' },
   ],
 }
 

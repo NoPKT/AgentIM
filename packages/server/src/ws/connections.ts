@@ -25,6 +25,10 @@ class ConnectionManager {
   // Agent ID → gateway ws mapping
   private agentToGateway = new Map<string, WSContext>()
 
+  // Agent IDs deleted while their gateway was offline.
+  // Prevents resurrection via reRegisterAll() on reconnect.
+  private deletedAgentIds = new Set<string>()
+
   // User ID → count of active connections (a user may have multiple tabs)
   private onlineUsers = new Map<string, number>()
 
@@ -69,6 +73,20 @@ class ConnectionManager {
         this.onlineUsers.delete(existing.userId)
       } else {
         this.onlineUsers.set(existing.userId, oldCount)
+      }
+
+      // If re-authing as a different user, clear old room subscriptions
+      // to prevent the new user from receiving broadcasts for rooms they
+      // are not a member of.
+      if (existing.userId !== userId) {
+        for (const roomId of existing.joinedRooms) {
+          const set = this.roomClients.get(roomId)
+          if (set) {
+            set.delete(ws)
+            if (set.size === 0) this.roomClients.delete(roomId)
+          }
+        }
+        existing.joinedRooms.clear()
       }
     }
 
@@ -153,18 +171,23 @@ class ConnectionManager {
    */
   evictUserFromRoom(userId: string, roomId: string) {
     for (const client of this.clients.values()) {
-      if (client.userId === userId && client.joinedRooms.has(roomId)) {
+      if (client.userId !== userId) continue
+
+      // Always notify the client, even if they haven't joined this room
+      // in the current WS session (they still see it in the sidebar).
+      this.sendToClient(client.ws, {
+        type: 'server:room_removed',
+        roomId,
+      })
+
+      // Clean up room subscription if it was active
+      if (client.joinedRooms.has(roomId)) {
         client.joinedRooms.delete(roomId)
         const set = this.roomClients.get(roomId)
         if (set) {
           set.delete(client.ws)
           if (set.size === 0) this.roomClients.delete(roomId)
         }
-        // Notify the client they've been removed
-        this.sendToClient(client.ws, {
-          type: 'server:room_removed',
-          roomId,
-        })
       }
     }
   }
@@ -198,6 +221,16 @@ class ConnectionManager {
         this.userGatewayCount.delete(existing.userId)
       } else {
         this.userGatewayCount.set(existing.userId, oldCount)
+      }
+
+      // If re-authing as a different user, clear old agent bindings
+      // to prevent the new user from controlling agents registered
+      // under the previous account.
+      if (existing.userId !== userId) {
+        for (const agentId of existing.agentIds) {
+          this.agentToGateway.delete(agentId)
+        }
+        existing.agentIds.clear()
       }
     }
 
@@ -249,6 +282,34 @@ class ConnectionManager {
     return undefined
   }
 
+  /** Unregister an agent by ID (called from HTTP API when agent is deleted). */
+  unregisterAgentById(agentId: string) {
+    const ws = this.agentToGateway.get(agentId)
+    if (ws) {
+      const gw = this.gateways.get(ws)
+      if (gw) gw.agentIds.delete(agentId)
+    }
+    this.agentToGateway.delete(agentId)
+  }
+
+  /**
+   * Mark an agent as server-deleted so that a reconnecting gateway
+   * cannot resurrect it via reRegisterAll().
+   */
+  markAgentDeleted(agentId: string) {
+    this.deletedAgentIds.add(agentId)
+  }
+
+  /** Check if an agent was deleted while its gateway was offline. */
+  isAgentDeleted(agentId: string): boolean {
+    return this.deletedAgentIds.has(agentId)
+  }
+
+  /** Clear the deletion flag once the gateway has been notified. */
+  clearAgentDeleted(agentId: string) {
+    this.deletedAgentIds.delete(agentId)
+  }
+
   // ─── Broadcast helpers ───
 
   broadcastToRoom(roomId: string, message: object, excludeWs?: WSContext) {
@@ -293,6 +354,39 @@ class ConnectionManager {
         client.ws.send(data)
       } catch (err) {
         log.warn(`Failed to broadcast to client: ${(err as Error).message}`)
+      }
+    }
+  }
+
+  /**
+   * Forcefully disconnect all client and gateway WS connections for a user.
+   * Called when tokens are revoked (logout / password change) to ensure
+   * immediate session termination.
+   */
+  disconnectUser(userId: string) {
+    // Close client connections
+    for (const [ws, client] of this.clients) {
+      if (client.userId === userId) {
+        try {
+          this.sendToClient(ws, {
+            type: 'server:error',
+            code: 'SESSION_REVOKED',
+            message: 'Session revoked',
+          })
+          ws.close(1008, 'Session revoked')
+        } catch {
+          /* ignore close errors */
+        }
+      }
+    }
+    // Close gateway connections
+    for (const [ws, gw] of this.gateways) {
+      if (gw.userId === userId) {
+        try {
+          ws.close(1008, 'Session revoked')
+        } catch {
+          /* ignore close errors */
+        }
       }
     }
   }

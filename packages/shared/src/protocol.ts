@@ -299,6 +299,11 @@ export interface ServerStopAgent {
   agentId: string
 }
 
+export interface ServerRemoveAgent {
+  type: 'server:remove_agent'
+  agentId: string
+}
+
 export interface ServerPong {
   type: 'server:pong'
   ts: number
@@ -308,6 +313,7 @@ export type ServerGatewayMessage =
   | ServerGatewayAuthResult
   | ServerSendToAgent
   | ServerStopAgent
+  | ServerRemoveAgent
   | ServerRoomContext
   | ServerPong
 

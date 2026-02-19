@@ -18,6 +18,7 @@ import { readdirSync } from 'node:fs'
 import { sanitizeText } from '../lib/sanitize.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
+import { connectionManager } from '../ws/connections.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
 
@@ -110,8 +111,9 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
 
   // Invalidate all refresh tokens so other sessions must re-login
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  // Revoke all outstanding access tokens immediately via Redis
+  // Revoke all outstanding access tokens and disconnect active WS sessions
   await revokeUserTokens(userId)
+  connectionManager.disconnectUser(userId)
   logAudit({ userId, action: 'password_change', ipAddress: getClientIp(c) })
 
   return c.json({ ok: true })
@@ -121,7 +123,7 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
 
 userRoutes.get('/', adminMiddleware, async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit')) || 100, 1), 500)
-  const offset = Number(c.req.query('offset')) || 0
+  const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
 
   const result = await db
     .select({
@@ -228,10 +230,11 @@ userRoutes.put('/:id', adminMiddleware, async (c) => {
 
   await db.update(users).set(updateData).where(eq(users.id, targetId))
 
-  // If password was changed by admin, revoke target user's tokens
+  // If password was changed by admin, revoke target user's tokens and disconnect sessions
   if (parsed.data.password) {
     await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId))
     await revokeUserTokens(targetId)
+    connectionManager.disconnectUser(targetId)
   }
 
   logAudit({
@@ -284,6 +287,7 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
 
   // Clean up all related resources in a transaction
   await revokeUserTokens(targetId)
+  connectionManager.disconnectUser(targetId)
   await db.transaction(async (tx) => {
     // Delete rooms created by this user (cascades: room_members, messages, tasks in those rooms)
     await tx.delete(rooms).where(eq(rooms.createdById, targetId))

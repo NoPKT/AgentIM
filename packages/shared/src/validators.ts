@@ -94,8 +94,16 @@ export const createRouterSchema = z.object({
     .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace'),
   description: z.string().max(1000).optional(),
   scope: z.enum(ROUTER_SCOPES).default('personal'),
-  llmBaseUrl: z.string().url().max(500),
-  llmApiKey: z.string().min(1).max(500),
+  llmBaseUrl: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'Must be an HTTP(S) URL'),
+  llmApiKey: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine((s) => s.trim().length > 0, 'API key cannot be only whitespace'),
   llmModel: z
     .string()
     .min(1)
@@ -116,8 +124,18 @@ export const updateRouterSchema = z.object({
     .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace')
     .optional(),
   description: z.string().max(1000).nullable().optional(),
-  llmBaseUrl: z.string().url().max(500).optional(),
-  llmApiKey: z.string().min(1).max(500).optional(),
+  llmBaseUrl: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'Must be an HTTP(S) URL')
+    .optional(),
+  llmApiKey: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine((s) => s.trim().length > 0, 'API key cannot be only whitespace')
+    .optional(),
   llmModel: z
     .string()
     .min(1)
@@ -584,6 +602,11 @@ export const serverReactionUpdateSchema = z.object({
   reactions: z.array(messageReactionSchema),
 })
 
+export const serverRoomRemovedSchema = z.object({
+  type: z.literal('server:room_removed'),
+  roomId: z.string(),
+})
+
 export const serverErrorSchema = z.object({
   type: z.literal('server:error'),
   code: z.string(),
@@ -606,6 +629,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverAgentStatusSchema,
   serverTaskUpdateSchema,
   serverRoomUpdateSchema,
+  serverRoomRemovedSchema,
   serverTerminalDataSchema,
   serverReadReceiptSchema,
   serverPresenceSchema,
@@ -646,10 +670,16 @@ export const serverStopAgentSchema = z.object({
   agentId: z.string(),
 })
 
+export const serverRemoveAgentSchema = z.object({
+  type: z.literal('server:remove_agent'),
+  agentId: z.string(),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
   serverStopAgentSchema,
+  serverRemoveAgentSchema,
   serverRoomContextSchema,
   serverPongSchema,
 ])

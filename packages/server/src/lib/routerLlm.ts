@@ -37,25 +37,29 @@ export async function selectAgents(
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), ROUTER_TIMEOUT)
 
-    const res = await fetch(`${routerConfig.llmBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${routerConfig.llmApiKey}`,
-      },
-      body: JSON.stringify({
-        model: routerConfig.llmModel,
-        messages: [
-          { role: 'system', content: systemContent },
-          { role: 'user', content: userContent },
-        ],
-        temperature: 0,
-        max_tokens: 256,
-      }),
-      signal: controller.signal,
-    })
-
-    clearTimeout(timeout)
+    let res: Response
+    try {
+      res = await fetch(`${routerConfig.llmBaseUrl}/chat/completions`, {
+        method: 'POST',
+        redirect: 'error',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${routerConfig.llmApiKey}`,
+        },
+        body: JSON.stringify({
+          model: routerConfig.llmModel,
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: userContent },
+          ],
+          temperature: 0,
+          max_tokens: 256,
+        }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
 
     if (!res.ok) {
       log.warn(`Router LLM returned status ${res.status}`)

@@ -26,6 +26,10 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe\s*>/gi,
   // <object>…</object>
   /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object\s*>/gi,
+  // <embed> (void element — no closing tag)
+  /<embed\b[^>]*>/gi,
+  // <form>…</form> (prevents phishing via injected forms)
+  /<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form\s*>/gi,
 ]
 
 /**

@@ -16,12 +16,19 @@ export type AuditAction =
   | 'router_create'
   | 'router_update'
   | 'router_delete'
+  | 'room_create'
+  | 'room_update'
+  | 'room_delete'
+  | 'member_add'
+  | 'member_remove'
+  | 'file_upload'
+  | 'file_delete'
 
 interface AuditOptions {
   userId?: string | null
   action: AuditAction
   targetId?: string
-  targetType?: 'user' | 'router' | 'room'
+  targetType?: 'user' | 'router' | 'room' | 'file' | 'member'
   metadata?: Record<string, unknown>
   ipAddress?: string
 }

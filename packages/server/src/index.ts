@@ -19,7 +19,7 @@ const log = createLogger('Server')
 await initSentry()
 import { apiRateLimit } from './middleware/rateLimit.js'
 import { migrate, closeDb, db } from './db/index.js'
-import { closeRedis, getRedis } from './lib/redis.js'
+import { closeRedis, getRedis, ensureRedisConnected } from './lib/redis.js'
 import { sql, lt } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
@@ -34,6 +34,9 @@ import { docsRoutes } from './routes/docs.js'
 import { connectionManager } from './ws/connections.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
+
+// Verify Redis connectivity before proceeding
+await ensureRedisConnected()
 
 // Run migrations on startup
 await migrate()
@@ -127,6 +130,8 @@ app.use(
             baseUri: ["'self'"],
             formAction: ["'self'"],
             workerSrc: ["'self'"],
+            manifestSrc: ["'self'"],
+            upgradeInsecureRequests: [],
           },
         }
       : {},
@@ -235,9 +240,14 @@ app.get(
         }
       }, WS_AUTH_TIMEOUT_MS))
     },
-    onMessage(evt, ws) {
+    async onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
-      handleClientMessage(ws, raw)
+      await handleClientMessage(ws, raw)
+      // Clear auth timer once the client has been successfully authenticated
+      if (wsAuthTimers.has(ws) && connectionManager.getClient(ws)) {
+        clearTimeout(wsAuthTimers.get(ws)!)
+        wsAuthTimers.delete(ws)
+      }
     },
     onClose(_, ws) {
       const timer = wsAuthTimers.get(ws)
@@ -261,9 +271,14 @@ app.get(
         }
       }, WS_AUTH_TIMEOUT_MS))
     },
-    onMessage(evt, ws) {
+    async onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
-      handleGatewayMessage(ws, raw)
+      await handleGatewayMessage(ws, raw)
+      // Clear auth timer once the gateway has been successfully authenticated
+      if (wsAuthTimers.has(ws) && connectionManager.getGateway(ws)) {
+        clearTimeout(wsAuthTimers.get(ws)!)
+        wsAuthTimers.delete(ws)
+      }
     },
     onClose(_, ws) {
       const timer = wsAuthTimers.get(ws)
@@ -279,9 +294,10 @@ app.get(
 // Serve static files (Web UI) in production
 const webDistPath = resolve(import.meta.dirname, '../../web/dist')
 if (existsSync(webDistPath)) {
-  app.use('/assets/*', serveStatic({ root: webDistPath }))
-  app.use('/manifest.json', serveStatic({ root: webDistPath }))
-  // SPA fallback: serve index.html for non-API, non-WS routes
+  // Serve all static files from the web dist directory (assets, PWA files, icons, etc.)
+  app.use('*', serveStatic({ root: webDistPath }))
+  // SPA fallback: serve index.html for non-API, non-WS, non-upload routes
+  // that didn't match a physical file above
   app.get('*', async (c) => {
     const reqPath = c.req.path
     if (
