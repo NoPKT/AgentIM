@@ -32,6 +32,10 @@ step "Building gateway"
 pnpm --filter agentim build || fail "gateway build failed"
 pass "Gateway built"
 
+step "Running lint"
+pnpm lint || fail "Lint failed"
+pass "Lint passed"
+
 step "Running tests"
 pnpm test || fail "Tests failed"
 pass "All tests passed"

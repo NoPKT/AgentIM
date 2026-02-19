@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # 필수 시크릿 설정
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # 원클릭 시작 (PostgreSQL + Redis + AgentIM)
@@ -77,8 +78,8 @@ docker compose up -d
 
 배포 후:
 
-- **필수**: 환경 변수 (Northflank는 Secret Group)에서 `ADMIN_PASSWORD` 설정
-- **선택**: 프로덕션 환경에서 `CORS_ORIGIN`을 도메인으로 설정 (예: `https://agentim.example.com`)
+- **필수**: 환경 변수 (Northflank는 Secret Group)에서 `ADMIN_PASSWORD`, `ENCRYPTION_KEY` 설정
+- **필수** (프로덕션): `CORS_ORIGIN`을 도메인으로 설정 (예: `https://agentim.example.com`)
 
 ### 방법 3: 수동 설치 (개발용)
 
@@ -91,7 +92,7 @@ pnpm install
 
 # 환경 변수 복사 및 편집
 cp .env.example .env
-# .env 편집: JWT_SECRET, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD 설정
+# .env 편집: JWT_SECRET, ENCRYPTION_KEY, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD 설정
 
 # 개발 모드 시작
 pnpm dev
@@ -107,8 +108,9 @@ Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 | `ADMIN_PASSWORD` | 예     | —                           | 관리자 계정 비밀번호                                    |
 | `DATABASE_URL`   | 예     | `postgresql://...localhost` | PostgreSQL 연결 문자열                                  |
 | `REDIS_URL`      | 예     | `redis://localhost:6379`    | Redis 연결 문자열                                       |
+| `ENCRYPTION_KEY` | 프로덕션 | —                         | 암호화 키. 생성 방법: `openssl rand -base64 32`         |
 | `PORT`           | 아니오 | `3000`                      | 서버 포트                                               |
-| `CORS_ORIGIN`    | 아니오 | `localhost:5173`            | 허용된 CORS 오리진 (프로덕션에서는 도메인을 설정하세요) |
+| `CORS_ORIGIN`    | 프로덕션 | `localhost:5173`          | 허용된 CORS 오리진 (프로덕션에서 **필수**)              |
 | `ADMIN_USERNAME` | 아니오 | `admin`                     | 관리자 사용자 이름                                      |
 | `LOG_LEVEL`      | 아니오 | `info`                      | 로그 레벨: `debug`, `info`, `warn`, `error`, `fatal`    |
 

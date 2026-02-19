@@ -23,6 +23,7 @@ Edit `.env` — **required** variables:
 
 ```bash
 JWT_SECRET=$(openssl rand -base64 32)
+ENCRYPTION_KEY=$(openssl rand -base64 32)
 ADMIN_PASSWORD=YourStrongPassword123
 CORS_ORIGIN=https://your-domain.com
 ```
@@ -171,6 +172,7 @@ agentim claude /path/to/project
 ## Security Checklist
 
 - [ ] **`JWT_SECRET`**: Strong random value (`openssl rand -base64 32`)
+- [ ] **`ENCRYPTION_KEY`**: Strong random value (`openssl rand -base64 32`)
 - [ ] **`ADMIN_PASSWORD`**: Complex password
 - [ ] **`CORS_ORIGIN`**: Set to your frontend domain (e.g. `https://app.example.com`)
 - [ ] **`DATABASE_URL`**: Dedicated user with strong password

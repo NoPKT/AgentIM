@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # Définir les secrets requis
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Tout démarrer (PostgreSQL + Redis + AgentIM)
@@ -77,8 +78,8 @@ Consultez [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour la configuration en prod
 
 Après le déploiement :
 
-- **Requis** : Définir `ADMIN_PASSWORD` dans les variables d'environnement (ou Secret Group sur Northflank)
-- **Optionnel** : Définir `CORS_ORIGIN` avec votre domaine (ex : `https://agentim.example.com`) pour la production
+- **Requis** : Définir `ADMIN_PASSWORD`, `ENCRYPTION_KEY` dans les variables d'environnement (ou Secret Group sur Northflank)
+- **Requis** (production) : Définir `CORS_ORIGIN` avec votre domaine (ex : `https://agentim.example.com`)
 
 ### Option 3 : Installation manuelle (Développement)
 
@@ -91,7 +92,7 @@ pnpm install
 
 # Copier et modifier les variables d'environnement
 cp .env.example .env
-# Modifier .env : définir JWT_SECRET, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
+# Modifier .env : définir JWT_SECRET, ENCRYPTION_KEY, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
 
 # Démarrer le mode développement
 pnpm dev
@@ -107,8 +108,9 @@ L'interface Web sera accessible à **http://localhost:5173** et le serveur API �
 | `ADMIN_PASSWORD` | Oui    | —                           | Mot de passe du compte administrateur                                |
 | `DATABASE_URL`   | Oui    | `postgresql://...localhost` | Chaîne de connexion PostgreSQL                                       |
 | `REDIS_URL`      | Oui    | `redis://localhost:6379`    | Chaîne de connexion Redis                                            |
+| `ENCRYPTION_KEY` | Prod   | —                           | Clé de chiffrement. Générer : `openssl rand -base64 32`              |
 | `PORT`           | Non    | `3000`                      | Port du serveur                                                      |
-| `CORS_ORIGIN`    | Non    | `localhost:5173`            | Origine CORS autorisée (définir votre domaine en production)         |
+| `CORS_ORIGIN`    | Prod   | `localhost:5173`            | Origine CORS autorisée (**requis** en production)                    |
 | `ADMIN_USERNAME` | Non    | `admin`                     | Nom d'utilisateur administrateur                                     |
 | `LOG_LEVEL`      | Non    | `info`                      | Niveau de log : `debug`, `info`, `warn`, `error`, `fatal`            |
 

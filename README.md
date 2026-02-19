@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # Set required secrets
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Start everything (PostgreSQL + Redis + AgentIM)
@@ -77,8 +78,8 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production setup with Nginx, TL
 
 After deploy:
 
-- **Required**: Set `ADMIN_PASSWORD` in the environment variables (or Secret Group on Northflank)
-- **Optional**: Set `CORS_ORIGIN` to your domain (e.g. `https://agentim.example.com`) for production use
+- **Required**: Set `ADMIN_PASSWORD`, `ENCRYPTION_KEY` in the environment variables (or Secret Group on Northflank)
+- **Required** (production): Set `CORS_ORIGIN` to your domain (e.g. `https://agentim.example.com`)
 
 ### Option 3: Manual Setup (Development)
 
@@ -91,7 +92,7 @@ pnpm install
 
 # Copy and edit environment variables
 cp .env.example .env
-# Edit .env: set JWT_SECRET, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
+# Edit .env: set JWT_SECRET, ENCRYPTION_KEY, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
 
 # Start development mode
 pnpm dev
@@ -107,8 +108,9 @@ The Web UI will be at **http://localhost:5173** and the API server at **http://l
 | `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                 |
 | `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                   |
 | `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                        |
+| `ENCRYPTION_KEY` | Prod     | —                           | Encryption key for secrets. Generate: `openssl rand -base64 32`|
 | `PORT`           | No       | `3000`                      | Server port                                                    |
-| `CORS_ORIGIN`    | No       | `localhost:5173`            | Allowed CORS origin (set to your domain in production)         |
+| `CORS_ORIGIN`    | Prod     | `localhost:5173`            | Allowed CORS origin (**required** in production)               |
 | `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                 |
 | `LOG_LEVEL`      | No       | `info`                      | Log level: `debug`, `info`, `warn`, `error`, `fatal`           |
 

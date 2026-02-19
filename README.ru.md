@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # Установить необходимые секреты
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Запустить всё (PostgreSQL + Redis + AgentIM)
@@ -77,8 +78,8 @@ docker compose up -d
 
 После развёртывания:
 
-- **Обязательно**: Установите `ADMIN_PASSWORD` в переменных окружения (на Northflank — в Secret Group)
-- **Опционально**: Установите `CORS_ORIGIN` на ваш домен (напр. `https://agentim.example.com`) для продакшена
+- **Обязательно**: Установите `ADMIN_PASSWORD`, `ENCRYPTION_KEY` в переменных окружения (на Northflank — в Secret Group)
+- **Обязательно** (продакшен): Установите `CORS_ORIGIN` на ваш домен (напр. `https://agentim.example.com`)
 
 ### Вариант 3: Ручная установка (Разработка)
 
@@ -91,7 +92,7 @@ pnpm install
 
 # Скопировать и отредактировать переменные окружения
 cp .env.example .env
-# Отредактировать .env: установить JWT_SECRET, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
+# Отредактировать .env: установить JWT_SECRET, ENCRYPTION_KEY, DATABASE_URL, REDIS_URL, ADMIN_PASSWORD
 
 # Запустить режим разработки
 pnpm dev
@@ -107,8 +108,9 @@ pnpm dev
 | `ADMIN_PASSWORD` | Да          | —                           | Пароль для учётной записи администратора                                 |
 | `DATABASE_URL`   | Да          | `postgresql://...localhost` | Строка подключения к PostgreSQL                                          |
 | `REDIS_URL`      | Да          | `redis://localhost:6379`    | Строка подключения к Redis                                               |
+| `ENCRYPTION_KEY` | Прод        | —                           | Ключ шифрования. Сгенерировать: `openssl rand -base64 32`               |
 | `PORT`           | Нет         | `3000`                      | Порт сервера                                                             |
-| `CORS_ORIGIN`    | Нет         | `localhost:5173`            | Разрешённый CORS-источник (укажите ваш домен в продакшене)               |
+| `CORS_ORIGIN`    | Прод        | `localhost:5173`            | Разрешённый CORS-источник (**обязательно** в продакшене)                 |
 | `ADMIN_USERNAME` | Нет         | `admin`                     | Имя пользователя администратора                                          |
 | `LOG_LEVEL`      | Нет         | `info`                      | Уровень логирования: `debug`, `info`, `warn`, `error`, `fatal`           |
 

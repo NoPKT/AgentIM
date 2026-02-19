@@ -25,6 +25,7 @@ Create `packages/gateway/src/adapters/my-agent.ts`:
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
   BaseAgentAdapter,
+  getSafeEnv,
   type AdapterOptions,
   type ChunkCallback,
   type CompleteCallback,
@@ -64,7 +65,7 @@ export class MyAgentAdapter extends BaseAgentAdapter {
     // Launch the CLI — adapt arguments to your tool
     const proc = spawn('my-agent-cli', ['--prompt', prompt], {
       cwd: this.workingDirectory,
-      env: { ...process.env },
+      env: getSafeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -141,7 +142,7 @@ export const AGENT_TYPES = [
 
 ### 4. Add i18n Labels
 
-In each locale file (`packages/shared/src/i18n/locales/{en,zh-CN,ja,ko}.ts`), add an entry under `agent`:
+In each locale file (`packages/shared/src/i18n/locales/{en,zh-CN,ja,ko,fr,de,ru}.ts`), add an entry under `agent`:
 
 ```typescript
 agent: {

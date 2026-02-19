@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # 必要なシークレットを設定
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # ワンクリックで起動（PostgreSQL + Redis + AgentIM）
@@ -77,8 +78,8 @@ docker compose up -d
 
 デプロイ後：
 
-- **必須**：環境変数（Northflank は Secret Group）で `ADMIN_PASSWORD` を設定
-- **任意**：本番環境では `CORS_ORIGIN` をドメインに設定（例：`https://agentim.example.com`）
+- **必須**：環境変数（Northflank は Secret Group）で `ADMIN_PASSWORD`、`ENCRYPTION_KEY` を設定
+- **必須**（本番環境）：`CORS_ORIGIN` をドメインに設定（例：`https://agentim.example.com`）
 
 ### 方法3：手動セットアップ（開発用）
 
@@ -91,7 +92,7 @@ pnpm install
 
 # 環境変数をコピーして編集
 cp .env.example .env
-# .env を編集：JWT_SECRET、DATABASE_URL、REDIS_URL、ADMIN_PASSWORD を設定
+# .env を編集：JWT_SECRET、ENCRYPTION_KEY、DATABASE_URL、REDIS_URL、ADMIN_PASSWORD を設定
 
 # 開発モードで起動
 pnpm dev
@@ -107,8 +108,9 @@ Web UI は **http://localhost:5173**、API サーバーは **http://localhost:30
 | `ADMIN_PASSWORD` | はい   | —                           | 管理者アカウントのパスワード                                  |
 | `DATABASE_URL`   | はい   | `postgresql://...localhost` | PostgreSQL 接続文字列                                         |
 | `REDIS_URL`      | はい   | `redis://localhost:6379`    | Redis 接続文字列                                              |
+| `ENCRYPTION_KEY` | 本番   | —                           | 暗号化キー。生成方法：`openssl rand -base64 32`              |
 | `PORT`           | いいえ | `3000`                      | サーバーポート                                                |
-| `CORS_ORIGIN`    | いいえ | `localhost:5173`            | 許可する CORS オリジン（本番環境ではドメインを設定）          |
+| `CORS_ORIGIN`    | 本番   | `localhost:5173`            | 許可する CORS オリジン（本番環境では**必須**）                |
 | `ADMIN_USERNAME` | いいえ | `admin`                     | 管理者ユーザー名                                              |
 | `LOG_LEVEL`      | いいえ | `info`                      | ログレベル：`debug`、`info`、`warn`、`error`、`fatal`         |
 

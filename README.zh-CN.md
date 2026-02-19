@@ -57,6 +57,7 @@ cd AgentIM/docker
 
 # 设置必需的密钥
 export JWT_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
 export ADMIN_PASSWORD='你的强密码!'
 
 # 一键启动（PostgreSQL + Redis + AgentIM）
@@ -77,8 +78,8 @@ docker compose up -d
 
 部署完成后：
 
-- **必填**：在环境变量（Northflank 为 Secret Group）中设置 `ADMIN_PASSWORD`
-- **选填**：设置 `CORS_ORIGIN` 为你的域名（如 `https://agentim.example.com`），用于生产环境
+- **必填**：在环境变量（Northflank 为 Secret Group）中设置 `ADMIN_PASSWORD`、`ENCRYPTION_KEY`
+- **必填**（生产环境）：设置 `CORS_ORIGIN` 为你的域名（如 `https://agentim.example.com`）
 
 ### 方式三：手动安装（开发环境）
 
@@ -91,7 +92,7 @@ pnpm install
 
 # 复制并编辑环境变量
 cp .env.example .env
-# 编辑 .env：设置 JWT_SECRET、DATABASE_URL、REDIS_URL、ADMIN_PASSWORD
+# 编辑 .env：设置 JWT_SECRET、ENCRYPTION_KEY、DATABASE_URL、REDIS_URL、ADMIN_PASSWORD
 
 # 启动开发模式
 pnpm dev
@@ -107,8 +108,9 @@ Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000*
 | `ADMIN_PASSWORD` | 是   | —                           | 管理员账号密码                                      |
 | `DATABASE_URL`   | 是   | `postgresql://...localhost` | PostgreSQL 连接字符串                               |
 | `REDIS_URL`      | 是   | `redis://localhost:6379`    | Redis 连接字符串                                    |
+| `ENCRYPTION_KEY` | 生产 | —                           | 加密密钥。生成方式：`openssl rand -base64 32`       |
 | `PORT`           | 否   | `3000`                      | 服务器端口                                          |
-| `CORS_ORIGIN`    | 否   | `localhost:5173`            | 允许的 CORS 来源（生产环境请设置为你的域名）        |
+| `CORS_ORIGIN`    | 生产 | `localhost:5173`            | 允许的 CORS 来源（生产环境**必填**）                |
 | `ADMIN_USERNAME` | 否   | `admin`                     | 管理员用户名                                        |
 | `LOG_LEVEL`      | 否   | `info`                      | 日志级别：`debug`、`info`、`warn`、`error`、`fatal` |
 
