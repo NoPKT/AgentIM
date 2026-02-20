@@ -69,6 +69,91 @@ docs: update gateway CLI usage instructions
 
 4. Submit a pull request against `main` with a clear description of your changes.
 
+## Testing
+
+### Running tests
+
+```bash
+pnpm test             # Run all tests across all packages
+pnpm --filter @agentim/server test    # Server tests only
+pnpm --filter @agentim/shared test    # Shared package tests only
+pnpm --filter agentim test            # Gateway tests only
+```
+
+### Test framework
+
+Tests use Node.js built-in `node:test` runner with `node:assert/strict`. No external test frameworks.
+
+### Test structure
+
+```
+packages/
+  server/test/
+    helpers.ts            — Shared utilities (startServer, stopServer, api, connectWs)
+    api.test.ts           — REST API integration tests
+    ws.test.ts            — WebSocket protocol tests
+    routing.test.ts       — Agent message routing tests
+    upload.test.ts        — File upload tests
+    access-control.test.ts — Permission and role tests
+    boundary.test.ts      — Edge case and limit tests
+    endpoints.test.ts     — Endpoint coverage tests
+  shared/test/
+    shared.test.ts        — Validator, i18n, and utility tests
+  gateway/test/
+    gateway.test.ts       — Adapter and CLI tests
+```
+
+### Prerequisites for server tests
+
+Server integration tests require running PostgreSQL and Redis instances:
+
+```bash
+# Default test connections (override with env vars)
+TEST_PG_URL=postgresql://postgres:postgres@localhost:5432
+TEST_REDIS_URL=redis://localhost:6379/1
+```
+
+Each test run creates a temporary database (`agentim_test_<timestamp>`) and cleans it up afterward. Tests use Redis DB 1 (not DB 0) to avoid interfering with development data.
+
+### Writing tests
+
+```typescript
+import { describe, it, before, after } from 'node:test'
+import assert from 'node:assert/strict'
+import { startServer, stopServer, api, registerUser } from './helpers.js'
+
+describe('My Feature', () => {
+  before(async () => {
+    await startServer()
+  })
+
+  after(async () => {
+    await stopServer()
+  })
+
+  it('does the right thing', async () => {
+    const user = await registerUser('testuser')
+    const res = await api('GET', '/api/rooms', undefined, user.accessToken)
+    assert.equal(res.status, 200)
+    assert.equal(res.data.ok, true)
+  })
+})
+```
+
+Key helpers from `test/helpers.ts`:
+- `startServer()` / `stopServer()` — Spin up a real server with a temporary database
+- `api(method, path, body?, token?)` — HTTP helper returning `{ status, data }`
+- `registerUser(username)` — Create a user and return their tokens
+- `connectWs(url)` — Open a WebSocket connection
+- `wsSendAndWait(ws, msg, expectedType)` — Send a WS message and wait for a response
+
+### Test conventions
+
+- Each test file should be self-contained — call `startServer()` in `before` and `stopServer()` in `after`
+- Use descriptive test names that explain the expected behavior
+- Test both success and failure cases (invalid input, unauthorized access, etc.)
+- For WebSocket tests, use `wsSendAndWait()` to avoid timing issues
+
 ## Internationalization (i18n)
 
 All user-facing strings must use i18next translation keys. When adding or modifying UI text, you must update all seven locale files:

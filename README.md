@@ -212,6 +212,14 @@ pnpm test             # Run all tests
 | AgentIM CLI | commander.js + node-pty                       |
 | i18n        | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
+### Documentation
+
+- [Deployment Guide](docs/DEPLOYMENT.md) — Production setup, Nginx, backups, troubleshooting
+- [WebSocket Protocol](docs/WEBSOCKET.md) — Client & gateway message types, auth flow, error codes
+- [Adapter Guide](docs/ADAPTER_GUIDE.md) — How to add support for a new AI agent type
+- [API Reference](docs/DEPLOYMENT.md#environment-variables) — OpenAPI spec available at `/api/docs/openapi.json`
+- [Contributing](CONTRIBUTING.md) — Code style, testing, PR process
+
 ## License
 
 Copyright (c) 2025-2026 NoPKT LLC. All rights reserved.

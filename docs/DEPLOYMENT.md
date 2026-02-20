@@ -181,6 +181,43 @@ agentim claude /path/to/project
 - [ ] **Redis auth**: Use `redis://:password@host:6379` format
 - [ ] **`NODE_ENV=production`**: Enables CSP headers, hides error details
 
+## Admin Password Management
+
+### Reset admin password
+
+The admin user is synchronized with the `ADMIN_PASSWORD` environment variable on every server startup. To reset the admin password:
+
+```bash
+# 1. Update the environment variable
+export ADMIN_PASSWORD='NewStrongPassword123!'
+
+# Docker
+docker compose down
+# Edit .env or docker-compose.yml with the new password
+docker compose up -d
+
+# PM2
+pm2 restart agentim-server
+
+# Manual
+# Stop the server, update .env, restart
+```
+
+The server's `seedAdmin()` function runs on every startup — if the admin user exists, it updates the password hash. If it doesn't exist, it creates one.
+
+### Reset a regular user's password
+
+Admins can reset any user's password via the API:
+
+```bash
+curl -X PUT https://your-server.com/api/users/<USER_ID> \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"password": "NewPassword123!"}'
+```
+
+Or through the Web UI: **Settings > User Management > Edit User**.
+
 ## Nginx Reverse Proxy
 
 ```nginx
@@ -276,3 +313,50 @@ pm2 restart agentim-server                 # 4. Restart (auto-migrates)
 - Expired refresh tokens are cleaned up every hour
 - Orphan upload files are cleaned periodically
 - Agent rate limit keys auto-expire via Redis TTL
+
+## Troubleshooting
+
+### Server won't start
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `JWT_SECRET is missing or too short` | Missing or weak JWT secret in production | Set `JWT_SECRET=$(openssl rand -base64 32)` |
+| `CORS_ORIGIN must be set` | Empty or wildcard CORS in production | Set `CORS_ORIGIN=https://your-domain.com` |
+| `ENCRYPTION_KEY must be exactly 32 bytes` | Invalid key length | Regenerate: `ENCRYPTION_KEY=$(openssl rand -base64 32)` |
+| `DATABASE_URL must be set in production` | Missing database config | Set `DATABASE_URL=postgresql://user:pass@host:5432/agentim` |
+| `Upload directory is not writable` | Permission issue on upload dir | `chmod 755 ./uploads` or check Docker volume mount |
+
+### Database connection issues
+
+```bash
+# Test PostgreSQL connectivity
+psql "$DATABASE_URL" -c "SELECT 1"
+
+# Check if migrations ran successfully
+curl http://localhost:3000/api/health
+# Look for "database": true in the response
+```
+
+### Redis connection issues
+
+```bash
+# Test Redis connectivity
+redis-cli -u "$REDIS_URL" ping
+
+# If using Docker, check the container is running
+docker compose ps redis
+```
+
+### WebSocket connection fails
+
+- **Behind a reverse proxy**: Ensure WebSocket upgrade headers are forwarded (see Nginx config above)
+- **CORS mismatch**: The `CORS_ORIGIN` must match the browser's origin exactly
+- **`TRUST_PROXY`**: Set to `true` when behind a reverse proxy so the server reads `X-Forwarded-For` headers correctly
+- **Auth timeout**: Clients must authenticate within 10 seconds of connecting or the server closes the connection (code `4001`)
+
+### Agent not receiving messages
+
+1. Verify the gateway is connected: check the Web UI **Agents** panel for online status
+2. Verify the agent is a member of the room
+3. Check routing mode: in **broadcast** mode, the AI router selects the agent; in **direct** mode, use `@agent-name` mentions
+4. Check agent rate limits: `AGENT_RATE_LIMIT_MAX` (default: 20 per 60s window)

@@ -212,6 +212,14 @@ pnpm test             # 运行所有测试
 | AgentIM CLI | commander.js + node-pty                    |
 | 国际化   | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
+### 文档
+
+- [部署指南](docs/DEPLOYMENT.md) — 生产环境配置、Nginx、备份、故障排查
+- [WebSocket 协议](docs/WEBSOCKET.md) — 客户端和网关消息类型、认证流程、错误码
+- [适配器指南](docs/ADAPTER_GUIDE.md) — 如何添加新的 AI 智能体类型
+- [API 参考](docs/DEPLOYMENT.md#environment-variables) — OpenAPI 规范可通过 `/api/docs/openapi.json` 获取
+- [贡献指南](CONTRIBUTING.md) — 代码风格、测试、PR 流程
+
 ## 许可证
 
 Copyright (c) 2025 NoPKT LLC. 保留所有权利。
