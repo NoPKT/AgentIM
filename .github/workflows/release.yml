@@ -50,6 +50,30 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Publish @agentim/shared
+        run: pnpm publish --filter @agentim/shared --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish agentim CLI
+        run: pnpm publish --filter agentim --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   release:
     name: GitHub Release
     runs-on: ubuntu-latest

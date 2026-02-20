@@ -1,22 +1,21 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { config } from '../config.js'
 import { createLogger } from './logger.js'
 
 const log = createLogger('Crypto')
 
 const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 16
+const IV_LENGTH = 12
 const TAG_LENGTH = 16
 
 function getEncryptionKey(): Buffer | null {
   const key = process.env.ENCRYPTION_KEY
   if (!key) return null
-  const buf = Buffer.from(key, 'base64')
-  if (buf.length !== 32) {
-    log.warn('ENCRYPTION_KEY must be exactly 32 bytes (base64-encoded). Encryption disabled.')
-    return null
-  }
-  return buf
+  // Accept base64-encoded 32-byte keys (original format, backward-compatible)
+  const b64 = Buffer.from(key, 'base64')
+  if (b64.length === 32) return b64
+  // Accept any string by deriving a 32-byte AES key via SHA-256
+  return createHash('sha256').update(key).digest()
 }
 
 /**

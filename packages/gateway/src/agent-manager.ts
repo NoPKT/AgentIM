@@ -135,7 +135,7 @@ export class AgentManager {
       return
     }
 
-    const messageId = nanoid()
+    const messageId = msg.messageId
     const allChunks: ParsedChunk[] = []
 
     // Update status to busy

@@ -25,9 +25,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: ENCRYPTION_KEY
-        sync: false
-        # Required: generate with `openssl rand -base64 32`
-        # Server will refuse to start in production without this.
+        generateValue: true
       - key: ADMIN_PASSWORD
         sync: false
       - key: NODE_ENV

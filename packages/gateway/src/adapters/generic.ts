@@ -57,6 +57,9 @@ export class GenericAdapter extends BaseAgentAdapter {
 
     this.isRunning = true
     let fullContent = ''
+    let done = false
+    const complete = (content: string) => { if (done) return; done = true; onComplete(content) }
+    const fail = (err: string) => { if (done) return; done = true; onError(err) }
 
     const prompt = this.buildPrompt(content, context)
     const args = [...this.cmdArgs, prompt]
@@ -75,7 +78,7 @@ export class GenericAdapter extends BaseAgentAdapter {
       if (fullContent.length > MAX_BUFFER_SIZE) {
         this.clearProcessTimer()
         this.isRunning = false
-        onError('Response too large')
+        fail('Response too large')
         this.killProcess(proc)
         return
       }
@@ -94,13 +97,13 @@ export class GenericAdapter extends BaseAgentAdapter {
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
       if (this.timedOut) {
-        onError('Process timed out')
+        fail('Process timed out')
       } else if (code === 0) {
-        onComplete(fullContent)
+        complete(fullContent)
       } else if (code === null) {
-        onError('Process killed by signal')
+        fail('Process killed by signal')
       } else {
-        onError(`Process exited with code ${code}`)
+        fail(`Process exited with code ${code}`)
       }
     })
 
@@ -110,7 +113,7 @@ export class GenericAdapter extends BaseAgentAdapter {
       this.process = null
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
-      onError(err.message)
+      fail(err.message)
     })
   }
 

@@ -58,7 +58,7 @@ async function seedAdmin() {
     log.warn('ADMIN_PASSWORD should contain lowercase, uppercase, and digit characters.')
   }
   const { nanoid } = await import('nanoid')
-  const { hash } = await import('argon2')
+  const { hash, verify } = await import('argon2')
   const { eq } = await import('drizzle-orm')
   const { users } = await import('./db/schema.js')
 
@@ -71,13 +71,17 @@ async function seedAdmin() {
   const now = new Date().toISOString()
 
   if (existing) {
-    // Update password and ensure role is admin
-    const passwordHash = await hash(config.adminPassword)
-    await db
-      .update(users)
-      .set({ passwordHash, role: 'admin', updatedAt: now })
-      .where(eq(users.id, existing.id))
-    log.info(`Admin user updated: ${config.adminUsername}`)
+    // Only update if the env-var password has changed or role is not admin
+    const passwordChanged = !(await verify(existing.passwordHash, config.adminPassword))
+    const roleChanged = existing.role !== 'admin'
+    if (passwordChanged || roleChanged) {
+      const updates: Record<string, unknown> = { role: 'admin', updatedAt: now }
+      if (passwordChanged) {
+        updates.passwordHash = await hash(config.adminPassword)
+      }
+      await db.update(users).set(updates).where(eq(users.id, existing.id))
+      log.info(`Admin user updated: ${config.adminUsername}`)
+    }
   } else {
     // Create admin user (handle race condition with concurrent instances)
     const id = nanoid()

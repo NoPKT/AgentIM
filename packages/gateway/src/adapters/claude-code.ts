@@ -55,6 +55,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     this.isRunning = true
     this.buffer = ''
     let fullContent = ''
+    let done = false
+    const complete = (content: string) => { if (done) return; done = true; onComplete(content) }
+    const fail = (err: string) => { if (done) return; done = true; onError(err) }
 
     const prompt = this.buildPrompt(content, context)
     const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose']
@@ -76,7 +79,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (this.buffer.length > MAX_BUFFER_SIZE) {
         this.clearProcessTimer()
         this.isRunning = false
-        onError('Response too large')
+        fail('Response too large')
         this.killProcess(proc)
         return
       }
@@ -114,7 +117,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       proc.stderr?.removeAllListeners()
 
       if (this.timedOut) {
-        onError('Process timed out')
+        fail('Process timed out')
         return
       }
 
@@ -132,11 +135,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       }
 
       if (code === 0) {
-        onComplete(fullContent)
+        complete(fullContent)
       } else if (code === null) {
-        onError('Process killed by signal')
+        fail('Process killed by signal')
       } else {
-        onError(`Process exited with code ${code}`)
+        fail(`Process exited with code ${code}`)
       }
     })
 
@@ -146,7 +149,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       this.process = null
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
-      onError(err.message)
+      fail(err.message)
     })
   }
 
