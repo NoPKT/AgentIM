@@ -106,9 +106,9 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   }, [collapsed])
 
   return (
-    <div className="border-t border-border bg-(--color-terminal-bg) flex flex-col">
+    <div className="border-t border-border bg-terminal-bg flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-(--color-terminal-header) text-(--color-terminal-text) text-xs">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-terminal-header text-terminal-text text-xs">
         <div className="flex items-center gap-2">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -129,7 +129,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
               termRef.current?.clear()
               writtenRef.current = 0
             }}
-            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
+            className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={t('clear')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +143,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           </button>
           <button
             onClick={() => setCollapsed((c) => !c)}
-            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
+            className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={collapsed ? t('expand') : t('collapse')}
           >
             <svg
@@ -162,7 +162,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           </button>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-(--color-terminal-btn-hover) rounded transition-colors"
+            className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={t('close')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

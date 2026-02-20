@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { createPortal } from 'react-dom'
 import { twMerge } from 'tailwind-merge'
 
 // ─── Button ───
@@ -186,7 +187,7 @@ export function Modal({
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       ref={backdropRef}
       className={twMerge(
@@ -201,6 +202,7 @@ export function Modal({
       }}
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }

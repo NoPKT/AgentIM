@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
@@ -629,8 +630,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             />
           )}
 
-          {/* Image lightbox */}
-          {lightboxUrl && (
+          {/* Image lightbox — rendered via Portal to escape virtualizer's transform stacking context */}
+          {lightboxUrl && createPortal(
             <div
               className="fixed inset-0 z-modal flex items-center justify-center bg-backdrop backdrop-blur-sm"
               onClick={() => setLightboxUrl(null)}
@@ -660,7 +661,8 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   <CloseIcon className="w-5 h-5" />
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>
