@@ -22,6 +22,8 @@ interface LastMessageInfo {
 interface TerminalBuffer {
   agentName: string
   lines: string[]
+  /** Monotonic counter — total lines ever pushed (survives slice truncation). */
+  totalPushed: number
 }
 
 interface ReadReceipt {
@@ -364,9 +366,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       terminalBuffers.set(agentId, {
         agentName,
         lines: lines.length > MAX_TERMINAL_LINES ? lines.slice(-MAX_TERMINAL_LINES) : lines,
+        totalPushed: existing.totalPushed + 1,
       })
     } else {
-      terminalBuffers.set(agentId, { agentName, lines: [data] })
+      terminalBuffers.set(agentId, { agentName, lines: [data], totalPushed: 1 })
     }
     set({ terminalBuffers })
   },

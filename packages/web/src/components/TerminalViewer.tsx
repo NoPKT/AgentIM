@@ -16,9 +16,10 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const writtenRef = useRef(0)
+  const writtenTotalRef = useRef(0)
   const [collapsed, setCollapsed] = useState(false)
   const lines = useChatStore((s) => s.terminalBuffers.get(agentId)?.lines)
+  const totalPushed = useChatStore((s) => s.terminalBuffers.get(agentId)?.totalPushed ?? 0)
   const clearTerminalBuffer = useChatStore((s) => s.clearTerminalBuffer)
 
   // Initialize xterm
@@ -51,7 +52,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
 
     termRef.current = term
     fitAddonRef.current = fitAddon
-    writtenRef.current = 0
+    writtenTotalRef.current = 0
 
     const observer = new ResizeObserver(() => {
       fitAddon.fit()
@@ -77,26 +78,21 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   }, [])
 
   // Write new data to terminal.
-  // The store caps lines at 500 via slice(-500), so when the cap is reached
-  // lines.length stays the same while the array reference changes.
-  // Detect this case and write the newest entry instead of skipping.
+  // Uses a monotonic totalPushed counter from the store to reliably determine
+  // how many new lines arrived, even when React batches multiple store updates
+  // into a single render while the buffer is at its 500-line cap.
   useEffect(() => {
-    if (!termRef.current || !lines) return
-    const term = termRef.current
+    if (!termRef.current || !lines || totalPushed === 0) return
+    const newCount = totalPushed - writtenTotalRef.current
+    if (newCount <= 0) return
 
-    if (lines.length <= writtenRef.current) {
-      // Buffer was truncated (or same length after cap) — write the newest entry
-      if (lines.length > 0) {
-        term.write(lines[lines.length - 1])
-      }
-    } else {
-      // Normal append
-      for (let i = writtenRef.current; i < lines.length; i++) {
-        term.write(lines[i])
-      }
+    const term = termRef.current
+    const startIdx = Math.max(0, lines.length - newCount)
+    for (let i = startIdx; i < lines.length; i++) {
+      term.write(lines[i])
     }
-    writtenRef.current = lines.length
-  }, [lines])
+    writtenTotalRef.current = totalPushed
+  }, [lines, totalPushed])
 
   // Re-fit when collapsed state changes
   useEffect(() => {
@@ -127,7 +123,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
             onClick={() => {
               clearTerminalBuffer(agentId)
               termRef.current?.clear()
-              writtenRef.current = 0
+              writtenTotalRef.current = 0
             }}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={t('clear')}
