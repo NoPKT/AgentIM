@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { useRouterStore } from '../stores/routers.js'
-import { Button, Input, Modal, Textarea, Select } from './ui.js'
+import { Button, Input, Modal, ModalPanel, Textarea, Select } from './ui.js'
 import { CloseIcon, LockIcon, GroupIcon } from './icons.js'
 
 interface CreateRoomDialogProps {
@@ -103,10 +103,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} aria-labelledby="create-room-title">
-      <div
-        ref={dialogRef}
-        className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6"
-      >
+      <ModalPanel ref={dialogRef} className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2
             id="create-room-title"
@@ -277,7 +274,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
             </Button>
           </div>
         </form>
-      </div>
+      </ModalPanel>
     </Modal>
   )
 }

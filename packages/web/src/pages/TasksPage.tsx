@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
-import { Button, Input, Modal, Textarea, Select } from '../components/ui.js'
+import { Button, Input, Modal, ModalPanel, Textarea, Select } from '../components/ui.js'
 import { CloseIcon } from '../components/icons.js'
 import type { Task } from '@agentim/shared'
 
@@ -349,7 +349,7 @@ function CreateTaskDialog({
 
   return (
     <Modal isOpen={true} onClose={onClose} aria-labelledby="create-task-title">
-      <div className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6">
+      <ModalPanel className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 id="create-task-title" className="text-xl font-semibold text-text-primary">
             {t('task.createTask')}
@@ -427,7 +427,7 @@ function CreateTaskDialog({
             </Button>
           </div>
         </form>
-      </div>
+      </ModalPanel>
     </Modal>
   )
 }

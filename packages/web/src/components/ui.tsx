@@ -111,6 +111,37 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 )
 Select.displayName = 'Select'
 
+// ─── ModalPanel ───
+
+const modalPanelSizes = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+} as const
+
+type ModalPanelSize = keyof typeof modalPanelSizes
+
+interface ModalPanelProps extends React.HTMLAttributes<HTMLDivElement> {
+  size?: ModalPanelSize
+  children: ReactNode
+}
+
+export const ModalPanel = forwardRef<HTMLDivElement, ModalPanelProps>(
+  ({ size = 'md', className, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={twMerge(
+        `bg-surface rounded-xl shadow-xl w-full ${modalPanelSizes[size]}`,
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  ),
+)
+ModalPanel.displayName = 'ModalPanel'
+
 // ─── Modal ───
 
 interface ModalProps {

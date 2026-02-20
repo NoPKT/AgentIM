@@ -4,7 +4,7 @@ import type { Router } from '@agentim/shared'
 import { useRouterStore } from '../stores/routers.js'
 import { useAuthStore } from '../stores/auth.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input, Modal } from './ui.js'
+import { Button, Input, Modal, ModalPanel } from './ui.js'
 
 interface RouterFormDialogProps {
   isOpen: boolean
@@ -147,7 +147,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="router-form-title">
-      <div className="bg-surface rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <ModalPanel size="lg" className="max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-border">
           <h2 id="router-form-title" className="text-lg font-semibold text-text-primary">
             {isEditing ? t('router.editRouter') : t('router.createRouter')}
@@ -373,7 +373,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
             </Button>
           </div>
         </div>
-      </div>
+      </ModalPanel>
     </Modal>
   )
 }

@@ -5,7 +5,7 @@ import { useChatStore } from '../stores/chat.js'
 import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
 import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
-import { Button, Input, Modal } from './ui.js'
+import { Button, Input, Modal, ModalPanel } from './ui.js'
 
 function timeAgo(dateStr: string, t: (key: string) => string): string {
   const now = Date.now()
@@ -224,7 +224,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         onClose={() => { setShowNewRoomDialog(false); setNewRoomName('') }}
         aria-labelledby="new-room-title"
       >
-        <div className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6">
+        <ModalPanel className="p-6">
             <h2 id="new-room-title" className="text-xl font-semibold mb-4 text-text-primary">
               {t('chat.newRoom')}
             </h2>
@@ -267,7 +267,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                 {isCreating ? t('common.loading') : t('common.create')}
               </Button>
             </div>
-          </div>
+          </ModalPanel>
       </Modal>
     </div>
   )

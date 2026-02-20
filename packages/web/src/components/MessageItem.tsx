@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
@@ -8,13 +8,11 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { markdownSanitizeSchema } from '../lib/markdown.js'
 import { useChatStore } from '../stores/chat.js'
-import { useAuthStore } from '../stores/auth.js'
-import { toast } from '../stores/toast.js'
-import { api } from '../lib/api.js'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
 import { twMerge } from 'tailwind-merge'
 import { Textarea } from './ui.js'
+import { useMessageActions } from '../hooks/useMessageActions.js'
 import {
   VideoIcon,
   MusicNoteIcon,
@@ -82,15 +80,13 @@ function CopyButton({ text }: { text: string }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [text])
-
   return (
     <button
-      onClick={handleCopy}
+      onClick={async () => {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }}
       className="px-2 py-1 text-xs text-text-secondary hover:text-text-primary bg-surface-hover rounded transition-colors"
       title={t('common.copy')}
       aria-label={t('common.copy')}
@@ -187,58 +183,8 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
 
 export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
   const { t, i18n } = useTranslation()
-  const setReplyTo = useChatStore((s) => s.setReplyTo)
-  const editMessage = useChatStore((s) => s.editMessage)
-  const deleteMessage = useChatStore((s) => s.deleteMessage)
   const messages = useChatStore((s) => s.messages)
-  const currentUser = useAuthStore((s) => s.user)
-
-  const toggleReaction = useChatStore((s) => s.toggleReaction)
-
-  const [isEditing, setIsEditing] = useState(false)
-  const [editContent, setEditContent] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [showActions, setShowActions] = useState(false)
-  const [showEditHistory, setShowEditHistory] = useState(false)
-  const [editHistory, setEditHistory] = useState<
-    { id: string; previousContent: string; editedAt: string }[]
-  >([])
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const actionsRef = useRef<HTMLDivElement>(null)
-
-  // Close actions on outside click/tap (mobile) or Escape key
-  useEffect(() => {
-    if (!showActions) return
-    const clickHandler = (e: Event) => {
-      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
-        setShowActions(false)
-        setShowEmojiPicker(false)
-      }
-    }
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showEmojiPicker) {
-          setShowEmojiPicker(false)
-        } else {
-          setShowActions(false)
-        }
-      }
-    }
-    document.addEventListener('mousedown', clickHandler)
-    document.addEventListener('touchstart', clickHandler)
-    document.addEventListener('keydown', keyHandler)
-    return () => {
-      document.removeEventListener('mousedown', clickHandler)
-      document.removeEventListener('touchstart', clickHandler)
-      document.removeEventListener('keydown', keyHandler)
-    }
-  }, [showActions, showEmojiPicker])
-
-  const isOwnMessage =
-    currentUser && message.senderId === currentUser.id && message.senderType === 'user'
+  const actions = useMessageActions(message)
 
   // Find the replied-to message
   const repliedMessage = message.replyToId
@@ -250,38 +196,6 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
     () => (message.chunks?.length ? groupChunks(message.chunks) : null),
     [message.chunks],
   )
-
-  const handleEdit = useCallback(() => {
-    setEditContent(message.content)
-    setIsEditing(true)
-  }, [message.content])
-
-  const handleEditSave = useCallback(async () => {
-    const trimmed = editContent.trim()
-    if (!trimmed || trimmed === message.content) {
-      setIsEditing(false)
-      return
-    }
-    setIsSaving(true)
-    try {
-      await editMessage(message.id, trimmed)
-      setIsEditing(false)
-    } catch {
-      toast.error(t('error.generic'))
-    } finally {
-      setIsSaving(false)
-    }
-  }, [editContent, message.content, message.id, editMessage])
-
-  const handleDelete = useCallback(async () => {
-    try {
-      await deleteMessage(message.id)
-    } catch {
-      toast.error(t('error.generic'))
-    } finally {
-      setConfirmingDelete(false)
-    }
-  }, [message.id, deleteMessage])
 
   // System messages
   if (message.senderType === 'system') {
@@ -303,12 +217,12 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
   return (
     <div className="px-6 py-3 hover:bg-surface-hover/50 transition-colors group/msg relative">
       {/* Mobile action trigger */}
-      {!showActions && (
+      {!actions.showActions && (
         <button
           className="absolute right-1 top-2 p-3 rounded-md text-text-muted active:bg-surface-hover md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={(e) => {
             e.stopPropagation()
-            setShowActions(true)
+            actions.setShowActions(true)
           }}
           aria-label={t('chat.actions')}
         >
@@ -318,28 +232,24 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
 
       {/* Action buttons */}
       <div
-        ref={actionsRef}
-        className={`absolute right-4 top-2 flex items-center gap-1 transition-all ${showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
+        ref={actions.actionsRef}
+        className={`absolute right-4 top-2 flex items-center gap-1 transition-all ${actions.showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
       >
         <div className="relative">
           <button
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            onClick={() => actions.setShowEmojiPicker(!actions.showEmojiPicker)}
             className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={t('chat.addReaction')}
             aria-label={t('chat.addReaction')}
           >
             <SmileFaceIcon className="w-4 h-4" />
           </button>
-          {showEmojiPicker && (
+          {actions.showEmojiPicker && (
             <div className="absolute right-0 top-8 z-dropdown bg-surface border border-border rounded-lg shadow-lg p-1.5 flex gap-0.5">
               {REACTION_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
-                  onClick={() => {
-                    toggleReaction(message.id, emoji).catch(() => toast.error(t('error.generic')))
-                    setShowEmojiPicker(false)
-                    setShowActions(false)
-                  }}
+                  onClick={() => actions.handleReaction(emoji)}
                   className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {emoji}
@@ -349,39 +259,36 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           )}
         </div>
         <button
-          onClick={() => {
-            setReplyTo(message)
-            setShowActions(false)
-          }}
+          onClick={actions.handleReply}
           className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           title={t('chat.reply')}
           aria-label={t('chat.reply')}
         >
           <ReplyIcon className="w-4 h-4" />
         </button>
-        {isOwnMessage && !isEditing && (
+        {actions.isOwnMessage && !actions.isEditing && (
           <>
             <button
-              onClick={handleEdit}
+              onClick={actions.handleEdit}
               className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               title={t('chat.editMessage')}
               aria-label={t('chat.editMessage')}
             >
               <PencilIcon className="w-4 h-4" />
             </button>
-            {confirmingDelete ? (
+            {actions.confirmingDelete ? (
               <span className="flex items-center gap-1 bg-danger-subtle rounded-md px-1.5 py-0.5">
                 <span className="text-xs text-danger-text whitespace-nowrap">
                   {t('chat.confirmDeleteMessage')}
                 </span>
                 <button
-                  onClick={handleDelete}
+                  onClick={actions.handleDelete}
                   className="px-1.5 py-0.5 text-xs font-medium text-white bg-danger hover:bg-danger-hover rounded"
                 >
                   {t('common.delete')}
                 </button>
                 <button
-                  onClick={() => setConfirmingDelete(false)}
+                  onClick={() => actions.setConfirmingDelete(false)}
                   className="px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
                   {t('common.cancel')}
@@ -389,7 +296,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               </span>
             ) : (
               <button
-                onClick={() => setConfirmingDelete(true)}
+                onClick={() => actions.setConfirmingDelete(true)}
                 className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title={t('chat.deleteMessage')}
                 aria-label={t('chat.deleteMessage')}
@@ -434,23 +341,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             {message.updatedAt && (
               <button
                 className="text-xs text-text-muted italic hover:text-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-                onClick={async () => {
-                  if (showEditHistory) {
-                    setShowEditHistory(false)
-                    return
-                  }
-                  setLoadingHistory(true)
-                  setShowEditHistory(true)
-                  try {
-                    const res = await api.get<
-                      { id: string; previousContent: string; editedAt: string }[]
-                    >(`/messages/${message.id}/history`)
-                    if (res.ok && res.data) setEditHistory(res.data)
-                  } catch {
-                    /* ignore */
-                  }
-                  setLoadingHistory(false)
-                }}
+                onClick={actions.toggleEditHistory}
               >
                 {t('chat.messageEdited')}
               </button>
@@ -470,30 +361,30 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           )}
 
           {/* Message body: edit mode or display */}
-          {isEditing ? (
+          {actions.isEditing ? (
             <div className="mt-1">
               <Textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
+                value={actions.editContent}
+                onChange={(e) => actions.setEditContent(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditSave()
-                  if (e.key === 'Escape') setIsEditing(false)
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
+                  if (e.key === 'Escape') actions.handleEditCancel()
                 }}
                 rows={3}
                 autoFocus
-                disabled={isSaving}
+                disabled={actions.isSaving}
               />
               <div className="flex items-center gap-2 mt-1">
                 <button
-                  onClick={handleEditSave}
-                  disabled={isSaving || !editContent.trim()}
+                  onClick={actions.handleEditSave}
+                  disabled={actions.isSaving || !actions.editContent.trim()}
                   className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
                 >
-                  {isSaving ? t('settings.saving') : t('common.save')}
+                  {actions.isSaving ? t('settings.saving') : t('common.save')}
                 </button>
                 <button
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSaving}
+                  onClick={actions.handleEditCancel}
+                  disabled={actions.isSaving}
                   className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
                   {t('common.cancel')}
@@ -575,22 +466,22 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           )}
 
           {/* Edit history */}
-          {showEditHistory && (
+          {actions.showEditHistory && (
             <div className="mt-2 border border-border rounded-lg overflow-hidden">
               <div className="px-3 py-1.5 bg-surface-secondary text-xs font-medium text-text-secondary">
                 {t('chat.editHistory')}
               </div>
-              {loadingHistory ? (
+              {actions.loadingHistory ? (
                 <div className="px-3 py-2 text-xs text-text-muted">
                   {t('common.loading')}
                 </div>
-              ) : editHistory.length === 0 ? (
+              ) : actions.editHistory.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-text-muted">
                   {t('chat.editHistoryEmpty')}
                 </div>
               ) : (
                 <div className="divide-y divide-border max-h-48 overflow-y-auto">
-                  {editHistory.map((edit) => (
+                  {actions.editHistory.map((edit) => (
                     <div key={edit.id} className="px-3 py-2">
                       <div className="text-[10px] text-text-muted mb-0.5">
                         {new Date(edit.editedAt).toLocaleString(i18n.language, {
@@ -615,7 +506,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           {message.attachments && message.attachments.length > 0 && (
             <AttachmentList
               attachments={message.attachments}
-              onImageClick={setLightboxUrl}
+              onImageClick={actions.setLightboxUrl}
             />
           )}
 
@@ -623,27 +514,25 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           {message.reactions && message.reactions.length > 0 && (
             <ReactionBar
               reactions={message.reactions}
-              currentUserId={currentUser?.id}
-              onToggle={(emoji) =>
-                toggleReaction(message.id, emoji).catch(() => toast.error(t('error.generic')))
-              }
+              currentUserId={actions.currentUser?.id}
+              onToggle={actions.handleReaction}
             />
           )}
 
           {/* Image lightbox — rendered via Portal to escape virtualizer's transform stacking context */}
-          {lightboxUrl && createPortal(
+          {actions.lightboxUrl && createPortal(
             <div
               className="fixed inset-0 z-modal flex items-center justify-center bg-backdrop backdrop-blur-sm"
-              onClick={() => setLightboxUrl(null)}
+              onClick={() => actions.setLightboxUrl(null)}
             >
               <div className="relative max-w-[90vw] max-h-[90vh]">
                 <img
-                  src={lightboxUrl}
+                  src={actions.lightboxUrl}
                   alt={t('chat.imagePreview')}
                   className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
                 />
                 <a
-                  href={lightboxUrl}
+                  href={actions.lightboxUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
@@ -654,7 +543,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   <ExternalLinkIcon className="w-5 h-5" aria-hidden="true" />
                 </a>
                 <button
-                  onClick={() => setLightboxUrl(null)}
+                  onClick={() => actions.setLightboxUrl(null)}
                   className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                   aria-label={t('common.close')}
                 >

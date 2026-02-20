@@ -4,7 +4,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input, Modal } from './ui.js'
+import { Button, Input, Modal, ModalPanel } from './ui.js'
 import { SearchIcon } from './icons.js'
 import type { Agent } from '@agentim/shared'
 
@@ -126,7 +126,7 @@ export function AddAgentDialog({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="add-agent-title">
-      <div className="bg-surface rounded-xl shadow-xl max-w-md w-full overflow-hidden">
+      <ModalPanel className="overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <h2 id="add-agent-title" className="text-lg font-semibold text-text-primary">
@@ -202,7 +202,7 @@ export function AddAgentDialog({
             {t('common.close')}
           </Button>
         </div>
-      </div>
+      </ModalPanel>
     </Modal>
   )
 }

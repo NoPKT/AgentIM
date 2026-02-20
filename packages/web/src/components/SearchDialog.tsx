@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 import { useChatStore } from '../stores/chat.js'
-import { Modal } from './ui.js'
+import { Modal, ModalPanel } from './ui.js'
 import { SearchIcon, CloseIcon } from './icons.js'
 import type { Message } from '@agentim/shared'
 
@@ -137,7 +137,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
       className="items-start pt-[10vh]"
       aria-labelledby="search-dialog-label"
     >
-      <div className="bg-surface rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
+      <ModalPanel size="lg" className="overflow-hidden">
         {/* Search Input */}
         <div className="px-4 py-3 border-b border-border">
           <div className="relative">
@@ -260,7 +260,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             {t('common.close')}
           </button>
         </div>
-      </div>
+      </ModalPanel>
     </Modal>
   )
 }
