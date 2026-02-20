@@ -24,6 +24,8 @@ const log = createLogger('GatewayHandler')
 
 const MAX_MESSAGE_SIZE = config.maxGatewayMessageSize
 const MAX_JSON_DEPTH = 15 // gateway messages may have deeper nesting (chunks with metadata)
+const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
+const MAX_FULL_CONTENT_SIZE = 10 * 1024 * 1024 // 10 MB per complete message
 
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
 function safeJsonParse(raw: string, maxDepth: number): unknown {
@@ -47,6 +49,15 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
   }
 }
 
+// Lua script: atomic INCR + EXPIRE-on-first to prevent sticky keys without TTL
+const INCR_WITH_EXPIRE_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`
+
 async function isAgentRateLimited(
   agentId: string,
   rateLimitWindow?: number,
@@ -55,11 +66,8 @@ async function isAgentRateLimited(
   try {
     const redis = getRedis()
     const key = `ws:agent_rate:${agentId}`
-    const count = await redis.incr(key)
-    // Only set EXPIRE on first increment to use fixed time buckets
-    if (count === 1) {
-      await redis.expire(key, rateLimitWindow ?? config.agentRateLimitWindow)
-    }
+    const windowSec = rateLimitWindow ?? config.agentRateLimitWindow
+    const count = (await redis.eval(INCR_WITH_EXPIRE_LUA, 1, key, windowSec)) as number
     return count > (rateLimitMax ?? config.agentRateLimitMax)
   } catch {
     log.warn('Redis unavailable for agent rate limiting, rejecting request (fail-closed)')
@@ -98,7 +106,11 @@ async function broadcastAgentStatus(agentId: string) {
 }
 
 export async function handleGatewayMessage(ws: WSContext, raw: string) {
-  if (raw.length > MAX_MESSAGE_SIZE) {
+  // Use the higher full-content limit + overhead for pre-parse size check.
+  // Type-specific limits (MAX_CHUNK_SIZE, MAX_FULL_CONTENT_SIZE) are enforced
+  // after parsing. The pre-parse guard only prevents OOM from absurdly large frames.
+  const PRE_PARSE_LIMIT = MAX_FULL_CONTENT_SIZE + 1024 * 1024 // 10 MB content + 1 MB overhead
+  if (raw.length > PRE_PARSE_LIMIT) {
     log.warn(`Gateway sent oversized message (${raw.length} bytes), dropping`)
     return
   }
@@ -369,9 +381,6 @@ async function handleUnregisterAgent(ws: WSContext, agentId: string) {
   connectionManager.unregisterAgent(ws, agentId)
   await broadcastAgentStatus(agentId)
 }
-
-const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
-const MAX_FULL_CONTENT_SIZE = 10 * 1024 * 1024 // 10 MB per complete message
 
 async function handleMessageChunk(
   ws: WSContext,

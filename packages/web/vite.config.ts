@@ -33,14 +33,6 @@ export default defineConfig({
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            urlPattern: /^\/api\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 200, maxAgeSeconds: 3600 },
-            },
-          },
-          {
             urlPattern: /^\/uploads\//,
             handler: 'CacheFirst',
             options: {

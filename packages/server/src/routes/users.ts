@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, ne, and, sql } from 'drizzle-orm'
+import { eq, ne, and, sql, inArray } from 'drizzle-orm'
 import { hash, verify } from 'argon2'
 import { db } from '../db/index.js'
-import { users, rooms, tasks, roomMembers, refreshTokens, messageAttachments } from '../db/schema.js'
+import { users, rooms, tasks, roomMembers, refreshTokens, messageAttachments, messages } from '../db/schema.js'
 import {
   updateUserSchema,
   changePasswordSchema,
@@ -274,15 +274,46 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     return c.json({ ok: false, error: 'User not found' }, 404)
   }
 
-  // Clean up avatar file from disk
+  // Collect all attachment file URLs that will be deleted (cascade or direct)
+  // so we can unlink the files from disk after the transaction succeeds.
+  const filesToDelete: string[] = []
+  const uploadDir = resolve(config.uploadDir)
   try {
-    const uploadDir = resolve(config.uploadDir)
+    // 1. Avatars
     const avatarFiles = readdirSync(uploadDir).filter((f) => f.startsWith(`avatar_${targetId}`))
-    for (const file of avatarFiles) {
-      await unlink(resolve(uploadDir, file))
+    filesToDelete.push(...avatarFiles.map((f) => resolve(uploadDir, f)))
+
+    // 2. Attachments in rooms created by this user (will cascade-delete)
+    const userRoomIds = (
+      await db.select({ id: rooms.id }).from(rooms).where(eq(rooms.createdById, targetId))
+    ).map((r) => r.id)
+    if (userRoomIds.length > 0) {
+      const roomMsgIds = (
+        await db.select({ id: messages.id }).from(messages).where(inArray(messages.roomId, userRoomIds))
+      ).map((m) => m.id)
+      if (roomMsgIds.length > 0) {
+        const cascadeAttachments = await db
+          .select({ url: messageAttachments.url })
+          .from(messageAttachments)
+          .where(inArray(messageAttachments.messageId, roomMsgIds))
+        for (const a of cascadeAttachments) {
+          const filename = a.url.replace(/^\/uploads\//, '')
+          if (filename) filesToDelete.push(resolve(uploadDir, filename))
+        }
+      }
+    }
+
+    // 3. Orphan attachments uploaded by this user (no message linked)
+    const orphanAttachments = await db
+      .select({ url: messageAttachments.url })
+      .from(messageAttachments)
+      .where(and(eq(messageAttachments.uploadedBy, targetId), sql`${messageAttachments.messageId} IS NULL`))
+    for (const a of orphanAttachments) {
+      const filename = a.url.replace(/^\/uploads\//, '')
+      if (filename) filesToDelete.push(resolve(uploadDir, filename))
     }
   } catch {
-    // Ignore file cleanup errors (file may not exist)
+    // Non-fatal: file queries may fail if upload dir doesn't exist yet
   }
 
   // Clean up all related resources in a transaction
@@ -304,6 +335,11 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     // Delete user (cascades: refreshTokens, gateways→agents, routers, auditLogs set null)
     await tx.delete(users).where(eq(users.id, targetId))
   })
+
+  // Unlink files from disk after transaction succeeds (best-effort)
+  for (const filePath of filesToDelete) {
+    try { await unlink(filePath) } catch { /* file may already be gone */ }
+  }
   logAudit({
     userId: adminId,
     action: 'user_delete',

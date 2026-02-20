@@ -33,6 +33,15 @@ export function getClientIpFromRequest(c: Context): string {
  * @param windowMs - Time window in milliseconds
  * @param maxRequests - Max requests per window per IP
  */
+// Lua script: atomic INCR + EXPIRE-on-first to prevent sticky keys without TTL
+const INCR_WITH_EXPIRE_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`
+
 export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefix = 'api') {
   const isTest = process.env.NODE_ENV === 'test'
   const windowSec = Math.ceil(windowMs / 1000)
@@ -49,13 +58,7 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
       const redis = getRedis()
       const key = `rl:${prefix}:${ip}:${windowSec}`
 
-      const count = await redis.incr(key)
-      // Only set EXPIRE when the key is first created (count === 1) to use fixed time buckets.
-      // This prevents the window from sliding forward on every request, which would cause
-      // the counter to grow monotonically under continuous traffic.
-      if (count === 1) {
-        await redis.expire(key, windowSec)
-      }
+      const count = (await redis.eval(INCR_WITH_EXPIRE_LUA, 1, key, windowSec)) as number
 
       c.header('X-RateLimit-Limit', String(maxRequests))
 

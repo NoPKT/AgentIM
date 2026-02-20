@@ -60,9 +60,12 @@ authRoutes.post('/login', async (c) => {
     return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
 
-  // Check account lockout
+  // Check account lockout — return the same error as invalid credentials
+  // to prevent username enumeration via distinct 429 responses.
   if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-    return c.json({ ok: false, error: 'Account temporarily locked. Try again later.' }, 429)
+    await verify(DUMMY_HASH, password).catch(() => {}) // timing-safe delay
+    logAudit({ userId: user.id, action: 'login_failed', metadata: { locked: true }, ipAddress: ip })
+    return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
 
   const valid = await verify(user.passwordHash, password)
