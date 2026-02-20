@@ -31,6 +31,7 @@ import {
 
 interface MessageItemProps {
   message: Message
+  showHeader?: boolean
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
@@ -162,7 +163,7 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
             onClick={() => onToggle(reaction.emoji)}
             title={reaction.usernames.join(', ')}
             className={`
-              inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors
+              inline-flex items-center gap-1 px-2.5 py-1.5 md:px-2 md:py-0.5 rounded-full text-xs transition-colors
               ${
                 hasReacted
                   ? 'bg-info-muted border border-info-border text-info-text'
@@ -181,7 +182,7 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
 
 // ─── Main Component ───
 
-export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, showHeader = true }: MessageItemProps) {
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
   const actions = useMessageActions(message)
@@ -215,7 +216,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
   const isAgent = message.senderType === 'agent'
 
   return (
-    <div className="px-6 py-3 hover:bg-surface-hover/50 transition-colors group/msg relative">
+    <div className={`px-6 ${showHeader ? 'py-3' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}>
       {/* Mobile action trigger */}
       {!actions.showActions && (
         <button
@@ -309,44 +310,50 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
       </div>
 
       <div className="flex items-start space-x-3">
-        {/* Avatar */}
-        <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${getAvatarGradient(message.senderName)}`}
-        >
-          <span className="text-sm font-medium text-white">
-            {message.senderName.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        {/* Avatar — hidden for grouped messages, placeholder keeps alignment */}
+        {showHeader ? (
+          <div
+            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${getAvatarGradient(message.senderName)}`}
+          >
+            <span className="text-sm font-medium text-white">
+              {message.senderName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        ) : (
+          <div className="flex-shrink-0 w-8" />
+        )}
 
         {/* Message content */}
         <div className="flex-1 min-w-0">
-          {/* Sender and time */}
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-text-primary text-sm">
-              {message.senderName}
-            </span>
-            {isAgent && (
-              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
-                {t('agent.agents')}
+          {/* Sender and time — only for first message in group */}
+          {showHeader && (
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="font-semibold text-text-primary text-sm">
+                {message.senderName}
               </span>
-            )}
-            <span className="text-xs text-text-muted">
-              {new Date(message.createdAt).toLocaleString(i18n.language, {
-                month: 'numeric',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-            {message.updatedAt && (
-              <button
-                className="text-xs text-text-muted italic hover:text-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-                onClick={actions.toggleEditHistory}
-              >
-                {t('chat.messageEdited')}
-              </button>
-            )}
-          </div>
+              {isAgent && (
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
+                  {t('agent.agents')}
+                </span>
+              )}
+              <span className="text-xs text-text-muted">
+                {new Date(message.createdAt).toLocaleString(i18n.language, {
+                  month: 'numeric',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              {message.updatedAt && (
+                <button
+                  className="text-xs text-text-muted italic hover:text-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                  onClick={actions.toggleEditHistory}
+                >
+                  {t('chat.messageEdited')}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Replied message quote */}
           {repliedMessage && (

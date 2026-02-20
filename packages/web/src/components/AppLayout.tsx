@@ -51,6 +51,8 @@ export function AppLayout() {
         <div
           className="fixed inset-0 bg-backdrop backdrop-blur-sm z-overlay lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          role="presentation"
+          aria-hidden="true"
         />
       )}
 

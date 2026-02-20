@@ -123,7 +123,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                     toast.error(t('common.error'))
                   }
                 }}
-                className="text-[10px] px-1.5 py-0.5 rounded text-text-muted hover:text-info-text transition-colors"
+                className="text-xs px-2 py-1.5 md:text-[10px] md:px-1.5 md:py-0.5 rounded text-text-muted hover:text-info-text transition-colors"
                 title={t('chat.markAllRead')}
               >
                 {t('chat.markAllRead')}
@@ -131,7 +131,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             )}
             <button
               onClick={() => setShowArchived(!showArchived)}
-              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+              className={`text-xs px-2 py-1.5 md:text-[10px] md:px-1.5 md:py-0.5 rounded transition-colors ${
                 showArchived
                   ? 'bg-info-muted text-info-text'
                   : 'text-text-muted hover:text-text-secondary'

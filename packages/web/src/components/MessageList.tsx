@@ -164,6 +164,13 @@ export function MessageList() {
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const message = currentMessages[virtualItem.index]
+            const prev = virtualItem.index > 0 ? currentMessages[virtualItem.index - 1] : null
+            const showHeader =
+              !prev ||
+              prev.senderId !== message.senderId ||
+              prev.senderType === 'system' ||
+              message.senderType === 'system' ||
+              new Date(message.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
             return (
               <div
                 key={virtualItem.key}
@@ -177,7 +184,7 @@ export function MessageList() {
                 ref={virtualizer.measureElement}
                 data-index={virtualItem.index}
               >
-                <MessageItem message={message} />
+                <MessageItem message={message} showHeader={showHeader} />
               </div>
             )
           })}
