@@ -261,7 +261,7 @@ function TaskCard({
   task: Task
   onUpdateStatus: (taskId: string, status: string) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const statusOptions = [
     {
@@ -301,7 +301,7 @@ function TaskCard({
       )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-text-muted">
-          {new Date(task.createdAt).toLocaleDateString([], {
+          {new Date(task.createdAt).toLocaleDateString(i18n.language, {
             month: 'short',
             day: 'numeric',
           })}

@@ -10,7 +10,7 @@ interface StreamingMessageProps {
 }
 
 export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const groups = useMemo(() => groupChunks(chunks), [chunks])
 
@@ -49,7 +49,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
               {t('agent.agents')}
             </span>
             <span className="text-xs text-text-muted">
-              {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              {new Date().toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 

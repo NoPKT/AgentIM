@@ -1,9 +1,24 @@
+import { z } from 'zod'
 import { createLogger } from './logger.js'
 import type { RouterConfig } from './routerConfig.js'
 
 const log = createLogger('RouterLLM')
 
 const ROUTER_TIMEOUT = 5000
+
+const llmResponseSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        message: z.object({ content: z.string().optional() }).optional(),
+      }),
+    )
+    .optional(),
+})
+
+const routerResultSchema = z.object({
+  agentIds: z.array(z.string()),
+})
 
 export async function selectAgents(
   content: string,
@@ -66,18 +81,27 @@ export async function selectAgents(
       return null
     }
 
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
+    const raw = await res.json()
+    const data = llmResponseSchema.safeParse(raw)
+    if (!data.success) {
+      log.warn('Router LLM returned unexpected response shape')
+      return null
     }
-    const text = data.choices?.[0]?.message?.content?.trim()
+    const text = data.data.choices?.[0]?.message?.content?.trim()
     if (!text) return null
 
     // Extract JSON from the response (handle markdown code blocks)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) return null
 
-    const parsed = JSON.parse(jsonMatch[0]) as { agentIds?: string[] }
-    if (!Array.isArray(parsed.agentIds)) return null
+    let parsed: z.infer<typeof routerResultSchema>
+    try {
+      const result = routerResultSchema.safeParse(JSON.parse(jsonMatch[0]))
+      if (!result.success) return null
+      parsed = result.data
+    } catch {
+      return null
+    }
 
     // Validate that returned IDs exist in the agent list
     const validIds = new Set(agents.map((a) => a.id))

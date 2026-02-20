@@ -6,7 +6,7 @@ import { Button } from '../components/ui.js'
 import type { Agent, AgentVisibility } from '@agentim/shared'
 
 export default function AgentsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const agents = useAgentStore((state) => state.agents)
   const isLoading = useAgentStore((state) => state.isLoading)
   const loadError = useAgentStore((state) => state.loadError)
@@ -229,7 +229,7 @@ function AgentCard({ agent }: { agent: Agent }) {
               {t('agent.lastSeen')}
             </dt>
             <dd className="text-text-primary">
-              {new Date(agent.lastSeenAt).toLocaleString([], {
+              {new Date(agent.lastSeenAt).toLocaleString(i18n.language, {
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',

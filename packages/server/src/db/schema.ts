@@ -119,6 +119,7 @@ export const routers = pgTable(
   (table) => [
     index('routers_created_by_idx').on(table.createdById),
     index('routers_scope_idx').on(table.scope),
+    index('routers_scope_creator_idx').on(table.scope, table.createdById),
   ],
 )
 
