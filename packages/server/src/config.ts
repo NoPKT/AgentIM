@@ -55,6 +55,11 @@ export const config = {
   // Trust proxy headers (X-Forwarded-For, X-Real-IP) for client IP resolution
   // Set to true only when running behind a trusted reverse proxy (nginx, cloudflare, etc.)
   trustProxy: env('TRUST_PROXY', 'false') === 'true',
+  // HTTP body size limits
+  // Upload body limit is intentionally larger than maxFileSize to accommodate multipart
+  // form-data overhead (boundary markers, headers, base64 encoding ≈ 20% overhead).
+  uploadBodyLimit: 12 * 1024 * 1024, // 12 MB (for multipart upload with maxFileSize=10MB)
+  apiBodyLimit: 1024 * 1024, // 1 MB (for JSON API requests)
   // WebSocket protocol constants
   wsAuthTimeoutMs: 10_000,
   maxWsMessageSize: 64 * 1024, // 64 KB (client messages)

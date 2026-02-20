@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { sql, and, eq, lt, gt, gte, lte, desc, ilike, inArray } from 'drizzle-orm'
+import { sql, and, eq, lt, gt, gte, lte, desc, ilike, inArray, isNotNull } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { unlink } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
@@ -12,12 +12,12 @@ import {
   messageEdits,
   users,
 } from '../db/schema.js'
-import { messageQuerySchema, editMessageSchema } from '@agentim/shared'
+import { messageQuerySchema, editMessageSchema, batchDeleteMessagesSchema } from '@agentim/shared'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
 import { sanitizeContent } from '../lib/sanitize.js'
-import { isRoomMember } from '../lib/roomAccess.js'
+import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
@@ -40,13 +40,14 @@ async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
   const attachRows = await db
     .select()
     .from(messageAttachments)
-    .where(inArray(messageAttachments.messageId, ids))
+    .where(and(isNotNull(messageAttachments.messageId), inArray(messageAttachments.messageId, ids)))
 
   const attachMap = new Map<string, typeof attachRows>()
   for (const row of attachRows) {
-    const list = attachMap.get(row.messageId!) ?? []
+    if (!row.messageId) continue
+    const list = attachMap.get(row.messageId) ?? []
     list.push(row)
-    attachMap.set(row.messageId!, list)
+    attachMap.set(row.messageId, list)
   }
 
   return msgs.map((m) => {
@@ -56,7 +57,7 @@ async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
           ...m,
           attachments: att.map((a) => ({
             id: a.id,
-            messageId: a.messageId!,
+            messageId: a.messageId ?? m.id,
             filename: a.filename,
             mimeType: a.mimeType,
             size: a.size,
@@ -540,10 +541,14 @@ messageRoutes.put('/:id', async (c) => {
       .returning()
   })
 
+  if (!updated) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+
   const message = {
-    ...updated!,
-    mentions: safeJsonParse(updated!.mentions, []),
-    chunks: updated!.chunks ? safeJsonParse(updated!.chunks, undefined) : undefined,
+    ...updated,
+    mentions: safeJsonParse(updated.mentions, []),
+    chunks: updated.chunks ? safeJsonParse(updated.chunks, undefined) : undefined,
   }
 
   // Broadcast edit to room
@@ -612,4 +617,97 @@ messageRoutes.delete('/:id', async (c) => {
   })
 
   return c.json({ ok: true })
+})
+
+// Batch delete messages (sender can delete own, room owner/admin can delete any)
+messageRoutes.post('/batch-delete', async (c) => {
+  const userId = c.get('userId')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const parsed = batchDeleteMessagesSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ ok: false, error: 'Validation failed' }, 400)
+  }
+
+  const { messageIds } = parsed.data
+
+  // Fetch all requested messages in one query
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(inArray(messages.id, messageIds))
+
+  if (msgs.length === 0) {
+    return c.json({ ok: true, data: { deleted: 0 } })
+  }
+
+  // All messages must belong to the same room
+  const roomIds = new Set(msgs.map((m) => m.roomId))
+  if (roomIds.size > 1) {
+    return c.json({ ok: false, error: 'All messages must belong to the same room' }, 400)
+  }
+  const roomId = msgs[0].roomId
+
+  // Check room membership
+  if (!(await isRoomMember(userId, roomId))) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
+  // Check permissions: sender can delete own, room admin/owner can delete any
+  const admin = await isRoomAdmin(userId, roomId)
+  const ownIds = new Set<string>()
+  for (const msg of msgs) {
+    if (msg.senderId === userId && msg.senderType === 'user') {
+      ownIds.add(msg.id)
+    }
+  }
+
+  const deletableIds = admin ? msgs.map((m) => m.id) : [...ownIds]
+  if (deletableIds.length === 0) {
+    return c.json({ ok: false, error: 'No permission to delete these messages' }, 403)
+  }
+
+  // Collect attachments and delete in transaction
+  const txResult = await db.transaction(async (tx) => {
+    const attachments = await tx
+      .select({ url: messageAttachments.url })
+      .from(messageAttachments)
+      .where(inArray(messageAttachments.messageId, deletableIds))
+
+    await tx.delete(messages).where(inArray(messages.id, deletableIds))
+    return { attachmentUrls: attachments.map((a) => a.url) }
+  })
+
+  // Clean up attachment files
+  for (const url of txResult.attachmentUrls) {
+    try {
+      const filename = basename(url)
+      await unlink(resolve(config.uploadDir, filename))
+    } catch (err: unknown) {
+      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      if (code !== 'ENOENT') {
+        log.warn(`Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`)
+      }
+    }
+  }
+
+  logAudit({
+    userId,
+    action: 'file_delete',
+    targetId: deletableIds.join(','),
+    targetType: 'file',
+    metadata: { roomId, count: deletableIds.length, attachmentCount: txResult.attachmentUrls.length },
+    ipAddress: getClientIp(c),
+  })
+
+  // Broadcast deletions
+  for (const id of deletableIds) {
+    connectionManager.broadcastToRoom(roomId, {
+      type: 'server:message_deleted',
+      roomId,
+      messageId: id,
+    })
+  }
+
+  return c.json({ ok: true, data: { deleted: deletableIds.length } })
 })

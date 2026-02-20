@@ -4,6 +4,9 @@ import { config } from '../config.js'
 
 const log = createLogger('Connections')
 
+// Standard WebSocket close code: 1008 = Policy Violation (session revoked via logout/password change)
+const WS_CLOSE_SESSION_REVOKED = 1008
+
 interface ClientConnection {
   ws: WSContext
   userId: string
@@ -373,7 +376,7 @@ class ConnectionManager {
             code: 'SESSION_REVOKED',
             message: 'Session revoked',
           })
-          ws.close(1008, 'Session revoked')
+          ws.close(WS_CLOSE_SESSION_REVOKED, 'Session revoked')
         } catch {
           /* ignore close errors */
         }
@@ -383,7 +386,7 @@ class ConnectionManager {
     for (const [ws, gw] of this.gateways) {
       if (gw.userId === userId) {
         try {
-          ws.close(1008, 'Session revoked')
+          ws.close(WS_CLOSE_SESSION_REVOKED, 'Session revoked')
         } catch {
           /* ignore close errors */
         }

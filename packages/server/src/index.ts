@@ -146,9 +146,9 @@ app.use(
 )
 app.use('*', loggerMiddleware)
 app.use('/api/*', apiRateLimit)
-// Body size limit: 12MB for uploads, 1MB for other API routes
+// Body size limit: uploadBodyLimit for uploads, apiBodyLimit for other API routes
 app.use('/api/*', async (c, next) => {
-  const limit = c.req.path.startsWith('/api/upload') ? 12 * 1024 * 1024 : 1024 * 1024
+  const limit = c.req.path.startsWith('/api/upload') ? config.uploadBodyLimit : config.apiBodyLimit
   return bodyLimit({ maxSize: limit })(c, next)
 })
 
@@ -224,8 +224,12 @@ app.use(
 )
 
 // WebSocket endpoints
-// Auto-disconnect unauthenticated connections after timeout
+// Custom close codes (4000-4999 are reserved for application use per RFC 6455):
+//   4001 — Authentication timeout: client/gateway did not authenticate within the allowed window
+// Standard close codes used:
+//   1008 — Policy violation: session revoked (logout / password change while connected)
 const WS_AUTH_TIMEOUT_MS = config.wsAuthTimeoutMs
+const WS_CLOSE_AUTH_TIMEOUT = 4001
 const wsAuthTimers = new WeakMap<object, ReturnType<typeof setTimeout>>()
 
 app.get(
@@ -236,7 +240,7 @@ app.get(
         // If still not authenticated after timeout, close the connection
         const client = connectionManager.getClient(ws)
         if (!client) {
-          try { ws.close(4001, 'Authentication timeout') } catch {}
+          try { ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout') } catch {}
         }
       }, WS_AUTH_TIMEOUT_MS))
     },
@@ -267,7 +271,7 @@ app.get(
       wsAuthTimers.set(ws, setTimeout(() => {
         const gw = connectionManager.getGateway(ws)
         if (!gw) {
-          try { ws.close(4001, 'Authentication timeout') } catch {}
+          try { ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout') } catch {}
         }
       }, WS_AUTH_TIMEOUT_MS))
     },

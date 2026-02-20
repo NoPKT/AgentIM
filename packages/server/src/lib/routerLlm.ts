@@ -72,34 +72,56 @@ export async function selectAgents(
         }),
         signal: controller.signal,
       })
+    } catch (fetchErr) {
+      clearTimeout(timeout)
+      const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'AbortError'
+      log.warn(`Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`)
+      return null
     } finally {
       clearTimeout(timeout)
     }
 
     if (!res.ok) {
-      log.warn(`Router LLM returned status ${res.status}`)
+      log.warn(`Router LLM HTTP error: status ${res.status} ${res.statusText}`)
       return null
     }
 
-    const raw = await res.json()
+    let raw: unknown
+    try {
+      raw = await res.json()
+    } catch {
+      log.warn('Router LLM response body is not valid JSON')
+      return null
+    }
+
     const data = llmResponseSchema.safeParse(raw)
     if (!data.success) {
-      log.warn('Router LLM returned unexpected response shape')
+      log.warn(`Router LLM response schema mismatch: ${data.error.message}`)
       return null
     }
     const text = data.data.choices?.[0]?.message?.content?.trim()
-    if (!text) return null
+    if (!text) {
+      log.warn('Router LLM returned empty content')
+      return null
+    }
 
     // Extract JSON from the response (handle markdown code blocks)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return null
+    if (!jsonMatch) {
+      log.warn('Router LLM response does not contain JSON object')
+      return null
+    }
 
     let parsed: z.infer<typeof routerResultSchema>
     try {
       const result = routerResultSchema.safeParse(JSON.parse(jsonMatch[0]))
-      if (!result.success) return null
+      if (!result.success) {
+        log.warn(`Router LLM agentIds schema mismatch: ${result.error.message}`)
+        return null
+      }
       parsed = result.data
     } catch {
+      log.warn(`Router LLM returned invalid JSON in content: ${jsonMatch[0].slice(0, 200)}`)
       return null
     }
 
@@ -107,7 +129,7 @@ export async function selectAgents(
     const validIds = new Set(agents.map((a) => a.id))
     return parsed.agentIds.filter((id) => validIds.has(id))
   } catch (err) {
-    log.warn(`Router LLM error: ${err instanceof Error ? err.message : String(err)}`)
+    log.warn(`Router LLM unexpected error: ${err instanceof Error ? err.message : String(err)}`)
     return null
   }
 }

@@ -286,18 +286,22 @@ async function handleSendMessage(
   // Atomic: verify membership + persist message + link attachments in a single
   // transaction to eliminate the TOCTOU race between the membership check and
   // the INSERT (member could be removed between the two steps otherwise).
-  let room: typeof rooms.$inferSelect | undefined
-  let attachmentResult: {
+  type AttachmentInfo = {
     id: string
     messageId: string
     filename: string
     mimeType: string
     size: number
     url: string
-  }[]
+  }
+
+  let txResult: {
+    room: typeof rooms.$inferSelect
+    attachments: AttachmentInfo[]
+  }
 
   try {
-    const txResult = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [foundRoom] = await tx.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
       if (!foundRoom) return { error: 'ROOM_NOT_FOUND' as const }
 
@@ -317,79 +321,68 @@ async function handleSendMessage(
       }
 
       await tx.insert(messages).values({
-      id,
-      roomId,
-      senderId: client.userId,
-      senderType: 'user',
-      senderName: client.username,
-      type: 'text',
-      content,
-      replyToId,
-      mentions: JSON.stringify(serverParsedMentions),
-      createdAt: now,
-    })
+        id,
+        roomId,
+        senderId: client.userId,
+        senderType: 'user',
+        senderName: client.username,
+        type: 'text',
+        content,
+        replyToId,
+        mentions: JSON.stringify(serverParsedMentions),
+        createdAt: now,
+      })
 
-    if (attachmentIds && attachmentIds.length > 20) {
-      throw new Error('Too many attachments (max 20)')
-    }
-
-    if (attachmentIds && attachmentIds.length > 0) {
-      await tx
-        .update(messageAttachments)
-        .set({ messageId: id })
-        .where(
-          and(
-            inArray(messageAttachments.id, attachmentIds),
-            eq(messageAttachments.uploadedBy, client.userId),
-            isNull(messageAttachments.messageId),
-          ),
-        )
-
-      const rows = await tx
-        .select()
-        .from(messageAttachments)
-        .where(eq(messageAttachments.messageId, id))
-
-      return {
-        room: foundRoom,
-        attachments: rows.map((r) => ({
-          id: r.id,
-          messageId: id,
-          filename: r.filename,
-          mimeType: r.mimeType,
-          size: r.size,
-          url: r.url,
-        })),
+      if (attachmentIds && attachmentIds.length > 20) {
+        throw new Error('Too many attachments (max 20)')
       }
-    }
 
-    return {
-      room: foundRoom,
-      attachments: [] as {
-        id: string
-        messageId: string
-        filename: string
-        mimeType: string
-        size: number
-        url: string
-      }[],
-    }
-  })
+      if (attachmentIds && attachmentIds.length > 0) {
+        await tx
+          .update(messageAttachments)
+          .set({ messageId: id })
+          .where(
+            and(
+              inArray(messageAttachments.id, attachmentIds),
+              eq(messageAttachments.uploadedBy, client.userId),
+              isNull(messageAttachments.messageId),
+            ),
+          )
 
-  if ('error' in txResult) {
-    connectionManager.sendToClient(ws, {
-      type: 'server:error',
-      code: txResult.error,
-      message:
-        txResult.error === 'ROOM_NOT_FOUND'
-          ? 'Room not found'
-          : 'You are not a member of this room',
+        const rows = await tx
+          .select()
+          .from(messageAttachments)
+          .where(eq(messageAttachments.messageId, id))
+
+        return {
+          room: foundRoom,
+          attachments: rows.map((r) => ({
+            id: r.id,
+            messageId: id,
+            filename: r.filename,
+            mimeType: r.mimeType,
+            size: r.size,
+            url: r.url,
+          })),
+        }
+      }
+
+      return { room: foundRoom, attachments: [] as AttachmentInfo[] }
     })
-    return
-  }
 
-  room = txResult.room
-  attachmentResult = txResult.attachments
+    if ('error' in result) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:error',
+        code: result.error,
+        message:
+          result.error === 'ROOM_NOT_FOUND'
+            ? 'Room not found'
+            : 'You are not a member of this room',
+      })
+      return
+    }
+
+    txResult = result
   } catch (err) {
     log.error(`Transaction error in handleSendMessage: ${(err as Error).message}`)
     connectionManager.sendToClient(ws, {
@@ -410,7 +403,7 @@ async function handleSendMessage(
     content,
     replyToId,
     mentions: serverParsedMentions,
-    ...(attachmentResult.length > 0 ? { attachments: attachmentResult } : {}),
+    ...(txResult.attachments.length > 0 ? { attachments: txResult.attachments } : {}),
     createdAt: now,
   }
 
@@ -421,7 +414,7 @@ async function handleSendMessage(
   })
 
   // Route to agents based on server-parsed mentions and broadcast mode
-  await routeToAgents(room!, message, serverParsedMentions)
+  await routeToAgents(txResult.room, message, serverParsedMentions)
 }
 
 async function routeToAgents(

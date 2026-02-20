@@ -38,6 +38,7 @@ export const refreshTokens = pgTable(
   (table) => [
     index('refresh_tokens_user_idx').on(table.userId),
     index('refresh_tokens_hash_idx').on(table.tokenHash),
+    index('refresh_tokens_expires_idx').on(table.expiresAt),
   ],
 )
 
@@ -255,7 +256,10 @@ export const messageEdits = pgTable(
     previousContent: text('previous_content').notNull(),
     editedAt: text('edited_at').notNull(),
   },
-  (table) => [index('message_edits_message_idx').on(table.messageId)],
+  (table) => [
+    index('message_edits_message_idx').on(table.messageId),
+    index('message_edits_message_edited_idx').on(table.messageId, table.editedAt),
+  ],
 )
 
 // ─── Tasks ───

@@ -174,6 +174,10 @@ export const messageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+export const batchDeleteMessagesSchema = z.object({
+  messageIds: z.array(z.string().min(1).max(100)).min(1).max(50),
+})
+
 // ─── Task ───
 
 export const createTaskSchema = z.object({
