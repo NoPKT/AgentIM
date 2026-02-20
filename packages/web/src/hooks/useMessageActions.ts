@@ -44,10 +44,6 @@ export interface MessageActions {
   // Reply
   handleReply: () => void
 
-  // Lightbox
-  lightboxUrl: string | null
-  setLightboxUrl: (url: string | null) => void
-
   // Edit history
   showEditHistory: boolean
   editHistory: EditHistoryEntry[]
@@ -77,9 +73,6 @@ export function useMessageActions(message: Message): MessageActions {
 
   // Emoji picker
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-
-  // Lightbox
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   // Edit history
   const [showEditHistory, setShowEditHistory] = useState(false)
@@ -203,8 +196,6 @@ export function useMessageActions(message: Message): MessageActions {
     setShowEmojiPicker,
     handleReaction,
     handleReply,
-    lightboxUrl,
-    setLightboxUrl,
     showEditHistory,
     editHistory,
     loadingHistory,

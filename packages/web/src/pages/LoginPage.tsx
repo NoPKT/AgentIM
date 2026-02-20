@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
-import { Button, Input } from '../components/ui.js'
+import { Button, Input, FormField } from '../components/ui.js'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -58,13 +58,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-sm font-medium text-text-primary mb-2"
-              >
-                {t('auth.username')}
-              </label>
+            <FormField label={t('auth.username')} htmlFor="username">
               <Input
                 id="username"
                 type="text"
@@ -74,15 +68,9 @@ export default function LoginPage() {
                 disabled={isLoading}
                 autoComplete="username"
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-text-primary mb-2"
-              >
-                {t('auth.password')}
-              </label>
+            <FormField label={t('auth.password')} htmlFor="password">
               <Input
                 id="password"
                 type="password"
@@ -92,7 +80,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 autoComplete="current-password"
               />
-            </div>
+            </FormField>
 
             <Button type="submit" disabled={isLoading} size="lg" className="w-full">
               {isLoading ? t('auth.loggingIn') : t('auth.login')}

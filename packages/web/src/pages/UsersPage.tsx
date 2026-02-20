@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { api } from '../lib/api.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input, Select } from '../components/ui.js'
+import { Button, Input, Select, FormField } from '../components/ui.js'
 import type { UserRole } from '@agentim/shared'
 
 interface UserItem {
@@ -195,44 +195,31 @@ export default function UsersPage() {
               {t('settings.createUser')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('auth.username')}
-                </label>
+              <FormField label={t('auth.username')}>
                 <Input
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder={t('auth.enterUsername')}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('auth.password')}
-                </label>
+              </FormField>
+              <FormField label={t('auth.password')}>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder={t('auth.enterPassword')}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('auth.displayName')}{' '}
-                  <span className="text-text-muted">({t('auth.optional')})</span>
-                </label>
+              </FormField>
+              <FormField label={`${t('auth.displayName')} (${t('auth.optional')})`}>
                 <Input
                   type="text"
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
                   placeholder={t('auth.enterDisplayName')}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('settings.role')}
-                </label>
+              </FormField>
+              <FormField label={t('settings.role')}>
                 <Select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
@@ -240,7 +227,7 @@ export default function UsersPage() {
                   <option value="user">{t('settings.roleUser')}</option>
                   <option value="admin">{t('settings.roleAdmin')}</option>
                 </Select>
-              </div>
+              </FormField>
             </div>
             <div className="flex justify-end gap-3 mt-4">
               <Button variant="secondary" onClick={() => setShowCreate(false)}>

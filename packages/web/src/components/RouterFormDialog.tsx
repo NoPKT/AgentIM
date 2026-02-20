@@ -4,7 +4,7 @@ import type { Router } from '@agentim/shared'
 import { useRouterStore } from '../stores/routers.js'
 import { useAuthStore } from '../stores/auth.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input, Modal, ModalPanel } from './ui.js'
+import { Button, Input, Modal, ModalPanel, FormField } from './ui.js'
 
 interface RouterFormDialogProps {
   isOpen: boolean
@@ -156,37 +156,28 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
 
         <div className="px-6 py-4 space-y-4">
           {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
-              {t('router.name')} *
-            </label>
+          <FormField label={t('router.name')} required>
             <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('router.enterName')}
             />
-          </div>
+          </FormField>
 
           {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1">
-              {t('router.description')}
-            </label>
+          <FormField label={t('router.description')}>
             <Input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('router.enterDescription')}
             />
-          </div>
+          </FormField>
 
           {/* Scope (only on create, admin only) */}
           {!isEditing && isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                {t('router.scope')}
-              </label>
+            <FormField label={t('router.scope')}>
               <div className="flex gap-2">
                 <button
                   onClick={() => setScope('personal')}
@@ -209,7 +200,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   {t('router.scopeGlobal')}
                 </button>
               </div>
-            </div>
+            </FormField>
           )}
 
           {/* LLM Config */}
@@ -218,21 +209,15 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
               {t('router.llmConfig')}
             </h3>
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.llmBaseUrl')} *
-                </label>
+              <FormField label={t('router.llmBaseUrl')} required variant="compact">
                 <Input
                   type="url"
                   value={llmBaseUrl}
                   onChange={(e) => setLlmBaseUrl(e.target.value)}
                   placeholder={t('router.enterLlmBaseUrl')}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.llmApiKey')} {isEditing ? '' : '*'}
-                </label>
+              </FormField>
+              <FormField label={t('router.llmApiKey')} required={!isEditing} variant="compact">
                 <Input
                   type="password"
                   value={llmApiKey}
@@ -243,18 +228,15 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                       : t('router.enterLlmApiKey')
                   }
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.llmModel')} *
-                </label>
+              </FormField>
+              <FormField label={t('router.llmModel')} required variant="compact">
                 <Input
                   type="text"
                   value={llmModel}
                   onChange={(e) => setLlmModel(e.target.value)}
                   placeholder={t('router.enterLlmModel')}
                 />
-              </div>
+              </FormField>
             </div>
           </div>
 
@@ -264,10 +246,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
               {t('router.routingProtection')}
             </h3>
             <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.maxChainDepth')}
-                </label>
+              <FormField label={t('router.maxChainDepth')} variant="compact">
                 <Input
                   type="number"
                   value={maxChainDepth}
@@ -275,11 +254,8 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   min={1}
                   max={100}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.rateLimitWindow')}
-                </label>
+              </FormField>
+              <FormField label={t('router.rateLimitWindow')} variant="compact">
                 <Input
                   type="number"
                   value={rateLimitWindow}
@@ -287,11 +263,8 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   min={1}
                   max={3600}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('router.rateLimitMax')}
-                </label>
+              </FormField>
+              <FormField label={t('router.rateLimitMax')} variant="compact">
                 <Input
                   type="number"
                   value={rateLimitMax}
@@ -299,7 +272,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   min={1}
                   max={1000}
                 />
-              </div>
+              </FormField>
             </div>
           </div>
 
@@ -325,17 +298,14 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                 ))}
               </div>
               {visibility !== 'all' && (
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1">
-                    {t('router.visibilityList')}
-                  </label>
+                <FormField label={t('router.visibilityList')} variant="compact">
                   <Input
                     type="text"
                     value={visibilityList}
                     onChange={(e) => setVisibilityList(e.target.value)}
                     placeholder="user-id-1, user-id-2"
                   />
-                </div>
+                </FormField>
               )}
             </div>
           )}

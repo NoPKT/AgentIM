@@ -159,6 +159,12 @@ export const de = {
     scrollToBottom: 'Nach unten scrollen',
     imagePreview: 'Bildvorschau',
     markAllRead: 'Alle als gelesen markieren',
+    lightboxPrevious: 'Vorheriges Bild',
+    lightboxNext: 'Nächstes Bild',
+    lightboxZoomIn: 'Vergrößern',
+    lightboxZoomOut: 'Verkleinern',
+    lightboxResetZoom: 'Zoom zurücksetzen',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: 'Agenten',

@@ -222,3 +222,35 @@ export function SearchIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M15 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M9 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+export function ZoomInIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+    </svg>
+  )
+}
+
+export function ZoomOutIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+    </svg>
+  )
+}

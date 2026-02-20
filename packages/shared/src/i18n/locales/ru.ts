@@ -158,6 +158,12 @@ export const ru = {
     scrollToBottom: 'Прокрутить вниз',
     imagePreview: 'Предпросмотр изображения',
     markAllRead: 'Отметить все как прочитанные',
+    lightboxPrevious: 'Предыдущее изображение',
+    lightboxNext: 'Следующее изображение',
+    lightboxZoomIn: 'Увеличить',
+    lightboxZoomOut: 'Уменьшить',
+    lightboxResetZoom: 'Сбросить масштаб',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: 'Агенты',

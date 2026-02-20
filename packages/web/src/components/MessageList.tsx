@@ -7,7 +7,11 @@ import { MessageItem } from './MessageItem.js'
 import { StreamingMessage } from './StreamingMessage.js'
 import { ChatBubbleIcon, ArrowDownIcon } from './icons.js'
 
-export function MessageList() {
+interface MessageListProps {
+  onImageClick?: (url: string) => void
+}
+
+export function MessageList({ onImageClick }: MessageListProps) {
   const { t } = useTranslation()
   const { currentRoomId, messages, streaming, hasMore, loadMessages } = useChatStore()
   const readReceipts = useChatStore((s) => s.readReceipts)
@@ -184,7 +188,7 @@ export function MessageList() {
                 ref={virtualizer.measureElement}
                 data-index={virtualItem.index}
               >
-                <MessageItem message={message} showHeader={showHeader} />
+                <MessageItem message={message} showHeader={showHeader} onImageClick={onImageClick} />
               </div>
             )
           })}

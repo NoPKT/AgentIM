@@ -9,6 +9,8 @@ import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
 import { SearchDialog } from '../components/SearchDialog.js'
 import { TerminalViewer } from '../components/TerminalViewer.js'
 import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
+import { ImageLightbox } from '../components/ImageLightbox.js'
+import { useLightbox } from '../hooks/useLightbox.js'
 import { TerminalIcon, SearchIcon, SettingsIcon, ChatBubbleIcon } from '../components/icons.js'
 
 export default function ChatPage() {
@@ -22,6 +24,7 @@ export default function ChatPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
+  const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
   const typingUsers = useChatStore((s) => s.typingUsers)
   const currentUser = useAuthStore((s) => s.user)
@@ -166,7 +169,7 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <MessageList />
+      <MessageList onImageClick={lightbox.openLightbox} />
 
       {/* Typing indicator */}
       {typingNames.length > 0 && (
@@ -214,6 +217,16 @@ export default function ChatPage() {
 
       {/* Search Dialog */}
       <SearchDialog isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Image Lightbox */}
+      {lightbox.isOpen && (
+        <ImageLightbox
+          images={lightbox.images}
+          currentIndex={lightbox.currentIndex}
+          onClose={lightbox.closeLightbox}
+          onNavigate={lightbox.navigateTo}
+        />
+      )}
     </div>
   )
 }

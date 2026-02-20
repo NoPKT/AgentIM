@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { createPortal } from 'react-dom'
 import { twMerge } from 'tailwind-merge'
 
@@ -110,6 +110,58 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ),
 )
 Select.displayName = 'Select'
+
+// ─── FormField ───
+
+const formFieldLabelVariants = {
+  default: 'text-sm font-medium text-text-primary mb-1.5',
+  compact: 'text-xs font-medium text-text-muted mb-1',
+} as const
+
+type FormFieldVariant = keyof typeof formFieldLabelVariants
+
+interface FormFieldProps {
+  label: string
+  htmlFor?: string
+  required?: boolean
+  error?: string
+  helperText?: string
+  variant?: FormFieldVariant
+  className?: string
+  children: ReactNode
+}
+
+export function FormField({
+  label,
+  htmlFor,
+  required,
+  error,
+  helperText,
+  variant = 'default',
+  className,
+  children,
+}: FormFieldProps) {
+  const generatedId = useId()
+  const fieldId = htmlFor ?? generatedId
+
+  return (
+    <div className={className}>
+      <label htmlFor={fieldId} className={`block ${formFieldLabelVariants[variant]}`}>
+        {label}
+        {required && <span className="text-danger-text ml-0.5">*</span>}
+      </label>
+      {children}
+      {error && (
+        <p className="mt-1 text-xs text-danger-text" role="alert">
+          {error}
+        </p>
+      )}
+      {!error && helperText && (
+        <p className="mt-1 text-xs text-text-muted">{helperText}</p>
+      )}
+    </div>
+  )
+}
 
 // ─── ModalPanel ───
 

@@ -10,7 +10,7 @@ import {
   requestNotificationPermission,
 } from '../lib/notifications.js'
 import { toast } from '../stores/toast.js'
-import { Button, Input } from '../components/ui.js'
+import { Button, Input, FormField } from '../components/ui.js'
 import { RouterFormDialog } from '../components/RouterFormDialog.js'
 import type { Router } from '@agentim/shared'
 
@@ -192,21 +192,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-6">
+    <div className="flex-1 overflow-y-auto bg-surface-secondary px-6 py-6">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings.settings')}</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.manageSettings')}</p>
+          <h1 className="text-2xl font-bold text-text-primary">{t('settings.settings')}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t('settings.manageSettings')}</p>
         </div>
 
         <div className="space-y-6">
           {/* Profile Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.profile')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.updateProfile')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('settings.updateProfile')}</p>
             </div>
             <div className="px-6 py-5 space-y-5">
               {/* Avatar */}
@@ -216,7 +216,7 @@ export default function SettingsPage() {
                     <img
                       src={user.avatarUrl}
                       alt={user.displayName}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-border"
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-xl font-bold">
@@ -275,56 +275,38 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-text-primary">
                     {user?.displayName}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">@{user?.username}</p>
+                  <p className="text-xs text-text-muted">@{user?.username}</p>
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="username"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {t('auth.username')}
-                </label>
+              <FormField label={t('auth.username')} htmlFor="username" helperText={t('settings.usernameCannotBeChanged')}>
                 <Input
                   id="username"
                   type="text"
                   value={user?.username || ''}
                   disabled
-                  className="bg-gray-50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  className="bg-surface-secondary text-text-muted cursor-not-allowed"
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t('settings.usernameCannotBeChanged')}
-                </p>
-              </div>
+              </FormField>
 
               {user?.role && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('settings.role')}
-                  </label>
+                <FormField label={t('settings.role')}>
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                       user.role === 'admin'
-                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                        ? 'bg-role-bg text-role-text'
+                        : 'bg-badge-bg text-badge-text'
                     }`}
                   >
                     {user.role === 'admin' ? t('settings.roleAdmin') : t('settings.roleUser')}
                   </span>
-                </div>
+                </FormField>
               )}
 
-              <div>
-                <label
-                  htmlFor="displayName"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {t('auth.displayName')}
-                </label>
+              <FormField label={t('auth.displayName')} htmlFor="displayName">
                 <Input
                   id="displayName"
                   type="text"
@@ -332,7 +314,7 @@ export default function SettingsPage() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t('auth.enterDisplayName')}
                 />
-              </div>
+              </FormField>
 
               <div className="flex items-center justify-end pt-2">
                 <Button onClick={handleSaveProfile} disabled={isSaving} className="ml-auto">
@@ -343,20 +325,14 @@ export default function SettingsPage() {
           </div>
 
           {/* Change Password Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.changePassword')}
               </h2>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <div>
-                <label
-                  htmlFor="currentPassword"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {t('settings.currentPassword')}
-                </label>
+              <FormField label={t('settings.currentPassword')} htmlFor="currentPassword">
                 <Input
                   id="currentPassword"
                   type="password"
@@ -364,14 +340,8 @@ export default function SettingsPage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   autoComplete="current-password"
                 />
-              </div>
-              <div>
-                <label
-                  htmlFor="newPassword"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {t('settings.newPassword')}
-                </label>
+              </FormField>
+              <FormField label={t('settings.newPassword')} htmlFor="newPassword" helperText={t('settings.passwordRequirements')}>
                 <Input
                   id="newPassword"
                   type="password"
@@ -379,17 +349,8 @@ export default function SettingsPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   autoComplete="new-password"
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t('settings.passwordRequirements')}
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="confirmNewPassword"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {t('settings.confirmNewPassword')}
-                </label>
+              </FormField>
+              <FormField label={t('settings.confirmNewPassword')} htmlFor="confirmNewPassword">
                 <Input
                   id="confirmNewPassword"
                   type="password"
@@ -397,7 +358,7 @@ export default function SettingsPage() {
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   autoComplete="new-password"
                 />
-              </div>
+              </FormField>
               <div className="flex items-center justify-end pt-2">
                 <Button
                   onClick={handleChangePassword}
@@ -412,12 +373,12 @@ export default function SettingsPage() {
           </div>
 
           {/* Theme Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.theme')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              <p className="mt-1 text-sm text-text-secondary">
                 {t('settings.selectTheme')}
               </p>
             </div>
@@ -429,34 +390,35 @@ export default function SettingsPage() {
                     <button
                       key={theme.mode}
                       onClick={() => setThemeMode(theme.mode)}
-                      className={`px-4 py-3 border-2 rounded-lg text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      className={`px-4 py-3 border-2 rounded-lg text-left transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
                         isActive
-                          ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ? 'border-accent bg-info-subtle'
+                          : 'border-border hover:border-border hover:bg-surface-hover'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <span
                           className={
                             isActive
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-gray-500 dark:text-gray-400'
+                              ? 'text-accent'
+                              : 'text-text-muted'
                           }
                         >
                           {theme.icon}
                         </span>
                         <div className="flex-1">
                           <div
-                            className={`font-medium ${isActive ? 'text-blue-900 dark:text-blue-200' : 'text-gray-900 dark:text-gray-100'}`}
+                            className={`font-medium ${isActive ? 'text-info-text' : 'text-text-primary'}`}
                           >
                             {theme.label}
                           </div>
                         </div>
                         {isActive && (
                           <svg
-                            className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                            className="w-5 h-5 text-accent"
                             fill="currentColor"
                             viewBox="0 0 20 20"
+                            aria-hidden="true"
                           >
                             <path
                               fillRule="evenodd"
@@ -474,12 +436,12 @@ export default function SettingsPage() {
           </div>
 
           {/* Language Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.language')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.selectLanguage')}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t('settings.selectLanguage')}</p>
             </div>
             <div className="px-6 py-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -489,31 +451,32 @@ export default function SettingsPage() {
                     <button
                       key={lang.code}
                       onClick={() => handleLanguageChange(lang.code)}
-                      className={`px-4 py-3 border-2 rounded-lg text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      className={`px-4 py-3 border-2 rounded-lg text-left transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
                         isActive
-                          ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          ? 'border-accent bg-info-subtle'
+                          : 'border-border hover:border-border hover:bg-surface-hover'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{lang.flag}</span>
                         <div className="flex-1">
                           <div
-                            className={`font-medium ${isActive ? 'text-blue-900 dark:text-blue-200' : 'text-gray-900 dark:text-gray-100'}`}
+                            className={`font-medium ${isActive ? 'text-info-text' : 'text-text-primary'}`}
                           >
                             {lang.label}
                           </div>
                           <div
-                            className={`text-xs ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}
+                            className={`text-xs ${isActive ? 'text-accent' : 'text-text-muted'}`}
                           >
                             {lang.code}
                           </div>
                         </div>
                         {isActive && (
                           <svg
-                            className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                            className="w-5 h-5 text-accent"
                             fill="currentColor"
                             viewBox="0 0 20 20"
+                            aria-hidden="true"
                           >
                             <path
                               fillRule="evenodd"
@@ -531,22 +494,22 @@ export default function SettingsPage() {
           </div>
 
           {/* Notifications Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.notifications')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              <p className="mt-1 text-sm text-text-secondary">
                 {t('settings.notificationsDesc')}
               </p>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-text-primary">
                     {t('settings.mentionNotifications')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {t('settings.mentionNotificationsDesc')}
                   </p>
                 </div>
@@ -566,7 +529,7 @@ export default function SettingsPage() {
                   }}
                   className={`
                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                    ${notificationsEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}
+                    ${notificationsEnabled ? 'bg-accent' : 'bg-surface-hover'}
                   `}
                 >
                   <span
@@ -581,13 +544,13 @@ export default function SettingsPage() {
           </div>
 
           {/* My Routers Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-lg font-semibold text-text-primary">
                   {t('router.myRouters')}
                 </h2>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                <p className="mt-1 text-sm text-text-secondary">
                   {t('router.routerDesc')}
                 </p>
               </div>
@@ -604,14 +567,14 @@ export default function SettingsPage() {
             <div className="px-6 py-4">
               {routersLoading && routers.length === 0 ? (
                 <div className="text-center py-6">
-                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" />
                 </div>
               ) : myRouters.length === 0 && globalRouters.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-muted">
                     {t('router.noRouters')}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  <p className="text-xs text-text-muted mt-1">
                     {t('router.noRoutersDesc')}
                   </p>
                 </div>
@@ -620,19 +583,19 @@ export default function SettingsPage() {
                   {myRouters.map((router) => (
                     <div
                       key={router.id}
-                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:bg-surface-hover transition-colors"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          <span className="text-sm font-medium text-text-primary truncate">
                             {router.name}
                           </span>
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-surface-hover text-text-muted rounded">
                             {router.llmModel}
                           </span>
                         </div>
                         {router.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                          <p className="text-xs text-text-muted mt-0.5 truncate">
                             {router.description}
                           </p>
                         )}
@@ -643,7 +606,7 @@ export default function SettingsPage() {
                             setEditingRouter(router)
                             setShowRouterForm(true)
                           }}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          className="p-1.5 text-text-muted hover:text-accent rounded-md hover:bg-info-subtle transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -653,7 +616,7 @@ export default function SettingsPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleDeleteRouter(router.id)}
-                              className="p-1.5 text-red-600 dark:text-red-400 rounded-md bg-red-50 dark:bg-red-900/30"
+                              className="p-1.5 text-danger-text rounded-md bg-danger-subtle"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -661,7 +624,7 @@ export default function SettingsPage() {
                             </button>
                             <button
                               onClick={() => setDeletingRouterId(null)}
-                              className="p-1.5 text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                              className="p-1.5 text-text-muted rounded-md hover:bg-surface-hover"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -671,7 +634,7 @@ export default function SettingsPage() {
                         ) : (
                           <button
                             onClick={() => setDeletingRouterId(router.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-1.5 text-text-muted hover:text-danger-text rounded-md hover:bg-danger-subtle transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -686,22 +649,22 @@ export default function SettingsPage() {
                   {globalRouters.map((router) => (
                     <div
                       key={router.id}
-                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 rounded-lg border border-border hover:bg-surface-hover transition-colors"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          <span className="text-sm font-medium text-text-primary truncate">
                             {router.name}
                           </span>
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-role-bg text-role-text rounded">
                             {t('router.scopeGlobal')}
                           </span>
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-surface-hover text-text-muted rounded">
                             {router.llmModel}
                           </span>
                         </div>
                         {router.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                          <p className="text-xs text-text-muted mt-0.5 truncate">
                             {router.description}
                           </p>
                         )}
@@ -713,7 +676,7 @@ export default function SettingsPage() {
                               setEditingRouter(router)
                               setShowRouterForm(true)
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                            className="p-1.5 text-text-muted hover:text-accent rounded-md hover:bg-info-subtle transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -723,7 +686,7 @@ export default function SettingsPage() {
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => handleDeleteRouter(router.id)}
-                                className="p-1.5 text-red-600 dark:text-red-400 rounded-md bg-red-50 dark:bg-red-900/30"
+                                className="p-1.5 text-danger-text rounded-md bg-danger-subtle"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -731,7 +694,7 @@ export default function SettingsPage() {
                               </button>
                               <button
                                 onClick={() => setDeletingRouterId(null)}
-                                className="p-1.5 text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                                className="p-1.5 text-text-muted rounded-md hover:bg-surface-hover"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -741,7 +704,7 @@ export default function SettingsPage() {
                           ) : (
                             <button
                               onClick={() => setDeletingRouterId(router.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                              className="p-1.5 text-text-muted hover:text-danger-text rounded-md hover:bg-danger-subtle transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -758,22 +721,22 @@ export default function SettingsPage() {
           </div>
 
           {/* About Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.about')}</h2>
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">{t('settings.about')}</h2>
             </div>
             <div className="px-6 py-5 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-text-primary">
                   {t('settings.version')}
                 </span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{__APP_VERSION__}</span>
+                <span className="text-sm text-text-secondary">{__APP_VERSION__}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-text-primary">
                   {t('common.appName')}
                 </span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-sm text-text-secondary">
                   {t('settings.aiAgentPlatform')}
                 </span>
               </div>

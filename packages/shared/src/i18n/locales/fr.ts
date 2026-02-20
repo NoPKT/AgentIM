@@ -159,6 +159,12 @@ export const fr = {
     scrollToBottom: 'Aller en bas',
     imagePreview: "Aperçu de l'image",
     markAllRead: 'Tout marquer comme lu',
+    lightboxPrevious: 'Image précédente',
+    lightboxNext: 'Image suivante',
+    lightboxZoomIn: 'Zoom avant',
+    lightboxZoomOut: 'Zoom arrière',
+    lightboxResetZoom: 'Réinitialiser le zoom',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: 'Agents',

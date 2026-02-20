@@ -157,6 +157,12 @@ export const zhCN = {
     scrollToBottom: '滚动到底部',
     imagePreview: '图片预览',
     markAllRead: '全部标记已读',
+    lightboxPrevious: '上一张',
+    lightboxNext: '下一张',
+    lightboxZoomIn: '放大',
+    lightboxZoomOut: '缩小',
+    lightboxResetZoom: '重置缩放',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: '智能体',

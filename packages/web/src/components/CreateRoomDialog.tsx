@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { useRouterStore } from '../stores/routers.js'
-import { Button, Input, Modal, ModalPanel, Textarea, Select } from './ui.js'
+import { Button, Input, Modal, ModalPanel, Textarea, Select, FormField } from './ui.js'
 import { CloseIcon, LockIcon, GroupIcon } from './icons.js'
 
 interface CreateRoomDialogProps {
@@ -128,13 +128,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           )}
 
           {/* Room Name */}
-          <div>
-            <label
-              htmlFor="roomName"
-              className="block text-sm font-medium text-text-secondary mb-2"
-            >
-              {t('chat.roomName')}
-            </label>
+          <FormField label={t('chat.roomName')} htmlFor="roomName">
             <Input
               id="roomName"
               type="text"
@@ -148,13 +142,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               autoFocus
               required
             />
-          </div>
+          </FormField>
 
           {/* Room Type */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              {t('chat.roomType')}
-            </label>
+          <FormField label={t('chat.roomType')}>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -200,16 +191,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                 </div>
               </button>
             </div>
-          </div>
+          </FormField>
 
           {/* System Prompt */}
-          <div>
-            <label
-              htmlFor="systemPrompt"
-              className="block text-sm font-medium text-text-secondary mb-2"
-            >
-              {t('chat.systemPrompt')}
-            </label>
+          <FormField label={t('chat.systemPrompt')} htmlFor="systemPrompt" helperText={t('chat.systemPromptDesc')}>
             <Textarea
               id="systemPrompt"
               value={systemPrompt}
@@ -218,17 +203,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               rows={3}
               maxLength={10000}
             />
-            <p className="text-xs text-text-muted mt-1">{t('chat.systemPromptDesc')}</p>
-          </div>
+          </FormField>
 
           {/* Router */}
-          <div>
-            <label
-              htmlFor="routerId"
-              className="block text-sm font-medium text-text-secondary mb-2"
-            >
-              {t('router.roomRouter')}
-            </label>
+          <FormField label={t('router.roomRouter')} htmlFor="routerId" helperText={t('router.routerDesc')}>
             <Select
               id="routerId"
               value={routerId}
@@ -241,8 +219,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-text-muted mt-1">{t('router.routerDesc')}</p>
-          </div>
+          </FormField>
 
           {/* Broadcast Mode */}
           <div className="bg-surface-secondary border border-border rounded-lg p-4">

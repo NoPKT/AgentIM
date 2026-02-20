@@ -158,6 +158,12 @@ export const en = {
     scrollToBottom: 'Scroll to bottom',
     imagePreview: 'Image preview',
     markAllRead: 'Mark all read',
+    lightboxPrevious: 'Previous image',
+    lightboxNext: 'Next image',
+    lightboxZoomIn: 'Zoom in',
+    lightboxZoomOut: 'Zoom out',
+    lightboxResetZoom: 'Reset zoom',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: 'Agents',

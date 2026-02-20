@@ -1,5 +1,4 @@
 import { useState, useMemo, memo } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import ReactMarkdown from 'react-markdown'
@@ -20,8 +19,6 @@ import {
   ArchiveIcon,
   PaperClipIcon,
   DownloadIcon,
-  ExternalLinkIcon,
-  CloseIcon,
   DotsHorizontalIcon,
   SmileFaceIcon,
   ReplyIcon,
@@ -32,6 +29,7 @@ import {
 interface MessageItemProps {
   message: Message
   showHeader?: boolean
+  onImageClick?: (url: string) => void
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
@@ -182,7 +180,7 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
 
 // ─── Main Component ───
 
-export const MessageItem = memo(function MessageItem({ message, showHeader = true }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message, showHeader = true, onImageClick }: MessageItemProps) {
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
   const actions = useMessageActions(message)
@@ -513,7 +511,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
           {message.attachments && message.attachments.length > 0 && (
             <AttachmentList
               attachments={message.attachments}
-              onImageClick={actions.setLightboxUrl}
+              onImageClick={onImageClick ?? (() => {})}
             />
           )}
 
@@ -526,40 +524,6 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
             />
           )}
 
-          {/* Image lightbox — rendered via Portal to escape virtualizer's transform stacking context */}
-          {actions.lightboxUrl && createPortal(
-            <div
-              className="fixed inset-0 z-modal flex items-center justify-center bg-backdrop backdrop-blur-sm"
-              onClick={() => actions.setLightboxUrl(null)}
-            >
-              <div className="relative max-w-[90vw] max-h-[90vh]">
-                <img
-                  src={actions.lightboxUrl}
-                  alt={t('chat.imagePreview')}
-                  className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
-                />
-                <a
-                  href={actions.lightboxUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-2 right-12 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                  title={t('chat.openOriginal')}
-                  aria-label={t('chat.openOriginal')}
-                >
-                  <ExternalLinkIcon className="w-5 h-5" aria-hidden="true" />
-                </a>
-                <button
-                  onClick={() => actions.setLightboxUrl(null)}
-                  className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                  aria-label={t('common.close')}
-                >
-                  <CloseIcon className="w-5 h-5" />
-                </button>
-              </div>
-            </div>,
-            document.body,
-          )}
         </div>
       </div>
     </div>

@@ -158,6 +158,12 @@ export const ko = {
     scrollToBottom: '맨 아래로 스크롤',
     imagePreview: '이미지 미리보기',
     markAllRead: '모두 읽음 표시',
+    lightboxPrevious: '이전 이미지',
+    lightboxNext: '다음 이미지',
+    lightboxZoomIn: '확대',
+    lightboxZoomOut: '축소',
+    lightboxResetZoom: '확대/축소 초기화',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: '에이전트',

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
@@ -11,6 +11,7 @@ import {
   TasksIcon,
   SettingsIcon,
 } from './icons.js'
+import { useSwipeToClose } from '../hooks/useSwipeToClose.js'
 
 type NavIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>
 
@@ -32,6 +33,12 @@ export function AppLayout() {
   }, [location.pathname])
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
+  const swipe = useSwipeToClose({ onClose: closeSidebar })
+
+  const overlayStyle = useMemo(
+    () => (swipe.isSwiping ? { opacity: 1 - swipe.progress } : undefined),
+    [swipe.isSwiping, swipe.progress],
+  )
 
   const navLinks: NavLink[] = [
     ...(currentUser?.role === 'admin'
@@ -50,6 +57,7 @@ export function AppLayout() {
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-backdrop backdrop-blur-sm z-overlay lg:hidden"
+          style={overlayStyle}
           onClick={() => setSidebarOpen(false)}
           role="presentation"
           aria-hidden="true"
@@ -62,9 +70,11 @@ export function AppLayout() {
           fixed lg:static inset-y-0 left-0 z-sidebar
           w-72 bg-surface border-r border-border shadow-sm
           flex flex-col
-          transform transition-transform duration-300 ease-in-out
+          ${swipe.isSwiping ? '' : 'transform transition-transform duration-300 ease-in-out'}
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
+        style={swipe.style}
+        {...swipe.handlers}
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">

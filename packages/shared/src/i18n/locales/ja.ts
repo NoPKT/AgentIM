@@ -158,6 +158,12 @@ export const ja = {
     scrollToBottom: '一番下へスクロール',
     imagePreview: '画像プレビュー',
     markAllRead: 'すべて既読にする',
+    lightboxPrevious: '前の画像',
+    lightboxNext: '次の画像',
+    lightboxZoomIn: 'ズームイン',
+    lightboxZoomOut: 'ズームアウト',
+    lightboxResetZoom: 'ズームリセット',
+    lightboxCounter: '{{current}} / {{total}}',
   },
   agent: {
     agents: 'エージェント',
