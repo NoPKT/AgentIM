@@ -91,7 +91,7 @@ messageRoutes.get('/recent', async (c) => {
       SELECT DISTINCT ON (m.room_id)
         m.room_id, m.content, m.sender_name, m.created_at
       FROM messages m
-      JOIN room_members rm ON rm.room_id = m.room_id AND rm.member_id = ${userId}
+      JOIN room_members rm ON rm.room_id = m.room_id AND rm.member_id = ${userId} AND rm.member_type = 'user'
       ORDER BY m.room_id, m.created_at DESC
     ),
     unreads AS (
@@ -99,7 +99,7 @@ messageRoutes.get('/recent', async (c) => {
       FROM room_members rm
       LEFT JOIN messages m ON m.room_id = rm.room_id
         AND (rm.last_read_at IS NULL OR m.created_at > rm.last_read_at)
-      WHERE rm.member_id = ${userId}
+      WHERE rm.member_id = ${userId} AND rm.member_type = 'user'
       GROUP BY rm.room_id
     )
     SELECT l.room_id, l.content, l.sender_name, l.created_at,

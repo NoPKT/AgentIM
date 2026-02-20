@@ -100,7 +100,9 @@ export async function stopServer(): Promise<void> {
   // Flush test Redis DB
   try {
     const { default: Redis } = await import('ioredis')
-    const redis = new Redis(REDIS_URL)
+    const redis = new Redis(REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 })
+    redis.on('error', () => {}) // Suppress unhandled event emitter errors
+    await redis.connect()
     await redis.flushdb()
     await redis.quit()
   } catch {

@@ -1,4 +1,6 @@
 import { nanoid } from 'nanoid'
+import type { Context } from 'hono'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { db } from '../db/index.js'
 import { auditLogs } from '../db/schema.js'
 import { createLogger } from './logger.js'
@@ -51,8 +53,7 @@ export async function logAudit(opts: AuditOptions): Promise<void> {
   }
 }
 
-export function getClientIp(c: { req: { header: (name: string) => string | undefined } }): string {
-  // Import inline to avoid circular dependency
+export function getClientIp(c: Context): string {
   const trustProxy = process.env.TRUST_PROXY === 'true'
   if (trustProxy) {
     return (
@@ -61,5 +62,11 @@ export function getClientIp(c: { req: { header: (name: string) => string | undef
       'unknown'
     )
   }
-  return 'unknown'
+  // Fall back to socket remote address for direct deployments
+  try {
+    const info = getConnInfo(c)
+    return info.remote?.address || 'unknown'
+  } catch {
+    return 'unknown'
+  }
 }

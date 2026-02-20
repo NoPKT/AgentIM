@@ -294,7 +294,7 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     // Delete remaining tasks created by this user in other rooms
     await tx.delete(tasks).where(eq(tasks.createdById, targetId))
     // Clear task assignments where user is assignee (preserve task, just remove assignee)
-    await tx.update(tasks).set({ assigneeId: null }).where(eq(tasks.assigneeId, targetId))
+    await tx.update(tasks).set({ assigneeId: null, assigneeType: null }).where(eq(tasks.assigneeId, targetId))
     // Remove user from rooms they're a member of (but didn't create)
     await tx.delete(roomMembers).where(and(eq(roomMembers.memberId, targetId), eq(roomMembers.memberType, 'user')))
     // Delete orphan attachments uploaded by this user (not linked to any message)

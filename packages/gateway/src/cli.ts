@@ -286,12 +286,17 @@ program
 
 function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   for (const spec of agentSpecs) {
-    const parts = spec.split(':')
-    if (parts.length < 2) {
+    // Split only first two colons to preserve Windows paths like C:\repo
+    const firstColon = spec.indexOf(':')
+    if (firstColon === -1) {
       log.warn(`Invalid agent spec "${spec}", expected name:type[:workdir]`)
       continue
     }
-    const [name, type, workdir] = parts
+    const name = spec.slice(0, firstColon)
+    const rest = spec.slice(firstColon + 1)
+    const secondColon = rest.indexOf(':')
+    const type = secondColon === -1 ? rest : rest.slice(0, secondColon)
+    const workdir = secondColon === -1 ? undefined : rest.slice(secondColon + 1) || undefined
     agentManager.addAgent({
       name,
       type,
