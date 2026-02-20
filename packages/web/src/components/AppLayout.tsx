@@ -49,7 +49,7 @@ export function AppLayout() {
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-overlay lg:hidden"
+          className="fixed inset-0 bg-backdrop backdrop-blur-sm z-overlay lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

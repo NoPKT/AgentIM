@@ -123,7 +123,7 @@ interface ModalProps {
 
 /**
  * Standardised modal backdrop.
- * – Consistent backdrop: bg-black/50 backdrop-blur-sm z-modal
+ * – Consistent backdrop: bg-backdrop backdrop-blur-sm z-modal
  * – ESC key closes the dialog automatically
  * – Click on backdrop (outside content) closes the dialog
  * – Sets role="dialog" and aria-modal="true"

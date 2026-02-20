@@ -632,7 +632,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
           {/* Image lightbox */}
           {lightboxUrl && (
             <div
-              className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-modal flex items-center justify-center bg-backdrop backdrop-blur-sm"
               onClick={() => setLightboxUrl(null)}
             >
               <div className="relative max-w-[90vw] max-h-[90vh]">

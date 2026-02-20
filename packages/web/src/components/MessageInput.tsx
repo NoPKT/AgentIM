@@ -332,7 +332,7 @@ export function MessageInput() {
       >
         {/* Mention menu */}
         {showMentionMenu && filteredAgents.length > 0 && (
-          <div className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-10 w-64">
+          <div className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64">
             <div className="p-2.5 border-b border-border">
               <p className="text-xs text-text-muted">{t('mentionHint')}</p>
             </div>
