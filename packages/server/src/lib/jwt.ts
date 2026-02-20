@@ -3,16 +3,12 @@ import { config } from '../config.js'
 
 const secret = new TextEncoder().encode(config.jwtSecret)
 
-function parseExpiry(expiry: string): string {
-  return expiry
-}
-
 export async function signAccessToken(payload: { sub: string; username: string }): Promise<string> {
   return new SignJWT({ ...payload, type: 'access' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
-    .setExpirationTime(parseExpiry(config.jwtAccessExpiry))
+    .setExpirationTime(config.jwtAccessExpiry)
     .setIssuedAt()
     .sign(secret)
 }
@@ -25,7 +21,7 @@ export async function signRefreshToken(payload: {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
-    .setExpirationTime(parseExpiry(config.jwtRefreshExpiry))
+    .setExpirationTime(config.jwtRefreshExpiry)
     .setIssuedAt()
     .sign(secret)
 }
@@ -37,5 +33,13 @@ export async function verifyToken(
     issuer: 'agentim',
     audience: 'agentim',
   })
+  // Runtime validation: ensure required fields are present and correctly typed
+  if (
+    typeof payload.sub !== 'string' ||
+    typeof payload.username !== 'string' ||
+    (payload.type !== 'access' && payload.type !== 'refresh')
+  ) {
+    throw new Error('Invalid token payload')
+  }
   return payload as { sub: string; username: string; type: 'access' | 'refresh'; iat?: number }
 }

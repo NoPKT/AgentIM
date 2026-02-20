@@ -48,6 +48,7 @@ export const config = {
   tokenCleanupInterval: Math.max(60000, intEnv('TOKEN_CLEANUP_INTERVAL', 3600000)),
   // Client WebSocket rate limiting
   clientRateLimitWindow: Math.max(1, Math.min(300, intEnv('CLIENT_RATE_LIMIT_WINDOW', 10))),
+  clientRateLimitMax: Math.max(1, Math.min(1000, intEnv('CLIENT_RATE_LIMIT_MAX', 30))),
   // WebSocket connection limits (global defaults, can be overridden per-user)
   maxWsConnectionsPerUser: Math.max(1, Math.min(100, intEnv('MAX_WS_CONNECTIONS_PER_USER', 10))),
   maxTotalWsConnections: Math.max(10, Math.min(100000, intEnv('MAX_TOTAL_WS_CONNECTIONS', 5000))),

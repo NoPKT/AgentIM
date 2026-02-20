@@ -1,7 +1,7 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray, isNull } from 'drizzle-orm'
-import { clientMessageSchema, parseMentions } from '@agentim/shared'
+import { clientMessageSchema, parseMentions, WS_ERROR_CODES } from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
@@ -20,7 +20,6 @@ import { buildAgentNameMap } from '../lib/agentUtils.js'
 const log = createLogger('ClientHandler')
 
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
-const RATE_LIMIT_MAX = 30 // max 30 messages per window
 const MAX_JSON_DEPTH = 10
 
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
@@ -54,7 +53,7 @@ async function isRateLimited(userId: string): Promise<boolean> {
     if (count === 1) {
       await redis.expire(key, config.clientRateLimitWindow)
     }
-    return count > RATE_LIMIT_MAX
+    return count > config.clientRateLimitMax
   } catch {
     log.warn('Redis unavailable for WS rate limiting, rejecting request (fail-closed)')
     return true
@@ -65,7 +64,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   if (raw.length > MAX_MESSAGE_SIZE) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'MESSAGE_TOO_LARGE',
+      code: WS_ERROR_CODES.MESSAGE_TOO_LARGE,
       message: 'Message exceeds maximum size',
     })
     return
@@ -78,7 +77,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     const isDepth = (err as Error).message?.includes('depth')
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: isDepth ? 'JSON_TOO_DEEP' : 'INVALID_JSON',
+      code: isDepth ? WS_ERROR_CODES.JSON_TOO_DEEP : WS_ERROR_CODES.INVALID_JSON,
       message: isDepth ? 'JSON nesting depth exceeded' : 'Invalid JSON',
     })
     return
@@ -88,7 +87,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   if (!parsed.success) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'INVALID_MESSAGE',
+      code: WS_ERROR_CODES.INVALID_MESSAGE,
       message: 'Invalid message format',
     })
     return
@@ -104,7 +103,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     if (!client) {
       connectionManager.sendToClient(ws, {
         type: 'server:error',
-        code: 'NOT_AUTHENTICATED',
+        code: WS_ERROR_CODES.NOT_AUTHENTICATED,
         message: 'Please authenticate first',
       })
       return
@@ -114,7 +113,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     if (await isRateLimited(client.userId)) {
       connectionManager.sendToClient(ws, {
         type: 'server:error',
-        code: 'RATE_LIMITED',
+        code: WS_ERROR_CODES.RATE_LIMITED,
         message: 'Too many messages, please slow down',
       })
       return
@@ -154,7 +153,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     captureException(err)
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'INTERNAL_ERROR',
+      code: WS_ERROR_CODES.INTERNAL_ERROR,
       message: 'An internal error occurred',
     })
   }
@@ -229,7 +228,7 @@ async function handleJoinRoom(ws: WSContext, roomId: string) {
   if (!room) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'ROOM_NOT_FOUND',
+      code: WS_ERROR_CODES.ROOM_NOT_FOUND,
       message: 'Room not found',
     })
     return
@@ -251,7 +250,7 @@ async function handleJoinRoom(ws: WSContext, roomId: string) {
     if (!membership) {
       connectionManager.sendToClient(ws, {
         type: 'server:error',
-        code: 'NOT_A_MEMBER',
+        code: WS_ERROR_CODES.NOT_A_MEMBER,
         message: 'You are not a member of this room',
       })
       return
@@ -303,7 +302,7 @@ async function handleSendMessage(
   try {
     const result = await db.transaction(async (tx) => {
       const [foundRoom] = await tx.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
-      if (!foundRoom) return { error: 'ROOM_NOT_FOUND' as const }
+      if (!foundRoom) return { error: WS_ERROR_CODES.ROOM_NOT_FOUND }
 
       if (foundRoom.createdById !== client.userId) {
         const [membership] = await tx
@@ -317,7 +316,7 @@ async function handleSendMessage(
             ),
           )
           .limit(1)
-        if (!membership) return { error: 'NOT_A_MEMBER' as const }
+        if (!membership) return { error: WS_ERROR_CODES.NOT_A_MEMBER }
       }
 
       await tx.insert(messages).values({
@@ -375,7 +374,7 @@ async function handleSendMessage(
         type: 'server:error',
         code: result.error,
         message:
-          result.error === 'ROOM_NOT_FOUND'
+          result.error === WS_ERROR_CODES.ROOM_NOT_FOUND
             ? 'Room not found'
             : 'You are not a member of this room',
       })
@@ -387,7 +386,7 @@ async function handleSendMessage(
     log.error(`Transaction error in handleSendMessage: ${(err as Error).message}`)
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'INTERNAL_ERROR',
+      code: WS_ERROR_CODES.INTERNAL_ERROR,
       message: 'Failed to send message',
     })
     return

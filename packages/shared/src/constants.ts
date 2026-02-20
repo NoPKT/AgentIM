@@ -68,3 +68,20 @@ export type MemberType = (typeof MEMBER_TYPES)[number]
 
 export const SENDER_TYPES = ['user', 'agent', 'system'] as const
 export type SenderType = (typeof SENDER_TYPES)[number]
+
+// ─── WebSocket Error Codes ───
+
+/** Error codes sent to clients via server:error messages. */
+export const WS_ERROR_CODES = {
+  MESSAGE_TOO_LARGE: 'MESSAGE_TOO_LARGE',
+  JSON_TOO_DEEP: 'JSON_TOO_DEEP',
+  INVALID_JSON: 'INVALID_JSON',
+  INVALID_MESSAGE: 'INVALID_MESSAGE',
+  NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
+  RATE_LIMITED: 'RATE_LIMITED',
+  ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
+  NOT_A_MEMBER: 'NOT_A_MEMBER',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  SESSION_REVOKED: 'SESSION_REVOKED',
+} as const
+export type WsErrorCode = (typeof WS_ERROR_CODES)[keyof typeof WS_ERROR_CODES]

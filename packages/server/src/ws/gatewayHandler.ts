@@ -811,6 +811,14 @@ async function routeAgentToAgent(
 // ─── Room Context ───
 
 export async function sendRoomContextToAgent(agentId: string, roomId: string) {
+  try {
+    return await _sendRoomContextToAgent(agentId, roomId)
+  } catch (err) {
+    log.error(`Failed to send room context to agent ${agentId} for room ${roomId}: ${(err as Error).message}`)
+  }
+}
+
+async function _sendRoomContextToAgent(agentId: string, roomId: string) {
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
   if (!room) return
 

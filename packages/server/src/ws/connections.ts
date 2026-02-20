@@ -1,4 +1,5 @@
 import type { WSContext } from 'hono/ws'
+import { WS_ERROR_CODES } from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
 import { config } from '../config.js'
 
@@ -373,7 +374,7 @@ class ConnectionManager {
         try {
           this.sendToClient(ws, {
             type: 'server:error',
-            code: 'SESSION_REVOKED',
+            code: WS_ERROR_CODES.SESSION_REVOKED,
             message: 'Session revoked',
           })
           ws.close(WS_CLOSE_SESSION_REVOKED, 'Session revoked')

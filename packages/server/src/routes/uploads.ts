@@ -185,7 +185,9 @@ uploadRoutes.post('/avatar', async (c) => {
     const files = await readdir(config.uploadDir)
     for (const f of files) {
       if (f.startsWith(prefix) && f !== storedFilename) {
-        await unlink(resolve(config.uploadDir, f)).catch(() => {})
+        await unlink(resolve(config.uploadDir, f)).catch((err) => {
+          log.warn(`Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`)
+        })
       }
     }
   } catch {
@@ -218,9 +220,13 @@ export async function cleanupOrphanAttachments() {
 
   const unlinkedIds: string[] = []
   for (const orphan of orphans) {
-    // Use basename to prevent path traversal
+    // Use basename to prevent path traversal, then verify resolved path is within uploadDir
     const filename = basename(orphan.url)
     const filePath = resolve(config.uploadDir, filename)
+    if (!filePath.startsWith(resolve(config.uploadDir) + '/')) {
+      log.warn(`Path traversal attempt detected for orphan ${orphan.id}: ${orphan.url}`)
+      continue
+    }
     try {
       await unlink(filePath)
       unlinkedIds.push(orphan.id)

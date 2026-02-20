@@ -47,6 +47,16 @@ async function seedAdmin() {
     log.warn('ADMIN_PASSWORD not set — no admin user will be seeded.')
     return
   }
+  // Validate admin password meets complexity requirements (same as user passwords)
+  if (config.adminPassword.length < 8) {
+    log.warn('ADMIN_PASSWORD is shorter than 8 characters — consider using a stronger password.')
+  } else if (
+    !/[a-z]/.test(config.adminPassword) ||
+    !/[A-Z]/.test(config.adminPassword) ||
+    !/[0-9]/.test(config.adminPassword)
+  ) {
+    log.warn('ADMIN_PASSWORD should contain lowercase, uppercase, and digit characters.')
+  }
   const { nanoid } = await import('nanoid')
   const { hash } = await import('argon2')
   const { eq } = await import('drizzle-orm')
@@ -189,7 +199,17 @@ app.get('/api/health', async (c) => {
   }
 
   const healthy = Object.values(checks).every(Boolean)
-  return c.json({ ok: healthy, timestamp: new Date().toISOString(), checks }, healthy ? 200 : 503)
+  const mem = process.memoryUsage()
+  return c.json({
+    ok: healthy,
+    timestamp: new Date().toISOString(),
+    checks,
+    system: {
+      memoryMB: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+      uptimeSeconds: Math.round(process.uptime()),
+    },
+  }, healthy ? 200 : 503)
 })
 
 // API routes
@@ -360,6 +380,12 @@ async function shutdown(signal: string) {
   log.info(`${signal} received, shutting down gracefully...`)
   stopOrphanCleanup()
   stopTokenCleanup()
+  // Notify connected WS clients about the shutdown
+  connectionManager.broadcastToAll({
+    type: 'server:error',
+    code: 'SERVER_SHUTDOWN',
+    message: 'Server is shutting down',
+  })
   await new Promise<void>((resolve) => {
     const forceTimer = setTimeout(() => {
       log.warn('Shutdown timeout reached, forcing close')
