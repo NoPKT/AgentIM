@@ -18,13 +18,13 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
   const lastChunk = chunks[chunks.length - 1]
   const statusText = lastChunk
     ? lastChunk.type === 'thinking'
-      ? t('agentThinking')
+      ? t('chat.agentThinking')
       : lastChunk.type === 'tool_use'
-        ? t('agentUsingTool')
+        ? t('chat.agentUsingTool')
         : lastChunk.type === 'text'
-          ? t('agentResponding')
-          : t('agentWorking')
-    : t('agentWorking')
+          ? t('chat.agentResponding')
+          : t('chat.agentWorking')
+    : t('chat.agentWorking')
 
   return (
     <div className="px-6 py-4">
@@ -46,7 +46,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
               {agentName}
             </span>
             <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
-              {t('agents')}
+              {t('agent.agents')}
             </span>
             <span className="text-xs text-text-muted">
               {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}

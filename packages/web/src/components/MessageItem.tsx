@@ -92,10 +92,10 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={handleCopy}
       className="px-2 py-1 text-xs text-text-secondary hover:text-text-primary bg-surface-hover rounded transition-colors"
-      title={t('copy')}
-      aria-label={t('copy')}
+      title={t('common.copy')}
+      aria-label={t('common.copy')}
     >
-      {copied ? t('copied') : t('copy')}
+      {copied ? t('common.copied') : t('common.copy')}
     </button>
   )
 }
@@ -378,13 +378,13 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   onClick={handleDelete}
                   className="px-1.5 py-0.5 text-xs font-medium text-white bg-danger hover:bg-danger-hover rounded"
                 >
-                  {t('delete')}
+                  {t('common.delete')}
                 </button>
                 <button
                   onClick={() => setConfirmingDelete(false)}
                   className="px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
-                  {t('cancel')}
+                  {t('common.cancel')}
                 </button>
               </span>
             ) : (
@@ -420,7 +420,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
             </span>
             {isAgent && (
               <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
-                {t('agents')}
+                {t('agent.agents')}
               </span>
             )}
             <span className="text-xs text-text-muted">
@@ -489,17 +489,17 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                   disabled={isSaving || !editContent.trim()}
                   className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
                 >
-                  {isSaving ? t('settings.saving') : t('save')}
+                  {isSaving ? t('settings.saving') : t('common.save')}
                 </button>
                 <button
                   onClick={() => setIsEditing(false)}
                   disabled={isSaving}
                   className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
                 >
-                  {t('cancel')}
+                  {t('common.cancel')}
                 </button>
                 <span className="text-xs text-text-muted">
-                  Esc {t('cancel')}, Cmd+Enter {t('save')}
+                  Esc {t('common.cancel')}, Cmd+Enter {t('common.save')}
                 </span>
               </div>
             </div>
@@ -582,7 +582,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
               </div>
               {loadingHistory ? (
                 <div className="px-3 py-2 text-xs text-text-muted">
-                  {t('loading')}
+                  {t('common.loading')}
                 </div>
               ) : editHistory.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-text-muted">
@@ -656,7 +656,7 @@ export const MessageItem = memo(function MessageItem({ message }: MessageItemPro
                 <button
                   onClick={() => setLightboxUrl(null)}
                   className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-                  aria-label={t('close')}
+                  aria-label={t('common.close')}
                 >
                   <CloseIcon className="w-5 h-5" />
                 </button>

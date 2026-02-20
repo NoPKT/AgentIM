@@ -76,7 +76,7 @@ export function MessageList() {
   if (!currentRoomId) {
     return (
       <div className="flex-1 flex items-center justify-center text-text-secondary">
-        <p>{t('noMessages')}</p>
+        <p>{t('chat.noMessages')}</p>
       </div>
     )
   }
@@ -109,7 +109,7 @@ export function MessageList() {
             className="w-16 h-16 mx-auto mb-4 text-border"
             aria-hidden="true"
           />
-          <p className="text-lg">{t('noMessages')}</p>
+          <p className="text-lg">{t('chat.noMessages')}</p>
         </div>
       </div>
     )
@@ -149,7 +149,7 @@ export function MessageList() {
                   />
                 </svg>
               )}
-              {t('loadMore')}
+              {t('chat.loadMore')}
             </button>
           </div>
         )}

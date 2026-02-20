@@ -67,10 +67,10 @@ export default function AgentsPage() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('loadFailed')}
+            {t('common.loadFailed')}
           </h3>
           <Button onClick={loadAgents} className="mt-4">
-            {t('retry')}
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -95,9 +95,9 @@ export default function AgentsPage() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('noAgents')}
+            {t('agent.noAgents')}
           </h3>
-          <p className="mt-2 text-sm text-text-secondary">{t('noAgentsDesc')}</p>
+          <p className="mt-2 text-sm text-text-secondary">{t('agent.noAgentsDesc')}</p>
         </div>
       </div>
     )
@@ -107,9 +107,9 @@ export default function AgentsPage() {
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">{t('agents')}</h1>
+          <h1 className="text-2xl font-bold text-text-primary">{t('agent.agents')}</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            {t('agentsConnected', { count: agents.length })}
+            {t('agent.agentsConnected', { count: agents.length })}
           </p>
         </div>
 
@@ -182,7 +182,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.workingDirectory && (
           <div>
             <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('workingDir')}
+              {t('agent.workingDir')}
             </dt>
             <dd
               className="text-text-primary truncate font-mono text-xs"
@@ -196,7 +196,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.deviceInfo && (
           <div>
             <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('device')}
+              {t('agent.device')}
             </dt>
             <dd className="text-text-primary truncate">
               {agent.deviceInfo.platform}{' '}
@@ -208,7 +208,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.capabilities && agent.capabilities.length > 0 && (
           <div>
             <dt className="text-text-muted text-xs font-medium mb-1">
-              {t('capabilities')}
+              {t('agent.capabilities')}
             </dt>
             <dd className="flex flex-wrap gap-1">
               {agent.capabilities.map((cap) => (
@@ -226,7 +226,7 @@ function AgentCard({ agent }: { agent: Agent }) {
         {agent.lastSeenAt && (
           <div>
             <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('lastSeen')}
+              {t('agent.lastSeen')}
             </dt>
             <dd className="text-text-primary">
               {new Date(agent.lastSeenAt).toLocaleString([], {
@@ -245,12 +245,12 @@ function AgentCard({ agent }: { agent: Agent }) {
         <div className="flex items-center justify-between">
           <div>
             <span className="text-xs font-medium text-text-muted">
-              {t('visibility')}
+              {t('agent.visibility')}
             </span>
             <span
               className={`ml-2 text-xs font-medium ${isShared ? 'text-success-text' : 'text-text-muted'}`}
             >
-              {isShared ? t('visibilityShared') : t('visibilityPrivate')}
+              {isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
             </span>
           </div>
           <button
@@ -258,7 +258,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
               isShared ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
             }`}
-            title={t('visibilityDesc')}
+            title={t('agent.visibilityDesc')}
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${

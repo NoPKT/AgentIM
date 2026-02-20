@@ -248,7 +248,7 @@ export function MessageInput() {
   const handleSend = () => {
     if (!currentRoomId || !hasContent || isUploading) return
     if (content.length > MAX_MESSAGE_LENGTH) {
-      toast.error(t('messageTooLong'))
+      toast.error(t('chat.messageTooLong'))
       return
     }
 
@@ -297,7 +297,7 @@ export function MessageInput() {
               connectionStatus === 'reconnecting' ? 'bg-warning-text animate-pulse' : 'bg-danger'
             }`}
           />
-          {connectionStatus === 'reconnecting' ? t('reconnecting') : t('disconnected')}
+          {connectionStatus === 'reconnecting' ? t('chat.reconnecting') : t('chat.disconnected')}
         </div>
       )}
 
@@ -317,7 +317,7 @@ export function MessageInput() {
           </div>
           <button
             onClick={() => setReplyTo(null)}
-            aria-label={t('close')}
+            aria-label={t('common.close')}
             className="p-1 rounded-md text-text-muted hover:text-text-secondary hover:bg-surface-hover flex-shrink-0 ml-2"
           >
             <CloseIcon className="w-4 h-4" aria-hidden="true" />
@@ -334,7 +334,7 @@ export function MessageInput() {
         {showMentionMenu && filteredAgents.length > 0 && (
           <div className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64">
             <div className="p-2.5 border-b border-border">
-              <p className="text-xs text-text-muted">{t('mentionHint')}</p>
+              <p className="text-xs text-text-muted">{t('chat.mentionHint')}</p>
             </div>
             {filteredAgents.map((agent, index) => (
               <button
@@ -446,11 +446,10 @@ export function MessageInput() {
               value={content}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={t('sendMessage')}
-              aria-label={t('sendMessage')}
-              className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent"
+              placeholder={t('chat.sendMessage')}
+              aria-label={t('chat.sendMessage')}
+              className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent min-h-12 max-h-[200px]"
               rows={1}
-              style={{ minHeight: '48px', maxHeight: '200px' }}
             />
           </div>
 
@@ -460,7 +459,7 @@ export function MessageInput() {
               onClick={handleSend}
               disabled={!hasContent || isDisconnected || isUploading}
               className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-full hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label={t('send')}
+              aria-label={t('common.send')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -475,7 +474,7 @@ export function MessageInput() {
         </div>
 
         <div className="px-4 pb-2 hidden sm:block">
-          <p className="text-[10px] text-text-muted">{t('sendWithCmd')}</p>
+          <p className="text-[10px] text-text-muted">{t('chat.sendWithCmd')}</p>
         </div>
       </div>
     </div>

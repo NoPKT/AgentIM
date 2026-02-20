@@ -39,8 +39,8 @@ try {
   const migrationsFolder = resolve(import.meta.dirname, '../../../drizzle')
   await migrate(db, { migrationsFolder })
   console.log('Migrations complete.')
-} catch (err: any) {
-  console.error(`Migration failed: ${err.message}`)
+} catch (err: unknown) {
+  console.error(`Migration failed: ${err instanceof Error ? err.message : err}`)
   process.exit(1)
 } finally {
   await pool.end()

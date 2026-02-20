@@ -55,7 +55,7 @@ export default function TasksPage() {
       setTasks([...tasks, res.data])
       setIsDialogOpen(false)
     } else {
-      toast.error(res.error || t('error'))
+      toast.error(res.error || t('common.error'))
     }
   }
 
@@ -122,10 +122,10 @@ export default function TasksPage() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('loadFailed')}
+            {t('common.loadFailed')}
           </h3>
           <Button onClick={loadTasks} className="mt-4">
-            {t('retry')}
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -138,13 +138,13 @@ export default function TasksPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">{t('tasks')}</h1>
+            <h1 className="text-2xl font-bold text-text-primary">{t('task.tasks')}</h1>
             <p className="mt-1 text-sm text-text-secondary">
-              {t('tasksCount', { count: tasks.length })}
+              {t('task.tasksCount', { count: tasks.length })}
             </p>
           </div>
           <Button onClick={() => setIsDialogOpen(true)}>
-            {t('newTask')}
+            {t('task.newTask')}
           </Button>
         </div>
 
@@ -165,10 +165,10 @@ export default function TasksPage() {
               />
             </svg>
             <h3 className="mt-4 text-lg font-medium text-text-primary">
-              {t('noTasks')}
+              {t('task.noTasks')}
             </h3>
             <p className="mt-2 text-sm text-text-secondary">
-              {t('createFirstTask') || 'Create your first task to get started'}
+              {t('task.createFirstTask')}
             </p>
           </div>
         )}
@@ -177,31 +177,31 @@ export default function TasksPage() {
         {tasks.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             <TaskColumn
-              title={t('pending')}
+              title={t('task.pending')}
               tasks={groupedTasks.pending}
               badgeColor="bg-badge-bg text-badge-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
-              title={t('inProgress')}
+              title={t('task.inProgress')}
               tasks={groupedTasks.in_progress}
               badgeColor="bg-info-muted text-info-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
-              title={t('completed')}
+              title={t('task.completed')}
               tasks={groupedTasks.completed}
               badgeColor="bg-success-muted text-success-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
-              title={t('failed')}
+              title={t('task.failed')}
               tasks={groupedTasks.failed}
               badgeColor="bg-danger-muted text-danger-text"
               onUpdateStatus={handleUpdateStatus}
             />
             <TaskColumn
-              title={t('cancelled')}
+              title={t('task.cancelled')}
               tasks={groupedTasks.cancelled}
               badgeColor="bg-warning-muted text-warning-text"
               onUpdateStatus={handleUpdateStatus}
@@ -266,27 +266,27 @@ function TaskCard({
   const statusOptions = [
     {
       value: 'pending',
-      label: t('pending'),
+      label: t('task.pending'),
       color: 'bg-badge-bg text-badge-text',
     },
     {
       value: 'in_progress',
-      label: t('inProgress'),
+      label: t('task.inProgress'),
       color: 'bg-info-muted text-info-text',
     },
     {
       value: 'completed',
-      label: t('completed'),
+      label: t('task.completed'),
       color: 'bg-success-muted text-success-text',
     },
     {
       value: 'failed',
-      label: t('failed'),
+      label: t('task.failed'),
       color: 'bg-danger-muted text-danger-text',
     },
     {
       value: 'cancelled',
-      label: t('cancelled'),
+      label: t('task.cancelled'),
       color: 'bg-warning-muted text-warning-text',
     },
   ]
@@ -309,7 +309,7 @@ function TaskCard({
         <select
           value={task.status}
           onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-          aria-label={t('status')}
+          aria-label={t('agent.status')}
           className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-accent ${
             statusOptions.find((s) => s.value === task.status)?.color ??
             'bg-badge-bg text-badge-text'
@@ -349,10 +349,10 @@ function CreateTaskDialog({
 
   return (
     <Modal isOpen={true} onClose={onClose} aria-labelledby="create-task-title">
-      <div className="bg-surface rounded-lg shadow-xl max-w-md w-full p-6">
+      <div className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 id="create-task-title" className="text-xl font-semibold text-text-primary">
-            {t('createTask')}
+            {t('task.createTask')}
           </h2>
           <button
             onClick={onClose}
@@ -368,7 +368,7 @@ function CreateTaskDialog({
               htmlFor="room"
               className="block text-sm font-medium text-text-primary mb-2"
             >
-              {t('rooms') || 'Room'}
+              {t('chat.rooms')}
             </label>
             <Select
               id="room"
@@ -389,14 +389,14 @@ function CreateTaskDialog({
               htmlFor="title"
               className="block text-sm font-medium text-text-primary mb-2"
             >
-              {t('taskTitle')}
+              {t('task.taskTitle')}
             </label>
             <Input
               id="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('enterTaskTitle') || 'Enter task title'}
+              placeholder={t('task.enterTaskTitle')}
               autoFocus
               required
             />
@@ -407,23 +407,23 @@ function CreateTaskDialog({
               htmlFor="description"
               className="block text-sm font-medium text-text-primary mb-2"
             >
-              {t('taskDescription')}
+              {t('task.taskDescription')}
             </label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder={t('enterTaskDescription') || 'Enter task description (optional)'}
+              placeholder={t('task.enterTaskDescription')}
             />
           </div>
 
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="secondary" onClick={onClose}>
-              {t('cancel')}
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={!roomId}>
-              {t('create')}
+              {t('common.create')}
             </Button>
           </div>
         </form>

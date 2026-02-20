@@ -122,12 +122,12 @@ export default function SettingsPage() {
       const res = await api.upload<{ avatarUrl: string }>('/upload/avatar', file)
       if (res.ok && res.data) {
         updateUser({ avatarUrl: res.data.avatarUrl })
-        toast.success(t('profileUpdated'))
+        toast.success(t('settings.profileUpdated'))
       } else {
-        toast.error(res.error || t('error'))
+        toast.error(res.error || t('common.error'))
       }
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setIsUploadingAvatar(false)
       if (avatarInputRef.current) avatarInputRef.current.value = ''
@@ -140,12 +140,12 @@ export default function SettingsPage() {
       const res = await api.put('/users/me', { displayName })
       if (res.ok) {
         updateUser({ displayName })
-        toast.success(t('profileUpdated'))
+        toast.success(t('settings.profileUpdated'))
       } else {
-        toast.error(res.error || t('error'))
+        toast.error(res.error || t('common.error'))
       }
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setIsSaving(false)
     }
@@ -153,15 +153,15 @@ export default function SettingsPage() {
 
   const handleChangePassword = async () => {
     if (newPassword.length < 8) {
-      toast.error(t('passwordTooShort'))
+      toast.error(t('auth.passwordTooShort'))
       return
     }
     if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      toast.error(t('passwordRequirements'))
+      toast.error(t('settings.passwordRequirements'))
       return
     }
     if (newPassword !== confirmNewPassword) {
-      toast.error(t('passwordsDoNotMatch'))
+      toast.error(t('auth.passwordsDoNotMatch'))
       return
     }
 
@@ -172,15 +172,15 @@ export default function SettingsPage() {
         newPassword,
       })
       if (res.ok) {
-        toast.success(t('passwordChanged'))
+        toast.success(t('settings.passwordChanged'))
         // Server invalidated all refresh tokens — log out so user re-authenticates
         await useAuthStore.getState().logout()
         return
       } else {
-        toast.error(res.error || t('error'))
+        toast.error(res.error || t('common.error'))
       }
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setIsChangingPassword(false)
     }
@@ -195,8 +195,8 @@ export default function SettingsPage() {
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-6">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings')}</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('manageSettings')}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings.settings')}</h1>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.manageSettings')}</p>
         </div>
 
         <div className="space-y-6">
@@ -204,9 +204,9 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t('profile')}
+                {t('settings.profile')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('updateProfile')}</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.updateProfile')}</p>
             </div>
             <div className="px-6 py-5 space-y-5">
               {/* Avatar */}
@@ -287,7 +287,7 @@ export default function SettingsPage() {
                   htmlFor="username"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {t('username')}
+                  {t('auth.username')}
                 </label>
                 <Input
                   id="username"
@@ -297,14 +297,14 @@ export default function SettingsPage() {
                   className="bg-gray-50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t('usernameCannotBeChanged')}
+                  {t('settings.usernameCannotBeChanged')}
                 </p>
               </div>
 
               {user?.role && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('role')}
+                    {t('settings.role')}
                   </label>
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -313,7 +313,7 @@ export default function SettingsPage() {
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                     }`}
                   >
-                    {user.role === 'admin' ? t('roleAdmin') : t('roleUser')}
+                    {user.role === 'admin' ? t('settings.roleAdmin') : t('settings.roleUser')}
                   </span>
                 </div>
               )}
@@ -323,20 +323,20 @@ export default function SettingsPage() {
                   htmlFor="displayName"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {t('displayName')}
+                  {t('auth.displayName')}
                 </label>
                 <Input
                   id="displayName"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder={t('enterDisplayName')}
+                  placeholder={t('auth.enterDisplayName')}
                 />
               </div>
 
               <div className="flex items-center justify-end pt-2">
                 <Button onClick={handleSaveProfile} disabled={isSaving} className="ml-auto">
-                  {isSaving ? t('saving') : t('save')}
+                  {isSaving ? t('common.saving') : t('common.save')}
                 </Button>
               </div>
             </div>
@@ -346,7 +346,7 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t('changePassword')}
+                {t('settings.changePassword')}
               </h2>
             </div>
             <div className="px-6 py-5 space-y-4">
@@ -355,7 +355,7 @@ export default function SettingsPage() {
                   htmlFor="currentPassword"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {t('currentPassword')}
+                  {t('settings.currentPassword')}
                 </label>
                 <Input
                   id="currentPassword"
@@ -370,7 +370,7 @@ export default function SettingsPage() {
                   htmlFor="newPassword"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {t('newPassword')}
+                  {t('settings.newPassword')}
                 </label>
                 <Input
                   id="newPassword"
@@ -380,7 +380,7 @@ export default function SettingsPage() {
                   autoComplete="new-password"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t('passwordRequirements')}
+                  {t('settings.passwordRequirements')}
                 </p>
               </div>
               <div>
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                   htmlFor="confirmNewPassword"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  {t('confirmNewPassword')}
+                  {t('settings.confirmNewPassword')}
                 </label>
                 <Input
                   id="confirmNewPassword"
@@ -405,7 +405,7 @@ export default function SettingsPage() {
                     isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword
                   }
                 >
-                  {isChangingPassword ? t('changingPassword') : t('changePassword')}
+                  {isChangingPassword ? t('settings.changingPassword') : t('settings.changePassword')}
                 </Button>
               </div>
             </div>
@@ -477,9 +477,9 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t('language')}
+                {t('settings.language')}
               </h2>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('selectLanguage')}</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('settings.selectLanguage')}</p>
             </div>
             <div className="px-6 py-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -534,20 +534,20 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t('notifications')}
+                {t('settings.notifications')}
               </h2>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {t('notificationsDesc')}
+                {t('settings.notificationsDesc')}
               </p>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {t('mentionNotifications')}
+                    {t('settings.mentionNotifications')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {t('mentionNotificationsDesc')}
+                    {t('settings.mentionNotificationsDesc')}
                   </p>
                 </div>
                 <button
@@ -555,14 +555,14 @@ export default function SettingsPage() {
                     if (!notificationsEnabled) {
                       const granted = await requestNotificationPermission()
                       if (!granted) {
-                        toast.error(t('notificationPermissionDenied'))
+                        toast.error(t('settings.notificationPermissionDenied'))
                         return
                       }
                     }
                     const next = !notificationsEnabled
                     setNotificationPreference(next)
                     setNotificationsEnabled(next)
-                    toast.success(next ? t('notificationsEnabled') : t('notificationsDisabled'))
+                    toast.success(next ? t('settings.notificationsEnabled') : t('settings.notificationsDisabled'))
                   }}
                   className={`
                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
@@ -760,21 +760,21 @@ export default function SettingsPage() {
           {/* About Section */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('about')}</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.about')}</h2>
             </div>
             <div className="px-6 py-5 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('version')}
+                  {t('settings.version')}
                 </span>
                 <span className="text-sm text-gray-600 dark:text-gray-400">{__APP_VERSION__}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('appName')}
+                  {t('common.appName')}
                 </span>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('aiAgentPlatform')}
+                  {t('settings.aiAgentPlatform')}
                 </span>
               </div>
             </div>

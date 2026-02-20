@@ -25,7 +25,7 @@ export default function LoginPage() {
     setError('')
 
     if (!username || !password) {
-      setError(t('pleaseEnterUsernameAndPassword'))
+      setError(t('auth.pleaseEnterUsernameAndPassword'))
       return
     }
 
@@ -34,7 +34,7 @@ export default function LoginPage() {
       await login(username, password)
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('loginFailed'))
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -46,9 +46,9 @@ export default function LoginPage() {
         <div className="bg-surface rounded-lg border border-border shadow-sm p-8">
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-semibold text-text-primary mb-2">
-              {t('loginTitle')}
+              {t('auth.loginTitle')}
             </h1>
-            <p className="text-sm text-text-secondary">{t('loginSubtitle')}</p>
+            <p className="text-sm text-text-secondary">{t('auth.loginSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -63,14 +63,14 @@ export default function LoginPage() {
                 htmlFor="username"
                 className="block text-sm font-medium text-text-primary mb-2"
               >
-                {t('username')}
+                {t('auth.username')}
               </label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={t('enterUsername')}
+                placeholder={t('auth.enterUsername')}
                 disabled={isLoading}
                 autoComplete="username"
               />
@@ -81,21 +81,21 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-text-primary mb-2"
               >
-                {t('password')}
+                {t('auth.password')}
               </label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('enterPassword')}
+                placeholder={t('auth.enterPassword')}
                 disabled={isLoading}
                 autoComplete="current-password"
               />
             </div>
 
             <Button type="submit" disabled={isLoading} size="lg" className="w-full">
-              {isLoading ? t('loggingIn') : t('login')}
+              {isLoading ? t('auth.loggingIn') : t('auth.login')}
             </Button>
           </form>
         </div>

@@ -61,30 +61,30 @@ export default function UsersPage() {
       })
       if (res.ok && res.data) {
         setUsers((prev) => [...prev, res.data!])
-        toast.success(t('userCreated'))
+        toast.success(t('settings.userCreated'))
         setShowCreate(false)
         setNewUsername('')
         setNewPassword('')
         setNewDisplayName('')
         setNewRole('user')
       } else {
-        toast.error(res.error || t('error'))
+        toast.error(res.error || t('common.error'))
       }
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setIsCreating(false)
     }
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm(t('confirmDeleteUser'))) return
+    if (!confirm(t('settings.confirmDeleteUser'))) return
     const res = await api.delete(`/users/${userId}`)
     if (res.ok) {
       setUsers((prev) => prev.filter((u) => u.id !== userId))
-      toast.success(t('userDeleted'))
+      toast.success(t('settings.userDeleted'))
     } else {
-      toast.error(res.error || t('error'))
+      toast.error(res.error || t('common.error'))
     }
   }
 
@@ -106,7 +106,7 @@ export default function UsersPage() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('forbidden')}
+            {t('error.forbidden')}
           </h3>
         </div>
       </div>
@@ -161,10 +161,10 @@ export default function UsersPage() {
             />
           </svg>
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('loadFailed')}
+            {t('common.loadFailed')}
           </h3>
           <Button onClick={loadUsers} className="mt-4">
-            {t('retry')}
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -177,14 +177,14 @@ export default function UsersPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
-              {t('userManagement')}
+              {t('settings.userManagement')}
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
-              {t('userManagementDesc')}
+              {t('settings.userManagementDesc')}
             </p>
           </div>
           <Button onClick={() => setShowCreate(!showCreate)}>
-            {t('createUser')}
+            {t('settings.createUser')}
           </Button>
         </div>
 
@@ -192,65 +192,65 @@ export default function UsersPage() {
         {showCreate && (
           <div className="bg-surface rounded-lg border border-border shadow-sm p-6 mb-6">
             <h3 className="text-lg font-semibold text-text-primary mb-4">
-              {t('createUser')}
+              {t('settings.createUser')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('username')}
+                  {t('auth.username')}
                 </label>
                 <Input
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder={t('enterUsername')}
+                  placeholder={t('auth.enterUsername')}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('password')}
+                  {t('auth.password')}
                 </label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder={t('enterPassword')}
+                  placeholder={t('auth.enterPassword')}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('displayName')}{' '}
-                  <span className="text-text-muted">({t('optional')})</span>
+                  {t('auth.displayName')}{' '}
+                  <span className="text-text-muted">({t('auth.optional')})</span>
                 </label>
                 <Input
                   type="text"
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
-                  placeholder={t('enterDisplayName')}
+                  placeholder={t('auth.enterDisplayName')}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">
-                  {t('role')}
+                  {t('settings.role')}
                 </label>
                 <Select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
                 >
-                  <option value="user">{t('roleUser')}</option>
-                  <option value="admin">{t('roleAdmin')}</option>
+                  <option value="user">{t('settings.roleUser')}</option>
+                  <option value="admin">{t('settings.roleAdmin')}</option>
                 </Select>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-4">
               <Button variant="secondary" onClick={() => setShowCreate(false)}>
-                {t('cancel')}
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateUser}
                 disabled={isCreating || !newUsername.trim() || !newPassword.trim()}
               >
-                {isCreating ? t('creatingUser') : t('create')}
+                {isCreating ? t('settings.creatingUser') : t('common.create')}
               </Button>
             </div>
           </div>
@@ -262,13 +262,13 @@ export default function UsersPage() {
             <thead className="bg-surface-hover border-b border-border">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                  {t('username')}
+                  {t('auth.username')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                  {t('displayName')}
+                  {t('auth.displayName')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                  {t('role')}
+                  {t('settings.role')}
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider" />
               </tr>
@@ -290,7 +290,7 @@ export default function UsersPage() {
                           : 'bg-badge-bg text-badge-text'
                       }`}
                     >
-                      {u.role === 'admin' ? t('roleAdmin') : t('roleUser')}
+                      {u.role === 'admin' ? t('settings.roleAdmin') : t('settings.roleUser')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -299,7 +299,7 @@ export default function UsersPage() {
                         onClick={() => handleDeleteUser(u.id)}
                         className="text-danger-text hover:text-danger-hover text-sm font-medium transition-colors"
                       >
-                        {t('delete')}
+                        {t('common.delete')}
                       </button>
                     )}
                   </td>
@@ -311,7 +311,7 @@ export default function UsersPage() {
                     colSpan={4}
                     className="px-6 py-8 text-center text-sm text-text-muted"
                   >
-                    {t('noUsers')}
+                    {t('settings.noUsers')}
                   </td>
                 </tr>
               )}

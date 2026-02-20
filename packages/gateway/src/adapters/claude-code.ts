@@ -10,6 +10,24 @@ import {
 } from './base.js'
 import { MAX_BUFFER_SIZE, type ParsedChunk } from '@agentim/shared'
 
+/** Minimal shape of a Claude Code JSON-stream event. */
+interface StreamEvent {
+  type?: string
+  message?: {
+    content?: Array<{
+      type: string
+      text?: string
+      thinking?: string
+      name?: string
+      id?: string
+      content?: string | unknown[]
+      tool_use_id?: string
+    }>
+    stop_reason?: string
+  }
+  delta?: { type?: string; text?: string; thinking?: string }
+}
+
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private process: ChildProcess | null = null
   private buffer = ''
@@ -132,7 +150,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     })
   }
 
-  private parseEvent(event: any): ParsedChunk[] {
+  private parseEvent(event: StreamEvent): ParsedChunk[] {
     const chunks: ParsedChunk[] = []
 
     // Claude Code stream-json format
@@ -141,9 +159,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (event.message.content) {
         for (const block of event.message.content) {
           if (block.type === 'text') {
-            chunks.push({ type: 'text', content: block.text })
+            chunks.push({ type: 'text', content: block.text ?? '' })
           } else if (block.type === 'thinking') {
-            chunks.push({ type: 'thinking', content: block.thinking })
+            chunks.push({ type: 'thinking', content: block.thinking ?? '' })
           } else if (block.type === 'tool_use') {
             chunks.push({
               type: 'tool_use',
@@ -166,9 +184,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Content block delta (streaming)
     if (event.type === 'content_block_delta') {
       if (event.delta?.type === 'text_delta') {
-        chunks.push({ type: 'text', content: event.delta.text })
+        chunks.push({ type: 'text', content: event.delta.text ?? '' })
       } else if (event.delta?.type === 'thinking_delta') {
-        chunks.push({ type: 'thinking', content: event.delta.thinking })
+        chunks.push({ type: 'thinking', content: event.delta.thinking ?? '' })
       }
     }
 

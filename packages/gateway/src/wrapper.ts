@@ -86,8 +86,8 @@ export async function runWrapper(opts: {
                 refreshingToken = null
                 authenticate(wsClient)
               },
-              (err: any) => {
-                log.error(`Token refresh failed: ${err.message}`)
+              (err: unknown) => {
+                log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
                 log.error('Please re-login: agentim login')
                 process.exit(1)
               },

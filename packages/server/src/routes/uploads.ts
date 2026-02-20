@@ -224,13 +224,14 @@ export async function cleanupOrphanAttachments() {
     try {
       await unlink(filePath)
       unlinkedIds.push(orphan.id)
-    } catch (err: any) {
-      if (err?.code === 'ENOENT') {
+    } catch (err: unknown) {
+      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      if (code === 'ENOENT') {
         // File already gone — safe to remove DB record
         unlinkedIds.push(orphan.id)
       } else {
         // Real I/O error — keep DB record for retry
-        log.warn(`Failed to unlink orphan file ${filename}: ${err?.message}`)
+        log.warn(`Failed to unlink orphan file ${filename}: ${err instanceof Error ? err.message : err}`)
       }
     }
   }

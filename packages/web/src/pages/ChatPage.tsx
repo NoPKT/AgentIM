@@ -79,10 +79,10 @@ export default function ChatPage() {
         <div className="text-center">
           <ChatBubbleIcon className="mx-auto h-12 w-12 text-text-muted" />
           <h3 className="mt-4 text-lg font-medium text-text-primary">
-            {t('selectRoomToChat') || 'Select a room to start chatting'}
+            {t('chat.selectRoomToChat')}
           </h3>
           <p className="mt-2 text-sm text-text-secondary">
-            {t('chooseRoomFromSidebar') || 'Choose a room from the sidebar or create a new one'}
+            {t('chat.chooseRoomFromSidebar')}
           </p>
         </div>
       </div>
@@ -99,11 +99,11 @@ export default function ChatPage() {
           </h2>
           {currentRoom?.broadcastMode && (
             <span className="hidden sm:inline px-2 py-0.5 text-xs font-medium bg-warning-subtle text-warning-text rounded-md flex-shrink-0">
-              {t('broadcastMode')}
+              {t('chat.broadcastMode')}
             </span>
           )}
           <span className="hidden sm:inline text-xs text-text-muted flex-shrink-0">
-            {t('memberCount', { count: members.length })}
+            {t('chat.memberCount', { count: members.length })}
           </span>
           {connectionStatus !== 'connected' && (
             <span
@@ -118,7 +118,7 @@ export default function ChatPage() {
                   connectionStatus === 'reconnecting' ? 'bg-warning-text animate-pulse' : 'bg-danger-text'
                 }`}
               />
-              {connectionStatus === 'reconnecting' ? t('reconnecting') : t('disconnected')}
+              {connectionStatus === 'reconnecting' ? t('chat.reconnecting') : t('chat.disconnected')}
             </span>
           )}
         </div>
@@ -142,7 +142,7 @@ export default function ChatPage() {
                     ? 'bg-surface-hover text-text-primary'
                     : 'hover:bg-surface-hover text-text-muted hover:text-text-secondary'
                 }`}
-                title={t('terminal')}
+                title={t('common.terminal')}
               >
                 <TerminalIcon className="w-5 h-5" />
               </button>
@@ -151,14 +151,14 @@ export default function ChatPage() {
           <button
             onClick={() => setSearchOpen(true)}
             className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            title={`${t('search')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K)`}
+            title={`${t('common.search')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K)`}
           >
             <SearchIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
             className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            title={t('roomSettings')}
+            title={t('chat.roomSettings')}
           >
             <SettingsIcon className="w-5 h-5" />
           </button>
@@ -187,8 +187,8 @@ export default function ChatPage() {
           </div>
           <span>
             {typingNames.length === 1
-              ? t('typing', { name: typingNames[0] })
-              : t('typingMultiple', { names: typingNames.join(', ') })}
+              ? t('chat.typing', { name: typingNames[0] })
+              : t('chat.typingMultiple', { names: typingNames.join(', ') })}
           </span>
         </div>
       )}

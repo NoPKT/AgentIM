@@ -587,9 +587,10 @@ messageRoutes.delete('/:id', async (c) => {
     try {
       const filename = basename(url)
       await unlink(resolve(config.uploadDir, filename))
-    } catch (err: any) {
-      if (err?.code !== 'ENOENT') {
-        log.warn(`Failed to delete attachment file ${url}: ${err?.message}`)
+    } catch (err: unknown) {
+      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      if (code !== 'ENOENT') {
+        log.warn(`Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`)
       }
     }
   }

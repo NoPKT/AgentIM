@@ -87,8 +87,8 @@ program
       console.log('Login successful!')
       console.log(`Gateway ID: ${gatewayId}`)
       console.log(`Config saved to: ${getConfigPath()}`)
-    } catch (err: any) {
-      console.error(`Login failed: ${err.message}`)
+    } catch (err: unknown) {
+      console.error(`Login failed: ${err instanceof Error ? err.message : err}`)
       process.exit(1)
     }
   })
@@ -210,8 +210,8 @@ program
                   refreshingToken = null
                   authenticate(wsClient)
                 },
-                (err: any) => {
-                  log.error(`Token refresh failed: ${err.message}`)
+                (err: unknown) => {
+                  log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
                   log.error('Please re-login: agentim login')
                   process.exit(1)
                 },

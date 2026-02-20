@@ -64,9 +64,9 @@ export function AddAgentDialog({
     try {
       await addRoomMember(roomId, agentId, 'agent')
       onAdded()
-      toast.success(t('agentAdded'))
+      toast.success(t('chat.agentAdded'))
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setAdding(null)
     }
@@ -104,7 +104,7 @@ export function AddAgentDialog({
             </span>
             {showOwner && agent.ownerName && (
               <span className="text-xs text-text-muted truncate">
-                {t('ownedBy', { name: agent.ownerName })}
+                {t('agent.ownedBy', { name: agent.ownerName })}
               </span>
             )}
           </div>
@@ -116,7 +116,7 @@ export function AddAgentDialog({
           disabled={adding === agent.id}
           className="px-3 py-1.5 text-sm font-medium text-info-text bg-info-subtle rounded-lg hover:bg-info-muted transition-colors disabled:opacity-50 flex-shrink-0"
         >
-          {adding === agent.id ? t('adding') : t('addAgent')}
+          {adding === agent.id ? t('common.adding') : t('chat.addAgent')}
         </button>
       </div>
     )
@@ -126,11 +126,11 @@ export function AddAgentDialog({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="add-agent-title">
-      <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div className="bg-surface rounded-xl shadow-xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <h2 id="add-agent-title" className="text-lg font-semibold text-text-primary">
-            {t('addAgentToRoom')}
+            {t('chat.addAgentToRoom')}
           </h2>
         </div>
 
@@ -142,8 +142,8 @@ export function AddAgentDialog({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('search')}
-              aria-label={t('search')}
+              placeholder={t('common.search')}
+              aria-label={t('common.search')}
               className="pl-10"
               autoFocus
             />
@@ -156,7 +156,7 @@ export function AddAgentDialog({
               className="rounded border-border text-accent focus:ring-accent"
             />
             <span className="text-sm text-text-secondary">
-              {t('filterOnlineOnly')}
+              {t('chat.filterOnlineOnly')}
             </span>
           </label>
         </div>
@@ -165,7 +165,7 @@ export function AddAgentDialog({
         <div className="max-h-80 overflow-y-auto">
           {hasNoAgents ? (
             <div className="px-6 py-8 text-center text-sm text-text-secondary">
-              {t('noAgentsAvailable')}
+              {t('chat.noAgentsAvailable')}
             </div>
           ) : (
             <>
@@ -174,7 +174,7 @@ export function AddAgentDialog({
                 <>
                   <div className="px-6 py-2 bg-surface-secondary sticky top-0">
                     <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                      {t('myAgents')}
+                      {t('agent.myAgents')}
                     </span>
                   </div>
                   {availableMyAgents.map((agent) => renderAgentRow(agent))}
@@ -186,7 +186,7 @@ export function AddAgentDialog({
                 <>
                   <div className="px-6 py-2 bg-surface-secondary sticky top-0">
                     <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                      {t('sharedAgents')}
+                      {t('agent.sharedAgents')}
                     </span>
                   </div>
                   {availableSharedAgents.map((agent) => renderAgentRow(agent, true))}
@@ -199,7 +199,7 @@ export function AddAgentDialog({
         {/* Footer */}
         <div className="px-6 py-3 border-t border-border flex justify-end">
           <Button variant="secondary" onClick={onClose}>
-            {t('close')}
+            {t('common.close')}
           </Button>
         </div>
       </div>

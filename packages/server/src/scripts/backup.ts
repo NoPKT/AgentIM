@@ -29,7 +29,7 @@ try {
     stdio: ['ignore', 'pipe', 'inherit'],
   })
   console.log(`Backup complete: ${backupFile}`)
-} catch (err: any) {
-  console.error(`Backup failed: ${err.message}`)
+} catch (err: unknown) {
+  console.error(`Backup failed: ${err instanceof Error ? err.message : err}`)
   process.exit(1)
 }

@@ -78,7 +78,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     setSearched(true)
     try {
       const params = new URLSearchParams({ q: q.trim(), limit: '30' })
-      if (senderFilter?.trim()) params.set('sender', senderFilter.trim())
+      if (senderFilter?.trim()) params.set('chat.sender', senderFilter.trim())
       const res = await api.get<Message[]>(`/messages/search?${params}`)
       if (res.ok && res.data) {
         setResults(res.data)
@@ -137,7 +137,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
       className="items-start pt-[10vh]"
       aria-labelledby="search-dialog-label"
     >
-      <div className="bg-surface rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div className="bg-surface rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
         {/* Search Input */}
         <div className="px-4 py-3 border-b border-border">
           <div className="relative">
@@ -148,8 +148,8 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               type="text"
               value={query}
               onChange={(e) => handleInputChange(e.target.value)}
-              placeholder={t('searchMessages')}
-              aria-label={t('searchMessages')}
+              placeholder={t('chat.searchMessages')}
+              aria-label={t('chat.searchMessages')}
               className="w-full pl-11 pr-10 py-2.5 border border-border rounded-xl text-sm bg-surface text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
             />
             {query && (
@@ -171,11 +171,11 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               onClick={() => setShowFilters(!showFilters)}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${showFilters ? 'bg-info-muted text-info-text' : 'text-text-muted hover:bg-surface-hover'}`}
             >
-              {t('filters')}
+              {t('chat.filters')}
             </button>
             {sender && (
               <span className="text-xs bg-surface-hover text-text-secondary px-2 py-0.5 rounded-md flex items-center gap-1">
-                {t('sender')}: {sender}
+                {t('chat.sender')}: {sender}
                 <button onClick={() => handleSenderChange('')} className="hover:text-danger-text">
                   ×
                 </button>
@@ -188,7 +188,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                 type="text"
                 value={sender}
                 onChange={(e) => handleSenderChange(e.target.value)}
-                placeholder={t('filterBySender')}
+                placeholder={t('chat.filterBySender')}
                 className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-surface text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
@@ -199,13 +199,13 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         <div className="max-h-[60vh] overflow-y-auto scrollbar-thin">
           {loading && (
             <div className="px-4 py-8 text-center text-sm text-text-secondary">
-              {t('loading')}
+              {t('common.loading')}
             </div>
           )}
 
           {!loading && searched && results.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-text-secondary">
-              {t('noResults')}
+              {t('common.noResults')}
             </div>
           )}
 
@@ -243,7 +243,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
           {!loading && !searched && (
             <div className="px-4 py-8 text-center text-sm text-text-muted">
-              {t('searchHint')}
+              {t('chat.searchHint')}
             </div>
           )}
         </div>
@@ -251,13 +251,13 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-border flex justify-between items-center">
           <span className="text-xs text-text-muted">
-            {searched && results.length > 0 && `${results.length} ${t('resultsFound')}`}
+            {searched && results.length > 0 && `${results.length} ${t('chat.resultsFound')}`}
           </span>
           <button
             onClick={onClose}
             className="px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-surface-hover rounded-lg transition-colors"
           >
-            {t('close')}
+            {t('common.close')}
           </button>
         </div>
       </div>

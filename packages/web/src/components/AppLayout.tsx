@@ -35,11 +35,11 @@ export function AppLayout() {
 
   const navLinks: NavLink[] = [
     ...(currentUser?.role === 'admin'
-      ? [{ path: '/users', label: t('userManagement'), Icon: UsersIcon }]
+      ? [{ path: '/users', label: t('settings.userManagement'), Icon: UsersIcon }]
       : []),
-    { path: '/agents', label: t('agents'), Icon: AgentsIcon },
-    { path: '/tasks', label: t('tasks'), Icon: TasksIcon },
-    { path: '/settings', label: t('settings'), Icon: SettingsIcon },
+    { path: '/agents', label: t('agent.agents'), Icon: AgentsIcon },
+    { path: '/tasks', label: t('task.tasks'), Icon: TasksIcon },
+    { path: '/settings', label: t('settings.settings'), Icon: SettingsIcon },
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -66,11 +66,11 @@ export function AppLayout() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
-          <h1 className="text-xl font-bold text-text-primary">{t('appName')}</h1>
+          <h1 className="text-xl font-bold text-text-primary">{t('common.appName')}</h1>
           <button
             className="lg:hidden p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => setSidebarOpen(false)}
-            aria-label={t('close')}
+            aria-label={t('common.close')}
           >
             <CloseIcon className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -114,13 +114,13 @@ export function AppLayout() {
           <button
             className="p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => setSidebarOpen(true)}
-            aria-label={t('rooms')}
+            aria-label={t('chat.rooms')}
             aria-expanded={sidebarOpen}
           >
             <MenuIcon className="w-6 h-6" aria-hidden="true" />
           </button>
           <h2 className="ml-4 text-lg font-semibold text-text-primary">
-            {t('appName')}
+            {t('common.appName')}
           </h2>
         </div>
 

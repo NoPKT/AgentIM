@@ -115,7 +115,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
             />
           </svg>
           <span className="font-medium">
-            {t('terminal')} — {agentName}
+            {t('common.terminal')} — {agentName}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -126,7 +126,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
               writtenTotalRef.current = 0
             }}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
-            title={t('clear')}
+            title={t('common.clear')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -140,7 +140,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           <button
             onClick={() => setCollapsed((c) => !c)}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
-            title={collapsed ? t('expand') : t('collapse')}
+            title={collapsed ? t('common.expand') : t('common.collapse')}
           >
             <svg
               className={`w-3.5 h-3.5 transition-transform ${collapsed ? 'rotate-180' : ''}`}
@@ -159,7 +159,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
           <button
             onClick={onClose}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
-            title={t('close')}
+            title={t('common.close')}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

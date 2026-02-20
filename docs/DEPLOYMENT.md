@@ -15,7 +15,7 @@
 ### 1. Clone and configure
 
 ```bash
-git clone <repository-url> agentim && cd agentim
+git clone https://github.com/NoPKT/AgentIM.git agentim && cd agentim
 cp .env.example .env
 ```
 
@@ -58,7 +58,7 @@ curl http://localhost:3000/api/health
 corepack enable
 corepack prepare pnpm@10.29.3 --activate
 
-git clone <repository-url> agentim && cd agentim
+git clone https://github.com/NoPKT/AgentIM.git agentim && cd agentim
 pnpm install
 pnpm build
 ```

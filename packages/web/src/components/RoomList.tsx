@@ -12,7 +12,7 @@ function timeAgo(dateStr: string, t: (key: string) => string): string {
   const then = new Date(dateStr).getTime()
   const diff = now - then
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return t('justNow')
+  if (mins < 1) return t('common.justNow')
   if (mins < 60) return `${mins}m`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h`
@@ -70,7 +70,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       setNewRoomName('')
       handleRoomClick(room.id)
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setIsCreating(false)
     }
@@ -101,14 +101,14 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         className="w-full mb-4 px-4 py-2.5 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors flex items-center justify-center space-x-2 shadow-sm"
       >
         <PlusIcon className="w-5 h-5" />
-        <span>{t('newRoom')}</span>
+        <span>{t('chat.newRoom')}</span>
       </button>
 
       {/* Room List */}
-      <nav className="space-y-1" aria-label={t('rooms')}>
+      <nav className="space-y-1" aria-label={t('chat.rooms')}>
         <div className="flex items-center justify-between px-2 mb-2">
           <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-            {showArchived ? t('archivedRooms') : t('rooms')}
+            {showArchived ? t('chat.archivedRooms') : t('chat.rooms')}
           </h3>
           <div className="flex items-center gap-1">
             {!showArchived && unreadCounts.size > 0 && (
@@ -120,13 +120,13 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                       useChatStore.setState({ unreadCounts: new Map() })
                     }
                   } catch {
-                    toast.error(t('error'))
+                    toast.error(t('common.error'))
                   }
                 }}
                 className="text-[10px] px-1.5 py-0.5 rounded text-text-muted hover:text-info-text transition-colors"
-                title={t('markAllRead')}
+                title={t('chat.markAllRead')}
               >
-                {t('markAllRead')}
+                {t('chat.markAllRead')}
               </button>
             )}
             <button
@@ -137,7 +137,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                   : 'text-text-muted hover:text-text-secondary'
               }`}
             >
-              {showArchived ? t('rooms') : t('archivedRooms')}
+              {showArchived ? t('chat.rooms') : t('chat.archivedRooms')}
             </button>
           </div>
         </div>
@@ -145,10 +145,10 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
           <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
             <ChatBubbleIcon className="w-10 h-10 text-text-muted mb-3" />
             <p className="text-sm font-medium text-text-secondary mb-1">
-              {t('noResults')}
+              {t('common.noResults')}
             </p>
             <p className="text-xs text-text-muted">
-              {t('createFirstRoom')}
+              {t('common.createFirstRoom')}
             </p>
           </div>
         ) : (
@@ -224,22 +224,22 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         onClose={() => { setShowNewRoomDialog(false); setNewRoomName('') }}
         aria-labelledby="new-room-title"
       >
-        <div className="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6">
             <h2 id="new-room-title" className="text-xl font-semibold mb-4 text-text-primary">
-              {t('newRoom')}
+              {t('chat.newRoom')}
             </h2>
 
             <div className="space-y-4">
               {/* Room Name */}
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1">
-                  {t('roomName')}
+                  {t('chat.roomName')}
                 </label>
                 <Input
                   type="text"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
-                  placeholder={t('enterRoomName')}
+                  placeholder={t('chat.enterRoomName')}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCreateRoom()
@@ -258,13 +258,13 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                 }}
                 disabled={isCreating}
               >
-                {t('cancel')}
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateRoom}
                 disabled={!newRoomName.trim() || isCreating}
               >
-                {isCreating ? t('loading') : t('create')}
+                {isCreating ? t('common.loading') : t('common.create')}
               </Button>
             </div>
           </div>

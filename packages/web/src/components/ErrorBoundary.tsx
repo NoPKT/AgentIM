@@ -57,9 +57,9 @@ function ErrorFallback({
           {error?.message || t('error.network')}
         </p>
         <div className="flex gap-3 justify-center">
-          <Button onClick={onRetry}>{t('retry')}</Button>
+          <Button onClick={onRetry}>{t('common.retry')}</Button>
           <Button variant="secondary" onClick={onGoHome}>
-            {t('back')}
+            {t('common.back')}
           </Button>
         </div>
       </div>

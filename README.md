@@ -214,7 +214,7 @@ pnpm test             # Run all tests
 
 ## License
 
-Copyright (c) 2025 NoPKT LLC. All rights reserved.
+Copyright (c) 2025-2026 NoPKT LLC. All rights reserved.
 
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see the [LICENSE](LICENSE) file for details.
 

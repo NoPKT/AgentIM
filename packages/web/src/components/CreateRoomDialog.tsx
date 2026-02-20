@@ -30,7 +30,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     setError('')
 
     if (!name.trim()) {
-      setError(t('pleaseEnterRoomName') || 'Please enter a room name')
+      setError(t('chat.pleaseEnterRoomName'))
       return
     }
 
@@ -40,7 +40,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
       handleClose()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t('failedToCreateRoom') || 'Failed to create room',
+        err instanceof Error ? err.message : t('chat.failedToCreateRoom'),
       )
     } finally {
       setIsCreating(false)
@@ -105,19 +105,19 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     <Modal isOpen={isOpen} onClose={handleClose} aria-labelledby="create-room-title">
       <div
         ref={dialogRef}
-        className="bg-surface rounded-lg shadow-lg max-w-md w-full p-6"
+        className="bg-surface rounded-xl shadow-xl max-w-md w-full p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h2
             id="create-room-title"
             className="text-xl font-semibold text-text-primary"
           >
-            {t('newRoom')}
+            {t('chat.newRoom')}
           </h2>
           <button
             onClick={handleClose}
             className="p-1 rounded-md text-text-muted hover:text-text-secondary hover:bg-surface-hover transition-colors"
-            aria-label={t('close')}
+            aria-label={t('common.close')}
           >
             <CloseIcon className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -136,7 +136,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               htmlFor="roomName"
               className="block text-sm font-medium text-text-secondary mb-2"
             >
-              {t('roomName')}
+              {t('chat.roomName')}
             </label>
             <Input
               id="roomName"
@@ -146,7 +146,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                 setName(e.target.value)
                 if (error) setError('')
               }}
-              placeholder={t('enterRoomName') || 'Enter room name'}
+              placeholder={t('chat.enterRoomName')}
               error={!!error && !name.trim()}
               autoFocus
               required
@@ -156,7 +156,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           {/* Room Type */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              {t('roomType')}
+              {t('chat.roomType')}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -176,7 +176,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                   <span
                     className={`font-medium ${type === 'private' ? 'text-blue-900 dark:text-blue-200' : 'text-text-primary'}`}
                   >
-                    {t('privateRoom')}
+                    {t('chat.privateRoom')}
                   </span>
                 </div>
               </button>
@@ -198,7 +198,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
                   <span
                     className={`font-medium ${type === 'group' ? 'text-blue-900 dark:text-blue-200' : 'text-text-primary'}`}
                   >
-                    {t('groupRoom')}
+                    {t('chat.groupRoom')}
                   </span>
                 </div>
               </button>
@@ -211,17 +211,17 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               htmlFor="systemPrompt"
               className="block text-sm font-medium text-text-secondary mb-2"
             >
-              {t('systemPrompt')}
+              {t('chat.systemPrompt')}
             </label>
             <Textarea
               id="systemPrompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder={t('systemPromptPlaceholder') || 'Describe room purpose...'}
+              placeholder={t('chat.systemPromptPlaceholder')}
               rows={3}
               maxLength={10000}
             />
-            <p className="text-xs text-text-muted mt-1">{t('systemPromptDesc')}</p>
+            <p className="text-xs text-text-muted mt-1">{t('chat.systemPromptDesc')}</p>
           </div>
 
           {/* Router */}
@@ -258,10 +258,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
               />
               <div className="flex-1">
                 <div className="font-medium text-text-primary text-sm">
-                  {t('broadcastMode')}
+                  {t('chat.broadcastMode')}
                 </div>
                 <div className="text-xs text-text-secondary mt-1">
-                  {t('broadcastModeDesc')}
+                  {t('chat.broadcastModeDesc')}
                 </div>
               </div>
             </label>
@@ -270,10 +270,10 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="secondary" onClick={handleClose}>
-              {t('cancel')}
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isCreating}>
-              {isCreating ? t('creating') : t('create')}
+              {isCreating ? t('common.creating') : t('common.create')}
             </Button>
           </div>
         </form>

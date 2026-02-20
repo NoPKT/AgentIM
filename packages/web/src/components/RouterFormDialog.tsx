@@ -147,7 +147,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} aria-labelledby="router-form-title">
-      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-border">
           <h2 id="router-form-title" className="text-lg font-semibold text-text-primary">
             {isEditing ? t('router.editRouter') : t('router.createRouter')}
@@ -164,7 +164,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('router.enterName') || ''}
+              placeholder={t('router.enterName')}
             />
           </div>
 
@@ -177,7 +177,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('router.enterDescription') || ''}
+              placeholder={t('router.enterDescription')}
             />
           </div>
 
@@ -226,7 +226,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   type="url"
                   value={llmBaseUrl}
                   onChange={(e) => setLlmBaseUrl(e.target.value)}
-                  placeholder={t('router.enterLlmBaseUrl') || ''}
+                  placeholder={t('router.enterLlmBaseUrl')}
                 />
               </div>
               <div>
@@ -239,8 +239,8 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   onChange={(e) => setLlmApiKey(e.target.value)}
                   placeholder={
                     isEditing
-                      ? t('router.leaveEmptyToKeep') || ''
-                      : t('router.enterLlmApiKey') || ''
+                      ? t('router.leaveEmptyToKeep')
+                      : t('router.enterLlmApiKey')
                   }
                 />
               </div>
@@ -252,7 +252,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   type="text"
                   value={llmModel}
                   onChange={(e) => setLlmModel(e.target.value)}
-                  placeholder={t('router.enterLlmModel') || ''}
+                  placeholder={t('router.enterLlmModel')}
                 />
               </div>
             </div>
@@ -351,7 +351,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                 onClick={handleTest}
                 disabled={testing}
               >
-                {testing ? t('testing') : t('router.testConnection')}
+                {testing ? t('common.testing') : t('router.testConnection')}
               </Button>
             )}
           </div>

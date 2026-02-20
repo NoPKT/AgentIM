@@ -91,9 +91,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     setUpdating(true)
     try {
       await updateRoom(roomId, { name: nameValue.trim() })
-      toast.success(t('roomUpdated'))
+      toast.success(t('chat.roomUpdated'))
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setUpdating(false)
       setEditingName(false)
@@ -105,9 +105,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     setUpdating(true)
     try {
       await updateRoom(roomId, { broadcastMode: !room.broadcastMode })
-      toast.success(t('roomUpdated'))
+      toast.success(t('chat.roomUpdated'))
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setUpdating(false)
     }
@@ -123,9 +123,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     setUpdating(true)
     try {
       await updateRoom(roomId, { systemPrompt: newValue || null })
-      toast.success(t('roomUpdated'))
+      toast.success(t('chat.roomUpdated'))
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     } finally {
       setUpdating(false)
       setEditingPrompt(false)
@@ -135,31 +135,31 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const handleRemoveMember = async (memberId: string) => {
     try {
       await removeRoomMember(roomId, memberId)
-      toast.success(t('agentRemoved'))
+      toast.success(t('chat.agentRemoved'))
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     }
   }
 
   const handleDeleteRoom = async () => {
     try {
       await deleteRoom(roomId)
-      toast.success(t('roomDeleted'))
+      toast.success(t('chat.roomDeleted'))
       onClose()
       navigate('/')
     } catch {
-      toast.error(t('error'))
+      toast.error(t('common.error'))
     }
   }
 
   const roleLabel = (role: string) => {
     switch (role) {
       case 'owner':
-        return t('roleOwner')
+        return t('chat.roleOwner')
       case 'admin':
-        return t('roleAdmin')
+        return t('chat.roleAdmin')
       default:
-        return t('roleMember')
+        return t('chat.roleMember')
     }
   }
 
@@ -174,7 +174,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
       <div
         role="dialog"
         aria-modal={isOpen}
-        aria-label={t('roomSettingsTitle')}
+        aria-label={t('chat.roomSettingsTitle')}
         className={`
           fixed top-0 right-0 h-full w-full sm:w-80 bg-surface shadow-xl z-modal
           transform transition-transform duration-300 ease-in-out
@@ -185,12 +185,12 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h2 className="text-lg font-semibold text-text-primary">
-              {t('roomSettingsTitle')}
+              {t('chat.roomSettingsTitle')}
             </h2>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
-              aria-label={t('close')}
+              aria-label={t('common.close')}
             >
               <CloseIcon className="w-5 h-5 text-text-secondary" aria-hidden="true" />
             </button>
@@ -201,7 +201,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             {/* Room Name */}
             <div className="px-5 py-4 border-b border-border">
               <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-                {t('roomName')}
+                {t('chat.roomName')}
               </label>
               {editingName ? (
                 <div className="flex gap-2">
@@ -218,7 +218,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     }}
                   />
                   <Button size="sm" onClick={handleSaveName} disabled={updating}>
-                    {t('save')}
+                    {t('common.save')}
                   </Button>
                 </div>
               ) : (
@@ -240,16 +240,16 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text-primary">
-                    {t('broadcastMode')}
+                    {t('chat.broadcastMode')}
                   </p>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {t('broadcastModeDesc')}
+                    {t('chat.broadcastModeDesc')}
                   </p>
                 </div>
                 <button
                   role="switch"
                   aria-checked={!!room?.broadcastMode}
-                  aria-label={t('broadcastMode')}
+                  aria-label={t('chat.broadcastMode')}
                   onClick={handleToggleBroadcast}
                   disabled={updating}
                   className={`
@@ -271,7 +271,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             {/* System Prompt */}
             <div className="px-5 py-4 border-b border-border">
               <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
-                {t('systemPrompt')}
+                {t('chat.systemPrompt')}
               </label>
               {editingPrompt ? (
                 <div className="space-y-2">
@@ -282,7 +282,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     rows={4}
                     maxLength={10000}
                     autoFocus
-                    placeholder={t('systemPromptPlaceholder') || ''}
+                    placeholder={t('chat.systemPromptPlaceholder')}
                   />
                   <div className="flex gap-2 justify-end">
                     <Button
@@ -293,10 +293,10 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                         setEditingPrompt(false)
                       }}
                     >
-                      {t('cancel')}
+                      {t('common.cancel')}
                     </Button>
                     <Button size="sm" onClick={handleSavePrompt} disabled={updating}>
-                      {t('save')}
+                      {t('common.save')}
                     </Button>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                       ? room.systemPrompt.length > 80
                         ? room.systemPrompt.slice(0, 80) + '...'
                         : room.systemPrompt
-                      : t('noSystemPrompt')}
+                      : t('chat.noSystemPrompt')}
                   </span>
                   <PencilIcon
                     className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2"
@@ -323,7 +323,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 </button>
               )}
               <p className="text-xs text-text-secondary mt-1">
-                {t('systemPromptDesc')}
+                {t('chat.systemPromptDesc')}
               </p>
             </div>
 
@@ -344,9 +344,9 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   setUpdating(true)
                   try {
                     await updateRoom(roomId, { routerId })
-                    toast.success(t('roomUpdated'))
+                    toast.success(t('chat.roomUpdated'))
                   } catch {
-                    toast.error(t('error'))
+                    toast.error(t('common.error'))
                   } finally {
                     setUpdating(false)
                   }
@@ -385,7 +385,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                         await updateNotificationPref(roomId, pref)
                         toast.success(t('settings.notifPrefUpdated'))
                       } catch {
-                        toast.error(t('error'))
+                        toast.error(t('common.error'))
                       }
                     }}
                     className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -408,14 +408,14 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             <div className="px-5 py-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                  {t('members')} ({members.length})
+                  {t('chat.members')} ({members.length})
                 </h3>
                 <button
                   onClick={() => setShowAddAgent(true)}
                   className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-accent bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
                   <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  {t('addAgent')}
+                  {t('chat.addAgent')}
                 </button>
               </div>
 
@@ -486,8 +486,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                         <button
                           onClick={() => handleRemoveMember(member.memberId)}
                           className="p-1 rounded-md text-text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                          title={t('removeMember')}
-                          aria-label={t('removeMember')}
+                          title={t('chat.removeMember')}
+                          aria-label={t('chat.removeMember')}
                         >
                           <CloseIcon className="w-4 h-4" aria-hidden="true" />
                         </button>
@@ -509,7 +509,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   try {
                     await togglePin(roomId)
                   } catch {
-                    toast.error(t('error'))
+                    toast.error(t('common.error'))
                   } finally {
                     setPinLoading(false)
                   }
@@ -521,7 +521,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     : 'text-text-secondary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {myMember?.pinnedAt ? t('unpinRoom') : t('pinRoom')}
+                {myMember?.pinnedAt ? t('chat.unpinRoom') : t('chat.pinRoom')}
               </button>
               <button
                 onClick={async () => {
@@ -530,7 +530,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   try {
                     await toggleArchive(roomId)
                   } catch {
-                    toast.error(t('error'))
+                    toast.error(t('common.error'))
                   } finally {
                     setArchiveLoading(false)
                   }
@@ -542,12 +542,12 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     : 'text-text-secondary bg-surface-hover hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
-                {myMember?.archivedAt ? t('unarchiveRoom') : t('archiveRoom')}
+                {myMember?.archivedAt ? t('chat.unarchiveRoom') : t('chat.archiveRoom')}
               </button>
             </div>
             {showDeleteConfirm ? (
               <div className="space-y-3">
-                <p className="text-sm text-text-secondary">{t('confirmDeleteRoom')}</p>
+                <p className="text-sm text-text-secondary">{t('chat.confirmDeleteRoom')}</p>
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
@@ -555,10 +555,10 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                     onClick={() => setShowDeleteConfirm(false)}
                     className="flex-1"
                   >
-                    {t('cancel')}
+                    {t('common.cancel')}
                   </Button>
                   <Button variant="danger" size="sm" onClick={handleDeleteRoom} className="flex-1">
-                    {t('delete')}
+                    {t('common.delete')}
                   </Button>
                 </div>
               </div>
@@ -567,7 +567,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 onClick={() => setShowDeleteConfirm(true)}
                 className="w-full px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               >
-                {t('deleteRoom')}
+                {t('chat.deleteRoom')}
               </button>
             )}
           </div>

@@ -4,25 +4,25 @@ export function getStatusConfig(t: TFunction) {
   return {
     online: {
       color: 'bg-green-500',
-      label: t('online'),
+      label: t('common.online'),
       textColor: 'text-green-700',
       bgColor: 'bg-green-50',
     },
     offline: {
       color: 'bg-gray-400',
-      label: t('offline'),
+      label: t('common.offline'),
       textColor: 'text-gray-700',
       bgColor: 'bg-gray-50',
     },
     busy: {
       color: 'bg-yellow-500',
-      label: t('busy'),
+      label: t('common.busy'),
       textColor: 'text-yellow-700',
       bgColor: 'bg-yellow-50',
     },
     error: {
       color: 'bg-red-500',
-      label: t('error'),
+      label: t('common.error'),
       textColor: 'text-red-700',
       bgColor: 'bg-red-50',
     },
@@ -32,23 +32,23 @@ export function getStatusConfig(t: TFunction) {
 export function getTypeConfig(t: TFunction) {
   return {
     'claude-code': {
-      label: t('claudeCode'),
+      label: t('agent.claudeCode'),
       color: 'bg-role-bg text-role-text',
     },
     codex: {
-      label: t('codex'),
+      label: t('agent.codex'),
       color: 'bg-info-muted text-info-text',
     },
     gemini: {
-      label: t('gemini'),
+      label: t('agent.gemini'),
       color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
     },
     cursor: {
-      label: t('cursor'),
+      label: t('agent.cursor'),
       color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
     },
     generic: {
-      label: t('generic'),
+      label: t('agent.generic'),
       color: 'bg-badge-bg text-badge-text',
     },
   } as Record<string, { label: string; color: string }>
