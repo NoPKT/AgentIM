@@ -3,6 +3,7 @@ import type { SVGProps } from 'react'
 type IconProps = SVGProps<SVGSVGElement>
 
 const defaultStroke: IconProps = {
+  'aria-hidden': true,
   fill: 'none',
   stroke: 'currentColor',
   strokeLinecap: 'round' as const,
