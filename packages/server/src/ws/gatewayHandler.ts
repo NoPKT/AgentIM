@@ -167,7 +167,9 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return
     }
   } catch (err) {
-    log.error(`Error handling gateway message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
+    log.error(
+      `Error handling gateway message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
+    )
     captureException(err)
   }
 }
@@ -269,7 +271,11 @@ async function handleAuth(
     connectionManager.removeGateway(ws)
     log.error(`Gateway auth failed: ${(err as Error).message}`)
     ws.send(
-      JSON.stringify({ type: 'server:gateway_auth_result', ok: false, error: 'Authentication failed' }),
+      JSON.stringify({
+        type: 'server:gateway_auth_result',
+        ok: false,
+        error: 'Authentication failed',
+      }),
     )
   }
 }
@@ -311,7 +317,9 @@ async function handleRegisterAgent(
       .where(eq(gateways.id, existingAgent.gatewayId))
       .limit(1)
     if (existingGw && existingGw.userId !== gw.userId) {
-      log.warn(`Gateway ${gw.gatewayId} attempted to register agent ${agent.id} owned by another user`)
+      log.warn(
+        `Gateway ${gw.gatewayId} attempted to register agent ${agent.id} owned by another user`,
+      )
       return
     }
   }
@@ -402,7 +410,13 @@ async function handleMessageChunk(
   const [chunkMembership] = await db
     .select({ memberId: roomMembers.memberId })
     .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, msg.roomId), eq(roomMembers.memberId, msg.agentId), eq(roomMembers.memberType, 'agent')))
+    .where(
+      and(
+        eq(roomMembers.roomId, msg.roomId),
+        eq(roomMembers.memberId, msg.agentId),
+        eq(roomMembers.memberType, 'agent'),
+      ),
+    )
     .limit(1)
   if (!chunkMembership) {
     log.warn(`Agent ${msg.agentId} is not a member of room ${msg.roomId}, dropping chunk`)
@@ -411,7 +425,9 @@ async function handleMessageChunk(
 
   // Validate chunk size to prevent memory abuse
   if (msg.chunk.content.length > MAX_CHUNK_SIZE) {
-    log.warn(`Agent ${msg.agentId} sent oversized chunk (${msg.chunk.content.length} bytes), dropping`)
+    log.warn(
+      `Agent ${msg.agentId} sent oversized chunk (${msg.chunk.content.length} bytes), dropping`,
+    )
     return
   }
 
@@ -449,7 +465,9 @@ async function handleMessageComplete(
 
   // Reject oversized messages to prevent OOM
   if (msg.fullContent.length > MAX_FULL_CONTENT_SIZE) {
-    log.warn(`Agent ${msg.agentId} sent oversized message (${msg.fullContent.length} bytes), dropping`)
+    log.warn(
+      `Agent ${msg.agentId} sent oversized message (${msg.fullContent.length} bytes), dropping`,
+    )
     return
   }
 
@@ -457,7 +475,13 @@ async function handleMessageComplete(
   const [completeMembership] = await db
     .select({ memberId: roomMembers.memberId })
     .from(roomMembers)
-    .where(and(eq(roomMembers.roomId, msg.roomId), eq(roomMembers.memberId, msg.agentId), eq(roomMembers.memberType, 'agent')))
+    .where(
+      and(
+        eq(roomMembers.roomId, msg.roomId),
+        eq(roomMembers.memberId, msg.agentId),
+        eq(roomMembers.memberType, 'agent'),
+      ),
+    )
     .limit(1)
   if (!completeMembership) {
     log.warn(`Agent ${msg.agentId} is not a member of room ${msg.roomId}, dropping message`)
@@ -479,6 +503,17 @@ async function handleMessageComplete(
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
 
+  // Serialize chunks and enforce a size cap to prevent oversized DB writes.
+  // Chunks are a structured representation of the response (text, thinking, tool_use, etc.)
+  // so their JSON serialization should always be bounded by MAX_FULL_CONTENT_SIZE.
+  const MAX_CHUNKS_JSON_SIZE = 20 * 1024 * 1024 // 20 MB (headroom for JSON overhead)
+  const chunksJson = msg.chunks ? JSON.stringify(msg.chunks) : null
+  if (chunksJson && chunksJson.length > MAX_CHUNKS_JSON_SIZE) {
+    log.warn(
+      `Agent ${msg.agentId} chunks JSON exceeds size limit (${chunksJson.length} bytes), persisting without chunks`,
+    )
+  }
+
   // Persist agent's full message with structured chunks
   await db.insert(messages).values({
     id: msg.messageId,
@@ -489,7 +524,7 @@ async function handleMessageComplete(
     type: 'agent_response',
     content: msg.fullContent,
     mentions: '[]',
-    chunks: msg.chunks ? JSON.stringify(msg.chunks) : null,
+    chunks: chunksJson && chunksJson.length <= MAX_CHUNKS_JSON_SIZE ? chunksJson : null,
     createdAt: now,
   })
 
@@ -814,7 +849,9 @@ export async function sendRoomContextToAgent(agentId: string, roomId: string) {
   try {
     return await _sendRoomContextToAgent(agentId, roomId)
   } catch (err) {
-    log.error(`Failed to send room context to agent ${agentId} for room ${roomId}: ${(err as Error).message}`)
+    log.error(
+      `Failed to send room context to agent ${agentId} for room ${roomId}: ${(err as Error).message}`,
+    )
   }
 }
 

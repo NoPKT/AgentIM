@@ -4,7 +4,16 @@ import { eq, and, inArray } from 'drizzle-orm'
 import { resolve, basename } from 'node:path'
 import { unlink } from 'node:fs/promises'
 import { db } from '../db/index.js'
-import { rooms, roomMembers, messages, messageAttachments, agents, gateways, routers, users } from '../db/schema.js'
+import {
+  rooms,
+  roomMembers,
+  messages,
+  messageAttachments,
+  agents,
+  gateways,
+  routers,
+  users,
+} from '../db/schema.js'
 import {
   createRoomSchema,
   updateRoomSchema,
@@ -16,7 +25,7 @@ import { config } from '../config.js'
 import { sanitizeText } from '../lib/sanitize.js'
 import { createLogger } from '../lib/logger.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
@@ -28,11 +37,7 @@ async function checkRouterAccess(
   userId: string,
   routerId: string,
 ): Promise<{ ok: true } | { ok: false; status: 404 | 403; error: string }> {
-  const [router] = await db
-    .select()
-    .from(routers)
-    .where(eq(routers.id, routerId))
-    .limit(1)
+  const [router] = await db.select().from(routers).where(eq(routers.id, routerId)).limit(1)
   if (!router) {
     return { ok: false, status: 404, error: 'Router not found' }
   }
@@ -89,7 +94,10 @@ roomRoutes.post('/', async (c) => {
   if (body instanceof Response) return body
   const parsed = createRoomSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const id = nanoid()
@@ -199,7 +207,10 @@ roomRoutes.put('/:id', async (c) => {
   if (body instanceof Response) return body
   const parsed = updateRoomSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   if (!(await isRoomAdmin(userId, roomId))) {
@@ -257,9 +268,7 @@ roomRoutes.delete('/:id', async (c) => {
 
   // Collect members before deletion so we can notify them
   const memberRows = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
-  const userMemberIds = memberRows
-    .filter((m) => m.memberType === 'user')
-    .map((m) => m.memberId)
+  const userMemberIds = memberRows.filter((m) => m.memberType === 'user').map((m) => m.memberId)
 
   // Collect attachment file URLs before cascade-deleting (DB records will be gone after)
   const roomMessageIds = await db
@@ -317,7 +326,10 @@ roomRoutes.post('/:id/members', async (c) => {
   if (body instanceof Response) return body
   const parsed = addMemberSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   if (!(await isRoomAdmin(userId, roomId))) {
@@ -404,7 +416,11 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
   }
 
   // Prevent removing the room creator — would orphan the room
-  const [room] = await db.select({ createdById: rooms.createdById }).from(rooms).where(eq(rooms.id, roomId)).limit(1)
+  const [room] = await db
+    .select({ createdById: rooms.createdById })
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1)
   if (room && room.createdById === memberId) {
     return c.json({ ok: false, error: 'Cannot remove the room creator' }, 400)
   }
@@ -505,7 +521,11 @@ roomRoutes.put('/:id/notification-pref', async (c) => {
   if (body instanceof Response) return body
   const pref = (body as Record<string, unknown>)?.pref
 
-  if (!pref || typeof pref !== 'string' || !(NOTIFICATION_PREFS as readonly string[]).includes(pref)) {
+  if (
+    !pref ||
+    typeof pref !== 'string' ||
+    !(NOTIFICATION_PREFS as readonly string[]).includes(pref)
+  ) {
     return c.json(
       { ok: false, error: `Invalid preference. Must be one of: ${NOTIFICATION_PREFS.join(', ')}` },
       400,

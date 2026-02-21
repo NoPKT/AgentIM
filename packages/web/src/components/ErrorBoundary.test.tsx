@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ErrorBoundary } from './ErrorBoundary.js'
 
 const consoleError = console.error
@@ -21,7 +21,7 @@ function NormalChild() {
   return <div>Child content</div>
 }
 
-function ThrowingChild() {
+function ThrowingChild(): ReactNode {
   throw new Error('Test render error')
 }
 

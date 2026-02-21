@@ -3,7 +3,15 @@ import { nanoid } from 'nanoid'
 import { eq, ne, and, sql, inArray } from 'drizzle-orm'
 import { hash, verify } from 'argon2'
 import { db } from '../db/index.js'
-import { users, rooms, tasks, roomMembers, refreshTokens, messageAttachments, messages } from '../db/schema.js'
+import {
+  users,
+  rooms,
+  tasks,
+  roomMembers,
+  refreshTokens,
+  messageAttachments,
+  messages,
+} from '../db/schema.js'
 import {
   updateUserSchema,
   changePasswordSchema,
@@ -13,13 +21,12 @@ import {
 import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { resolve } from 'node:path'
-import { unlink } from 'node:fs/promises'
-import { readdirSync } from 'node:fs'
+import { unlink, readdir } from 'node:fs/promises'
 import { sanitizeText } from '../lib/sanitize.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
 
 export const userRoutes = new Hono<AuthEnv>()
@@ -56,7 +63,10 @@ userRoutes.put('/me', async (c) => {
   if (body instanceof Response) return body
   const parsed = updateUserSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const now = new Date().toISOString()
@@ -92,7 +102,10 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
   if (body instanceof Response) return body
   const parsed = changePasswordSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
@@ -111,8 +124,14 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
 
   // Invalidate all refresh tokens so other sessions must re-login
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  // Revoke all outstanding access tokens and disconnect active WS sessions
-  await revokeUserTokens(userId)
+  // Revoke all outstanding access tokens. Best-effort: refresh tokens are
+  // already deleted, so no new access tokens can be obtained even if Redis
+  // is temporarily unavailable. Existing access tokens expire within TTL.
+  try {
+    await revokeUserTokens(userId)
+  } catch {
+    // Error already logged inside revokeUserTokens — continue
+  }
   connectionManager.disconnectUser(userId)
   logAudit({ userId, action: 'password_change', ipAddress: getClientIp(c) })
 
@@ -151,7 +170,10 @@ userRoutes.post('/', adminMiddleware, async (c) => {
   if (body instanceof Response) return body
   const parsed = adminCreateUserSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const { username, password, displayName: rawDisplayName, role } = parsed.data
@@ -199,7 +221,10 @@ userRoutes.put('/:id', adminMiddleware, async (c) => {
   if (body instanceof Response) return body
   const parsed = adminUpdateUserSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const [target] = await db.select().from(users).where(eq(users.id, targetId)).limit(1)
@@ -233,7 +258,11 @@ userRoutes.put('/:id', adminMiddleware, async (c) => {
   // If password was changed by admin, revoke target user's tokens and disconnect sessions
   if (parsed.data.password) {
     await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId))
-    await revokeUserTokens(targetId)
+    try {
+      await revokeUserTokens(targetId)
+    } catch {
+      // Error already logged inside revokeUserTokens — continue
+    }
     connectionManager.disconnectUser(targetId)
   }
 
@@ -280,7 +309,7 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
   const uploadDir = resolve(config.uploadDir)
   try {
     // 1. Avatars
-    const avatarFiles = readdirSync(uploadDir).filter((f) => f.startsWith(`avatar_${targetId}`))
+    const avatarFiles = (await readdir(uploadDir)).filter((f) => f.startsWith(`avatar_${targetId}`))
     filesToDelete.push(...avatarFiles.map((f) => resolve(uploadDir, f)))
 
     // 2. Attachments in rooms created by this user (will cascade-delete)
@@ -289,7 +318,10 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     ).map((r) => r.id)
     if (userRoomIds.length > 0) {
       const roomMsgIds = (
-        await db.select({ id: messages.id }).from(messages).where(inArray(messages.roomId, userRoomIds))
+        await db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(inArray(messages.roomId, userRoomIds))
       ).map((m) => m.id)
       if (roomMsgIds.length > 0) {
         const cascadeAttachments = await db
@@ -307,7 +339,12 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     const orphanAttachments = await db
       .select({ url: messageAttachments.url })
       .from(messageAttachments)
-      .where(and(eq(messageAttachments.uploadedBy, targetId), sql`${messageAttachments.messageId} IS NULL`))
+      .where(
+        and(
+          eq(messageAttachments.uploadedBy, targetId),
+          sql`${messageAttachments.messageId} IS NULL`,
+        ),
+      )
     for (const a of orphanAttachments) {
       const filename = a.url.replace(/^\/uploads\//, '')
       if (filename) filesToDelete.push(resolve(uploadDir, filename))
@@ -317,7 +354,11 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
   }
 
   // Clean up all related resources in a transaction
-  await revokeUserTokens(targetId)
+  try {
+    await revokeUserTokens(targetId)
+  } catch {
+    // Error already logged inside revokeUserTokens — continue with deletion
+  }
   connectionManager.disconnectUser(targetId)
   await db.transaction(async (tx) => {
     // Delete rooms created by this user (cascades: room_members, messages, tasks in those rooms)
@@ -325,20 +366,39 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     // Delete remaining tasks created by this user in other rooms
     await tx.delete(tasks).where(eq(tasks.createdById, targetId))
     // Clear task assignments where user is assignee (preserve task, just remove assignee)
-    await tx.update(tasks).set({ assigneeId: null, assigneeType: null }).where(eq(tasks.assigneeId, targetId))
+    await tx
+      .update(tasks)
+      .set({ assigneeId: null, assigneeType: null })
+      .where(eq(tasks.assigneeId, targetId))
     // Remove user from rooms they're a member of (but didn't create)
-    await tx.delete(roomMembers).where(and(eq(roomMembers.memberId, targetId), eq(roomMembers.memberType, 'user')))
+    await tx
+      .delete(roomMembers)
+      .where(and(eq(roomMembers.memberId, targetId), eq(roomMembers.memberType, 'user')))
     // Delete orphan attachments uploaded by this user (not linked to any message)
-    await tx.delete(messageAttachments).where(and(eq(messageAttachments.uploadedBy, targetId), sql`${messageAttachments.messageId} IS NULL`))
+    await tx
+      .delete(messageAttachments)
+      .where(
+        and(
+          eq(messageAttachments.uploadedBy, targetId),
+          sql`${messageAttachments.messageId} IS NULL`,
+        ),
+      )
     // Clear uploadedBy for linked attachments (preserve message integrity)
-    await tx.update(messageAttachments).set({ uploadedBy: null }).where(eq(messageAttachments.uploadedBy, targetId))
+    await tx
+      .update(messageAttachments)
+      .set({ uploadedBy: null })
+      .where(eq(messageAttachments.uploadedBy, targetId))
     // Delete user (cascades: refreshTokens, gateways→agents, routers, auditLogs set null)
     await tx.delete(users).where(eq(users.id, targetId))
   })
 
   // Unlink files from disk after transaction succeeds (best-effort)
   for (const filePath of filesToDelete) {
-    try { await unlink(filePath) } catch { /* file may already be gone */ }
+    try {
+      await unlink(filePath)
+    } catch {
+      /* file may already be gone */
+    }
   }
   logAudit({
     userId: adminId,

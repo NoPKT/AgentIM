@@ -10,7 +10,7 @@ import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { rateLimitMiddleware } from '../middleware/rateLimit.js'
 import { encryptSecret, decryptSecret } from '../lib/crypto.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
 
 const routerTestRateLimit = rateLimitMiddleware(60_000, 5, 'router-test')
@@ -70,7 +70,13 @@ function isInternalUrl(urlStr: string): boolean {
     const hostname = url.hostname.toLowerCase()
 
     // Block localhost variants
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]') return true
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '[::1]'
+    )
+      return true
     // Block 0.0.0.0
     if (hostname === '0.0.0.0') return true
     // Block cloud metadata endpoints
@@ -105,11 +111,15 @@ async function resolvesToPrivateIp(urlStr: string): Promise<boolean> {
     try {
       const addresses = await dns.resolve4(hostname)
       if (addresses.some(isPrivateIp)) return true
-    } catch { /* no A records — try AAAA */ }
+    } catch {
+      /* no A records — try AAAA */
+    }
     try {
       const addresses = await dns.resolve6(hostname)
       if (addresses.some(isPrivateIp)) return true
-    } catch { /* no AAAA records */ }
+    } catch {
+      /* no AAAA records */
+    }
     return false
   } catch {
     return false // DNS resolution failure is not an SSRF indicator
@@ -166,7 +176,11 @@ routerRoutes.get('/', async (c) => {
 
   // Non-admin: own personal routers + visible global routers
   const [personalRouters, globalRouters] = await Promise.all([
-    db.select().from(routers).where(and(eq(routers.scope, 'personal'), eq(routers.createdById, userId))).limit(ROUTER_LIMIT),
+    db
+      .select()
+      .from(routers)
+      .where(and(eq(routers.scope, 'personal'), eq(routers.createdById, userId)))
+      .limit(ROUTER_LIMIT),
     db.select().from(routers).where(eq(routers.scope, 'global')).limit(ROUTER_LIMIT),
   ])
 
@@ -183,12 +197,21 @@ routerRoutes.post('/', async (c) => {
   if (body instanceof Response) return body
   const parsed = createRouterSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   // Block SSRF — reject internal/private network URLs
-  if (isInternalUrl(parsed.data.llmBaseUrl) || await resolvesToPrivateIp(parsed.data.llmBaseUrl)) {
-    return c.json({ ok: false, error: 'LLM base URL must not point to internal or private networks' }, 400)
+  if (
+    isInternalUrl(parsed.data.llmBaseUrl) ||
+    (await resolvesToPrivateIp(parsed.data.llmBaseUrl))
+  ) {
+    return c.json(
+      { ok: false, error: 'LLM base URL must not point to internal or private networks' },
+      400,
+    )
   }
 
   // Only admin can create global routers
@@ -256,7 +279,10 @@ routerRoutes.put('/:id', async (c) => {
   if (body instanceof Response) return body
   const parsed = updateRouterSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const [router] = await db.select().from(routers).where(eq(routers.id, routerId)).limit(1)
@@ -270,8 +296,14 @@ routerRoutes.put('/:id', async (c) => {
   }
 
   // Block SSRF on update
-  if (parsed.data.llmBaseUrl !== undefined && (isInternalUrl(parsed.data.llmBaseUrl) || await resolvesToPrivateIp(parsed.data.llmBaseUrl))) {
-    return c.json({ ok: false, error: 'LLM base URL must not point to internal or private networks' }, 400)
+  if (
+    parsed.data.llmBaseUrl !== undefined &&
+    (isInternalUrl(parsed.data.llmBaseUrl) || (await resolvesToPrivateIp(parsed.data.llmBaseUrl)))
+  ) {
+    return c.json(
+      { ok: false, error: 'LLM base URL must not point to internal or private networks' },
+      400,
+    )
   }
 
   const now = new Date().toISOString()
@@ -280,15 +312,18 @@ routerRoutes.put('/:id', async (c) => {
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description
   if (parsed.data.llmBaseUrl !== undefined) updateData.llmBaseUrl = parsed.data.llmBaseUrl
-  if (parsed.data.llmApiKey !== undefined) updateData.llmApiKey = encryptSecret(parsed.data.llmApiKey)
+  if (parsed.data.llmApiKey !== undefined)
+    updateData.llmApiKey = encryptSecret(parsed.data.llmApiKey)
   if (parsed.data.llmModel !== undefined) updateData.llmModel = parsed.data.llmModel
   if (parsed.data.maxChainDepth !== undefined) updateData.maxChainDepth = parsed.data.maxChainDepth
-  if (parsed.data.rateLimitWindow !== undefined) updateData.rateLimitWindow = parsed.data.rateLimitWindow
+  if (parsed.data.rateLimitWindow !== undefined)
+    updateData.rateLimitWindow = parsed.data.rateLimitWindow
   if (parsed.data.rateLimitMax !== undefined) updateData.rateLimitMax = parsed.data.rateLimitMax
   // Visibility fields only apply to global routers — ignore for personal scope
   if (router.scope === 'global') {
     if (parsed.data.visibility !== undefined) updateData.visibility = parsed.data.visibility
-    if (parsed.data.visibilityList !== undefined) updateData.visibilityList = JSON.stringify(parsed.data.visibilityList)
+    if (parsed.data.visibilityList !== undefined)
+      updateData.visibilityList = JSON.stringify(parsed.data.visibilityList)
   }
 
   await db.update(routers).set(updateData).where(eq(routers.id, routerId))

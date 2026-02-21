@@ -11,7 +11,7 @@ import { authRateLimit } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
-import { parseJsonBody } from '../lib/validation.js'
+import { parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
 
 const REFRESH_COOKIE_NAME = 'agentim_rt'
@@ -43,17 +43,23 @@ function parseExpiryMs(expiry: string): number {
   const [, num, unit] = match
   const n = parseInt(num, 10)
   switch (unit) {
-    case 's': return n * 1000
-    case 'm': return n * 60 * 1000
-    case 'h': return n * 60 * 60 * 1000
-    case 'd': return n * 24 * 60 * 60 * 1000
-    default: return 7 * 24 * 60 * 60 * 1000
+    case 's':
+      return n * 1000
+    case 'm':
+      return n * 60 * 1000
+    case 'h':
+      return n * 60 * 60 * 1000
+    case 'd':
+      return n * 24 * 60 * 60 * 1000
+    default:
+      return 7 * 24 * 60 * 60 * 1000
   }
 }
 
 // Dummy hash for timing-safe comparison when user doesn't exist
 // This prevents attackers from enumerating valid usernames via response timing
-const DUMMY_HASH = '$argon2id$v=19$m=65536,t=3,p=4$aaaaaaaaaaaaaaaa$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+const DUMMY_HASH =
+  '$argon2id$v=19$m=65536,t=3,p=4$aaaaaaaaaaaaaaaa$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
 export const authRoutes = new Hono<AuthEnv>()
 
@@ -65,7 +71,10 @@ authRoutes.post('/login', async (c) => {
   if (body instanceof Response) return body
   const parsed = loginSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const { username, password } = parsed.data
@@ -99,7 +108,12 @@ authRoutes.post('/login', async (c) => {
       })
       .where(eq(users.id, user.id))
       .returning({ failedLoginAttempts: users.failedLoginAttempts })
-    logAudit({ userId: user.id, action: 'login_failed', metadata: { attempts: updated?.failedLoginAttempts }, ipAddress: ip })
+    logAudit({
+      userId: user.id,
+      action: 'login_failed',
+      metadata: { attempts: updated?.failedLoginAttempts },
+      ipAddress: ip,
+    })
     return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
 
@@ -128,8 +142,16 @@ authRoutes.post('/login', async (c) => {
     .where(eq(refreshTokens.userId, user.id))
     .orderBy(refreshTokens.createdAt)
   if (existingTokens.length >= MAX_REFRESH_TOKENS_PER_USER) {
-    const toDelete = existingTokens.slice(0, existingTokens.length - MAX_REFRESH_TOKENS_PER_USER + 1)
-    await db.delete(refreshTokens).where(inArray(refreshTokens.id, toDelete.map((t) => t.id)))
+    const toDelete = existingTokens.slice(
+      0,
+      existingTokens.length - MAX_REFRESH_TOKENS_PER_USER + 1,
+    )
+    await db.delete(refreshTokens).where(
+      inArray(
+        refreshTokens.id,
+        toDelete.map((t) => t.id),
+      ),
+    )
   }
 
   await db
@@ -245,7 +267,9 @@ authRoutes.post('/refresh', async (c) => {
   } catch (err) {
     // jose JWT errors have a `code` property starting with "ERR_" (e.g. ERR_JWT_EXPIRED)
     const isJoseError =
-      err instanceof Error && 'code' in err && typeof (err as { code: unknown }).code === 'string' &&
+      err instanceof Error &&
+      'code' in err &&
+      typeof (err as { code: unknown }).code === 'string' &&
       ((err as { code: string }).code.startsWith('ERR_JWT') ||
         (err as { code: string }).code.startsWith('ERR_JWS'))
     if (isJoseError) {
@@ -259,8 +283,14 @@ authRoutes.post('/refresh', async (c) => {
 authRoutes.post('/logout', authMiddleware, async (c) => {
   const userId = c.get('userId')
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  // Revoke all outstanding access tokens and disconnect active WS sessions
-  await revokeUserTokens(userId)
+  // Revoke all outstanding access tokens. Best-effort: the refresh token is
+  // already deleted above so the user cannot obtain new access tokens even if
+  // Redis is temporarily unavailable. Existing access tokens expire within TTL.
+  try {
+    await revokeUserTokens(userId)
+  } catch {
+    // Error already logged inside revokeUserTokens — continue with logout
+  }
   connectionManager.disconnectUser(userId)
   // Clear the httpOnly refresh token Cookie for browser clients
   clearRefreshCookie(c)

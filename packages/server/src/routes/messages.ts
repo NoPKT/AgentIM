@@ -18,7 +18,7 @@ import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -278,7 +278,10 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
 
   const query = messageQuerySchema.safeParse(c.req.query())
   if (!query.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(query.error) },
+      400,
+    )
   }
 
   const { cursor, limit } = query.data
@@ -508,7 +511,10 @@ messageRoutes.put('/:id', async (c) => {
   if (body instanceof Response) return body
   const parsed = editMessageSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
@@ -570,8 +576,10 @@ messageRoutes.delete('/:id', async (c) => {
   const result = await db.transaction(async (tx) => {
     const [msg] = await tx.select().from(messages).where(eq(messages.id, messageId)).limit(1)
     if (!msg) return { error: 'Message not found', status: 404 as const }
-    if (!(await isRoomMember(userId, msg.roomId, tx))) return { error: 'Not a member of this room', status: 403 as const }
-    if (msg.senderId !== userId || msg.senderType !== 'user') return { error: 'Only the sender can delete this message', status: 403 as const }
+    if (!(await isRoomMember(userId, msg.roomId, tx)))
+      return { error: 'Not a member of this room', status: 403 as const }
+    if (msg.senderId !== userId || msg.senderType !== 'user')
+      return { error: 'Only the sender can delete this message', status: 403 as const }
 
     // Collect attachment URLs to delete after transaction commits
     const attachments = await tx
@@ -593,9 +601,12 @@ messageRoutes.delete('/:id', async (c) => {
       const filename = basename(url)
       await unlink(resolve(config.uploadDir, filename))
     } catch (err: unknown) {
-      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      const code =
+        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
       if (code !== 'ENOENT') {
-        log.warn(`Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`)
+        log.warn(
+          `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
+        )
       }
     }
   }
@@ -626,16 +637,16 @@ messageRoutes.post('/batch-delete', async (c) => {
   if (body instanceof Response) return body
   const parsed = batchDeleteMessagesSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   const { messageIds } = parsed.data
 
   // Fetch all requested messages in one query
-  const msgs = await db
-    .select()
-    .from(messages)
-    .where(inArray(messages.id, messageIds))
+  const msgs = await db.select().from(messages).where(inArray(messages.id, messageIds))
 
   if (msgs.length === 0) {
     return c.json({ ok: true, data: { deleted: 0 } })
@@ -684,9 +695,12 @@ messageRoutes.post('/batch-delete', async (c) => {
       const filename = basename(url)
       await unlink(resolve(config.uploadDir, filename))
     } catch (err: unknown) {
-      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      const code =
+        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
       if (code !== 'ENOENT') {
-        log.warn(`Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`)
+        log.warn(
+          `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
+        )
       }
     }
   }
@@ -696,7 +710,11 @@ messageRoutes.post('/batch-delete', async (c) => {
     action: 'file_delete',
     targetId: deletableIds.join(','),
     targetType: 'file',
-    metadata: { roomId, count: deletableIds.length, attachmentCount: txResult.attachmentUrls.length },
+    metadata: {
+      roomId,
+      count: deletableIds.length,
+      attachmentCount: txResult.attachmentUrls.length,
+    },
     ipAddress: getClientIp(c),
   })
 

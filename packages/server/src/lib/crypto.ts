@@ -20,11 +20,17 @@ function getEncryptionKey(): Buffer | null {
 
 /**
  * Encrypt a plaintext string. Returns `enc:<iv>:<ciphertext>:<tag>` hex format.
- * If ENCRYPTION_KEY is not set, returns plaintext unchanged.
+ * If ENCRYPTION_KEY is not set, returns plaintext unchanged (dev-only; production
+ * rejects startup without ENCRYPTION_KEY via config.ts validation).
  */
 export function encryptSecret(plaintext: string): string {
   const key = getEncryptionKey()
-  if (!key) return plaintext
+  if (!key) {
+    log.warn(
+      'ENCRYPTION_KEY not set — storing secret as plaintext. Set ENCRYPTION_KEY for production use.',
+    )
+    return plaintext
+  }
 
   const iv = randomBytes(IV_LENGTH)
   const cipher = createCipheriv(ALGORITHM, key, iv)

@@ -104,6 +104,31 @@ if (isProduction && (!config.corsOrigin || config.corsOrigin === '*')) {
   process.exit(1)
 }
 
+// Validate CORS_ORIGIN is a properly-formed origin in production.
+// An HTTP origin must be scheme + host (+ optional port) with no path component.
+// Catches typos like "https//example.com" or "https://app.example.com/".
+if (isProduction && config.corsOrigin) {
+  let corsUrl: URL
+  try {
+    corsUrl = new URL(config.corsOrigin)
+  } catch {
+    log.fatal(
+      `CORS_ORIGIN is not a valid URL: "${config.corsOrigin}". Example: https://app.example.com`,
+    )
+    process.exit(1)
+  }
+  if (corsUrl!.pathname !== '/' && corsUrl!.pathname !== '') {
+    log.fatal(
+      `CORS_ORIGIN must not include a path component. Got: "${config.corsOrigin}". Use: "${corsUrl!.origin}"`,
+    )
+    process.exit(1)
+  }
+  if (corsUrl!.protocol !== 'https:' && corsUrl!.protocol !== 'http:') {
+    log.fatal(`CORS_ORIGIN must use https:// or http:// scheme. Got: "${config.corsOrigin}"`)
+    process.exit(1)
+  }
+}
+
 // Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;
 // crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
 // Prefer `openssl rand -base64 32` for maximum entropy.

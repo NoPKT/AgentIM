@@ -176,6 +176,8 @@ export interface ApiResponse<T = unknown> {
   ok: boolean
   data?: T
   error?: string
+  /** Field-level validation errors, present when error is 'Validation failed' */
+  fields?: { field: string; message: string }[]
 }
 
 export interface PaginatedResponse<T> {

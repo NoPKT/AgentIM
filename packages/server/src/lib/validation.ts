@@ -1,5 +1,20 @@
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
+import type { ZodError } from 'zod'
+
+/**
+ * Format a ZodError into a flat array of field-level error messages.
+ * Suitable for including in API error responses to help clients diagnose issues.
+ *
+ * Example output:
+ *   [{ field: 'username', message: 'String must contain at least 3 character(s)' }]
+ */
+export function formatZodError(error: ZodError): { field: string; message: string }[] {
+  return error.issues.map((issue) => ({
+    field: issue.path.join('.') || '(root)',
+    message: issue.message,
+  }))
+}
 
 /**
  * Safely parse JSON body from a request.

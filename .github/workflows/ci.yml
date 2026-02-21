@@ -49,7 +49,7 @@ jobs:
         run: pnpm -r exec tsc --noEmit
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=moderate
 
       - name: Build all packages
         run: pnpm build

@@ -7,7 +7,7 @@ import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText, sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 
 export const taskRoutes = new Hono<AuthEnv>()
 
@@ -73,7 +73,10 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
   if (body instanceof Response) return body
   const parsed = createTaskSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   // Validate assignee is a member of the room
@@ -93,7 +96,9 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
     title: sanitizeText(parsed.data.title),
     description: sanitizeContent(parsed.data.description ?? ''),
     assigneeId: parsed.data.assigneeId,
-    assigneeType: parsed.data.assigneeId ? (parsed.data.assigneeType ?? 'user') : parsed.data.assigneeType,
+    assigneeType: parsed.data.assigneeId
+      ? (parsed.data.assigneeType ?? 'user')
+      : parsed.data.assigneeType,
     createdById: userId,
     createdAt: now,
     updatedAt: now,
@@ -123,7 +128,10 @@ taskRoutes.put('/:id', async (c) => {
   if (body instanceof Response) return body
   const parsed = updateTaskSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   // Check if non-status fields are being modified
@@ -157,16 +165,15 @@ taskRoutes.put('/:id', async (c) => {
   // Compute effective values after merging request with existing record.
   // Normalize legacy data: missing assigneeType defaults to 'user' when assigneeId is present
   // (task creation previously allowed omitting assigneeType, storing null in DB).
-  const effectiveAssigneeId = parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : existing.assigneeId
-  const rawEffectiveType = parsed.data.assigneeType !== undefined ? parsed.data.assigneeType : existing.assigneeType
+  const effectiveAssigneeId =
+    parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : existing.assigneeId
+  const rawEffectiveType =
+    parsed.data.assigneeType !== undefined ? parsed.data.assigneeType : existing.assigneeType
   const effectiveAssigneeType = effectiveAssigneeId && !rawEffectiveType ? 'user' : rawEffectiveType
 
   // Reject mismatched combinations that would leave orphaned fields
   if (!effectiveAssigneeId && effectiveAssigneeType) {
-    return c.json(
-      { ok: false, error: 'assigneeId is required when assigneeType is set' },
-      400,
-    )
+    return c.json({ ok: false, error: 'assigneeId is required when assigneeType is set' }, 400)
   }
 
   // If assigneeType changes (non-null) but assigneeId stays the same, re-validate
@@ -176,9 +183,19 @@ taskRoutes.put('/:id', async (c) => {
     parsed.data.assigneeId === undefined &&
     effectiveAssigneeId
   ) {
-    if (!(await isRoomMember(effectiveAssigneeId, existing.roomId, undefined, parsed.data.assigneeType as 'user' | 'agent'))) {
+    if (
+      !(await isRoomMember(
+        effectiveAssigneeId,
+        existing.roomId,
+        undefined,
+        parsed.data.assigneeType as 'user' | 'agent',
+      ))
+    ) {
       return c.json(
-        { ok: false, error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId' },
+        {
+          ok: false,
+          error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId',
+        },
         400,
       )
     }

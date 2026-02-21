@@ -26,10 +26,7 @@ export default function AgentsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-surface rounded-xl border border-border p-5 animate-pulse"
-              >
+              <div key={i} className="bg-surface rounded-xl border border-border p-5 animate-pulse">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-skeleton" />
                   <div className="space-y-2">
@@ -66,9 +63,7 @@ export default function AgentsPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('common.loadFailed')}
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('common.loadFailed')}</h3>
           <Button onClick={loadAgents} className="mt-4">
             {t('common.retry')}
           </Button>
@@ -94,9 +89,7 @@ export default function AgentsPage() {
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('agent.noAgents')}
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('agent.noAgents')}</h3>
           <p className="mt-2 text-sm text-text-secondary">{t('agent.noAgentsDesc')}</p>
         </div>
       </div>
@@ -124,7 +117,7 @@ export default function AgentsPage() {
 }
 
 function AgentCard({ agent }: { agent: Agent }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
 
   const statusConfig = getStatusConfig(t)
@@ -154,9 +147,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-text-primary truncate">
-              {agent.name}
-            </h3>
+            <h3 className="font-semibold text-text-primary truncate">{agent.name}</h3>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}
             >
@@ -181,9 +172,7 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="space-y-2 text-sm">
         {agent.workingDirectory && (
           <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('agent.workingDir')}
-            </dt>
+            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.workingDir')}</dt>
             <dd
               className="text-text-primary truncate font-mono text-xs"
               title={agent.workingDirectory}
@@ -195,9 +184,7 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.deviceInfo && (
           <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('agent.device')}
-            </dt>
+            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.device')}</dt>
             <dd className="text-text-primary truncate">
               {agent.deviceInfo.platform}{' '}
               {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
@@ -207,9 +194,7 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.capabilities && agent.capabilities.length > 0 && (
           <div>
-            <dt className="text-text-muted text-xs font-medium mb-1">
-              {t('agent.capabilities')}
-            </dt>
+            <dt className="text-text-muted text-xs font-medium mb-1">{t('agent.capabilities')}</dt>
             <dd className="flex flex-wrap gap-1">
               {agent.capabilities.map((cap) => (
                 <span
@@ -225,9 +210,7 @@ function AgentCard({ agent }: { agent: Agent }) {
 
         {agent.lastSeenAt && (
           <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('agent.lastSeen')}
-            </dt>
+            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.lastSeen')}</dt>
             <dd className="text-text-primary">
               {new Date(agent.lastSeenAt).toLocaleString(i18n.language, {
                 month: 'short',
@@ -244,9 +227,7 @@ function AgentCard({ agent }: { agent: Agent }) {
       <div className="mt-4 pt-3 border-t border-border">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-text-muted">
-              {t('agent.visibility')}
-            </span>
+            <span className="text-xs font-medium text-text-muted">{t('agent.visibility')}</span>
             <span
               className={`ml-2 text-xs font-medium ${isShared ? 'text-success-text' : 'text-text-muted'}`}
             >

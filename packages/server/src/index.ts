@@ -49,13 +49,19 @@ async function seedAdmin() {
     return
   }
   // Validate admin password meets complexity requirements (same as user passwords)
-  if (config.adminPassword.length < 8) {
-    log.warn('ADMIN_PASSWORD is shorter than 8 characters — consider using a stronger password.')
-  } else if (
+  const pwTooShort = config.adminPassword.length < 8
+  const pwTooWeak =
     !/[a-z]/.test(config.adminPassword) ||
     !/[A-Z]/.test(config.adminPassword) ||
     !/[0-9]/.test(config.adminPassword)
-  ) {
+  if (config.isProduction && (pwTooShort || pwTooWeak)) {
+    log.fatal(
+      'ADMIN_PASSWORD does not meet minimum complexity requirements: must be at least 8 characters with lowercase, uppercase, and a digit. Example: ADMIN_PASSWORD=$(openssl rand -base64 16)',
+    )
+    process.exit(1)
+  } else if (pwTooShort) {
+    log.warn('ADMIN_PASSWORD is shorter than 8 characters — consider using a stronger password.')
+  } else if (pwTooWeak) {
     log.warn('ADMIN_PASSWORD should contain lowercase, uppercase, and digit characters.')
   }
   const { nanoid } = await import('nanoid')

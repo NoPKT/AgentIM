@@ -11,11 +11,20 @@ function parseDurationToSeconds(duration: string): number {
   const value = parseInt(match[1], 10)
   let seconds: number
   switch (match[2].toLowerCase()) {
-    case 's': seconds = value; break
-    case 'm': seconds = value * 60; break
-    case 'h': seconds = value * 3600; break
-    case 'd': seconds = value * 86400; break
-    default: seconds = 900
+    case 's':
+      seconds = value
+      break
+    case 'm':
+      seconds = value * 60
+      break
+    case 'h':
+      seconds = value * 3600
+      break
+    case 'd':
+      seconds = value * 86400
+      break
+    default:
+      seconds = 900
   }
   return seconds < 1 ? 900 : seconds
 }
@@ -25,6 +34,11 @@ const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
 /**
  * Mark all access tokens issued before now as revoked for a user.
  * Called on logout or password change.
+ *
+ * Throws if Redis is unavailable — callers must handle this and return an
+ * appropriate error response rather than silently allowing stale tokens.
+ * This is consistent with isTokenRevoked() which also fails closed (returns
+ * true) on Redis failure, ensuring symmetric fail-secure behavior.
  */
 export async function revokeUserTokens(userId: string): Promise<void> {
   try {
@@ -32,7 +46,8 @@ export async function revokeUserTokens(userId: string): Promise<void> {
     const key = `revoked:${userId}`
     await redis.set(key, String(Date.now()), 'EX', ACCESS_TOKEN_TTL)
   } catch (err) {
-    log.warn(`Failed to set token revocation for user ${userId}: ${(err as Error).message}`)
+    log.error(`Failed to set token revocation for user ${userId}: ${(err as Error).message}`)
+    throw err
   }
 }
 

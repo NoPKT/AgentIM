@@ -41,7 +41,7 @@ vi.mock('./routers.js', () => ({
 import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 
-const mockApi = api as {
+const mockApi = api as unknown as {
   post: ReturnType<typeof vi.fn>
   get: ReturnType<typeof vi.fn>
   clearTokens: ReturnType<typeof vi.fn>
@@ -50,7 +50,7 @@ const mockApi = api as {
   tryRefresh: ReturnType<typeof vi.fn>
 }
 
-const mockWs = wsClient as {
+const mockWs = wsClient as unknown as {
   connect: ReturnType<typeof vi.fn>
   disconnect: ReturnType<typeof vi.fn>
 }

@@ -4,7 +4,7 @@ import { db } from '../db/index.js'
 import { agents, gateways, roomMembers, users } from '../db/schema.js'
 import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
-import { validateIdParams, parseJsonBody } from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
 
@@ -116,7 +116,10 @@ agentRoutes.put('/:id', async (c) => {
   if (body instanceof Response) return body
   const parsed = updateAgentSchema.safeParse(body)
   if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
   }
 
   // Verify ownership: agent → gateway → userId
