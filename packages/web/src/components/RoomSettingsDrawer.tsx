@@ -239,9 +239,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
             <div className="px-5 py-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    {t('chat.broadcastMode')}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">{t('chat.broadcastMode')}</p>
                   <p className="text-xs text-text-secondary mt-0.5">
                     {t('chat.broadcastModeDesc')}
                   </p>
@@ -306,9 +304,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   className="w-full text-left px-3 py-1.5 text-sm hover:bg-surface-hover rounded-lg transition-colors flex items-center justify-between group"
                 >
                   <span
-                    className={
-                      room?.systemPrompt ? 'text-text-primary' : 'text-text-muted italic'
-                    }
+                    className={room?.systemPrompt ? 'text-text-primary' : 'text-text-muted italic'}
                   >
                     {room?.systemPrompt
                       ? room.systemPrompt.length > 80
@@ -322,9 +318,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   />
                 </button>
               )}
-              <p className="text-xs text-text-secondary mt-1">
-                {t('chat.systemPromptDesc')}
-              </p>
+              <p className="text-xs text-text-secondary mt-1">{t('chat.systemPromptDesc')}</p>
             </div>
 
             {/* Router Selector */}
@@ -365,9 +359,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-text-secondary mt-1">
-                {t('router.routerDesc')}
-              </p>
+              <p className="text-xs text-text-secondary mt-1">{t('router.routerDesc')}</p>
             </div>
 
             {/* Notification Preference */}

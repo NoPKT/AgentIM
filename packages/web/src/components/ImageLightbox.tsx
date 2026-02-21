@@ -20,12 +20,7 @@ interface ImageLightboxProps {
   onNavigate: (index: number) => void
 }
 
-export function ImageLightbox({
-  images,
-  currentIndex,
-  onClose,
-  onNavigate,
-}: ImageLightboxProps) {
+export function ImageLightbox({ images, currentIndex, onClose, onNavigate }: ImageLightboxProps) {
   const { t } = useTranslation()
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -216,7 +211,8 @@ export function ImageLightbox({
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
         {/* Left: counter */}
         <div className="text-white text-sm font-medium">
-          {hasMultiple && t('chat.lightboxCounter', { current: currentIndex + 1, total: images.length })}
+          {hasMultiple &&
+            t('chat.lightboxCounter', { current: currentIndex + 1, total: images.length })}
         </div>
 
         {/* Right: controls */}

@@ -205,9 +205,7 @@ export default function SettingsPage() {
           {/* Profile Section */}
           <div className="bg-surface rounded-lg border border-border shadow-sm">
             <div className="px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-text-primary">
-                {t('settings.profile')}
-              </h2>
+              <h2 className="text-lg font-semibold text-text-primary">{t('settings.profile')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('settings.updateProfile')}</p>
             </div>
             <div className="px-6 py-5 space-y-5">
@@ -277,14 +275,16 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    {user?.displayName}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">{user?.displayName}</p>
                   <p className="text-xs text-text-muted">@{user?.username}</p>
                 </div>
               </div>
 
-              <FormField label={t('auth.username')} htmlFor="username" helperText={t('settings.usernameCannotBeChanged')}>
+              <FormField
+                label={t('auth.username')}
+                htmlFor="username"
+                helperText={t('settings.usernameCannotBeChanged')}
+              >
                 <Input
                   id="username"
                   type="text"
@@ -343,7 +343,11 @@ export default function SettingsPage() {
                   autoComplete="current-password"
                 />
               </FormField>
-              <FormField label={t('settings.newPassword')} htmlFor="newPassword" helperText={t('settings.passwordRequirements')}>
+              <FormField
+                label={t('settings.newPassword')}
+                htmlFor="newPassword"
+                helperText={t('settings.passwordRequirements')}
+              >
                 <Input
                   id="newPassword"
                   type="password"
@@ -368,7 +372,9 @@ export default function SettingsPage() {
                     isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword
                   }
                 >
-                  {isChangingPassword ? t('settings.changingPassword') : t('settings.changePassword')}
+                  {isChangingPassword
+                    ? t('settings.changingPassword')
+                    : t('settings.changePassword')}
                 </Button>
               </div>
             </div>
@@ -377,12 +383,8 @@ export default function SettingsPage() {
           {/* Theme Section */}
           <div className="bg-surface rounded-lg border border-border shadow-sm">
             <div className="px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-text-primary">
-                {t('settings.theme')}
-              </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                {t('settings.selectTheme')}
-              </p>
+              <h2 className="text-lg font-semibold text-text-primary">{t('settings.theme')}</h2>
+              <p className="mt-1 text-sm text-text-secondary">{t('settings.selectTheme')}</p>
             </div>
             <div className="px-6 py-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -399,13 +401,7 @@ export default function SettingsPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span
-                          className={
-                            isActive
-                              ? 'text-accent'
-                              : 'text-text-muted'
-                          }
-                        >
+                        <span className={isActive ? 'text-accent' : 'text-text-muted'}>
                           {theme.icon}
                         </span>
                         <div className="flex-1">
@@ -440,9 +436,7 @@ export default function SettingsPage() {
           {/* Language Section */}
           <div className="bg-surface rounded-lg border border-border shadow-sm">
             <div className="px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-text-primary">
-                {t('settings.language')}
-              </h2>
+              <h2 className="text-lg font-semibold text-text-primary">{t('settings.language')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('settings.selectLanguage')}</p>
             </div>
             <div className="px-6 py-5">
@@ -501,9 +495,7 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-text-primary">
                 {t('settings.notifications')}
               </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                {t('settings.notificationsDesc')}
-              </p>
+              <p className="mt-1 text-sm text-text-secondary">{t('settings.notificationsDesc')}</p>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -527,7 +519,11 @@ export default function SettingsPage() {
                     const next = !notificationsEnabled
                     setNotificationPreference(next)
                     setNotificationsEnabled(next)
-                    toast.success(next ? t('settings.notificationsEnabled') : t('settings.notificationsDisabled'))
+                    toast.success(
+                      next
+                        ? t('settings.notificationsEnabled')
+                        : t('settings.notificationsDisabled'),
+                    )
                   }}
                   className={`
                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
@@ -549,12 +545,8 @@ export default function SettingsPage() {
           <div className="bg-surface rounded-lg border border-border shadow-sm">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-text-primary">
-                  {t('router.myRouters')}
-                </h2>
-                <p className="mt-1 text-sm text-text-secondary">
-                  {t('router.routerDesc')}
-                </p>
+                <h2 className="text-lg font-semibold text-text-primary">{t('router.myRouters')}</h2>
+                <p className="mt-1 text-sm text-text-secondary">{t('router.routerDesc')}</p>
               </div>
               <Button
                 size="sm"
@@ -573,12 +565,8 @@ export default function SettingsPage() {
                 </div>
               ) : myRouters.length === 0 && globalRouters.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-sm text-text-muted">
-                    {t('router.noRouters')}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    {t('router.noRoutersDesc')}
-                  </p>
+                  <p className="text-sm text-text-muted">{t('router.noRouters')}</p>
+                  <p className="text-xs text-text-muted mt-1">{t('router.noRoutersDesc')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -610,8 +598,18 @@ export default function SettingsPage() {
                           }}
                           className="p-1.5 text-text-muted hover:text-accent rounded-md hover:bg-info-subtle transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                            />
                           </svg>
                         </button>
                         {deletingRouterId === router.id ? (
@@ -620,16 +618,36 @@ export default function SettingsPage() {
                               onClick={() => handleDeleteRouter(router.id)}
                               className="p-1.5 text-danger-text rounded-md bg-danger-subtle"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
                               </svg>
                             </button>
                             <button
                               onClick={() => setDeletingRouterId(null)}
                               className="p-1.5 text-text-muted rounded-md hover:bg-surface-hover"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
                               </svg>
                             </button>
                           </div>
@@ -638,8 +656,18 @@ export default function SettingsPage() {
                             onClick={() => setDeletingRouterId(router.id)}
                             className="p-1.5 text-text-muted hover:text-danger-text rounded-md hover:bg-danger-subtle transition-colors"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
                             </svg>
                           </button>
                         )}
@@ -680,8 +708,18 @@ export default function SettingsPage() {
                             }}
                             className="p-1.5 text-text-muted hover:text-accent rounded-md hover:bg-info-subtle transition-colors"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              />
                             </svg>
                           </button>
                           {deletingRouterId === router.id ? (
@@ -690,16 +728,36 @@ export default function SettingsPage() {
                                 onClick={() => handleDeleteRouter(router.id)}
                                 className="p-1.5 text-danger-text rounded-md bg-danger-subtle"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               </button>
                               <button
                                 onClick={() => setDeletingRouterId(null)}
                                 className="p-1.5 text-text-muted rounded-md hover:bg-surface-hover"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
                                 </svg>
                               </button>
                             </div>
@@ -708,8 +766,18 @@ export default function SettingsPage() {
                               onClick={() => setDeletingRouterId(router.id)}
                               className="p-1.5 text-text-muted hover:text-danger-text rounded-md hover:bg-danger-subtle transition-colors"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
                               </svg>
                             </button>
                           )}
@@ -735,12 +803,8 @@ export default function SettingsPage() {
                 <span className="text-sm text-text-secondary">{__APP_VERSION__}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-text-primary">
-                  {t('common.appName')}
-                </span>
-                <span className="text-sm text-text-secondary">
-                  {t('settings.aiAgentPlatform')}
-                </span>
+                <span className="text-sm font-medium text-text-primary">{t('common.appName')}</span>
+                <span className="text-sm text-text-secondary">{t('settings.aiAgentPlatform')}</span>
               </div>
             </div>
           </div>

@@ -3,14 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { RoomList } from './RoomList.js'
-import {
-  CloseIcon,
-  MenuIcon,
-  UsersIcon,
-  AgentsIcon,
-  TasksIcon,
-  SettingsIcon,
-} from './icons.js'
+import { CloseIcon, MenuIcon, UsersIcon, AgentsIcon, TasksIcon, SettingsIcon } from './icons.js'
 import { useSwipeToClose } from '../hooks/useSwipeToClose.js'
 
 type NavIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>
@@ -131,9 +124,7 @@ export function AppLayout() {
           >
             <MenuIcon className="w-6 h-6" aria-hidden="true" />
           </button>
-          <h2 className="ml-4 text-lg font-semibold text-text-primary">
-            {t('common.appName')}
-          </h2>
+          <h2 className="ml-4 text-lg font-semibold text-text-primary">{t('common.appName')}</h2>
         </div>
 
         {/* Route content */}

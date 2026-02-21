@@ -67,7 +67,12 @@ export function MessageList({ onImageClick }: MessageListProps) {
     scrollRAF.current = requestAnimationFrame(() => {
       scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
-  }, [currentMessages.length, streamingMessages.length, streamingMessages[0]?.chunks.length, isScrolledUp])
+  }, [
+    currentMessages.length,
+    streamingMessages.length,
+    streamingMessages[0]?.chunks.length,
+    isScrolledUp,
+  ])
 
   const handleLoadMore = () => {
     if (!currentRoomId || !currentHasMore || isLoading) return
@@ -109,10 +114,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     return (
       <div className="flex-1 flex items-center justify-center text-text-secondary">
         <div className="text-center">
-          <ChatBubbleIcon
-            className="w-16 h-16 mx-auto mb-4 text-border"
-            aria-hidden="true"
-          />
+          <ChatBubbleIcon className="w-16 h-16 mx-auto mb-4 text-border" aria-hidden="true" />
           <p className="text-lg">{t('chat.noMessages')}</p>
         </div>
       </div>
@@ -137,7 +139,12 @@ export function MessageList({ onImageClick }: MessageListProps) {
               className="px-4 py-2 text-sm text-accent hover:bg-info-subtle rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
               {isLoading && (
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <svg
+                  className="w-4 h-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
                   <circle
                     className="opacity-25"
                     cx="12"
@@ -174,7 +181,8 @@ export function MessageList({ onImageClick }: MessageListProps) {
               prev.senderId !== message.senderId ||
               prev.senderType === 'system' ||
               message.senderType === 'system' ||
-              new Date(message.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
+              new Date(message.createdAt).getTime() - new Date(prev.createdAt).getTime() >
+                5 * 60 * 1000
             return (
               <div
                 key={virtualItem.key}
@@ -188,7 +196,11 @@ export function MessageList({ onImageClick }: MessageListProps) {
                 ref={virtualizer.measureElement}
                 data-index={virtualItem.index}
               >
-                <MessageItem message={message} showHeader={showHeader} onImageClick={onImageClick} />
+                <MessageItem
+                  message={message}
+                  showHeader={showHeader}
+                  onImageClick={onImageClick}
+                />
               </div>
             )
           })}
@@ -212,9 +224,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
             if (receipts.length === 0) return null
             return (
               <div className="flex items-center gap-1 px-6 py-1.5 justify-end">
-                <span className="text-xs text-text-muted mr-1">
-                  {t('chat.readBy')}
-                </span>
+                <span className="text-xs text-text-muted mr-1">{t('chat.readBy')}</span>
                 {receipts.slice(0, 5).map((r) => (
                   <span
                     key={r.userId}
@@ -225,9 +235,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
                   </span>
                 ))}
                 {receipts.length > 5 && (
-                  <span className="text-xs text-text-muted">
-                    +{receipts.length - 5}
-                  </span>
+                  <span className="text-xs text-text-muted">+{receipts.length - 5}</span>
                 )}
               </div>
             )

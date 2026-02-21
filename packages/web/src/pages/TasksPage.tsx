@@ -121,9 +121,7 @@ export default function TasksPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('common.loadFailed')}
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('common.loadFailed')}</h3>
           <Button onClick={loadTasks} className="mt-4">
             {t('common.retry')}
           </Button>
@@ -143,9 +141,7 @@ export default function TasksPage() {
               {t('task.tasksCount', { count: tasks.length })}
             </p>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            {t('task.newTask')}
-          </Button>
+          <Button onClick={() => setIsDialogOpen(true)}>{t('task.newTask')}</Button>
         </div>
 
         {/* Empty State */}
@@ -164,12 +160,8 @@ export default function TasksPage() {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <h3 className="mt-4 text-lg font-medium text-text-primary">
-              {t('task.noTasks')}
-            </h3>
-            <p className="mt-2 text-sm text-text-secondary">
-              {t('task.createFirstTask')}
-            </p>
+            <h3 className="mt-4 text-lg font-medium text-text-primary">{t('task.noTasks')}</h3>
+            <p className="mt-2 text-sm text-text-secondary">{t('task.createFirstTask')}</p>
           </div>
         )}
 
@@ -246,9 +238,7 @@ function TaskColumn({
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} onUpdateStatus={onUpdateStatus} />
         ))}
-        {tasks.length === 0 && (
-          <p className="text-sm text-text-muted text-center py-4">--</p>
-        )}
+        {tasks.length === 0 && <p className="text-sm text-text-muted text-center py-4">--</p>}
       </div>
     </div>
   )
@@ -295,9 +285,7 @@ function TaskCard({
     <div className="bg-surface rounded-lg border border-border p-4 hover:shadow-md transition-shadow">
       <h3 className="font-medium text-text-primary mb-2">{task.title}</h3>
       {task.description && (
-        <p className="text-sm text-text-secondary line-clamp-2 mb-3">
-          {task.description}
-        </p>
+        <p className="text-sm text-text-secondary line-clamp-2 mb-3">{task.description}</p>
       )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-text-muted">
@@ -364,18 +352,10 @@ function CreateTaskDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label
-              htmlFor="room"
-              className="block text-sm font-medium text-text-primary mb-2"
-            >
+            <label htmlFor="room" className="block text-sm font-medium text-text-primary mb-2">
               {t('chat.rooms')}
             </label>
-            <Select
-              id="room"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              required
-            >
+            <Select id="room" value={roomId} onChange={(e) => setRoomId(e.target.value)} required>
               {rooms.map((room) => (
                 <option key={room.id} value={room.id}>
                   {room.name}
@@ -385,10 +365,7 @@ function CreateTaskDialog({
           </div>
 
           <div>
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-text-primary mb-2"
-            >
+            <label htmlFor="title" className="block text-sm font-medium text-text-primary mb-2">
               {t('task.taskTitle')}
             </label>
             <Input

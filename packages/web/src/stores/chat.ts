@@ -147,7 +147,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const receipts = (readReceipts.get(roomId) ?? []).filter((r) => r.userId !== userId)
     receipts.push({ userId, username, lastReadAt })
     // Cap per-room receipts to prevent unbounded growth
-    readReceipts.set(roomId, receipts.length > MAX_RECEIPTS_PER_ROOM ? receipts.slice(-MAX_RECEIPTS_PER_ROOM) : receipts)
+    readReceipts.set(
+      roomId,
+      receipts.length > MAX_RECEIPTS_PER_ROOM ? receipts.slice(-MAX_RECEIPTS_PER_ROOM) : receipts,
+    )
     set({ readReceipts })
   },
 
@@ -334,9 +337,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const existing = streaming.get(key)
     const now = Date.now()
     if (existing) {
-      const chunks = existing.chunks.length >= MAX_CHUNKS_PER_STREAM
-        ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
-        : [...existing.chunks, chunk]
+      const chunks =
+        existing.chunks.length >= MAX_CHUNKS_PER_STREAM
+          ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
+          : [...existing.chunks, chunk]
       streaming.set(key, { ...existing, chunks, lastChunkAt: now })
     } else {
       streaming.set(key, { messageId, agentId, agentName, chunks: [chunk], lastChunkAt: now })

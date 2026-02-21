@@ -58,17 +58,27 @@ function FileTypeIcon({ mimeType }: { mimeType: string }) {
   return <PaperClipIcon className="w-5 h-5 text-text-muted flex-shrink-0" />
 }
 
-function ImageWithSkeleton({ src, alt, className }: { src: string; alt: string; className?: string }) {
+function ImageWithSkeleton({
+  src,
+  alt,
+  className,
+}: {
+  src: string
+  alt: string
+  className?: string
+}) {
   const [loaded, setLoaded] = useState(false)
   return (
     <div className="relative min-w-32 max-w-full min-h-32">
-      {!loaded && (
-        <div className="absolute inset-0 rounded-lg bg-surface-hover animate-pulse" />
-      )}
+      {!loaded && <div className="absolute inset-0 rounded-lg bg-surface-hover animate-pulse" />}
       <img
         src={src}
         alt={alt}
-        className={twMerge('transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0', className)}
+        className={twMerge(
+          'transition-opacity duration-300',
+          loaded ? 'opacity-100' : 'opacity-0',
+          className,
+        )}
         loading="lazy"
         onLoad={() => setLoaded(true)}
       />
@@ -186,7 +196,11 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
 
 // ─── Main Component ───
 
-export const MessageItem = memo(function MessageItem({ message, showHeader = true, onImageClick }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({
+  message,
+  showHeader = true,
+  onImageClick,
+}: MessageItemProps) {
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
   const actions = useMessageActions(message)
@@ -208,9 +222,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
       <div className="px-6 py-2">
         <div className="flex justify-center">
           <div className="px-4 py-1.5 bg-surface-hover rounded-full">
-            <p className="text-xs text-text-secondary text-center">
-              {message.content}
-            </p>
+            <p className="text-xs text-text-secondary text-center">{message.content}</p>
           </div>
         </div>
       </div>
@@ -220,7 +232,9 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
   const isAgent = message.senderType === 'agent'
 
   return (
-    <div className={`px-6 ${showHeader ? 'py-3' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}>
+    <div
+      className={`px-6 ${showHeader ? 'py-3' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}
+    >
       {/* Mobile action trigger */}
       {!actions.showActions && (
         <button
@@ -332,9 +346,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
           {/* Sender and time — only for first message in group */}
           {showHeader && (
             <div className="flex items-center space-x-2 mb-1">
-              <span className="font-semibold text-text-primary text-sm">
-                {message.senderName}
-              </span>
+              <span className="font-semibold text-text-primary text-sm">{message.senderName}</span>
               {isAgent && (
                 <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
                   {t('agent.agents')}
@@ -437,10 +449,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
                         </pre>
                       </div>
                     ) : (
-                      <code
-                        className="px-1.5 py-0.5 bg-surface-hover rounded text-sm"
-                        {...props}
-                      >
+                      <code className="px-1.5 py-0.5 bg-surface-hover rounded text-sm" {...props}>
                         {children}
                       </code>
                     )
@@ -460,10 +469,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
                   table({ children, ...props }) {
                     return (
                       <div className="overflow-x-auto">
-                        <table
-                          className="min-w-full divide-y divide-border"
-                          {...props}
-                        >
+                        <table className="min-w-full divide-y divide-border" {...props}>
                           {children}
                         </table>
                       </div>
@@ -483,9 +489,7 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
                 {t('chat.editHistory')}
               </div>
               {actions.loadingHistory ? (
-                <div className="px-3 py-2 text-xs text-text-muted">
-                  {t('common.loading')}
-                </div>
+                <div className="px-3 py-2 text-xs text-text-muted">{t('common.loading')}</div>
               ) : actions.editHistory.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-text-muted">
                   {t('chat.editHistoryEmpty')}
@@ -529,7 +533,6 @@ export const MessageItem = memo(function MessageItem({ message, showHeader = tru
               onToggle={actions.handleReaction}
             />
           )}
-
         </div>
       </div>
     </div>

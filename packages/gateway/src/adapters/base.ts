@@ -37,16 +37,20 @@ const SENSITIVE_ENV_KEYS = new Set([
   'SLACK_SIGNING_SECRET',
 ])
 
-const SENSITIVE_ENV_PREFIXES = ['ROUTER_LLM_', 'AGENTIM_SECRET_', 'SECRET_', 'API_KEY_', 'STRIPE_', 'GITHUB_APP_']
+const SENSITIVE_ENV_PREFIXES = [
+  'ROUTER_LLM_',
+  'AGENTIM_SECRET_',
+  'SECRET_',
+  'API_KEY_',
+  'STRIPE_',
+  'GITHUB_APP_',
+]
 
 /** Return a copy of process.env with sensitive variables removed. */
 export function getSafeEnv(): Record<string, string | undefined> {
   const env = { ...process.env }
   for (const key of Object.keys(env)) {
-    if (
-      SENSITIVE_ENV_KEYS.has(key) ||
-      SENSITIVE_ENV_PREFIXES.some((p) => key.startsWith(p))
-    ) {
+    if (SENSITIVE_ENV_KEYS.has(key) || SENSITIVE_ENV_PREFIXES.some((p) => key.startsWith(p))) {
       delete env[key]
     }
   }
@@ -118,7 +122,9 @@ export abstract class BaseAgentAdapter {
     }
     proc.kill('SIGTERM')
     this.killTimer = setTimeout(() => {
-      try { proc.kill('SIGKILL') } catch {}
+      try {
+        proc.kill('SIGKILL')
+      } catch {}
       this.killTimer = null
     }, 5000)
     this.killTimer.unref()

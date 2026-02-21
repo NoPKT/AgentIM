@@ -296,7 +296,8 @@ export const de = {
     selectRouter: 'Router auswählen',
     noRouter: 'Keiner',
     defaultRouter: 'Standard-Router',
-    confirmDelete: 'Bist du sicher, dass du diesen Router löschen möchtest? Räume, die ihn verwenden, verlieren ihre Router-Konfiguration.',
+    confirmDelete:
+      'Bist du sicher, dass du diesen Router löschen möchtest? Räume, die ihn verwenden, verlieren ihre Router-Konfiguration.',
     created: 'Router erstellt',
     updated: 'Router aktualisiert',
     deleted: 'Router gelöscht',

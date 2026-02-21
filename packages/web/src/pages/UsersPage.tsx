@@ -105,9 +105,7 @@ export default function UsersPage() {
               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('error.forbidden')}
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('error.forbidden')}</h3>
         </div>
       </div>
     )
@@ -128,10 +126,7 @@ export default function UsersPage() {
               <div className="h-3 w-12 bg-skeleton rounded" />
             </div>
             {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="px-6 py-4 border-t border-border flex gap-6 animate-pulse"
-              >
+              <div key={i} className="px-6 py-4 border-t border-border flex gap-6 animate-pulse">
                 <div className="h-4 w-24 bg-skeleton rounded" />
                 <div className="h-4 w-32 bg-surface-hover rounded" />
                 <div className="h-4 w-14 bg-surface-hover rounded-full" />
@@ -160,9 +155,7 @@ export default function UsersPage() {
               d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            {t('common.loadFailed')}
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('common.loadFailed')}</h3>
           <Button onClick={loadUsers} className="mt-4">
             {t('common.retry')}
           </Button>
@@ -176,16 +169,10 @@ export default function UsersPage() {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">
-              {t('settings.userManagement')}
-            </h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              {t('settings.userManagementDesc')}
-            </p>
+            <h1 className="text-2xl font-bold text-text-primary">{t('settings.userManagement')}</h1>
+            <p className="mt-1 text-sm text-text-secondary">{t('settings.userManagementDesc')}</p>
           </div>
-          <Button onClick={() => setShowCreate(!showCreate)}>
-            {t('settings.createUser')}
-          </Button>
+          <Button onClick={() => setShowCreate(!showCreate)}>{t('settings.createUser')}</Button>
         </div>
 
         {/* Create User Form */}
@@ -220,10 +207,7 @@ export default function UsersPage() {
                 />
               </FormField>
               <FormField label={t('settings.role')}>
-                <Select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as UserRole)}
-                >
+                <Select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)}>
                   <option value="user">{t('settings.roleUser')}</option>
                   <option value="admin">{t('settings.roleAdmin')}</option>
                 </Select>
@@ -263,12 +247,8 @@ export default function UsersPage() {
             <tbody className="divide-y divide-border">
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-surface-hover">
-                  <td className="px-6 py-4 text-sm font-medium text-text-primary">
-                    {u.username}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-text-secondary">
-                    {u.displayName}
-                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-text-primary">{u.username}</td>
+                  <td className="px-6 py-4 text-sm text-text-secondary">{u.displayName}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -294,10 +274,7 @@ export default function UsersPage() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={4}
-                    className="px-6 py-8 text-center text-sm text-text-muted"
-                  >
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-text-muted">
                     {t('settings.noUsers')}
                   </td>
                 </tr>

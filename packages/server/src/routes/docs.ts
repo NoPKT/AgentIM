@@ -458,9 +458,7 @@ const spec = {
       post: {
         tags: ['Tasks'],
         summary: 'Create a task in a room',
-        parameters: [
-          { name: 'roomId', in: 'path', required: true, schema: { type: 'string' } },
-        ],
+        parameters: [{ name: 'roomId', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { '201': { description: 'Task created' } },
       },
     },

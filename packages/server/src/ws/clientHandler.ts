@@ -161,7 +161,9 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
         return
     }
   } catch (err) {
-    log.error(`Error handling client message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
+    log.error(
+      `Error handling client message ${msg.type}: ${(err as Error).message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
+    )
     captureException(err)
     connectionManager.sendToClient(ws, {
       type: 'server:error',
@@ -199,7 +201,12 @@ async function handleAuth(ws: WSContext, token: string) {
       .limit(1)
 
     const wasOnline = connectionManager.isUserOnline(payload.sub)
-    const result = connectionManager.addClient(ws, payload.sub, payload.username, user?.maxWsConnections)
+    const result = connectionManager.addClient(
+      ws,
+      payload.sub,
+      payload.username,
+      user?.maxWsConnections,
+    )
     if (!result.ok) {
       connectionManager.sendToClient(ws, {
         type: 'server:auth_result',

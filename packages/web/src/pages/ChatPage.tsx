@@ -84,9 +84,7 @@ export default function ChatPage() {
           <h3 className="mt-4 text-lg font-medium text-text-primary">
             {t('chat.selectRoomToChat')}
           </h3>
-          <p className="mt-2 text-sm text-text-secondary">
-            {t('chat.chooseRoomFromSidebar')}
-          </p>
+          <p className="mt-2 text-sm text-text-secondary">{t('chat.chooseRoomFromSidebar')}</p>
         </div>
       </div>
     )
@@ -118,10 +116,14 @@ export default function ChatPage() {
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  connectionStatus === 'reconnecting' ? 'bg-warning-text animate-pulse' : 'bg-danger-text'
+                  connectionStatus === 'reconnecting'
+                    ? 'bg-warning-text animate-pulse'
+                    : 'bg-danger-text'
                 }`}
               />
-              {connectionStatus === 'reconnecting' ? t('chat.reconnecting') : t('chat.disconnected')}
+              {connectionStatus === 'reconnecting'
+                ? t('chat.reconnecting')
+                : t('chat.disconnected')}
             </span>
           )}
         </div>

@@ -47,7 +47,9 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
       setRateLimitWindow(router.rateLimitWindow)
       setRateLimitMax(router.rateLimitMax)
       setVisibility(router.visibility as 'all' | 'whitelist' | 'blacklist')
-      setVisibilityList(Array.isArray(router.visibilityList) ? router.visibilityList.join(', ') : '')
+      setVisibilityList(
+        Array.isArray(router.visibilityList) ? router.visibilityList.join(', ') : '',
+      )
     } else {
       setName('')
       setDescription('')
@@ -82,12 +84,14 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
 
     setSaving(true)
     try {
-      const visListArr = [...new Set(
-        visibilityList
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      )]
+      const visListArr = [
+        ...new Set(
+          visibilityList
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ]
 
       if (isEditing) {
         const data: Record<string, unknown> = {
@@ -223,9 +227,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
                   value={llmApiKey}
                   onChange={(e) => setLlmApiKey(e.target.value)}
                   placeholder={
-                    isEditing
-                      ? t('router.leaveEmptyToKeep')
-                      : t('router.enterLlmApiKey')
+                    isEditing ? t('router.leaveEmptyToKeep') : t('router.enterLlmApiKey')
                   }
                 />
               </FormField>
@@ -315,12 +317,7 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <div>
             {isEditing && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleTest}
-                disabled={testing}
-              >
+              <Button variant="ghost" size="sm" onClick={handleTest} disabled={testing}>
                 {testing ? t('common.testing') : t('router.testConnection')}
               </Button>
             )}
@@ -331,7 +328,13 @@ export function RouterFormDialog({ isOpen, onClose, router }: RouterFormDialogPr
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={saving || !name.trim() || !llmBaseUrl.trim() || !llmModel.trim() || (!isEditing && !llmApiKey.trim())}
+              disabled={
+                saving ||
+                !name.trim() ||
+                !llmBaseUrl.trim() ||
+                !llmModel.trim() ||
+                (!isEditing && !llmApiKey.trim())
+              }
             >
               {saving
                 ? isEditing

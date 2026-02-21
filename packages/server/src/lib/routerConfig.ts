@@ -37,7 +37,11 @@ export async function getRouterConfig(roomId: string): Promise<RouterConfig | nu
   // Note: routerId is validated via checkRouterAccess() when assigned to the room.
   // The API key is used server-side only (LLM calls) and never exposed to clients.
   // We add a defensive check for personal routers below.
-  const [room] = await db.select({ routerId: rooms.routerId, createdById: rooms.createdById }).from(rooms).where(eq(rooms.id, roomId)).limit(1)
+  const [room] = await db
+    .select({ routerId: rooms.routerId, createdById: rooms.createdById })
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1)
   if (!room?.routerId) return null
 
   const [router] = await db

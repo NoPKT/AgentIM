@@ -8,7 +8,12 @@ import {
   ChangeEvent,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { parseMentions, MAX_FILE_SIZE, MAX_MESSAGE_LENGTH, ALLOWED_MIME_TYPES } from '@agentim/shared'
+import {
+  parseMentions,
+  MAX_FILE_SIZE,
+  MAX_MESSAGE_LENGTH,
+  ALLOWED_MIME_TYPES,
+} from '@agentim/shared'
 import type { MessageAttachment } from '@agentim/shared'
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
@@ -310,9 +315,7 @@ export function MessageInput() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <ReplyIcon className="w-3.5 h-3.5 text-info-text flex-shrink-0" />
-              <span className="text-xs font-medium text-info-text">
-                {replyTo.senderName}
-              </span>
+              <span className="text-xs font-medium text-info-text">{replyTo.senderName}</span>
             </div>
             <p className="text-xs text-text-muted truncate mt-0.5">
               {replyTo.content.slice(0, 80)}
@@ -355,9 +358,7 @@ export function MessageInput() {
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {agent.name}
-                    </p>
+                    <p className="text-sm font-medium text-text-primary truncate">{agent.name}</p>
                     <p className="text-xs text-text-muted">{agent.type}</p>
                   </div>
                   {agent.status === 'online' && (
@@ -404,7 +405,11 @@ export function MessageInput() {
                   </>
                 )}
                 {att.mimeType.startsWith('image/') && att.url && (
-                  <img src={attachmentAuthUrls[i]} alt="" className="w-6 h-6 rounded object-cover" />
+                  <img
+                    src={attachmentAuthUrls[i]}
+                    alt=""
+                    className="w-6 h-6 rounded object-cover"
+                  />
                 )}
                 <span className="truncate max-w-[120px]">{att.filename}</span>
                 <button

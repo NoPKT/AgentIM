@@ -144,12 +144,8 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         {rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
             <ChatBubbleIcon className="w-10 h-10 text-text-muted mb-3" />
-            <p className="text-sm font-medium text-text-secondary mb-1">
-              {t('common.noResults')}
-            </p>
-            <p className="text-xs text-text-muted">
-              {t('common.createFirstRoom')}
-            </p>
+            <p className="text-sm font-medium text-text-secondary mb-1">{t('common.noResults')}</p>
+            <p className="text-xs text-text-muted">{t('common.createFirstRoom')}</p>
           </div>
         ) : (
           sortedRooms.map((room) => {
@@ -204,9 +200,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                     </div>
                     {lastMsg && (
                       <p className="text-xs text-text-muted truncate mt-0.5">
-                        <span className="text-text-secondary">
-                          {lastMsg.senderName}:{' '}
-                        </span>
+                        <span className="text-text-secondary">{lastMsg.senderName}: </span>
                         {lastMsg.content.slice(0, 50)}
                       </p>
                     )}
@@ -221,53 +215,53 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       {/* New Room Dialog */}
       <Modal
         isOpen={showNewRoomDialog}
-        onClose={() => { setShowNewRoomDialog(false); setNewRoomName('') }}
+        onClose={() => {
+          setShowNewRoomDialog(false)
+          setNewRoomName('')
+        }}
         aria-labelledby="new-room-title"
       >
         <ModalPanel className="p-6">
-            <h2 id="new-room-title" className="text-xl font-semibold mb-4 text-text-primary">
-              {t('chat.newRoom')}
-            </h2>
+          <h2 id="new-room-title" className="text-xl font-semibold mb-4 text-text-primary">
+            {t('chat.newRoom')}
+          </h2>
 
-            <div className="space-y-4">
-              {/* Room Name */}
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  {t('chat.roomName')}
-                </label>
-                <Input
-                  type="text"
-                  value={newRoomName}
-                  onChange={(e) => setNewRoomName(e.target.value)}
-                  placeholder={t('chat.enterRoomName')}
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateRoom()
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="mt-6 flex justify-end space-x-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowNewRoomDialog(false)
-                  setNewRoomName('')
+          <div className="space-y-4">
+            {/* Room Name */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                {t('chat.roomName')}
+              </label>
+              <Input
+                type="text"
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                placeholder={t('chat.enterRoomName')}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateRoom()
                 }}
-                disabled={isCreating}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleCreateRoom}
-                disabled={!newRoomName.trim() || isCreating}
-              >
-                {isCreating ? t('common.loading') : t('common.create')}
-              </Button>
+              />
             </div>
-          </ModalPanel>
+          </div>
+
+          {/* Buttons */}
+          <div className="mt-6 flex justify-end space-x-3">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowNewRoomDialog(false)
+                setNewRoomName('')
+              }}
+              disabled={isCreating}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleCreateRoom} disabled={!newRoomName.trim() || isCreating}>
+              {isCreating ? t('common.loading') : t('common.create')}
+            </Button>
+          </div>
+        </ModalPanel>
       </Modal>
     </div>
   )

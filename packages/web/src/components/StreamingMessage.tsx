@@ -42,9 +42,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center space-x-2 mb-1">
-            <span className="font-semibold text-text-primary text-sm">
-              {agentName}
-            </span>
+            <span className="font-semibold text-text-primary text-sm">{agentName}</span>
             <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
               {t('agent.agents')}
             </span>

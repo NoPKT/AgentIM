@@ -31,7 +31,9 @@ export async function selectAgents(
 
   const agentDescriptions = agents
     .map((a) => {
-      const caps = a.capabilities?.length ? ` (capabilities: ${a.capabilities.slice(0, 10).join(', ')})` : ''
+      const caps = a.capabilities?.length
+        ? ` (capabilities: ${a.capabilities.slice(0, 10).join(', ')})`
+        : ''
       return `- id: "${a.id}", name: "${a.name}", type: "${a.type}"${caps}`
     })
     .join('\n')
@@ -75,7 +77,9 @@ export async function selectAgents(
     } catch (fetchErr) {
       clearTimeout(timeout)
       const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'AbortError'
-      log.warn(`Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`)
+      log.warn(
+        `Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
+      )
       return null
     } finally {
       clearTimeout(timeout)

@@ -20,8 +20,8 @@ const mockFetch = vi.fn()
 globalThis.fetch = mockFetch
 
 // Dynamic import so module state resets between describe blocks where needed
-let api: typeof import('./api.js')['api']
-let setOnAuthExpired: typeof import('./api.js')['setOnAuthExpired']
+let api: (typeof import('./api.js'))['api']
+let setOnAuthExpired: (typeof import('./api.js'))['setOnAuthExpired']
 
 beforeEach(async () => {
   mockFetch.mockReset()

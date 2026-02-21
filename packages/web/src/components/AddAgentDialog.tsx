@@ -91,9 +91,7 @@ export function AddAgentDialog({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-text-primary text-sm truncate">
-              {agent.name}
-            </span>
+            <span className="font-medium text-text-primary text-sm truncate">{agent.name}</span>
             <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
           </div>
           <div className="flex items-center gap-2">
@@ -155,9 +153,7 @@ export function AddAgentDialog({
               onChange={(e) => setOnlineOnly(e.target.checked)}
               className="rounded border-border text-accent focus:ring-accent"
             />
-            <span className="text-sm text-text-secondary">
-              {t('chat.filterOnlineOnly')}
-            </span>
+            <span className="text-sm text-text-secondary">{t('chat.filterOnlineOnly')}</span>
           </label>
         </div>
 

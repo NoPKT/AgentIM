@@ -58,8 +58,16 @@ export class GenericAdapter extends BaseAgentAdapter {
     this.isRunning = true
     let fullContent = ''
     let done = false
-    const complete = (content: string) => { if (done) return; done = true; onComplete(content) }
-    const fail = (err: string) => { if (done) return; done = true; onError(err) }
+    const complete = (content: string) => {
+      if (done) return
+      done = true
+      onComplete(content)
+    }
+    const fail = (err: string) => {
+      if (done) return
+      done = true
+      onError(err)
+    }
 
     const prompt = this.buildPrompt(content, context)
     const args = [...this.cmdArgs, prompt]

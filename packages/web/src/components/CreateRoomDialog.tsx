@@ -36,12 +36,16 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
 
     setIsCreating(true)
     try {
-      await createRoom(name, type, broadcastMode, systemPrompt.trim() || undefined, routerId || undefined)
+      await createRoom(
+        name,
+        type,
+        broadcastMode,
+        systemPrompt.trim() || undefined,
+        routerId || undefined,
+      )
       handleClose()
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t('chat.failedToCreateRoom'),
-      )
+      setError(err instanceof Error ? err.message : t('chat.failedToCreateRoom'))
     } finally {
       setIsCreating(false)
     }
@@ -105,10 +109,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     <Modal isOpen={isOpen} onClose={handleClose} aria-labelledby="create-room-title">
       <ModalPanel ref={dialogRef} className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2
-            id="create-room-title"
-            className="text-xl font-semibold text-text-primary"
-          >
+          <h2 id="create-room-title" className="text-xl font-semibold text-text-primary">
             {t('chat.newRoom')}
           </h2>
           <button
@@ -194,7 +195,11 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           </FormField>
 
           {/* System Prompt */}
-          <FormField label={t('chat.systemPrompt')} htmlFor="systemPrompt" helperText={t('chat.systemPromptDesc')}>
+          <FormField
+            label={t('chat.systemPrompt')}
+            htmlFor="systemPrompt"
+            helperText={t('chat.systemPromptDesc')}
+          >
             <Textarea
               id="systemPrompt"
               value={systemPrompt}
@@ -206,12 +211,12 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
           </FormField>
 
           {/* Router */}
-          <FormField label={t('router.roomRouter')} htmlFor="routerId" helperText={t('router.routerDesc')}>
-            <Select
-              id="routerId"
-              value={routerId}
-              onChange={(e) => setRouterId(e.target.value)}
-            >
+          <FormField
+            label={t('router.roomRouter')}
+            htmlFor="routerId"
+            helperText={t('router.routerDesc')}
+          >
+            <Select id="routerId" value={routerId} onChange={(e) => setRouterId(e.target.value)}>
               <option value="">{t('router.noRouter')}</option>
               {routers.map((r) => (
                 <option key={r.id} value={r.id}>

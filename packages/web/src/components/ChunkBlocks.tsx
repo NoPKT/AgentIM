@@ -69,9 +69,7 @@ export function ThinkingBlock({
         )}
 
         <span className="font-medium">{isStreaming ? t('chat.thinking') : t('chat.thought')}</span>
-        {!expanded && summary && (
-          <span className="text-text-muted truncate flex-1">{summary}</span>
-        )}
+        {!expanded && summary && <span className="text-text-muted truncate flex-1">{summary}</span>}
       </button>
 
       {expanded && (
@@ -216,7 +214,10 @@ export function TextBlock({
 }) {
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
+      >
         {content}
       </ReactMarkdown>
       {isStreaming && (

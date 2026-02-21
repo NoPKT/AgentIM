@@ -66,7 +66,10 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
       const fg = s.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
       term.options.theme = { background: bg, foreground: fg, cursor: fg }
     })
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
 
     return () => {
       themeObserver.disconnect()

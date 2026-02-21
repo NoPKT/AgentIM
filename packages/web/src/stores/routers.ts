@@ -11,7 +11,9 @@ interface RoutersState {
   routers: Router[]
   loading: boolean
   loadRouters: () => Promise<void>
-  createRouter: (data: Omit<Router, 'id' | 'createdById' | 'createdAt' | 'updatedAt'>) => Promise<Router>
+  createRouter: (
+    data: Omit<Router, 'id' | 'createdById' | 'createdAt' | 'updatedAt'>,
+  ) => Promise<Router>
   updateRouter: (id: string, data: UpdateRouterData) => Promise<void>
   deleteRouter: (id: string) => Promise<void>
   testRouter: (id: string) => Promise<boolean>

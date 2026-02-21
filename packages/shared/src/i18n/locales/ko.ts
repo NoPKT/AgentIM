@@ -292,7 +292,8 @@ export const ko = {
     selectRouter: '라우터 선택',
     noRouter: '없음',
     defaultRouter: '기본 라우터',
-    confirmDelete: '이 라우터를 삭제하시겠습니까? 이를 사용하는 채팅방은 라우터 설정을 잃게 됩니다.',
+    confirmDelete:
+      '이 라우터를 삭제하시겠습니까? 이를 사용하는 채팅방은 라우터 설정을 잃게 됩니다.',
     created: '라우터가 생성되었습니다',
     updated: '라우터가 업데이트되었습니다',
     deleted: '라우터가 삭제되었습니다',

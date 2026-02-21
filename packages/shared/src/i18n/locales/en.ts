@@ -293,7 +293,8 @@ export const en = {
     selectRouter: 'Select Router',
     noRouter: 'None',
     defaultRouter: 'Default Router',
-    confirmDelete: 'Are you sure you want to delete this router? Rooms using it will lose their router.',
+    confirmDelete:
+      'Are you sure you want to delete this router? Rooms using it will lose their router.',
     created: 'Router created',
     updated: 'Router updated',
     deleted: 'Router deleted',

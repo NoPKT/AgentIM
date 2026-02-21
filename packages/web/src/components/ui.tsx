@@ -1,4 +1,14 @@
-import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useId,
+  useRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { twMerge } from 'tailwind-merge'
 
@@ -8,14 +18,10 @@ const buttonBase =
   'inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
 const buttonVariants = {
-  primary:
-    'bg-accent hover:bg-accent-hover text-white focus:ring-accent',
-  secondary:
-    'text-text-secondary hover:bg-surface-hover focus:ring-border',
-  danger:
-    'bg-danger hover:bg-danger-hover text-white focus:ring-danger',
-  ghost:
-    'text-text-secondary hover:bg-surface-hover focus:ring-border',
+  primary: 'bg-accent hover:bg-accent-hover text-white focus:ring-accent',
+  secondary: 'text-text-secondary hover:bg-surface-hover focus:ring-border',
+  danger: 'bg-danger hover:bg-danger-hover text-white focus:ring-danger',
+  ghost: 'text-text-secondary hover:bg-surface-hover focus:ring-border',
 } as const
 
 const buttonSizes = {
@@ -36,7 +42,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', className, ...props }, ref) => (
     <button
       ref={ref}
-      className={twMerge(`${buttonBase} ${buttonVariants[variant]} ${buttonSizes[size]}`, className)}
+      className={twMerge(
+        `${buttonBase} ${buttonVariants[variant]} ${buttonSizes[size]}`,
+        className,
+      )}
       {...props}
     />
   ),
@@ -67,7 +76,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ inputSize = 'md', error = false, className, ...props }, ref) => (
     <input
       ref={ref}
-      className={twMerge(`${fieldBase} ${fieldSizes[inputSize]} ${error ? 'border-danger focus:ring-danger' : ''}`, className)}
+      className={twMerge(
+        `${fieldBase} ${fieldSizes[inputSize]} ${error ? 'border-danger focus:ring-danger' : ''}`,
+        className,
+      )}
       aria-invalid={error || undefined}
       {...props}
     />
@@ -86,7 +98,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ inputSize = 'md', error = false, className, ...props }, ref) => (
     <textarea
       ref={ref}
-      className={twMerge(`${fieldBase} ${fieldSizes[inputSize]} resize-none ${error ? 'border-danger focus:ring-danger' : ''}`, className)}
+      className={twMerge(
+        `${fieldBase} ${fieldSizes[inputSize]} resize-none ${error ? 'border-danger focus:ring-danger' : ''}`,
+        className,
+      )}
       aria-invalid={error || undefined}
       {...props}
     />
@@ -156,9 +171,7 @@ export function FormField({
           {error}
         </p>
       )}
-      {!error && helperText && (
-        <p className="mt-1 text-xs text-text-muted">{helperText}</p>
-      )}
+      {!error && helperText && <p className="mt-1 text-xs text-text-muted">{helperText}</p>}
     </div>
   )
 }

@@ -110,7 +110,9 @@ export class AgentManager {
     }
   }
 
-  handleServerMessage(msg: ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext) {
+  handleServerMessage(
+    msg: ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext,
+  ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
     } else if (msg.type === 'server:stop_agent') {

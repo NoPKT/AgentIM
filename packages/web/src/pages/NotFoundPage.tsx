@@ -8,9 +8,7 @@ export default function NotFoundPage() {
     <div className="min-h-dvh flex items-center justify-center bg-surface-secondary px-4">
       <div className="text-center">
         <p className="text-7xl font-bold text-border">404</p>
-        <h1 className="mt-4 text-xl font-semibold text-text-primary">
-          {t('error.notFound')}
-        </h1>
+        <h1 className="mt-4 text-xl font-semibold text-text-primary">{t('error.notFound')}</h1>
         <p className="mt-2 text-sm text-text-muted">{t('error.generic')}</p>
         <Link
           to="/"

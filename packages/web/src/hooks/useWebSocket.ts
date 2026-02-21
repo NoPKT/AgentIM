@@ -15,7 +15,9 @@ export function useWebSocket() {
   // would teardown/re-register on every route transition, creating a window where
   // incoming WS frames (messages, reactions, read receipts) are silently dropped.
   const navigateRef = useRef(navigate)
-  useEffect(() => { navigateRef.current = navigate })
+  useEffect(() => {
+    navigateRef.current = navigate
+  })
 
   // Single stable subscription — access store actions via getState() to avoid
   // depending on 13+ selector references that would cause frequent re-subscriptions.
@@ -154,7 +156,8 @@ export function useWebSocket() {
   // On reconnect, re-join all previously subscribed rooms and sync missed messages
   useEffect(() => {
     const unsub = wsClient.onReconnect(() => {
-      const { currentRoomId, joinedRooms, syncMissedMessages, loadRoomMembers, loadRooms } = useChatStore.getState()
+      const { currentRoomId, joinedRooms, syncMissedMessages, loadRoomMembers, loadRooms } =
+        useChatStore.getState()
 
       // Server-side subscriptions are reset on reconnect, so re-join
       // ALL rooms that were subscribed (not just the current one) to

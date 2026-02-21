@@ -1,12 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir, hostname, userInfo } from 'node:os'
-import {
-  createHash,
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from 'node:crypto'
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
 export interface GatewayConfig {
   serverUrl: string
@@ -77,7 +72,7 @@ interface RawConfigV2 {
   version: 2
   serverUrl: string
   serverBaseUrl: string
-  token: string        // encrypted base64
+  token: string // encrypted base64
   refreshToken: string // encrypted base64
   gatewayId: string
 }

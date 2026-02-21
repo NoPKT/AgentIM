@@ -186,7 +186,9 @@ uploadRoutes.post('/avatar', async (c) => {
     for (const f of files) {
       if (f.startsWith(prefix) && f !== storedFilename) {
         await unlink(resolve(config.uploadDir, f)).catch((err) => {
-          log.warn(`Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`)
+          log.warn(
+            `Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`,
+          )
         })
       }
     }
@@ -231,13 +233,16 @@ export async function cleanupOrphanAttachments() {
       await unlink(filePath)
       unlinkedIds.push(orphan.id)
     } catch (err: unknown) {
-      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+      const code =
+        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
       if (code === 'ENOENT') {
         // File already gone — safe to remove DB record
         unlinkedIds.push(orphan.id)
       } else {
         // Real I/O error — keep DB record for retry
-        log.warn(`Failed to unlink orphan file ${filename}: ${err instanceof Error ? err.message : err}`)
+        log.warn(
+          `Failed to unlink orphan file ${filename}: ${err instanceof Error ? err.message : err}`,
+        )
       }
     }
   }
