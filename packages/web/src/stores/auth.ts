@@ -36,7 +36,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     if (!res.ok || !res.data) throw new Error(res.error ?? 'Login failed')
 
-    api.setTokens(res.data.accessToken, res.data.refreshToken)
+    // refreshToken is now stored as an httpOnly Cookie by the server.
+    // We only keep the access token in memory.
+    api.setTokens(res.data.accessToken)
     set({ user: res.data.user })
     wsClient.connect(res.data.accessToken)
   },

@@ -1,10 +1,11 @@
 import { Hono } from 'hono'
+import { setCookie, getCookie, deleteCookie } from 'hono/cookie'
 import { hash, verify } from 'argon2'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { users, refreshTokens } from '../db/schema.js'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js'
-import { loginSchema, refreshSchema } from '@agentim/shared'
+import { loginSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { authRateLimit } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -12,6 +13,25 @@ import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody } from '../lib/validation.js'
 import { config } from '../config.js'
+
+const REFRESH_COOKIE_NAME = 'agentim_rt'
+const REFRESH_COOKIE_PATH = '/api/auth'
+
+function setRefreshCookie(c: Parameters<typeof setCookie>[0], token: string, maxAgeSec: number) {
+  setCookie(c, REFRESH_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'Strict',
+    path: REFRESH_COOKIE_PATH,
+    maxAge: maxAgeSec,
+    ...(config.isProduction ? { secure: true } : {}),
+  })
+}
+
+function clearRefreshCookie(c: Parameters<typeof deleteCookie>[0]) {
+  deleteCookie(c, REFRESH_COOKIE_NAME, {
+    path: REFRESH_COOKIE_PATH,
+  })
+}
 
 const LOCKOUT_THRESHOLD = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000 // 15 minutes
@@ -118,6 +138,11 @@ authRoutes.post('/login', async (c) => {
 
   logAudit({ userId: user.id, action: 'login', ipAddress: ip })
 
+  // Set httpOnly Cookie for browser clients (web app).
+  // The refresh token is also returned in the JSON body for CLI (Gateway) clients.
+  const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
+  setRefreshCookie(c, refreshToken, cookieMaxAge)
+
   return c.json({
     ok: true,
     data: {
@@ -135,15 +160,25 @@ authRoutes.post('/login', async (c) => {
 })
 
 authRoutes.post('/refresh', async (c) => {
-  const body = await parseJsonBody(c)
-  if (body instanceof Response) return body
-  const parsed = refreshSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ ok: false, error: 'Validation failed' }, 400)
+  // Priority 1: httpOnly Cookie (web browser path)
+  // Priority 2: JSON body refreshToken (Gateway CLI path — backward compatible)
+  let incomingRefreshToken = getCookie(c, REFRESH_COOKIE_NAME) ?? null
+
+  if (!incomingRefreshToken) {
+    const body = await parseJsonBody(c)
+    if (body instanceof Response) return body
+    const rt = (body as Record<string, unknown>)?.refreshToken
+    if (typeof rt === 'string' && rt.length > 0 && rt.length <= 2000) {
+      incomingRefreshToken = rt
+    }
+  }
+
+  if (!incomingRefreshToken) {
+    return c.json({ ok: false, error: 'Refresh token required' }, 401)
   }
 
   try {
-    const payload = await verifyToken(parsed.data.refreshToken)
+    const payload = await verifyToken(incomingRefreshToken)
     if (payload.type !== 'refresh') {
       return c.json({ ok: false, error: 'Invalid token type' }, 401)
     }
@@ -171,7 +206,7 @@ authRoutes.post('/refresh', async (c) => {
       let tokenValid = false
       for (const t of storedTokens) {
         if (t.expiresAt && t.expiresAt < now) continue
-        const match = await verify(t.tokenHash, parsed.data.refreshToken).catch(() => false)
+        const match = await verify(t.tokenHash, incomingRefreshToken!).catch(() => false)
         if (match) {
           tokenValid = true
           break
@@ -198,8 +233,13 @@ authRoutes.post('/refresh', async (c) => {
     })
 
     if (!result) {
+      clearRefreshCookie(c)
       return c.json({ ok: false, error: 'Refresh token revoked or invalid' }, 401)
     }
+
+    // Rotate Cookie for web clients
+    const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
+    setRefreshCookie(c, result.refreshToken, cookieMaxAge)
 
     return c.json({ ok: true, data: result })
   } catch (err) {
@@ -209,6 +249,7 @@ authRoutes.post('/refresh', async (c) => {
       ((err as { code: string }).code.startsWith('ERR_JWT') ||
         (err as { code: string }).code.startsWith('ERR_JWS'))
     if (isJoseError) {
+      clearRefreshCookie(c)
       return c.json({ ok: false, error: 'Invalid or expired refresh token' }, 401)
     }
     throw err
@@ -221,6 +262,8 @@ authRoutes.post('/logout', authMiddleware, async (c) => {
   // Revoke all outstanding access tokens and disconnect active WS sessions
   await revokeUserTokens(userId)
   connectionManager.disconnectUser(userId)
+  // Clear the httpOnly refresh token Cookie for browser clients
+  clearRefreshCookie(c)
   logAudit({ userId, action: 'logout', ipAddress: getClientIp(c) })
   return c.json({ ok: true })
 })

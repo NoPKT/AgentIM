@@ -17,7 +17,7 @@ const log = createLogger('Server')
 
 // Initialize Sentry (if SENTRY_DSN is set)
 await initSentry()
-import { apiRateLimit } from './middleware/rateLimit.js'
+import { apiRateLimit, wsUpgradeRateLimit } from './middleware/rateLimit.js'
 import { migrate, closeDb, db } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected } from './lib/redis.js'
 import { sql, lt } from 'drizzle-orm'
@@ -270,6 +270,7 @@ const wsAuthTimers = new WeakMap<object, ReturnType<typeof setTimeout>>()
 
 app.get(
   '/ws/client',
+  wsUpgradeRateLimit,
   upgradeWebSocket(() => ({
     onOpen(_, ws) {
       wsAuthTimers.set(
@@ -307,6 +308,7 @@ app.get(
 
 app.get(
   '/ws/gateway',
+  wsUpgradeRateLimit,
   upgradeWebSocket(() => ({
     onOpen(_, ws) {
       wsAuthTimers.set(

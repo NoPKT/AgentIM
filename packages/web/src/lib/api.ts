@@ -25,55 +25,27 @@ const RETRY_BASE_DELAY = 500
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503])
 
-// Access token lives in memory only — not accessible via XSS to localStorage
+// Access token lives in memory only — not accessible via XSS
+// Refresh token is stored in a httpOnly Cookie managed by the server
 let accessToken: string | null = null
 
-// Simple obfuscation for refresh token storage — not encryption, but raises the
-// bar compared to plaintext localStorage. Deters casual XSS exfiltration.
-const _STORAGE_KEY = 'agentim_rt'
-function _obfuscate(token: string): string {
-  // XOR with a fixed per-origin key derived from the page origin
-  const key = btoa(location.origin).slice(0, 16)
-  let result = ''
-  for (let i = 0; i < token.length; i++) {
-    result += String.fromCharCode(token.charCodeAt(i) ^ key.charCodeAt(i % key.length))
-  }
-  return btoa(result)
-}
-function _deobfuscate(encoded: string): string | null {
+// One-time migration: remove stale tokens from localStorage left by older versions
+;(() => {
   try {
-    const decoded = atob(encoded)
-    const key = btoa(location.origin).slice(0, 16)
-    let result = ''
-    for (let i = 0; i < decoded.length; i++) {
-      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length))
-    }
-    return result
-  } catch {
-    return null
-  }
-}
-function _getStoredRefreshToken(): string | null {
-  // Try new obfuscated key first, then fall back to legacy plaintext key
-  const obfuscated = localStorage.getItem(_STORAGE_KEY)
-  if (obfuscated) return _deobfuscate(obfuscated)
-  const legacy = localStorage.getItem('agentim_refresh_token')
-  if (legacy) {
-    // Migrate to obfuscated storage
-    localStorage.setItem(_STORAGE_KEY, _obfuscate(legacy))
+    localStorage.removeItem('agentim_rt')
     localStorage.removeItem('agentim_refresh_token')
-    return legacy
+    localStorage.removeItem('agentim_access_token')
+  } catch {
+    // localStorage may be unavailable in some environments
   }
-  return null
-}
+})()
 
 function getToken(): string | null {
   return accessToken
 }
 
-function setTokens(access: string, refresh: string) {
+function setTokens(access: string) {
   accessToken = access
-  localStorage.setItem(_STORAGE_KEY, _obfuscate(refresh))
   // Keep WS client in sync so reconnections use the fresh token
   wsClient.updateToken(access)
   // Reset the auth-expired guard so future sessions can fire it again
@@ -82,10 +54,6 @@ function setTokens(access: string, refresh: string) {
 
 function clearTokens() {
   accessToken = null
-  localStorage.removeItem(_STORAGE_KEY)
-  // Clean up legacy keys if present
-  localStorage.removeItem('agentim_refresh_token')
-  localStorage.removeItem('agentim_access_token')
 }
 
 // Eagerly try to recover session on page load so the first request
@@ -98,7 +66,8 @@ async function ensureInitialRefresh(): Promise<void> {
   if (_initialRefreshPromise) return _initialRefreshPromise
 
   _initialRefreshPromise = (async () => {
-    if (!accessToken && _getStoredRefreshToken()) {
+    if (!accessToken) {
+      // Attempt to restore the session using the httpOnly Cookie
       await refreshAccessToken()
     }
     _initialRefreshDone = true
@@ -135,22 +104,19 @@ async function refreshAccessToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
-    const refreshToken = _getStoredRefreshToken()
-    if (!refreshToken) return false
-
     try {
       const t = withTimeout(null, 10_000)
+      // No body needed — the browser automatically sends the httpOnly Cookie
       const res = await fetch(`${BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        credentials: 'include',
         signal: t.signal,
       })
       t.clear()
       if (!res.ok) return false
       const data = await res.json()
       if (data.ok && data.data) {
-        setTokens(data.data.accessToken, data.data.refreshToken)
+        setTokens(data.data.accessToken)
         return true
       }
       return false
@@ -189,9 +155,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const t = withTimeout(userSignal, timeout)
     try {
-      let res = await fetch(`${BASE_URL}${path}`, { ...init, headers, signal: t.signal })
+      let res = await fetch(`${BASE_URL}${path}`, {
+        ...init,
+        headers,
+        signal: t.signal,
+        credentials: 'include',
+      })
 
-      if (res.status === 401 && (token || _getStoredRefreshToken())) {
+      if (res.status === 401) {
         t.clear()
         const refreshed = await refreshAccessToken()
         if (refreshed) {
@@ -201,10 +172,11 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
             ...init,
             headers,
             signal: t2.signal,
+            credentials: 'include',
           })
           t2.clear()
         } else {
-          // Refresh failed — clear stale tokens, disconnect WS, and reset auth state
+          // Refresh failed — clear stale token, disconnect WS, and reset auth state
           fireAuthExpired()
         }
       }
@@ -259,6 +231,7 @@ async function uploadFile<T>(
       new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${BASE_URL}${path}`)
+        xhr.withCredentials = true
         Object.entries(hdrs).forEach(([k, v]) => xhr.setRequestHeader(k, v))
 
         xhr.upload.addEventListener('progress', (e) => {
@@ -285,7 +258,7 @@ async function uploadFile<T>(
     const result = await doXhrUpload(headers, formData)
 
     // Handle 401 → refresh → retry, same as the fetch branch
-    if (result.status === 401 && (token || _getStoredRefreshToken())) {
+    if (result.status === 401) {
       const refreshed = await refreshAccessToken()
       if (refreshed) {
         headers['Authorization'] = `Bearer ${getToken()}`
@@ -302,10 +275,16 @@ async function uploadFile<T>(
 
   const t = withTimeout(userSignal, UPLOAD_TIMEOUT)
 
-  let res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, body: formData, signal: t.signal })
+  let res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    signal: t.signal,
+    credentials: 'include',
+  })
   t.clear()
 
-  if (res.status === 401 && (token || _getStoredRefreshToken())) {
+  if (res.status === 401) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`
@@ -318,6 +297,7 @@ async function uploadFile<T>(
         headers,
         body: retryFormData,
         signal: t2.signal,
+        credentials: 'include',
       })
       t2.clear()
     } else {

@@ -89,3 +89,5 @@ export const apiRateLimit = rateLimitMiddleware(60_000, 120, 'api')
 export const sensitiveRateLimit = rateLimitMiddleware(60_000, 5, 'sens')
 /** Upload endpoints: 10 requests per minute */
 export const uploadRateLimit = rateLimitMiddleware(60_000, 10, 'upload')
+/** WebSocket upgrade: 30 attempts per minute per IP — prevents connection exhaustion attacks */
+export const wsUpgradeRateLimit = rateLimitMiddleware(60_000, 30, 'ws_upgrade')

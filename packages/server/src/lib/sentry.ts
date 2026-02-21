@@ -11,7 +11,7 @@ export async function initSentry(): Promise<void> {
 
   try {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore — @sentry/node is an optional dependency
+    // @ts-expect-error — @sentry/node is an optional peer dependency
     const sentry = await import('@sentry/node')
     sentry.init({
       dsn: config.sentryDsn,

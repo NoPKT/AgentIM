@@ -113,14 +113,30 @@ export async function runWrapper(opts: {
   wsClient.connect()
 
   // Graceful shutdown
+  let shuttingDown = false
   const cleanup = async () => {
+    if (shuttingDown) return
+    shuttingDown = true
     log.info('Shutting down...')
-    await agentManager.disposeAll()
+    try {
+      await agentManager.disposeAll()
+    } catch (err) {
+      log.warn(`Error during agent disposal: ${err instanceof Error ? err.message : err}`)
+    }
     wsClient.close()
-    process.exit(0)
+    // Wait briefly for WS close frame to be sent before exiting
+    setTimeout(() => process.exit(0), 2000).unref()
   }
 
   process.on('SIGINT', () => void cleanup())
   process.on('SIGTERM', () => void cleanup())
   process.on('SIGHUP', () => void cleanup())
+  process.on('uncaughtException', (err) => {
+    log.error(`Uncaught exception: ${err.message}`)
+    void cleanup()
+  })
+  process.on('unhandledRejection', (reason) => {
+    log.error(`Unhandled rejection: ${reason}`)
+    void cleanup()
+  })
 }
