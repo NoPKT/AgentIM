@@ -352,11 +352,13 @@ export const ko = {
     jwtRefreshExpiry: '리프레시 토큰 만료',
     jwtRefreshExpiryDesc: '리프레시 토큰 만료 기간 (예: 7d, 30d).',
     trustProxy: '프록시 신뢰',
-    trustProxyDesc: '리버스 프록시(nginx, Cloudflare 등) 뒤에서 실행할 때 활성화하여 X-Forwarded-For 헤더를 신뢰합니다.',
+    trustProxyDesc:
+      '리버스 프록시(nginx, Cloudflare 등) 뒤에서 실행할 때 활성화하여 X-Forwarded-For 헤더를 신뢰합니다.',
     uploadMaxFileSize: '최대 파일 크기',
     uploadMaxFileSizeDesc: '업로드 파일의 최대 크기(바이트).',
     storageProvider: '저장소 제공자',
-    storageProviderDesc: '파일 저장소 백엔드. "local"은 디스크에 저장, "s3"는 S3 호환 오브젝트 스토리지 사용.',
+    storageProviderDesc:
+      '파일 저장소 백엔드. "local"은 디스크에 저장, "s3"는 S3 호환 오브젝트 스토리지 사용.',
     s3Bucket: 'S3 버킷',
     s3BucketDesc: '파일 저장에 사용할 S3 버킷 이름.',
     s3Region: 'S3 리전',

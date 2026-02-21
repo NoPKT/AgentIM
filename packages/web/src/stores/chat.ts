@@ -232,7 +232,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             unreadCounts.delete(roomId)
           }
           setCachedRoomMeta(roomId, {
-            lastMessage: { content: info.content, senderName: info.senderName, createdAt: info.createdAt },
+            lastMessage: {
+              content: info.content,
+              senderName: info.senderName,
+              createdAt: info.createdAt,
+            },
             unread: info.unread,
           })
         }

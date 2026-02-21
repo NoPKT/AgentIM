@@ -348,7 +348,8 @@ export const de = {
     groupAiRouter: 'KI-Router',
     groupMaintenance: 'Wartung',
     corsOrigin: 'CORS-Ursprung',
-    corsOriginDesc: 'Erlaubte Ursprünge für Cross-Origin-Anfragen. Mehrere Ursprünge mit Komma trennen.',
+    corsOriginDesc:
+      'Erlaubte Ursprünge für Cross-Origin-Anfragen. Mehrere Ursprünge mit Komma trennen.',
     logLevel: 'Log-Level',
     logLevelDesc: 'Detailgrad der Serverprotokollierung.',
     jwtAccessExpiry: 'Zugriffstoken-Ablauf',
@@ -356,11 +357,13 @@ export const de = {
     jwtRefreshExpiry: 'Aktualisierungstoken-Ablauf',
     jwtRefreshExpiryDesc: 'Dauer bis zum Ablauf der Aktualisierungstoken (z.B. 7d, 30d).',
     trustProxy: 'Proxy vertrauen',
-    trustProxyDesc: 'Aktivieren, wenn der Server hinter einem Reverse-Proxy (nginx, Cloudflare usw.) läuft, um X-Forwarded-For-Header zu vertrauen.',
+    trustProxyDesc:
+      'Aktivieren, wenn der Server hinter einem Reverse-Proxy (nginx, Cloudflare usw.) läuft, um X-Forwarded-For-Header zu vertrauen.',
     uploadMaxFileSize: 'Max. Dateigröße',
     uploadMaxFileSizeDesc: 'Maximale Upload-Dateigröße in Bytes.',
     storageProvider: 'Speicheranbieter',
-    storageProviderDesc: 'Dateispeicher-Backend. "local" speichert Dateien auf der Festplatte, "s3" nutzt S3-kompatiblen Objektspeicher.',
+    storageProviderDesc:
+      'Dateispeicher-Backend. "local" speichert Dateien auf der Festplatte, "s3" nutzt S3-kompatiblen Objektspeicher.',
     s3Bucket: 'S3-Bucket',
     s3BucketDesc: 'S3-Bucket-Name für die Dateispeicherung.',
     s3Region: 'S3-Region',
@@ -396,11 +399,14 @@ export const de = {
     routerLlmModel: 'LLM-Modell',
     routerLlmModelDesc: 'Modellname für den LLM-Routing-Dienst.',
     maxChainDepth: 'Max. Kettentiefe',
-    maxChainDepthDesc: 'Maximale Tiefe der Agent-zu-Agent-Routing-Ketten zur Vermeidung von Endlosschleifen.',
+    maxChainDepthDesc:
+      'Maximale Tiefe der Agent-zu-Agent-Routing-Ketten zur Vermeidung von Endlosschleifen.',
     orphanFileInterval: 'Verwaiste-Dateien-Bereinigung (ms)',
-    orphanFileIntervalDesc: 'Intervall in Millisekunden zwischen den Bereinigungsläufen verwaister Dateien.',
+    orphanFileIntervalDesc:
+      'Intervall in Millisekunden zwischen den Bereinigungsläufen verwaister Dateien.',
     tokenInterval: 'Token-Bereinigung (ms)',
-    tokenIntervalDesc: 'Intervall in Millisekunden zwischen den Bereinigungsläufen abgelaufener Token.',
+    tokenIntervalDesc:
+      'Intervall in Millisekunden zwischen den Bereinigungsläufen abgelaufener Token.',
     sentryDsn: 'Sentry-DSN',
     sentryDsnDesc: 'Sentry-Fehlerverfolgung-DSN. Leer lassen zum Deaktivieren.',
     sourceDb: 'Datenbank',

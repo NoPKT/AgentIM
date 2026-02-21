@@ -112,10 +112,7 @@ export default function AdminSettingsPage() {
         const groupDirty = items.some((item) => dirty.has(item.key))
 
         return (
-          <div
-            key={groupKey}
-            className="bg-surface rounded-lg border border-border shadow-sm"
-          >
+          <div key={groupKey} className="bg-surface rounded-lg border border-border shadow-sm">
             <div className="px-6 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-text-primary">
                 {t(GROUP_LABEL_KEYS[groupKey])}

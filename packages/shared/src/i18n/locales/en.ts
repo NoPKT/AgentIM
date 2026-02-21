@@ -345,7 +345,8 @@ export const en = {
     groupAiRouter: 'AI Router',
     groupMaintenance: 'Maintenance',
     corsOrigin: 'CORS Origin',
-    corsOriginDesc: 'Allowed origins for cross-origin requests. Comma-separated for multiple origins.',
+    corsOriginDesc:
+      'Allowed origins for cross-origin requests. Comma-separated for multiple origins.',
     logLevel: 'Log Level',
     logLevelDesc: 'Server logging verbosity level.',
     jwtAccessExpiry: 'Access Token Expiry',
@@ -353,11 +354,13 @@ export const en = {
     jwtRefreshExpiry: 'Refresh Token Expiry',
     jwtRefreshExpiryDesc: 'Duration before refresh tokens expire (e.g. 7d, 30d).',
     trustProxy: 'Trust Proxy',
-    trustProxyDesc: 'Enable when running behind a reverse proxy (nginx, Cloudflare, etc.) to trust X-Forwarded-For headers.',
+    trustProxyDesc:
+      'Enable when running behind a reverse proxy (nginx, Cloudflare, etc.) to trust X-Forwarded-For headers.',
     uploadMaxFileSize: 'Max File Size',
     uploadMaxFileSizeDesc: 'Maximum upload file size in bytes.',
     storageProvider: 'Storage Provider',
-    storageProviderDesc: 'File storage backend. "local" stores files on disk, "s3" uses S3-compatible object storage.',
+    storageProviderDesc:
+      'File storage backend. "local" stores files on disk, "s3" uses S3-compatible object storage.',
     s3Bucket: 'S3 Bucket',
     s3BucketDesc: 'S3 bucket name for file storage.',
     s3Region: 'S3 Region',

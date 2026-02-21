@@ -352,11 +352,13 @@ export const ja = {
     jwtRefreshExpiry: 'リフレッシュトークンの有効期限',
     jwtRefreshExpiryDesc: 'リフレッシュトークンの有効期間（例: 7d、30d）。',
     trustProxy: 'プロキシ信頼',
-    trustProxyDesc: 'リバースプロキシ（nginx、Cloudflareなど）の背後で動作する場合に有効にし、X-Forwarded-Forヘッダーを信頼します。',
+    trustProxyDesc:
+      'リバースプロキシ（nginx、Cloudflareなど）の背後で動作する場合に有効にし、X-Forwarded-Forヘッダーを信頼します。',
     uploadMaxFileSize: '最大ファイルサイズ',
     uploadMaxFileSizeDesc: 'アップロードファイルの最大サイズ（バイト）。',
     storageProvider: 'ストレージプロバイダー',
-    storageProviderDesc: 'ファイルストレージのバックエンド。"local"はディスクに保存、"s3"はS3互換オブジェクトストレージを使用。',
+    storageProviderDesc:
+      'ファイルストレージのバックエンド。"local"はディスクに保存、"s3"はS3互換オブジェクトストレージを使用。',
     s3Bucket: 'S3バケット',
     s3BucketDesc: 'ファイルストレージ用のS3バケット名。',
     s3Region: 'S3リージョン',

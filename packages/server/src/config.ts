@@ -179,9 +179,7 @@ export function _setSettingsModule(mod: typeof _settingsModule): void {
  * Read a DB-backed setting synchronously. Falls through to env var / default
  * when the settings module hasn't been injected yet (e.g. during early startup).
  */
-export function getConfigSync<T extends string | number | boolean = string>(
-  settingKey: string,
-): T {
+export function getConfigSync<T extends string | number | boolean = string>(settingKey: string): T {
   if (_settingsModule) {
     return _settingsModule.getSettingTypedSync<T>(settingKey)
   }

@@ -190,11 +190,13 @@ uploadRoutes.post('/avatar', async (c) => {
     const files = await getStorage().list(prefix)
     for (const f of files) {
       if (f !== storedFilename) {
-        await getStorage().delete(f).catch((err: unknown) => {
-          log.warn(
-            `Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`,
-          )
-        })
+        await getStorage()
+          .delete(f)
+          .catch((err: unknown) => {
+            log.warn(
+              `Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`,
+            )
+          })
       }
     }
   } catch {

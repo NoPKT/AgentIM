@@ -347,7 +347,8 @@ export const ru = {
     groupAiRouter: 'ИИ-маршрутизатор',
     groupMaintenance: 'Обслуживание',
     corsOrigin: 'Источник CORS',
-    corsOriginDesc: 'Разрешённые источники для кросс-доменных запросов. Несколько источников разделяются запятыми.',
+    corsOriginDesc:
+      'Разрешённые источники для кросс-доменных запросов. Несколько источников разделяются запятыми.',
     logLevel: 'Уровень логирования',
     logLevelDesc: 'Уровень детализации серверных логов.',
     jwtAccessExpiry: 'Срок действия токена доступа',
@@ -355,11 +356,13 @@ export const ru = {
     jwtRefreshExpiry: 'Срок действия токена обновления',
     jwtRefreshExpiryDesc: 'Время до истечения токенов обновления (напр. 7d, 30d).',
     trustProxy: 'Доверять прокси',
-    trustProxyDesc: 'Включите при работе за обратным прокси (nginx, Cloudflare и т.д.) для доверия заголовкам X-Forwarded-For.',
+    trustProxyDesc:
+      'Включите при работе за обратным прокси (nginx, Cloudflare и т.д.) для доверия заголовкам X-Forwarded-For.',
     uploadMaxFileSize: 'Макс. размер файла',
     uploadMaxFileSizeDesc: 'Максимальный размер загружаемого файла в байтах.',
     storageProvider: 'Провайдер хранения',
-    storageProviderDesc: 'Бэкенд хранения файлов. "local" хранит файлы на диске, "s3" использует S3-совместимое объектное хранилище.',
+    storageProviderDesc:
+      'Бэкенд хранения файлов. "local" хранит файлы на диске, "s3" использует S3-совместимое объектное хранилище.',
     s3Bucket: 'Бакет S3',
     s3BucketDesc: 'Имя бакета S3 для хранения файлов.',
     s3Region: 'Регион S3',
@@ -371,17 +374,21 @@ export const ru = {
     s3SecretAccessKey: 'S3 Secret Access Key',
     s3SecretAccessKeyDesc: 'Секретный ключ S3 для аутентификации.',
     clientRateLimitWindow: 'Окно частоты клиента (с)',
-    clientRateLimitWindowDesc: 'Временное окно в секундах для ограничения частоты клиентского WebSocket.',
+    clientRateLimitWindowDesc:
+      'Временное окно в секундах для ограничения частоты клиентского WebSocket.',
     clientRateLimitMax: 'Макс. частота клиента',
-    clientRateLimitMaxDesc: 'Максимальное количество сообщений за окно для клиентских WebSocket-подключений.',
+    clientRateLimitMaxDesc:
+      'Максимальное количество сообщений за окно для клиентских WebSocket-подключений.',
     agentRateLimitWindow: 'Окно частоты агента (с)',
     agentRateLimitWindowDesc: 'Временное окно в секундах для ограничения частоты агент-агент.',
     agentRateLimitMax: 'Макс. частота агента',
-    agentRateLimitMaxDesc: 'Максимальное количество сообщений за окно для маршрутизации агент-агент.',
+    agentRateLimitMaxDesc:
+      'Максимальное количество сообщений за окно для маршрутизации агент-агент.',
     maxConnectionsPerUser: 'Макс. подключений на пользователя',
     maxConnectionsPerUserDesc: 'Максимальное количество WebSocket-подключений на пользователя.',
     maxTotalConnections: 'Макс. общее число подключений',
-    maxTotalConnectionsDesc: 'Максимальное общее количество WebSocket-подключений для всех пользователей.',
+    maxTotalConnectionsDesc:
+      'Максимальное общее количество WebSocket-подключений для всех пользователей.',
     maxGatewaysPerUser: 'Макс. шлюзов на пользователя',
     maxGatewaysPerUserDesc: 'Максимальное количество подключений шлюзов на пользователя.',
     maxMessageSize: 'Размер сообщения клиента (байт)',
@@ -395,7 +402,8 @@ export const ru = {
     routerLlmModel: 'Модель LLM',
     routerLlmModelDesc: 'Имя модели для службы LLM-маршрутизации.',
     maxChainDepth: 'Макс. глубина цепочки',
-    maxChainDepthDesc: 'Максимальная глубина цепочек маршрутизации агент-агент для предотвращения бесконечных циклов.',
+    maxChainDepthDesc:
+      'Максимальная глубина цепочек маршрутизации агент-агент для предотвращения бесконечных циклов.',
     orphanFileInterval: 'Очистка сиротских файлов (мс)',
     orphanFileIntervalDesc: 'Интервал в миллисекундах между запусками очистки сиротских файлов.',
     tokenInterval: 'Очистка токенов (мс)',

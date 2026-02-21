@@ -133,12 +133,7 @@ async function isRateLimited(userId: string): Promise<boolean> {
     const key = `ws:rate:${userId}`
     const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
     const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
-    const count = (await redis.eval(
-      WS_INCR_WITH_EXPIRE_LUA,
-      1,
-      key,
-      String(window),
-    )) as number
+    const count = (await redis.eval(WS_INCR_WITH_EXPIRE_LUA, 1, key, String(window))) as number
     return count > max
   } catch {
     log.warn('Redis unavailable for WS rate limiting, rejecting request (fail-closed)')
