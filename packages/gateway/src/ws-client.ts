@@ -11,6 +11,7 @@ const PING_INTERVAL = 30_000 // Send ping every 30s
 const PONG_TIMEOUT = 10_000 // Wait 10s for pong before considering connection dead
 const MAX_QUEUE_SIZE = 1000
 const MAX_RECONNECT_ATTEMPTS = parseInt(process.env.AGENTIM_MAX_RECONNECT ?? '', 10) || 50
+const PROBE_INTERVAL = parseInt(process.env.AGENTIM_PROBE_INTERVAL ?? '', 10) || 300_000 // 5 min
 
 export class GatewayWsClient {
   private ws: WebSocket | null = null
@@ -27,6 +28,7 @@ export class GatewayWsClient {
   private onAuthFailed: (() => Promise<void>) | null = null
   private shouldReconnect = true
   private connecting = false // Prevent concurrent connect attempts
+  private probing = false
   private sendQueue: GatewayMessage[] = []
 
   constructor(opts: {
@@ -58,6 +60,10 @@ export class GatewayWsClient {
     this.ws = new WebSocket(this.url)
 
     this.ws.on('open', () => {
+      if (this.probing) {
+        log.info('Probe succeeded, resuming normal mode')
+        this.probing = false
+      }
       log.info('Connected to server')
       this.connecting = false
       this.reconnectInterval = 3000
@@ -191,20 +197,33 @@ export class GatewayWsClient {
 
   private scheduleReconnect() {
     if (!this.shouldReconnect) return
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      log.error(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, giving up`)
-      this.onDisconnected()
-      return
+
+    // Enter low-frequency probe mode after exhausting normal retries
+    if (!this.probing && this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.probing = true
+      log.warn(
+        `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, entering probe mode (every ${Math.round(PROBE_INTERVAL / 1000)}s)`,
+      )
     }
+
     this.reconnectAttempts++
-    const jitter = Math.random() * 1000
-    if (this.reconnectAttempts % 10 === 0) {
-      log.warn(`Still trying to reconnect... (${this.reconnectAttempts} attempts)`)
+
+    if (this.probing) {
+      const jitter = Math.random() * 5000
+      this.reconnectTimer = setTimeout(() => {
+        log.info(`Probing server... (attempt ${this.reconnectAttempts})`)
+        this.connect()
+      }, PROBE_INTERVAL + jitter)
+    } else {
+      const jitter = Math.random() * 1000
+      if (this.reconnectAttempts % 10 === 0) {
+        log.warn(`Still trying to reconnect... (${this.reconnectAttempts} attempts)`)
+      }
+      this.reconnectTimer = setTimeout(() => {
+        log.info(`Reconnecting... (attempt ${this.reconnectAttempts})`)
+        this.connect()
+      }, this.reconnectInterval + jitter)
+      this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)
     }
-    this.reconnectTimer = setTimeout(() => {
-      log.info(`Reconnecting... (attempt ${this.reconnectAttempts})`)
-      this.connect()
-    }, this.reconnectInterval + jitter)
-    this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)
   }
 }

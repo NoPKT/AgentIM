@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, isNull, lt, and } from 'drizzle-orm'
-import { resolve, extname, basename } from 'node:path'
-import { writeFile, unlink, readdir } from 'node:fs/promises'
+import { extname } from 'node:path'
 import { db } from '../db/index.js'
 import { messageAttachments, users } from '../db/schema.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { uploadRateLimit } from '../middleware/rateLimit.js'
 import { config } from '../config.js'
+import { storage } from '../storage/index.js'
 import { createLogger } from '../lib/logger.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 
@@ -121,8 +121,7 @@ uploadRoutes.post('/', async (c) => {
   const id = nanoid()
   const ext = MIME_TO_EXT[file.type] || ''
   const storedFilename = `${id}${ext}`
-  const filePath = resolve(config.uploadDir, storedFilename)
-  await writeFile(filePath, buffer)
+  await storage.write(storedFilename, buffer, file.type)
 
   const url = `/uploads/${storedFilename}`
   const now = new Date().toISOString()
@@ -184,15 +183,14 @@ uploadRoutes.post('/avatar', async (c) => {
 
   const ext = MIME_TO_EXT[file.type] || extname(file.name) || '.jpg'
   const storedFilename = `avatar_${userId}${ext}`
-  const filePath = resolve(config.uploadDir, storedFilename)
 
   // Remove previous avatar files with different extensions to prevent storage leakage
   const prefix = `avatar_${userId}`
   try {
-    const files = await readdir(config.uploadDir)
+    const files = await storage.list(prefix)
     for (const f of files) {
-      if (f.startsWith(prefix) && f !== storedFilename) {
-        await unlink(resolve(config.uploadDir, f)).catch((err) => {
+      if (f !== storedFilename) {
+        await storage.delete(f).catch((err) => {
           log.warn(
             `Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`,
           )
@@ -200,10 +198,10 @@ uploadRoutes.post('/avatar', async (c) => {
       }
     }
   } catch {
-    // Upload dir may not exist yet; writeFile below will create the file
+    // Storage may not be initialized yet; write below will create the file
   }
 
-  await writeFile(filePath, buffer)
+  await storage.write(storedFilename, buffer, file.type)
 
   const avatarUrl = `/uploads/${storedFilename}`
   const now = new Date().toISOString()
@@ -229,28 +227,14 @@ export async function cleanupOrphanAttachments() {
 
   const unlinkedIds: string[] = []
   for (const orphan of orphans) {
-    // Use basename to prevent path traversal, then verify resolved path is within uploadDir
-    const filename = basename(orphan.url)
-    const filePath = resolve(config.uploadDir, filename)
-    if (!filePath.startsWith(resolve(config.uploadDir) + '/')) {
-      log.warn(`Path traversal attempt detected for orphan ${orphan.id}: ${orphan.url}`)
-      continue
-    }
+    const filename = orphan.url.replace(/^\/uploads\//, '')
     try {
-      await unlink(filePath)
+      await storage.delete(filename)
       unlinkedIds.push(orphan.id)
     } catch (err: unknown) {
-      const code =
-        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
-      if (code === 'ENOENT') {
-        // File already gone — safe to remove DB record
-        unlinkedIds.push(orphan.id)
-      } else {
-        // Real I/O error — keep DB record for retry
-        log.warn(
-          `Failed to unlink orphan file ${filename}: ${err instanceof Error ? err.message : err}`,
-        )
-      }
+      log.warn(
+        `Failed to delete orphan file ${filename}: ${err instanceof Error ? err.message : err}`,
+      )
     }
   }
 

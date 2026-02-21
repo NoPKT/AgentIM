@@ -117,17 +117,19 @@ async function seedAdmin() {
 
 await seedAdmin()
 
-// Ensure upload directory exists
+// Ensure upload directory exists (local storage only)
 const uploadDir = resolve(config.uploadDir)
-if (!existsSync(uploadDir)) {
-  mkdirSync(uploadDir, { recursive: true })
-  log.info(`Upload directory created: ${uploadDir}`)
-}
-try {
-  accessSync(uploadDir, constants.W_OK)
-} catch {
-  log.fatal(`Upload directory is not writable: ${uploadDir}`)
-  process.exit(1)
+if (config.storageProvider === 'local') {
+  if (!existsSync(uploadDir)) {
+    mkdirSync(uploadDir, { recursive: true })
+    log.info(`Upload directory created: ${uploadDir}`)
+  }
+  try {
+    accessSync(uploadDir, constants.W_OK)
+  } catch {
+    log.fatal(`Upload directory is not writable: ${uploadDir}`)
+    process.exit(1)
+  }
 }
 
 const app = new Hono()
@@ -214,11 +216,15 @@ app.get('/api/health', async (c) => {
     checks.redis = false
   }
 
-  try {
-    accessSync(uploadDir, constants.W_OK)
-    checks.filesystem = true
-  } catch {
-    checks.filesystem = false
+  if (config.storageProvider === 'local') {
+    try {
+      accessSync(uploadDir, constants.W_OK)
+      checks.filesystem = true
+    } catch {
+      checks.filesystem = false
+    }
+  } else {
+    checks.filesystem = true // S3 mode — no local filesystem dependency
   }
 
   const healthy = Object.values(checks).every(Boolean)
@@ -311,13 +317,47 @@ app.use('/uploads/*', async (c, next) => {
     c.header('Content-Disposition', 'attachment')
   }
 })
-app.use(
-  '/uploads/*',
-  serveStatic({
-    root: uploadDir,
-    rewriteRequestPath: (path) => path.replace(/^\/uploads/, ''),
-  }),
-)
+if (config.storageProvider === 's3') {
+  // S3 mode: proxy file reads from S3
+  const { storage } = await import('./storage/index.js')
+  const MIME_LOOKUP: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.pdf': 'application/pdf',
+    '.zip': 'application/zip',
+    '.gz': 'application/gzip',
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+  }
+  app.get('/uploads/:filename', async (c) => {
+    const filename = c.req.param('filename')
+    try {
+      const data = await storage.read(filename)
+      const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
+      const contentType = MIME_LOOKUP[ext] || 'application/octet-stream'
+      return new Response(data, {
+        status: 200,
+        headers: { 'Content-Type': contentType },
+      })
+    } catch {
+      return c.json({ ok: false, error: 'File not found' }, 404)
+    }
+  })
+} else {
+  // Local mode: serve from filesystem
+  app.use(
+    '/uploads/*',
+    serveStatic({
+      root: uploadDir,
+      rewriteRequestPath: (path) => path.replace(/^\/uploads/, ''),
+    }),
+  )
+}
 
 // WebSocket endpoints
 // Custom close codes (4000-4999 are reserved for application use per RFC 6455):

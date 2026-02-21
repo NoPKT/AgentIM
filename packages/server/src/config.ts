@@ -31,6 +31,15 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD || '',
   // Sentry (optional)
   sentryDsn: process.env.SENTRY_DSN || '',
+  // Storage provider
+  storageProvider: env('STORAGE_PROVIDER', 'local') as 'local' | 's3',
+  s3: {
+    bucket: env('S3_BUCKET', ''),
+    region: env('S3_REGION', 'auto'),
+    endpoint: process.env.S3_ENDPOINT || '',
+    accessKeyId: env('S3_ACCESS_KEY_ID', ''),
+    secretAccessKey: env('S3_SECRET_ACCESS_KEY', ''),
+  },
   // File upload
   uploadDir: env('UPLOAD_DIR', './uploads'),
   maxFileSize: Math.max(1, intEnv('MAX_FILE_SIZE', MAX_FILE_SIZE)),
@@ -93,6 +102,17 @@ if (isProduction) {
   }
   if (!process.env.REDIS_URL) {
     log.fatal('REDIS_URL must be set in production.')
+    process.exit(1)
+  }
+}
+
+// Validate S3 config when storage provider is s3
+if (config.storageProvider === 's3') {
+  const missing = ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'].filter(
+    (k) => !process.env[k],
+  )
+  if (missing.length > 0) {
+    log.fatal(`STORAGE_PROVIDER=s3 requires: ${missing.join(', ')}`)
     process.exit(1)
   }
 }

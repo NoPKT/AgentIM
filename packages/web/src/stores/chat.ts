@@ -4,6 +4,19 @@ import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
 import { toast } from './toast.js'
+import {
+  getCachedMessages,
+  setCachedMessages,
+  addCachedMessage,
+  updateCachedMessage,
+  removeCachedMessage,
+  getCachedRooms,
+  setCachedRooms,
+  getCachedRoomMeta,
+  setCachedRoomMeta,
+  clearRoomCache,
+  clearCache,
+} from '../lib/message-cache.js'
 
 interface StreamingMessage {
   messageId: string
@@ -183,10 +196,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadRooms: async () => {
+    // Show cached data immediately while API loads
+    const [cachedRooms, cachedMeta] = await Promise.all([getCachedRooms(), getCachedRoomMeta()])
+    if (cachedRooms.length > 0) {
+      const lastMessages = new Map(get().lastMessages)
+      const unreadCounts = new Map(get().unreadCounts)
+      for (const [roomId, meta] of cachedMeta) {
+        lastMessages.set(roomId, meta.lastMessage)
+        if (meta.unread > 0) unreadCounts.set(roomId, meta.unread)
+      }
+      set({ rooms: cachedRooms, lastMessages, unreadCounts })
+    }
+
     try {
       const res = await api.get<Room[]>('/rooms')
       if (res.ok && res.data) {
         set({ rooms: res.data })
+        setCachedRooms(res.data)
       }
       // Load last message + server-side unread counts for each room
       const recentRes =
@@ -205,6 +231,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           } else {
             unreadCounts.delete(roomId)
           }
+          setCachedRoomMeta(roomId, {
+            lastMessage: { content: info.content, senderName: info.senderName, createdAt: info.createdAt },
+            unread: info.unread,
+          })
         }
         set({ lastMessages, unreadCounts })
       }
@@ -241,6 +271,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const loadingMessages = new Set(get().loadingMessages)
     loadingMessages.add(roomId)
     set({ loadingMessages })
+
+    // Show cached messages immediately (first load only, no cursor)
+    if (!cursor) {
+      const cached = await getCachedMessages(roomId)
+      if (cached.length > 0 && !get().messages.has(roomId)) {
+        const msgs = new Map(get().messages)
+        msgs.set(roomId, cached)
+        set({ messages: msgs })
+      }
+    }
 
     try {
       const params = new URLSearchParams()
@@ -279,6 +319,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
         }
         set({ messages: msgs, hasMore, lastMessages })
+
+        // Write back to IndexedDB (first page only)
+        if (!cursor) {
+          setCachedMessages(roomId, combined)
+        }
       }
     } catch {
       toast.error('Failed to load messages')
@@ -328,6 +373,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     set({ messages: msgs, lastMessages, unreadCounts })
+
+    // Fire-and-forget IndexedDB write
+    addCachedMessage(message)
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
@@ -490,6 +538,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming,
       replyTo,
     })
+
+    // Fire-and-forget IndexedDB cleanup
+    clearRoomCache(roomId)
   },
 
   editMessage: async (messageId, content) => {
@@ -536,6 +587,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       )
       set({ messages: msgs })
     }
+
+    // Fire-and-forget IndexedDB write
+    updateCachedMessage(message)
   },
 
   removeMessage: (roomId, messageId) => {
@@ -548,6 +602,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       )
       set({ messages: msgs })
     }
+
+    // Fire-and-forget IndexedDB delete
+    removeCachedMessage(roomId, messageId)
   },
 
   updateNotificationPref: async (roomId, pref) => {
@@ -642,6 +699,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming,
       replyTo,
     })
+
+    // Fire-and-forget IndexedDB cleanup
+    clearRoomCache(roomId)
   },
 
   reset: () => {
@@ -662,6 +722,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       onlineUsers: new Set(),
       readReceipts: new Map(),
     })
+
+    // Fire-and-forget IndexedDB clear
+    clearCache()
   },
 
   toggleArchive: async (roomId) => {
