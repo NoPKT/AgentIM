@@ -128,4 +128,4 @@ jobs:
           ADMIN_PASSWORD: AdminPass123
 
       - name: Run tests (web)
-        run: pnpm --filter @agentim/web test
+        run: pnpm --filter @agentim/web test:coverage

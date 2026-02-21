@@ -50,9 +50,8 @@ COPY --from=build /app/packages/server/drizzle packages/server/drizzle
 
 ENV PORT=3000
 ENV HOST=0.0.0.0
-ENV DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
-ENV REDIS_URL=redis://redis:6379
 ENV NODE_ENV=production
+# DATABASE_URL and REDIS_URL must be injected at runtime via docker-compose / K8s env vars.
 
 # Ensure uploads dir is writable by non-root user
 RUN mkdir -p /app/uploads && chown -R app:app /app/uploads

@@ -32,8 +32,11 @@ export async function parseJsonBody(c: Context): Promise<unknown | Response> {
  * Validate that a URL parameter is a plausible nanoid or short string ID.
  * Rejects empty strings and excessively long values.
  */
+// nanoid uses A-Za-z0-9_- charset; reject anything outside that range
+const VALID_ID_RE = /^[A-Za-z0-9_-]+$/
+
 export function isValidId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0 && id.length <= 30
+  return typeof id === 'string' && id.length > 0 && id.length <= 30 && VALID_ID_RE.test(id)
 }
 
 /**

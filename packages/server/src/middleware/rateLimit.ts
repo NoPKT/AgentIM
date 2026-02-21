@@ -70,7 +70,12 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
       c.header('X-RateLimit-Remaining', String(maxRequests - count))
     } catch {
       // Redis unavailable — fallback to in-memory rate limiting
-      log.warn('Redis unavailable for rate limiting, using in-memory fallback')
+      log.warn(
+        'Redis unavailable for rate limiting, using in-memory fallback. ' +
+          'WARNING: In multi-process/multi-node deployments each process maintains its own ' +
+          'counter, so the effective rate limit per IP is (maxRequests × number-of-processes). ' +
+          'Ensure Redis is highly available to avoid this fallback in production.',
+      )
       const now = Date.now()
       const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
       if (now > entry.resetAt) {

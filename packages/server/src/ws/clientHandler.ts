@@ -26,6 +26,10 @@ const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const MAX_JSON_DEPTH = 10
+// Maximum number of elements in a single array / keys in a single object.
+// A 10,000-element flat array has depth 1 and bypasses depth checks, so we
+// impose an independent collection-size limit to cap memory allocation.
+const MAX_COLLECTION_SIZE = 1000
 
 // Atomic INCR + conditional EXPIRE in a single Lua script to eliminate the
 // TOCTOU race where a Redis restart between INCR and EXPIRE leaves the key
@@ -50,11 +54,18 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
     throw new Error('JSON nesting depth exceeded')
   }
   if (Array.isArray(value)) {
+    if (value.length > MAX_COLLECTION_SIZE) {
+      throw new Error('JSON collection size exceeded')
+    }
     for (const item of value) {
       checkDepth(item, maxDepth, current + 1)
     }
   } else if (value !== null && typeof value === 'object') {
-    for (const key of Object.keys(value as Record<string, unknown>)) {
+    const keys = Object.keys(value as Record<string, unknown>)
+    if (keys.length > MAX_COLLECTION_SIZE) {
+      throw new Error('JSON collection size exceeded')
+    }
+    for (const key of keys) {
       checkDepth((value as Record<string, unknown>)[key], maxDepth, current + 1)
     }
   }
@@ -91,11 +102,17 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   try {
     data = safeJsonParse(raw, MAX_JSON_DEPTH)
   } catch (err) {
-    const isDepth = (err as Error).message?.includes('depth')
+    const msg = (err as Error).message ?? ''
+    const isDepth = msg.includes('depth')
+    const isSize = msg.includes('collection size')
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: isDepth ? WS_ERROR_CODES.JSON_TOO_DEEP : WS_ERROR_CODES.INVALID_JSON,
-      message: isDepth ? 'JSON nesting depth exceeded' : 'Invalid JSON',
+      code: isDepth || isSize ? WS_ERROR_CODES.JSON_TOO_DEEP : WS_ERROR_CODES.INVALID_JSON,
+      message: isDepth
+        ? 'JSON nesting depth exceeded'
+        : isSize
+          ? 'JSON collection size exceeded'
+          : 'Invalid JSON',
     })
     return
   }

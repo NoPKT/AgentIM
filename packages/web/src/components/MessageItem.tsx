@@ -194,6 +194,172 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
   )
 }
 
+interface EditHistorySectionProps {
+  loadingHistory: boolean
+  editHistory: { id: string; previousContent: string; editedAt: string }[]
+}
+
+function EditHistorySection({ loadingHistory, editHistory }: EditHistorySectionProps) {
+  const { t, i18n } = useTranslation()
+  return (
+    <div className="mt-2 border border-border rounded-lg overflow-hidden">
+      <div className="px-3 py-1.5 bg-surface-secondary text-xs font-medium text-text-secondary">
+        {t('chat.editHistory')}
+      </div>
+      {loadingHistory ? (
+        <div className="px-3 py-2 text-xs text-text-muted">{t('common.loading')}</div>
+      ) : editHistory.length === 0 ? (
+        <div className="px-3 py-2 text-xs text-text-muted">{t('chat.editHistoryEmpty')}</div>
+      ) : (
+        <div className="divide-y divide-border max-h-48 overflow-y-auto">
+          {editHistory.map((edit) => (
+            <div key={edit.id} className="px-3 py-2">
+              <div className="text-[10px] text-text-muted mb-0.5">
+                {new Date(edit.editedAt).toLocaleString(i18n.language, {
+                  month: 'numeric',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </div>
+              <p className="text-xs text-text-secondary whitespace-pre-wrap break-words">
+                {edit.previousContent}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface MessageContentProps {
+  isEditing: boolean
+  editContent: string
+  isSaving: boolean
+  chunkGroups: ReturnType<typeof groupChunks> | null
+  content: string
+  onEditChange: (v: string) => void
+  onEditSave: () => void
+  onEditCancel: () => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+}
+
+function MessageContent({
+  isEditing,
+  editContent,
+  isSaving,
+  chunkGroups,
+  content,
+  onEditChange,
+  onEditSave,
+  onEditCancel,
+  onKeyDown,
+}: MessageContentProps) {
+  const { t } = useTranslation()
+
+  if (isEditing) {
+    return (
+      <div className="mt-1">
+        <Textarea
+          value={editContent}
+          onChange={(e) => onEditChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={3}
+          autoFocus
+          disabled={isSaving}
+        />
+        <div className="flex items-center gap-2 mt-1">
+          <button
+            onClick={onEditSave}
+            disabled={isSaving || !editContent.trim()}
+            className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
+          >
+            {isSaving ? t('settings.saving') : t('common.save')}
+          </button>
+          <button
+            onClick={onEditCancel}
+            disabled={isSaving}
+            className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
+          >
+            {t('common.cancel')}
+          </button>
+          <span className="text-xs text-text-muted">
+            Esc {t('common.cancel')}, Cmd+Enter {t('common.save')}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (chunkGroups) {
+    return <ChunkGroupRenderer groups={chunkGroups} />
+  }
+
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
+        components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || '')
+            const isBlock = match || (typeof children === 'string' && children.includes('\n'))
+            const codeText = String(children).replace(/\n$/, '')
+            return isBlock ? (
+              <div className="relative group/code">
+                <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
+                  {match && (
+                    <span className="px-1.5 py-0.5 text-xs text-text-secondary bg-surface-hover rounded">
+                      {match[1]}
+                    </span>
+                  )}
+                  <span className="opacity-0 group-hover/code:opacity-100 transition-opacity">
+                    <CopyButton text={codeText} />
+                  </span>
+                </div>
+                <pre className={className}>
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                </pre>
+              </div>
+            ) : (
+              <code className="px-1.5 py-0.5 bg-surface-hover rounded text-sm" {...props}>
+                {children}
+              </code>
+            )
+          },
+          a({ children, ...props }) {
+            return (
+              <a
+                className="text-accent hover:text-accent-hover underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                {...props}
+              >
+                {children}
+              </a>
+            )
+          },
+          table({ children, ...props }) {
+            return (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border" {...props}>
+                  {children}
+                </table>
+              </div>
+            )
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
 // ─── Main Component ───
 
 export const MessageItem = memo(function MessageItem({
@@ -383,138 +549,27 @@ export const MessageItem = memo(function MessageItem({
             </div>
           )}
 
-          {/* Message body: edit mode or display */}
-          {actions.isEditing ? (
-            <div className="mt-1">
-              <Textarea
-                value={actions.editContent}
-                onChange={(e) => actions.setEditContent(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
-                  if (e.key === 'Escape') actions.handleEditCancel()
-                }}
-                rows={3}
-                autoFocus
-                disabled={actions.isSaving}
-              />
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  onClick={actions.handleEditSave}
-                  disabled={actions.isSaving || !actions.editContent.trim()}
-                  className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
-                >
-                  {actions.isSaving ? t('settings.saving') : t('common.save')}
-                </button>
-                <button
-                  onClick={actions.handleEditCancel}
-                  disabled={actions.isSaving}
-                  className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
-                >
-                  {t('common.cancel')}
-                </button>
-                <span className="text-xs text-text-muted">
-                  Esc {t('common.cancel')}, Cmd+Enter {t('common.save')}
-                </span>
-              </div>
-            </div>
-          ) : chunkGroups ? (
-            <ChunkGroupRenderer groups={chunkGroups} />
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
-                components={{
-                  code({ className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '')
-                    const isBlock =
-                      match || (typeof children === 'string' && children.includes('\n'))
-                    const codeText = String(children).replace(/\n$/, '')
-                    return isBlock ? (
-                      <div className="relative group/code">
-                        <div className="absolute top-0 right-0 flex items-center gap-1 px-1 py-1">
-                          {match && (
-                            <span className="px-1.5 py-0.5 text-xs text-text-secondary bg-surface-hover rounded">
-                              {match[1]}
-                            </span>
-                          )}
-                          <span className="opacity-0 group-hover/code:opacity-100 transition-opacity">
-                            <CopyButton text={codeText} />
-                          </span>
-                        </div>
-                        <pre className={className}>
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <code className="px-1.5 py-0.5 bg-surface-hover rounded text-sm" {...props}>
-                        {children}
-                      </code>
-                    )
-                  },
-                  a({ children, ...props }) {
-                    return (
-                      <a
-                        className="text-accent hover:text-accent-hover underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        {...props}
-                      >
-                        {children}
-                      </a>
-                    )
-                  },
-                  table({ children, ...props }) {
-                    return (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-border" {...props}>
-                          {children}
-                        </table>
-                      </div>
-                    )
-                  },
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            </div>
-          )}
+          <MessageContent
+            isEditing={actions.isEditing}
+            editContent={actions.editContent}
+            isSaving={actions.isSaving}
+            chunkGroups={chunkGroups}
+            content={message.content}
+            onEditChange={actions.setEditContent}
+            onEditSave={actions.handleEditSave}
+            onEditCancel={actions.handleEditCancel}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
+              if (e.key === 'Escape') actions.handleEditCancel()
+            }}
+          />
 
           {/* Edit history */}
           {actions.showEditHistory && (
-            <div className="mt-2 border border-border rounded-lg overflow-hidden">
-              <div className="px-3 py-1.5 bg-surface-secondary text-xs font-medium text-text-secondary">
-                {t('chat.editHistory')}
-              </div>
-              {actions.loadingHistory ? (
-                <div className="px-3 py-2 text-xs text-text-muted">{t('common.loading')}</div>
-              ) : actions.editHistory.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-text-muted">
-                  {t('chat.editHistoryEmpty')}
-                </div>
-              ) : (
-                <div className="divide-y divide-border max-h-48 overflow-y-auto">
-                  {actions.editHistory.map((edit) => (
-                    <div key={edit.id} className="px-3 py-2">
-                      <div className="text-[10px] text-text-muted mb-0.5">
-                        {new Date(edit.editedAt).toLocaleString(i18n.language, {
-                          month: 'numeric',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </div>
-                      <p className="text-xs text-text-secondary whitespace-pre-wrap break-words">
-                        {edit.previousContent}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <EditHistorySection
+              loadingHistory={actions.loadingHistory}
+              editHistory={actions.editHistory}
+            />
           )}
 
           {/* Attachments */}

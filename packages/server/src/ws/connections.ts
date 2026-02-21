@@ -13,6 +13,8 @@ interface ClientConnection {
   userId: string
   username: string
   joinedRooms: Set<string>
+  /** Consecutive failed/slow send count — used for backpressure on low-priority messages. */
+  slowSendCount: number
 }
 
 interface GatewayConnection {
@@ -94,7 +96,13 @@ class ConnectionManager {
       }
     }
 
-    this.clients.set(ws, { ws, userId, username, joinedRooms: existing?.joinedRooms ?? new Set() })
+    this.clients.set(ws, {
+      ws,
+      userId,
+      username,
+      joinedRooms: existing?.joinedRooms ?? new Set(),
+      slowSendCount: existing?.slowSendCount ?? 0,
+    })
     const count = this.onlineUsers.get(userId) ?? 0
     this.onlineUsers.set(userId, count + 1)
     return { ok: true }
@@ -328,15 +336,46 @@ class ConnectionManager {
 
   // ─── Broadcast helpers ───
 
+  /**
+   * Low-priority message types that can be skipped for slow clients.
+   * Skipping these prevents unbounded queue growth on lagging connections.
+   */
+  private static LOW_PRIORITY_TYPES = new Set(['server:typing', 'server:presence'])
+
+  /**
+   * Send a message to a client only if it is not in a degraded state.
+   * Low-priority messages are dropped for clients with slowSendCount > 3.
+   * Returns true if the message was sent (or skipped deliberately).
+   */
+  private sendToClientIfHealthy(client: ClientConnection, data: string, msgType: string): boolean {
+    const isLowPriority = ConnectionManager.LOW_PRIORITY_TYPES.has(msgType)
+    if (isLowPriority && client.slowSendCount > 3) {
+      log.debug(
+        `Skipping low-priority ${msgType} for slow client ${client.userId} (slowSendCount=${client.slowSendCount})`,
+      )
+      return true // Deliberate skip — not a failure
+    }
+    try {
+      client.ws.send(data)
+      if (client.slowSendCount > 0) {
+        client.slowSendCount = 0
+      }
+      return true
+    } catch {
+      client.slowSendCount++
+      return false
+    }
+  }
+
   broadcastToRoom(roomId: string, message: object, excludeWs?: WSContext) {
     const data = JSON.stringify(message)
+    const msgType = (message as { type?: string }).type ?? ''
     const failed: WSContext[] = []
     for (const client of this.getClientsInRoom(roomId)) {
       if (client.ws !== excludeWs) {
-        try {
-          client.ws.send(data)
-        } catch (err) {
-          log.warn(`Failed to send to client in room ${roomId}: ${(err as Error).message}`)
+        const sent = this.sendToClientIfHealthy(client, data, msgType)
+        if (!sent) {
+          log.warn(`Failed to send to client in room ${roomId}: user=${client.userId}`)
           failed.push(client.ws)
         }
       }
@@ -364,8 +403,14 @@ class ConnectionManager {
   sendToClient(ws: WSContext, message: object) {
     try {
       ws.send(JSON.stringify(message))
+      const client = this.clients.get(ws)
+      if (client && client.slowSendCount > 0) {
+        client.slowSendCount = 0
+      }
     } catch (err) {
       log.warn(`Failed to send to client: ${(err as Error).message}`)
+      const client = this.clients.get(ws)
+      if (client) client.slowSendCount++
     }
   }
 

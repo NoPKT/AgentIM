@@ -45,7 +45,14 @@ export default defineConfig({
     }),
   ],
   esbuild: {
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    // In production, only strip debugger statements. console.error / console.warn
+    // are intentionally kept so WS message handler errors are never silently swallowed.
+    drop: process.env.NODE_ENV === 'production' ? ['debugger'] : [],
+    // Tree-shake dev-only log calls without affecting error/warn reporting.
+    pure:
+      process.env.NODE_ENV === 'production'
+        ? ['console.log', 'console.debug', 'console.info']
+        : [],
   },
   build: {
     sourcemap: false,
