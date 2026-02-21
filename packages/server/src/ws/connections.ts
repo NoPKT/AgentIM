@@ -286,12 +286,24 @@ class ConnectionManager {
     return undefined
   }
 
-  /** Unregister an agent by ID (called from HTTP API when agent is deleted). */
-  unregisterAgentById(agentId: string) {
+  /**
+   * Unregister an agent by ID (called from HTTP API when agent is deleted).
+   * Optionally verifies that the agent's gateway belongs to the given user
+   * to prevent cross-user unregistration.
+   */
+  unregisterAgentById(agentId: string, userId?: string) {
     const ws = this.agentToGateway.get(agentId)
     if (ws) {
       const gw = this.gateways.get(ws)
-      if (gw) gw.agentIds.delete(agentId)
+      if (gw) {
+        if (userId && gw.userId !== userId) {
+          log.warn(
+            `Refused to unregister agent ${agentId}: gateway belongs to user ${gw.userId}, not ${userId}`,
+          )
+          return
+        }
+        gw.agentIds.delete(agentId)
+      }
     }
     this.agentToGateway.delete(agentId)
   }
@@ -318,14 +330,20 @@ class ConnectionManager {
 
   broadcastToRoom(roomId: string, message: object, excludeWs?: WSContext) {
     const data = JSON.stringify(message)
+    const failed: WSContext[] = []
     for (const client of this.getClientsInRoom(roomId)) {
       if (client.ws !== excludeWs) {
         try {
           client.ws.send(data)
         } catch (err) {
           log.warn(`Failed to send to client in room ${roomId}: ${(err as Error).message}`)
+          failed.push(client.ws)
         }
       }
+    }
+    // Clean up faulty connections after iteration to avoid mutating during loop
+    for (const ws of failed) {
+      this.removeClient(ws)
     }
   }
 
@@ -377,6 +395,10 @@ class ConnectionManager {
             code: WS_ERROR_CODES.SESSION_REVOKED,
             message: 'Session revoked',
           })
+        } catch {
+          /* best-effort notification */
+        }
+        try {
           ws.close(WS_CLOSE_SESSION_REVOKED, 'Session revoked')
         } catch {
           /* ignore close errors */

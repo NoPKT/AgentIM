@@ -36,7 +36,7 @@ const log = createLogger('Rooms')
 async function checkRouterAccess(
   userId: string,
   routerId: string,
-): Promise<{ ok: true } | { ok: false; status: 404 | 403; error: string }> {
+): Promise<{ ok: true } | { ok: false; status: 403 | 404; error: string }> {
   const [router] = await db.select().from(routers).where(eq(routers.id, routerId)).limit(1)
   if (!router) {
     return { ok: false, status: 404, error: 'Router not found' }
@@ -46,7 +46,10 @@ async function checkRouterAccess(
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
-  if (me?.role !== 'admin' && !isRouterVisibleToUser(router, userId)) {
+  if (!me) {
+    return { ok: false, status: 404, error: 'User not found' }
+  }
+  if (me.role !== 'admin' && !isRouterVisibleToUser(router, userId)) {
     return { ok: false, status: 403, error: 'Router not accessible' }
   }
   return { ok: true }

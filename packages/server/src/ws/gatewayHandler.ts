@@ -428,6 +428,11 @@ async function handleMessageChunk(
     log.warn(
       `Agent ${msg.agentId} sent oversized chunk (${msg.chunk.content.length} bytes), dropping`,
     )
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:error' as const,
+      code: 'CHUNK_TOO_LARGE',
+      message: `Chunk exceeds maximum size (${MAX_CHUNK_SIZE} bytes)`,
+    })
     return
   }
 
@@ -468,6 +473,11 @@ async function handleMessageComplete(
     log.warn(
       `Agent ${msg.agentId} sent oversized message (${msg.fullContent.length} bytes), dropping`,
     )
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:error' as const,
+      code: 'MESSAGE_TOO_LARGE',
+      message: `Message exceeds maximum size (${MAX_FULL_CONTENT_SIZE} bytes)`,
+    })
     return
   }
 
@@ -706,12 +716,32 @@ export async function handleGatewayDisconnect(ws: WSContext) {
 const visitedFallback = new Map<string, { agents: Set<string>; expiresAt: number }>()
 const MAX_FALLBACK_ENTRIES = 10_000 // prevent unbounded memory growth
 
+function evictExpiredFallbackEntries(): number {
+  const now = Date.now()
+  let evicted = 0
+  for (const [key, entry] of visitedFallback) {
+    if (now > entry.expiresAt) {
+      visitedFallback.delete(key)
+      evicted++
+    }
+  }
+  return evicted
+}
+
 function fallbackSadd(key: string, value: string, ttlSeconds: number) {
-  // Enforce size limit — evict oldest entries when full
+  // Enforce size limit — batch-evict expired entries first, then oldest if still over
   if (visitedFallback.size >= MAX_FALLBACK_ENTRIES && !visitedFallback.has(key)) {
-    const oldestKey = visitedFallback.keys().next().value
-    if (oldestKey) visitedFallback.delete(oldestKey)
-    log.warn(`Visited set fallback reached ${MAX_FALLBACK_ENTRIES} entries, evicting oldest`)
+    const evicted = evictExpiredFallbackEntries()
+    // If still over capacity after cleaning expired entries, evict oldest
+    if (visitedFallback.size >= MAX_FALLBACK_ENTRIES) {
+      const oldestKey = visitedFallback.keys().next().value
+      if (oldestKey) visitedFallback.delete(oldestKey)
+    }
+    if (evicted > 0) {
+      log.debug(`Evicted ${evicted} expired visited-set entries during capacity pressure`)
+    } else {
+      log.warn(`Visited set fallback at capacity (${MAX_FALLBACK_ENTRIES}), evicting oldest entry`)
+    }
   }
 
   let entry = visitedFallback.get(key)
@@ -736,14 +766,7 @@ function fallbackSismember(key: string, value: string): boolean {
 
 // Periodically evict expired entries to prevent unbounded growth
 setInterval(() => {
-  const now = Date.now()
-  let evicted = 0
-  for (const [key, entry] of visitedFallback) {
-    if (now > entry.expiresAt) {
-      visitedFallback.delete(key)
-      evicted++
-    }
-  }
+  const evicted = evictExpiredFallbackEntries()
   if (evicted > 0) {
     log.debug(`Evicted ${evicted} expired visited-set entries (remaining: ${visitedFallback.size})`)
   }

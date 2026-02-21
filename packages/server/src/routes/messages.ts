@@ -25,9 +25,11 @@ import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Messages')
 
-function safeJsonParse<T>(json: string, fallback: T): T {
+function safeJsonParse<T>(json: string, fallback: T, validate?: (v: unknown) => boolean): T {
   try {
-    return JSON.parse(json)
+    const parsed = JSON.parse(json)
+    if (validate && !validate(parsed)) return fallback
+    return parsed as T
   } catch {
     return fallback
   }
@@ -257,7 +259,7 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
 
   const parsed = rows.map((m) => ({
     ...m,
-    mentions: safeJsonParse(m.mentions, []),
+    mentions: safeJsonParse(m.mentions, [], Array.isArray),
     chunks: m.chunks ? safeJsonParse(m.chunks, undefined) : undefined,
   }))
 
@@ -317,7 +319,7 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
 
   const parsed = items.map((m) => ({
     ...m,
-    mentions: safeJsonParse(m.mentions, []),
+    mentions: safeJsonParse(m.mentions, [], Array.isArray),
     chunks: m.chunks ? safeJsonParse(m.chunks, undefined) : undefined,
   }))
 
@@ -553,7 +555,7 @@ messageRoutes.put('/:id', async (c) => {
 
   const message = {
     ...updated,
-    mentions: safeJsonParse(updated.mentions, []),
+    mentions: safeJsonParse(updated.mentions, [], Array.isArray),
     chunks: updated.chunks ? safeJsonParse(updated.chunks, undefined) : undefined,
   }
 

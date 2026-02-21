@@ -209,8 +209,8 @@ agentRoutes.delete('/:id', async (c) => {
     connectionManager.markAgentDeleted(agentId)
   }
 
-  // Unregister from WebSocket connection manager
-  connectionManager.unregisterAgentById(agentId)
+  // Unregister from WebSocket connection manager (pass userId for ownership verification)
+  connectionManager.unregisterAgentById(agentId, userId)
 
   // Notify affected rooms (both UI clients and gateway agents)
   for (const roomId of roomIds) {

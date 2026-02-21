@@ -19,6 +19,11 @@ import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('ClientHandler')
 
+// Debounce offline presence broadcasts to avoid rapid offline→online flicker
+// when a user disconnects and immediately reconnects (e.g. page refresh).
+const OFFLINE_DEBOUNCE_MS = 2_000
+const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const MAX_JSON_DEPTH = 10
 
@@ -154,7 +159,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
       case 'client:stop_generation':
         return handleStopGeneration(ws, msg.roomId, msg.agentId)
       case 'client:ping':
-        ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
+        connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
       default:
         log.warn(`Unknown client message type: ${(msg as { type: string }).type}`)
@@ -222,12 +227,19 @@ async function handleAuth(ws: WSContext, token: string) {
     })
     // Broadcast online presence if this is the user's first connection
     if (!wasOnline) {
-      connectionManager.broadcastToAll({
-        type: 'server:presence',
-        userId: payload.sub,
-        username: payload.username,
-        online: true,
-      })
+      // Cancel any pending offline broadcast from a recent disconnect
+      const pendingTimer = offlineTimers.get(payload.sub)
+      if (pendingTimer) {
+        clearTimeout(pendingTimer)
+        offlineTimers.delete(payload.sub)
+      } else {
+        connectionManager.broadcastToAll({
+          type: 'server:presence',
+          userId: payload.sub,
+          username: payload.username,
+          online: true,
+        })
+      }
     }
   } catch {
     connectionManager.sendToClient(ws, {
@@ -604,13 +616,24 @@ export function handleClientDisconnect(ws: WSContext) {
     })
   }
 
-  // Broadcast offline presence if this was the user's last connection
+  // Debounce offline presence to handle rapid disconnect→reconnect (e.g. page refresh)
   if (!connectionManager.isUserOnline(client.userId)) {
-    connectionManager.broadcastToAll({
-      type: 'server:presence',
-      userId: client.userId,
-      username: client.username,
-      online: false,
-    })
+    // Clear any existing timer for this user (should not happen, but be safe)
+    const existing = offlineTimers.get(client.userId)
+    if (existing) clearTimeout(existing)
+
+    const timer = setTimeout(() => {
+      offlineTimers.delete(client.userId)
+      // Re-check: user may have reconnected during the debounce window
+      if (!connectionManager.isUserOnline(client.userId)) {
+        connectionManager.broadcastToAll({
+          type: 'server:presence',
+          userId: client.userId,
+          username: client.username,
+          online: false,
+        })
+      }
+    }, OFFLINE_DEBOUNCE_MS)
+    offlineTimers.set(client.userId, timer)
   }
 }

@@ -10,6 +10,9 @@ import pg from 'pg'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { resolve } from 'node:path'
 import { execSync } from 'node:child_process'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('Migrate')
 
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
@@ -17,7 +20,7 @@ const databaseUrl =
 const shouldBackup = process.argv.includes('--backup')
 
 if (shouldBackup) {
-  console.log('Running pre-migration backup...')
+  log.info('Running pre-migration backup...')
   try {
     execSync('tsx src/scripts/backup.ts', {
       cwd: resolve(import.meta.dirname, '../..'),
@@ -25,7 +28,7 @@ if (shouldBackup) {
       env: { ...process.env, DATABASE_URL: databaseUrl },
     })
   } catch {
-    console.error('Backup failed — aborting migration.')
+    log.error('Backup failed — aborting migration.')
     process.exit(1)
   }
 }
@@ -33,14 +36,14 @@ if (shouldBackup) {
 const pool = new pg.Pool({ connectionString: databaseUrl })
 const db = drizzle(pool)
 
-console.log('Running migrations...')
+log.info('Running migrations...')
 
 try {
   const migrationsFolder = resolve(import.meta.dirname, '../../../drizzle')
   await migrate(db, { migrationsFolder })
-  console.log('Migrations complete.')
+  log.info('Migrations complete.')
 } catch (err: unknown) {
-  console.error(`Migration failed: ${err instanceof Error ? err.message : err}`)
+  log.error(`Migration failed: ${err instanceof Error ? err.message : err}`)
   process.exit(1)
 } finally {
   await pool.end()

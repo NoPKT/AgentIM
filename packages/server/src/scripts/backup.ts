@@ -10,6 +10,9 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('Backup')
 
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/agentim'
@@ -22,14 +25,14 @@ if (!existsSync(backupDir)) {
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
 const backupFile = resolve(backupDir, `agentim-${timestamp}.sql`)
 
-console.log(`Backing up database to ${backupFile} ...`)
+log.info(`Backing up database to ${backupFile} ...`)
 
 try {
   execSync(`pg_dump "${databaseUrl}" --no-owner --no-acl > "${backupFile}"`, {
     stdio: ['ignore', 'pipe', 'inherit'],
   })
-  console.log(`Backup complete: ${backupFile}`)
+  log.info(`Backup complete: ${backupFile}`)
 } catch (err: unknown) {
-  console.error(`Backup failed: ${err instanceof Error ? err.message : err}`)
+  log.error(`Backup failed: ${err instanceof Error ? err.message : err}`)
   process.exit(1)
 }

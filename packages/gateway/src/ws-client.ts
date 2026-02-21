@@ -159,7 +159,10 @@ export class GatewayWsClient {
         this.clearPongTimeout()
         try {
           this.ws.send(JSON.stringify({ type: 'gateway:ping', ts: Date.now() }))
-        } catch {
+        } catch (err) {
+          log.warn(`Failed to send ping: ${(err as Error).message}, terminating connection`)
+          this.stopHeartbeat()
+          this.ws?.terminate()
           return
         }
         this.pongTimer = setTimeout(() => {
