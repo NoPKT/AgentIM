@@ -32,6 +32,9 @@ function isPrivateIp(ip: string): boolean {
     if (a === 169 && b === 254) return true
     if (a === 127) return true
     if (a === 0) return true
+    if (a >= 240) return true // 240.0.0.0/4 (reserved) + 255.255.255.255 (broadcast)
+    if (a >= 224 && a <= 239) return true // 224.0.0.0/4 (multicast)
+    if (a === 100 && b >= 64 && b <= 127) return true // 100.64.0.0/10 (CGNAT)
     return false
   }
   // IPv6

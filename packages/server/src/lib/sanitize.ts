@@ -3,7 +3,14 @@
  * These fields never legitimately contain angle brackets, so aggressive stripping is safe.
  */
 export function stripHtml(input: string): string {
-  return input.replace(/<[^>]*>/g, '')
+  // Decode common HTML entities first, then strip tags
+  const decoded = input
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+  return decoded.replace(/<[^>]*>/g, '')
 }
 
 /**

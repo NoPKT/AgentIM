@@ -20,6 +20,11 @@ const RESET = '\x1b[0m'
 const isProduction = process.env.NODE_ENV === 'production'
 const envLevel = process.env.LOG_LEVEL as LogLevel | undefined
 const defaultLevel: LogLevel = isProduction ? 'info' : 'debug'
+if (envLevel && !(envLevel in LEVELS)) {
+  console.warn(
+    `[Logger] Invalid LOG_LEVEL "${envLevel}", expected one of: ${Object.keys(LEVELS).join(', ')}. Falling back to "${defaultLevel}".`,
+  )
+}
 const minLevel = envLevel && envLevel in LEVELS ? LEVELS[envLevel] : LEVELS[defaultLevel]
 
 function formatDev(level: LogLevel, ctx: string, message: string, extra?: Record<string, unknown>) {

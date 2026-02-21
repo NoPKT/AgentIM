@@ -19,6 +19,8 @@ import {
   MAX_SYSTEM_PROMPT_LENGTH,
   MEMBER_TYPES,
   SENDER_TYPES,
+  ASSIGNEE_TYPES,
+  NOTIFICATION_PREFS,
 } from './constants.js'
 
 // ─── Password Complexity ───
@@ -188,7 +190,7 @@ export const createTaskSchema = z.object({
     .refine((s) => s.trim().length > 0, 'Title cannot be only whitespace'),
   description: z.string().max(10000).default(''),
   assigneeId: z.string().max(100).optional(),
-  assigneeType: z.enum(['user', 'agent']).optional(),
+  assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
 })
 
 export const updateTaskSchema = z.object({
@@ -201,7 +203,7 @@ export const updateTaskSchema = z.object({
   description: z.string().max(10000).optional(),
   status: z.enum(TASK_STATUSES).optional(),
   assigneeId: z.string().max(100).nullable().optional(),
-  assigneeType: z.enum(['user', 'agent']).nullable().optional(),
+  assigneeType: z.enum(ASSIGNEE_TYPES).nullable().optional(),
 })
 
 // ─── Agent ───
@@ -464,7 +466,7 @@ const taskSchema = z.object({
   description: z.string(),
   status: z.enum(TASK_STATUSES),
   assigneeId: z.string().optional(),
-  assigneeType: z.enum(['user', 'agent']).optional(),
+  assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
   createdById: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -490,17 +492,42 @@ const roomMemberSchema = z.object({
   memberType: z.enum(MEMBER_TYPES),
   role: z.enum(MEMBER_ROLES),
   roleDescription: z.string().optional(),
-  notificationPref: z.enum(['all', 'mentions', 'none']).optional(),
+  notificationPref: z.enum(NOTIFICATION_PREFS).optional(),
   pinnedAt: z.string().optional(),
   archivedAt: z.string().optional(),
   lastReadAt: z.string().optional(),
   joinedAt: z.string(),
 })
 
+export const userSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().optional(),
+  role: z.enum(USER_ROLES),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const gatewaySchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  deviceInfo: z.object({
+    platform: z.string(),
+    arch: z.string(),
+    nodeVersion: z.string(),
+    agentimVersion: z.string(),
+  }),
+  connectedAt: z.string().optional(),
+  disconnectedAt: z.string().optional(),
+  createdAt: z.string(),
+})
+
 const roomContextMemberSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['user', 'agent']),
+  type: z.enum(MEMBER_TYPES),
   agentType: z.enum(AGENT_TYPES).optional(),
   capabilities: z.array(z.string()).optional(),
   roleDescription: z.string().optional(),

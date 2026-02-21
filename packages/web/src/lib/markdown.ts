@@ -13,7 +13,10 @@ export const markdownSanitizeSchema: Schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^(hljs|language-)\S*$/]],
-    span: [...(defaultSchema.attributes?.span ?? []), ['className', /^hljs\S*$/]],
+    code: [
+      ...(defaultSchema.attributes?.code ?? []),
+      ['className', /^(hljs|language-)[a-zA-Z0-9_-]*$/],
+    ],
+    span: [...(defaultSchema.attributes?.span ?? []), ['className', /^hljs[a-zA-Z0-9_-]*$/]],
   },
 }

@@ -70,6 +70,7 @@ export const config = {
   typingDebounceMs: 1_000,
   routerTestTimeoutMs: 10_000,
   maxRefreshTokensPerUser: 10,
+  logLevel: env('LOG_LEVEL', 'info'),
 }
 
 // Security check: refuse to start in production with weak JWT secret
@@ -133,7 +134,12 @@ if (isProduction && config.corsOrigin) {
 // crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
 // Prefer `openssl rand -base64 32` for maximum entropy.
 if (process.env.ENCRYPTION_KEY) {
-  if (process.env.ENCRYPTION_KEY.length < 16) {
+  if (isProduction && process.env.ENCRYPTION_KEY.length < 32) {
+    log.fatal(
+      'ENCRYPTION_KEY is too short (< 32 chars) for production. Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
+    )
+    process.exit(1)
+  } else if (process.env.ENCRYPTION_KEY.length < 16) {
     log.warn(
       'ENCRYPTION_KEY is very short (< 16 chars). For production use, generate a secure key with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
     )

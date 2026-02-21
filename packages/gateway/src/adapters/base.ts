@@ -1,5 +1,10 @@
-import type { ChildProcess } from 'node:child_process'
-import type { ParsedChunk, RoutingMode, RoomContext } from '@agentim/shared'
+import { spawn, type ChildProcess } from 'node:child_process'
+import {
+  MAX_BUFFER_SIZE,
+  type ParsedChunk,
+  type RoutingMode,
+  type RoomContext,
+} from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('Adapter')
@@ -27,6 +32,7 @@ const SENSITIVE_ENV_KEYS = new Set([
   'AWS_SESSION_TOKEN',
   'OPENAI_API_KEY',
   'ANTHROPIC_API_KEY',
+  'CLAUDE_API_KEY',
   'GITHUB_TOKEN',
   'GITHUB_APP_PRIVATE_KEY',
   'GITLAB_TOKEN',
@@ -162,6 +168,90 @@ export abstract class BaseAgentAdapter {
       return prompt.slice(0, MAX_PROMPT_LENGTH) + '\n\n[...truncated]'
     }
     return prompt
+  }
+
+  /**
+   * Spawn a child process and stream its stdout/stderr to callbacks.
+   * Shared logic extracted from codex, cursor, and gemini adapters.
+   *
+   * @returns The spawned ChildProcess and guard functions for complete/fail.
+   */
+  protected spawnAndStream(
+    command: string,
+    args: string[],
+    callbacks: {
+      onChunk: ChunkCallback
+      onComplete: CompleteCallback
+      onError: ErrorCallback
+      exitLabel?: string
+    },
+  ): { proc: ChildProcess; done: () => boolean } {
+    const { onChunk, onComplete, onError, exitLabel = command } = callbacks
+    let fullContent = ''
+    let done = false
+    const complete = (content: string) => {
+      if (done) return
+      done = true
+      onComplete(content)
+    }
+    const fail = (err: string) => {
+      if (done) return
+      done = true
+      onError(err)
+    }
+
+    const proc = spawn(command, args, {
+      cwd: this.workingDirectory,
+      env: getSafeEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    this.startProcessTimer(proc)
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString()
+      fullContent += text
+      if (fullContent.length > MAX_BUFFER_SIZE) {
+        this.clearProcessTimer()
+        this.isRunning = false
+        fail('Response too large')
+        this.killProcess(proc)
+        return
+      }
+      onChunk({ type: 'text', content: text })
+    })
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      if (done) return
+      const text = data.toString().trim()
+      if (text) onChunk({ type: 'error', content: text })
+    })
+
+    proc.on('close', (code) => {
+      this.clearProcessTimer()
+      this.isRunning = false
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
+      if (this.timedOut) {
+        fail('Process timed out')
+      } else if (code === 0) {
+        complete(fullContent)
+      } else if (code === null) {
+        fail('Process killed by signal')
+      } else {
+        fail(`${exitLabel} exited with code ${code}`)
+      }
+    })
+
+    proc.on('error', (err) => {
+      this.clearProcessTimer()
+      this.isRunning = false
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
+      fail(err.message)
+    })
+
+    return { proc, done: () => done }
   }
 
   abstract sendMessage(

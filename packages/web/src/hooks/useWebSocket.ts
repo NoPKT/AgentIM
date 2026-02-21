@@ -28,9 +28,9 @@ export function useWebSocket() {
 
       // Each case has its own try-catch so that an error in one handler
       // doesn't interfere with processing of subsequent messages.
-      try {
-        switch (msg.type) {
-          case 'server:new_message': {
+      switch (msg.type) {
+        case 'server:new_message': {
+          try {
             chat.addMessage(msg.message)
             // Desktop notifications for messages from other users
             const user = useAuthStore.getState().user
@@ -65,12 +65,20 @@ export function useWebSocket() {
                 )
               }
             }
-            break
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
           }
-          case 'server:message_chunk':
+          break
+        }
+        case 'server:message_chunk':
+          try {
             chat.addStreamChunk(msg.roomId, msg.agentId, msg.agentName, msg.messageId, msg.chunk)
-            break
-          case 'server:message_complete': {
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:message_complete': {
+          try {
             chat.completeStream(msg.message)
             // Notify for completed agent messages in non-current rooms
             const currentRoomId = chat.currentRoomId
@@ -87,31 +95,63 @@ export function useWebSocket() {
                 },
               )
             }
-            break
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
           }
-          case 'server:typing':
+          break
+        }
+        case 'server:typing':
+          try {
             chat.addTypingUser(msg.roomId, msg.userId, msg.username)
-            break
-          case 'server:agent_status':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:agent_status':
+          try {
             agentStore.updateAgent(msg.agent)
-            break
-          case 'server:terminal_data':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:terminal_data':
+          try {
             chat.addTerminalData(msg.agentId, msg.agentName, msg.data)
-            break
-          case 'server:task_update':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:task_update':
+          try {
             window.dispatchEvent(new CustomEvent('agentim:task_update', { detail: msg.task }))
-            break
-          case 'server:message_edited':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:message_edited':
+          try {
             chat.updateMessage(msg.message)
-            break
-          case 'server:message_deleted':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:message_deleted':
+          try {
             chat.removeMessage(msg.roomId, msg.messageId)
-            break
-          case 'server:room_update':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:room_update':
+          try {
             chat.loadRooms()
             if (msg.room?.id) chat.loadRoomMembers(msg.room.id)
-            break
-          case 'server:room_removed': {
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:room_removed': {
+          try {
             // We've been evicted from a room (member removed by admin/owner).
             // Clean up all local state for the evicted room — this also removes it
             // from the rooms list and clears currentRoomId if we're viewing it.
@@ -123,30 +163,46 @@ export function useWebSocket() {
             if (wasCurrentRoom) {
               navigateRef.current('/')
             }
-            break
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
           }
-          case 'server:read_receipt':
+          break
+        }
+        case 'server:read_receipt':
+          try {
             chat.updateReadReceipt(msg.roomId, msg.userId, msg.username, msg.lastReadAt)
-            break
-          case 'server:presence':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:presence':
+          try {
             chat.setUserOnline(msg.userId, msg.online)
-            break
-          case 'server:reaction_update':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:reaction_update':
+          try {
             chat.updateReactions(msg.roomId, msg.messageId, msg.reactions)
-            break
-          case 'server:auth_result':
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:auth_result':
+          try {
             if (!msg.ok) {
               console.warn('[WS] Auth failed:', msg.error)
               // Token rejected by server — force logout
               useAuthStore.getState().logout()
             }
-            break
-          case 'server:error':
-            console.warn('[WS Server Error]', msg.code, msg.message)
-            break
-        }
-      } catch (err) {
-        console.error('[WS] Error handling message:', msg.type, err)
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:error':
+          console.warn('[WS Server Error]', msg.code, msg.message)
+          break
       }
     })
 

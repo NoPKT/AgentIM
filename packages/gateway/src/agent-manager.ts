@@ -139,6 +139,7 @@ export class AgentManager {
 
     const messageId = msg.messageId
     const allChunks: ParsedChunk[] = []
+    let completed = false
 
     // Update status to busy
     this.wsClient.send({
@@ -161,6 +162,8 @@ export class AgentManager {
           })
         },
         (fullContent) => {
+          if (completed) return
+          completed = true
           this.wsClient.send({
             type: 'gateway:message_complete',
             roomId: msg.roomId,
@@ -178,6 +181,8 @@ export class AgentManager {
           })
         },
         (error) => {
+          if (completed) return
+          completed = true
           allChunks.push({ type: 'error', content: error })
           this.wsClient.send({
             type: 'gateway:message_complete',

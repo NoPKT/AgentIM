@@ -174,10 +174,13 @@ app.use(
 )
 app.use('*', loggerMiddleware)
 app.use('/api/*', apiRateLimit)
-// Body size limit: uploadBodyLimit for uploads, apiBodyLimit for other API routes
+// Body size limit: pre-created instances to avoid per-request allocation
+const uploadBodyLimiter = bodyLimit({ maxSize: config.uploadBodyLimit })
+const apiBodyLimiter = bodyLimit({ maxSize: config.apiBodyLimit })
+app.use('/api/upload/*', uploadBodyLimiter)
 app.use('/api/*', async (c, next) => {
-  const limit = c.req.path.startsWith('/api/upload') ? config.uploadBodyLimit : config.apiBodyLimit
-  return bodyLimit({ maxSize: limit })(c, next)
+  if (c.req.path.startsWith('/api/upload')) return next()
+  return apiBodyLimiter(c, next)
 })
 
 // Global error handler

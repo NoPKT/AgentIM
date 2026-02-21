@@ -105,6 +105,7 @@ export function loadConfig(): GatewayConfig | null {
       gatewayId: raw.gatewayId,
     }
     saveConfig(config)
+    console.info('Config migrated from v1 (plaintext) to v2 (encrypted)')
     return config
   } catch {
     return null

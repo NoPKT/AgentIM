@@ -68,6 +68,9 @@ export const DEFAULT_PAGE_SIZE = 50
 export const MEMBER_TYPES = ['user', 'agent'] as const
 export type MemberType = (typeof MEMBER_TYPES)[number]
 
+export const ASSIGNEE_TYPES = ['user', 'agent'] as const
+export type AssigneeType = (typeof ASSIGNEE_TYPES)[number]
+
 export const SENDER_TYPES = ['user', 'agent', 'system'] as const
 export type SenderType = (typeof SENDER_TYPES)[number]
 

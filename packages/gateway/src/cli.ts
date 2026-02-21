@@ -53,8 +53,11 @@ program
         password = await promptPassword('Password: ')
       }
 
+      // Clear password from env immediately after reading
+      delete process.env.AGENTIM_PASSWORD
+
       if (!serverUrl || !username || !password) {
-        console.error('Server URL, username, and password are required.')
+        log.error('Server URL, username, and password are required.')
         process.exit(1)
       }
 
@@ -62,11 +65,11 @@ program
       try {
         const parsed = new URL(serverUrl)
         if (!parsed.protocol.startsWith('http')) {
-          console.error('Server URL must start with http:// or https://')
+          log.error('Server URL must start with http:// or https://')
           process.exit(1)
         }
       } catch {
-        console.error('Invalid server URL. Example: http://localhost:3000')
+        log.error('Invalid server URL. Example: http://localhost:3000')
         process.exit(1)
       }
 
@@ -89,11 +92,11 @@ program
         gatewayId,
       })
 
-      console.log('Login successful!')
-      console.log(`Gateway ID: ${gatewayId}`)
-      console.log(`Config saved to: ${getConfigPath()}`)
+      log.info('Login successful!')
+      log.info(`Gateway ID: ${gatewayId}`)
+      log.info(`Config saved to: ${getConfigPath()}`)
     } catch (err: unknown) {
-      console.error(`Login failed: ${err instanceof Error ? err.message : err}`)
+      log.error(`Login failed: ${err instanceof Error ? err.message : err}`)
       process.exit(1)
     }
   })
@@ -105,7 +108,7 @@ program
   .description('Clear saved credentials')
   .action(() => {
     clearConfig()
-    console.log('Logged out. Credentials cleared.')
+    log.info('Logged out. Credentials cleared.')
   })
 
 // ─── agentim claude [path] ───
@@ -176,7 +179,7 @@ program
   .action(async (opts) => {
     const config = loadConfig()
     if (!config) {
-      console.error('Not logged in. Run `agentim login` first.')
+      log.error('Not logged in. Run `agentim login` first.')
       process.exit(1)
     }
 
@@ -279,9 +282,18 @@ program
       setTimeout(() => process.exit(0), 2000).unref()
     }
 
-    process.on('SIGINT', () => void cleanup())
-    process.on('SIGTERM', () => void cleanup())
-    process.on('SIGHUP', () => void cleanup())
+    process.on(
+      'SIGINT',
+      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
+    )
+    process.on(
+      'SIGTERM',
+      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
+    )
+    process.on(
+      'SIGHUP',
+      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
+    )
     process.on('uncaughtException', (err) => {
       log.error(`Uncaught exception: ${err.message}`)
       void cleanup()
@@ -300,14 +312,14 @@ program
   .action(() => {
     const config = loadConfig()
     if (!config) {
-      console.log('Not logged in. Run `agentim login` first.')
+      log.info('Not logged in. Run `agentim login` first.')
       return
     }
-    console.log(`Server: ${config.serverUrl}`)
-    console.log(`HTTP Base: ${config.serverBaseUrl}`)
-    console.log(`Gateway ID: ${config.gatewayId}`)
-    console.log(`Has refresh token: ${config.refreshToken ? 'yes' : 'no'}`)
-    console.log(`Config: ${getConfigPath()}`)
+    log.info(`Server: ${config.serverUrl}`)
+    log.info(`HTTP Base: ${config.serverBaseUrl}`)
+    log.info(`Gateway ID: ${config.gatewayId}`)
+    log.info(`Has refresh token: ${config.refreshToken ? 'yes' : 'no'}`)
+    log.info(`Config: ${getConfigPath()}`)
   })
 
 function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
@@ -333,8 +345,8 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   }
 
   if (agentSpecs.length === 0) {
-    log.info('No agents specified. Use --agent to add agents.')
-    log.info('Example: agentim daemon --agent claude:claude-code:/path/to/project')
+    log.warn('No agents specified. Use --agent to add agents.')
+    log.warn('Example: agentim daemon --agent claude:claude-code:/path/to/project')
   } else if (invalidCount === agentSpecs.length) {
     log.error('All agent specs are invalid. No agents registered.')
     process.exit(1)

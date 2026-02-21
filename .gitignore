@@ -36,3 +36,11 @@ pnpm-debug.log*
 
 # Uploads (user data)
 uploads/
+
+# Sensitive files
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer

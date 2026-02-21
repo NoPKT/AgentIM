@@ -63,7 +63,8 @@ export async function isTokenRevoked(userId: string, iatMs: number): Promise<boo
     if (!revokedAt) return false
     return iatMs < Number(revokedAt)
   } catch {
-    // If Redis is down, deny by default (fail-secure)
-    return true
+    // If Redis is down, allow by default but warn (fail-open to prevent DoS)
+    log.warn('Redis unavailable for token revocation check, allowing request (fail-open)')
+    return false
   }
 }

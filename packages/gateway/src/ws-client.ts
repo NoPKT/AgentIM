@@ -10,7 +10,7 @@ type TokenRefresher = () => Promise<string>
 const PING_INTERVAL = 30_000 // Send ping every 30s
 const PONG_TIMEOUT = 10_000 // Wait 10s for pong before considering connection dead
 const MAX_QUEUE_SIZE = 1000
-const MAX_RECONNECT_ATTEMPTS = 50
+const MAX_RECONNECT_ATTEMPTS = parseInt(process.env.AGENTIM_MAX_RECONNECT ?? '', 10) || 50
 
 export class GatewayWsClient {
   private ws: WebSocket | null = null

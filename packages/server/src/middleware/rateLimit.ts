@@ -42,6 +42,9 @@ end
 return count
 `
 
+// In-memory fallback counters when Redis is unavailable
+const memoryCounters = new Map<string, { count: number; resetAt: number }>()
+
 export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefix = 'api') {
   const isTest = process.env.NODE_ENV === 'test'
   const windowSec = Math.ceil(windowMs / 1000)
@@ -53,10 +56,10 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
     }
 
     const ip = getClientIpFromRequest(c)
+    const key = `rl:${prefix}:${ip}:${windowSec}`
 
     try {
       const redis = getRedis()
-      const key = `rl:${prefix}:${ip}:${windowSec}`
 
       const count = (await redis.eval(INCR_WITH_EXPIRE_LUA, 1, key, windowSec)) as number
 
@@ -71,9 +74,19 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
 
       c.header('X-RateLimit-Remaining', String(maxRequests - count))
     } catch {
-      // Redis unavailable — fail-closed: reject the request
-      log.warn('Redis unavailable for rate limiting, rejecting request (fail-closed)')
-      return c.json({ ok: false, error: 'Service temporarily unavailable' }, 503)
+      // Redis unavailable — fallback to in-memory rate limiting
+      log.warn('Redis unavailable for rate limiting, using in-memory fallback')
+      const now = Date.now()
+      const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
+      if (now > entry.resetAt) {
+        entry.count = 0
+        entry.resetAt = now + windowMs
+      }
+      entry.count++
+      memoryCounters.set(key, entry)
+      if (entry.count > maxRequests) {
+        return c.json({ ok: false, error: 'Too many requests' }, 429)
+      }
     }
 
     await next()

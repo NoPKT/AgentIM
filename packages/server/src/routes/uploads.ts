@@ -115,7 +115,7 @@ uploadRoutes.post('/', async (c) => {
   }
 
   const id = nanoid()
-  const ext = MIME_TO_EXT[file.type] || extname(file.name) || ''
+  const ext = MIME_TO_EXT[file.type] || ''
   const storedFilename = `${id}${ext}`
   const filePath = resolve(config.uploadDir, storedFilename)
   await writeFile(filePath, buffer)

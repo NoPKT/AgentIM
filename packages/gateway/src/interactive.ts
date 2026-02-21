@@ -21,7 +21,7 @@ export function prompt(question: string): Promise<string> {
  * Prompt the user for a password, masking input with '*'.
  */
 export function promptPassword(question: string): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     process.stdout.write(question)
 
     const stdin = process.stdin
@@ -48,8 +48,13 @@ export function promptPassword(question: string): Promise<string> {
         resolve(password)
       } else if (c === '\u0003') {
         // Ctrl+C
+        if (stdin.isTTY) {
+          stdin.setRawMode(wasRaw ?? false)
+        }
+        stdin.pause()
+        stdin.removeListener('data', onData)
         process.stdout.write('\n')
-        process.exit(0)
+        reject(new Error('interrupted'))
       } else if (c === '\u007F' || c === '\b') {
         // Backspace
         if (password.length > 0) {

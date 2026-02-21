@@ -156,13 +156,16 @@ export class WsClient {
         this.pendingQueue.push(msg)
       } else {
         console.warn('[WS] Send queue full, message may be lost. Please check your connection.')
+        window.dispatchEvent(new CustomEvent('ws:queue_full', { detail: { type: msg.type } }))
       }
     }
   }
 
   private flushQueue() {
     if (this.pendingQueue.length === 0) return
+    const count = this.pendingQueue.length
     const queue = this.pendingQueue.splice(0)
+    console.info(`[WS] Flushing ${count} pending message(s) after reconnect`)
     for (const msg of queue) {
       this.send(msg)
     }
