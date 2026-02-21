@@ -6,7 +6,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
-import { existsSync, mkdirSync, accessSync, constants } from 'node:fs'
+import { existsSync, mkdirSync, accessSync, constants, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { config } from './config.js'
 import { createLogger } from './lib/logger.js'
@@ -132,6 +132,13 @@ app.use(
   secureHeaders(
     config.isProduction
       ? {
+          strictTransportSecurity: 'max-age=15552000; includeSubDomains',
+          permissionsPolicy: {
+            camera: [] as string[],
+            microphone: [] as string[],
+            geolocation: [] as string[],
+            payment: [] as string[],
+          },
           contentSecurityPolicy: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'"],
@@ -169,7 +176,9 @@ app.use('/api/*', async (c, next) => {
 // Global error handler
 app.onError((err, c) => {
   captureException(err)
-  log.error(`Unhandled error: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`)
+  log.error(
+    `Unhandled error: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
+  )
   const status = 'status' in err && typeof err.status === 'number' ? err.status : 500
   return c.json(
     { ok: false, error: config.isProduction ? 'Internal server error' : err.message },
@@ -204,16 +213,19 @@ app.get('/api/health', async (c) => {
 
   const healthy = Object.values(checks).every(Boolean)
   const mem = process.memoryUsage()
-  return c.json({
-    ok: healthy,
-    timestamp: new Date().toISOString(),
-    checks,
-    system: {
-      memoryMB: Math.round(mem.rss / 1024 / 1024),
-      heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
-      uptimeSeconds: Math.round(process.uptime()),
+  return c.json(
+    {
+      ok: healthy,
+      timestamp: new Date().toISOString(),
+      checks,
+      system: {
+        memoryMB: Math.round(mem.rss / 1024 / 1024),
+        heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+        uptimeSeconds: Math.round(process.uptime()),
+      },
     },
-  }, healthy ? 200 : 503)
+    healthy ? 200 : 503,
+  )
 })
 
 // API routes
@@ -260,13 +272,18 @@ app.get(
   '/ws/client',
   upgradeWebSocket(() => ({
     onOpen(_, ws) {
-      wsAuthTimers.set(ws, setTimeout(() => {
-        // If still not authenticated after timeout, close the connection
-        const client = connectionManager.getClient(ws)
-        if (!client) {
-          try { ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout') } catch {}
-        }
-      }, WS_AUTH_TIMEOUT_MS))
+      wsAuthTimers.set(
+        ws,
+        setTimeout(() => {
+          // If still not authenticated after timeout, close the connection
+          const client = connectionManager.getClient(ws)
+          if (!client) {
+            try {
+              ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout')
+            } catch {}
+          }
+        }, WS_AUTH_TIMEOUT_MS),
+      )
     },
     async onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
@@ -292,12 +309,17 @@ app.get(
   '/ws/gateway',
   upgradeWebSocket(() => ({
     onOpen(_, ws) {
-      wsAuthTimers.set(ws, setTimeout(() => {
-        const gw = connectionManager.getGateway(ws)
-        if (!gw) {
-          try { ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout') } catch {}
-        }
-      }, WS_AUTH_TIMEOUT_MS))
+      wsAuthTimers.set(
+        ws,
+        setTimeout(() => {
+          const gw = connectionManager.getGateway(ws)
+          if (!gw) {
+            try {
+              ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout')
+            } catch {}
+          }
+        }, WS_AUTH_TIMEOUT_MS),
+      )
     },
     async onMessage(evt, ws) {
       const raw = typeof evt.data === 'string' ? evt.data : String(evt.data)
@@ -322,11 +344,15 @@ app.get(
 // Serve static files (Web UI) in production
 const webDistPath = resolve(import.meta.dirname, '../../web/dist')
 if (existsSync(webDistPath)) {
+  // Cache index.html once at startup to avoid per-request readFileSync calls
+  const indexHtmlPath = resolve(webDistPath, 'index.html')
+  const indexHtml = existsSync(indexHtmlPath) ? readFileSync(indexHtmlPath, 'utf-8') : null
+
   // Serve all static files from the web dist directory (assets, PWA files, icons, etc.)
   app.use('*', serveStatic({ root: webDistPath }))
   // SPA fallback: serve index.html for non-API, non-WS, non-upload routes
   // that didn't match a physical file above
-  app.get('*', async (c) => {
+  app.get('*', (c) => {
     const reqPath = c.req.path
     if (
       reqPath.startsWith('/api/') ||
@@ -335,9 +361,8 @@ if (existsSync(webDistPath)) {
     ) {
       return c.notFound()
     }
-    const { readFileSync } = await import('node:fs')
-    const html = readFileSync(resolve(webDistPath, 'index.html'), 'utf-8')
-    return c.html(html)
+    if (!indexHtml) return c.notFound()
+    return c.html(indexHtml)
   })
 }
 

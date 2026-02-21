@@ -22,6 +22,17 @@ const log = createLogger('ClientHandler')
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const MAX_JSON_DEPTH = 10
 
+// Atomic INCR + conditional EXPIRE in a single Lua script to eliminate the
+// TOCTOU race where a Redis restart between INCR and EXPIRE leaves the key
+// without a TTL, permanently blocking the user.
+const WS_INCR_WITH_EXPIRE_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`
+
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
 function safeJsonParse(raw: string, maxDepth: number): unknown {
   const result = JSON.parse(raw)
@@ -48,11 +59,12 @@ async function isRateLimited(userId: string): Promise<boolean> {
   try {
     const redis = getRedis()
     const key = `ws:rate:${userId}`
-    const count = await redis.incr(key)
-    // Only set EXPIRE on first increment to use fixed time buckets
-    if (count === 1) {
-      await redis.expire(key, config.clientRateLimitWindow)
-    }
+    const count = (await redis.eval(
+      WS_INCR_WITH_EXPIRE_LUA,
+      1,
+      key,
+      String(config.clientRateLimitWindow),
+    )) as number
     return count > config.clientRateLimitMax
   } catch {
     log.warn('Redis unavailable for WS rate limiting, rejecting request (fail-closed)')

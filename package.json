@@ -34,6 +34,10 @@
     "prettier": "^3.5.0"
   },
   "pnpm": {
+    "overrides": {
+      "glob>minimatch": "^10.2.2",
+      "filelist>minimatch": "^10.2.2"
+    },
     "onlyBuiltDependencies": [
       "argon2",
       "esbuild",

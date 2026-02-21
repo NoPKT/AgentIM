@@ -117,7 +117,7 @@ jobs:
         run: pnpm build
 
       - name: Run tests
-        run: pnpm test
+        run: pnpm --filter @agentim/shared test && pnpm --filter agentim test && pnpm --filter @agentim/server test:coverage
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentim_test
           REDIS_URL: redis://localhost:6379

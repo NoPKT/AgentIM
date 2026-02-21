@@ -36,13 +36,21 @@ export class CursorAdapter extends BaseAgentAdapter {
     this.isRunning = true
     let fullContent = ''
     let done = false
-    const complete = (content: string) => { if (done) return; done = true; onComplete(content) }
-    const fail = (err: string) => { if (done) return; done = true; onError(err) }
+    const complete = (content: string) => {
+      if (done) return
+      done = true
+      onComplete(content)
+    }
+    const fail = (err: string) => {
+      if (done) return
+      done = true
+      onError(err)
+    }
 
-    // Cursor CLI in non-interactive mode
+    // Cursor CLI in non-interactive mode (binary name: agent)
     const prompt = this.buildPrompt(content, context)
     const args = ['--message', prompt]
-    const proc = spawn('cursor', args, {
+    const proc = spawn('agent', args, {
       cwd: this.workingDirectory,
       env: getSafeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
