@@ -1,7 +1,7 @@
 import type { WSContext } from 'hono/ws'
 import { WS_ERROR_CODES } from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 
 const log = createLogger('Connections')
 
@@ -59,15 +59,16 @@ class ConnectionManager {
     // returned early on failure, the existing socket would remain bound to
     // the old user but their online count would be permanently under-reported.
     if (!existing || existing.userId !== userId) {
-      const maxPerUser = userMaxConnections ?? config.maxWsConnectionsPerUser
+      const maxPerUser = userMaxConnections ?? (getConfigSync<number>('ws.maxConnectionsPerUser') || config.maxWsConnectionsPerUser)
       const currentCount = this.onlineUsers.get(userId) ?? 0
       if (currentCount >= maxPerUser) {
         log.warn(`User ${userId} exceeded max connections (${maxPerUser})`)
         return { ok: false, error: 'Too many connections' }
       }
       // Enforce global connection limit (only for truly new connections)
-      if (!existing && this.clients.size >= config.maxTotalWsConnections) {
-        log.warn(`Global connection limit reached (${config.maxTotalWsConnections})`)
+      const maxTotal = getConfigSync<number>('ws.maxTotalConnections') || config.maxTotalWsConnections
+      if (!existing && this.clients.size >= maxTotal) {
+        log.warn(`Global connection limit reached (${maxTotal})`)
         return { ok: false, error: 'Server at capacity' }
       }
     }
@@ -218,7 +219,7 @@ class ConnectionManager {
     // as addClient — decrementing the old count before validation would leave
     // the counter underreported when the check fails).
     if (!existing || existing.userId !== userId) {
-      const maxGateways = userMaxGateways ?? config.maxGatewaysPerUser
+      const maxGateways = userMaxGateways ?? (getConfigSync<number>('ws.maxGatewaysPerUser') || config.maxGatewaysPerUser)
       const currentCount = this.userGatewayCount.get(userId) ?? 0
       if (currentCount >= maxGateways) {
         log.warn(`User ${userId} exceeded max gateways (${maxGateways})`)

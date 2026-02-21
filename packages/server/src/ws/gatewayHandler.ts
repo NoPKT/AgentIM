@@ -21,13 +21,13 @@ import { captureException } from '../lib/sentry.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
 import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 
 const log = createLogger('GatewayHandler')
 
-const MAX_MESSAGE_SIZE = config.maxGatewayMessageSize
+// ws.gatewayMessageSize is available via getConfigSync() if needed at runtime
 const MAX_JSON_DEPTH = 15 // gateway messages may have deeper nesting (chunks with metadata)
 const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
 const MAX_FULL_CONTENT_SIZE = 10 * 1024 * 1024 // 10 MB per complete message

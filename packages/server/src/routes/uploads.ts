@@ -7,7 +7,7 @@ import { messageAttachments, users } from '../db/schema.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { uploadRateLimit } from '../middleware/rateLimit.js'
 import { config } from '../config.js'
-import { storage } from '../storage/index.js'
+import { getStorage } from '../storage/index.js'
 import { createLogger } from '../lib/logger.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 
@@ -121,7 +121,7 @@ uploadRoutes.post('/', async (c) => {
   const id = nanoid()
   const ext = MIME_TO_EXT[file.type] || ''
   const storedFilename = `${id}${ext}`
-  await storage.write(storedFilename, buffer, file.type)
+  await getStorage().write(storedFilename, buffer, file.type)
 
   const url = `/uploads/${storedFilename}`
   const now = new Date().toISOString()
@@ -187,10 +187,10 @@ uploadRoutes.post('/avatar', async (c) => {
   // Remove previous avatar files with different extensions to prevent storage leakage
   const prefix = `avatar_${userId}`
   try {
-    const files = await storage.list(prefix)
+    const files = await getStorage().list(prefix)
     for (const f of files) {
       if (f !== storedFilename) {
-        await storage.delete(f).catch((err) => {
+        await getStorage().delete(f).catch((err: unknown) => {
           log.warn(
             `Failed to delete old avatar file ${f}: ${err instanceof Error ? err.message : err}`,
           )
@@ -201,7 +201,7 @@ uploadRoutes.post('/avatar', async (c) => {
     // Storage may not be initialized yet; write below will create the file
   }
 
-  await storage.write(storedFilename, buffer, file.type)
+  await getStorage().write(storedFilename, buffer, file.type)
 
   const avatarUrl = `/uploads/${storedFilename}`
   const now = new Date().toISOString()
@@ -229,7 +229,7 @@ export async function cleanupOrphanAttachments() {
   for (const orphan of orphans) {
     const filename = orphan.url.replace(/^\/uploads\//, '')
     try {
-      await storage.delete(filename)
+      await getStorage().delete(filename)
       unlinkedIds.push(orphan.id)
     } catch (err: unknown) {
       log.warn(

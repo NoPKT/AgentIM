@@ -1,0 +1,599 @@
+import { eq } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { settings } from '../db/schema.js'
+import { createLogger } from './logger.js'
+
+const log = createLogger('Settings')
+
+// ─── Setting Types ───
+
+export type SettingType = 'string' | 'number' | 'boolean' | 'enum'
+
+export interface SettingDefinition {
+  key: string
+  group: SettingGroup
+  type: SettingType
+  sensitive?: boolean
+  defaultValue: string
+  /** Env var name to fall back to (e.g. 'CORS_ORIGIN') */
+  envKey?: string
+  /** Allowed enum values (for type=enum) */
+  enumValues?: string[]
+  /** min/max for numbers */
+  min?: number
+  max?: number
+  /** i18n key for label */
+  labelKey: string
+  /** i18n key for description */
+  descKey: string
+}
+
+export type SettingGroup =
+  | 'general'
+  | 'security'
+  | 'storage'
+  | 'rateLimit'
+  | 'connections'
+  | 'aiRouter'
+  | 'maintenance'
+
+// ─── Settings Registry ───
+
+export const SETTING_DEFINITIONS: SettingDefinition[] = [
+  // General
+  {
+    key: 'cors.origin',
+    group: 'general',
+    type: 'string',
+    defaultValue: 'http://localhost:5173',
+    envKey: 'CORS_ORIGIN',
+    labelKey: 'adminSettings.corsOrigin',
+    descKey: 'adminSettings.corsOriginDesc',
+  },
+  {
+    key: 'log.level',
+    group: 'general',
+    type: 'enum',
+    defaultValue: 'info',
+    envKey: 'LOG_LEVEL',
+    enumValues: ['debug', 'info', 'warn', 'error', 'fatal'],
+    labelKey: 'adminSettings.logLevel',
+    descKey: 'adminSettings.logLevelDesc',
+  },
+
+  // Security
+  {
+    key: 'jwt.accessExpiry',
+    group: 'security',
+    type: 'string',
+    defaultValue: '15m',
+    envKey: 'JWT_ACCESS_EXPIRY',
+    labelKey: 'adminSettings.jwtAccessExpiry',
+    descKey: 'adminSettings.jwtAccessExpiryDesc',
+  },
+  {
+    key: 'jwt.refreshExpiry',
+    group: 'security',
+    type: 'string',
+    defaultValue: '7d',
+    envKey: 'JWT_REFRESH_EXPIRY',
+    labelKey: 'adminSettings.jwtRefreshExpiry',
+    descKey: 'adminSettings.jwtRefreshExpiryDesc',
+  },
+  {
+    key: 'trust.proxy',
+    group: 'security',
+    type: 'boolean',
+    defaultValue: 'false',
+    envKey: 'TRUST_PROXY',
+    labelKey: 'adminSettings.trustProxy',
+    descKey: 'adminSettings.trustProxyDesc',
+  },
+
+  // Storage
+  {
+    key: 'upload.maxFileSize',
+    group: 'storage',
+    type: 'number',
+    defaultValue: '10485760',
+    envKey: 'MAX_FILE_SIZE',
+    min: 1024,
+    max: 104857600,
+    labelKey: 'adminSettings.uploadMaxFileSize',
+    descKey: 'adminSettings.uploadMaxFileSizeDesc',
+  },
+  {
+    key: 'storage.provider',
+    group: 'storage',
+    type: 'enum',
+    defaultValue: 'local',
+    envKey: 'STORAGE_PROVIDER',
+    enumValues: ['local', 's3'],
+    labelKey: 'adminSettings.storageProvider',
+    descKey: 'adminSettings.storageProviderDesc',
+  },
+  {
+    key: 'storage.s3.bucket',
+    group: 'storage',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'S3_BUCKET',
+    labelKey: 'adminSettings.s3Bucket',
+    descKey: 'adminSettings.s3BucketDesc',
+  },
+  {
+    key: 'storage.s3.region',
+    group: 'storage',
+    type: 'string',
+    defaultValue: 'auto',
+    envKey: 'S3_REGION',
+    labelKey: 'adminSettings.s3Region',
+    descKey: 'adminSettings.s3RegionDesc',
+  },
+  {
+    key: 'storage.s3.endpoint',
+    group: 'storage',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'S3_ENDPOINT',
+    labelKey: 'adminSettings.s3Endpoint',
+    descKey: 'adminSettings.s3EndpointDesc',
+  },
+  {
+    key: 'storage.s3.accessKeyId',
+    group: 'storage',
+    type: 'string',
+    sensitive: true,
+    defaultValue: '',
+    envKey: 'S3_ACCESS_KEY_ID',
+    labelKey: 'adminSettings.s3AccessKeyId',
+    descKey: 'adminSettings.s3AccessKeyIdDesc',
+  },
+  {
+    key: 'storage.s3.secretAccessKey',
+    group: 'storage',
+    type: 'string',
+    sensitive: true,
+    defaultValue: '',
+    envKey: 'S3_SECRET_ACCESS_KEY',
+    labelKey: 'adminSettings.s3SecretAccessKey',
+    descKey: 'adminSettings.s3SecretAccessKeyDesc',
+  },
+
+  // Rate Limiting
+  {
+    key: 'rateLimit.client.window',
+    group: 'rateLimit',
+    type: 'number',
+    defaultValue: '10',
+    envKey: 'CLIENT_RATE_LIMIT_WINDOW',
+    min: 1,
+    max: 300,
+    labelKey: 'adminSettings.clientRateLimitWindow',
+    descKey: 'adminSettings.clientRateLimitWindowDesc',
+  },
+  {
+    key: 'rateLimit.client.max',
+    group: 'rateLimit',
+    type: 'number',
+    defaultValue: '30',
+    envKey: 'CLIENT_RATE_LIMIT_MAX',
+    min: 1,
+    max: 1000,
+    labelKey: 'adminSettings.clientRateLimitMax',
+    descKey: 'adminSettings.clientRateLimitMaxDesc',
+  },
+  {
+    key: 'rateLimit.agent.window',
+    group: 'rateLimit',
+    type: 'number',
+    defaultValue: '60',
+    envKey: 'AGENT_RATE_LIMIT_WINDOW',
+    min: 1,
+    max: 3600,
+    labelKey: 'adminSettings.agentRateLimitWindow',
+    descKey: 'adminSettings.agentRateLimitWindowDesc',
+  },
+  {
+    key: 'rateLimit.agent.max',
+    group: 'rateLimit',
+    type: 'number',
+    defaultValue: '20',
+    envKey: 'AGENT_RATE_LIMIT_MAX',
+    min: 1,
+    max: 1000,
+    labelKey: 'adminSettings.agentRateLimitMax',
+    descKey: 'adminSettings.agentRateLimitMaxDesc',
+  },
+
+  // Connection Limits
+  {
+    key: 'ws.maxConnectionsPerUser',
+    group: 'connections',
+    type: 'number',
+    defaultValue: '10',
+    envKey: 'MAX_WS_CONNECTIONS_PER_USER',
+    min: 1,
+    max: 100,
+    labelKey: 'adminSettings.maxConnectionsPerUser',
+    descKey: 'adminSettings.maxConnectionsPerUserDesc',
+  },
+  {
+    key: 'ws.maxTotalConnections',
+    group: 'connections',
+    type: 'number',
+    defaultValue: '5000',
+    envKey: 'MAX_TOTAL_WS_CONNECTIONS',
+    min: 10,
+    max: 100000,
+    labelKey: 'adminSettings.maxTotalConnections',
+    descKey: 'adminSettings.maxTotalConnectionsDesc',
+  },
+  {
+    key: 'ws.maxGatewaysPerUser',
+    group: 'connections',
+    type: 'number',
+    defaultValue: '20',
+    envKey: 'MAX_GATEWAYS_PER_USER',
+    min: 1,
+    max: 100,
+    labelKey: 'adminSettings.maxGatewaysPerUser',
+    descKey: 'adminSettings.maxGatewaysPerUserDesc',
+  },
+  {
+    key: 'ws.maxMessageSize',
+    group: 'connections',
+    type: 'number',
+    defaultValue: '65536',
+    envKey: 'MAX_WS_MESSAGE_SIZE',
+    min: 1024,
+    max: 1048576,
+    labelKey: 'adminSettings.maxMessageSize',
+    descKey: 'adminSettings.maxMessageSizeDesc',
+  },
+  {
+    key: 'ws.gatewayMessageSize',
+    group: 'connections',
+    type: 'number',
+    defaultValue: '262144',
+    envKey: 'MAX_GATEWAY_MESSAGE_SIZE',
+    min: 1024,
+    max: 10485760,
+    labelKey: 'adminSettings.gatewayMessageSize',
+    descKey: 'adminSettings.gatewayMessageSizeDesc',
+  },
+
+  // AI Router
+  {
+    key: 'router.llm.baseUrl',
+    group: 'aiRouter',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'ROUTER_LLM_BASE_URL',
+    labelKey: 'adminSettings.routerLlmBaseUrl',
+    descKey: 'adminSettings.routerLlmBaseUrlDesc',
+  },
+  {
+    key: 'router.llm.apiKey',
+    group: 'aiRouter',
+    type: 'string',
+    sensitive: true,
+    defaultValue: '',
+    envKey: 'ROUTER_LLM_API_KEY',
+    labelKey: 'adminSettings.routerLlmApiKey',
+    descKey: 'adminSettings.routerLlmApiKeyDesc',
+  },
+  {
+    key: 'router.llm.model',
+    group: 'aiRouter',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'ROUTER_LLM_MODEL',
+    labelKey: 'adminSettings.routerLlmModel',
+    descKey: 'adminSettings.routerLlmModelDesc',
+  },
+  {
+    key: 'router.maxChainDepth',
+    group: 'aiRouter',
+    type: 'number',
+    defaultValue: '5',
+    envKey: 'MAX_AGENT_CHAIN_DEPTH',
+    min: 1,
+    max: 100,
+    labelKey: 'adminSettings.maxChainDepth',
+    descKey: 'adminSettings.maxChainDepthDesc',
+  },
+
+  // Maintenance
+  {
+    key: 'cleanup.orphanFileInterval',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '3600000',
+    envKey: 'ORPHAN_FILE_CHECK_INTERVAL',
+    min: 60000,
+    max: 86400000,
+    labelKey: 'adminSettings.orphanFileInterval',
+    descKey: 'adminSettings.orphanFileIntervalDesc',
+  },
+  {
+    key: 'cleanup.tokenInterval',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '3600000',
+    envKey: 'TOKEN_CLEANUP_INTERVAL',
+    min: 60000,
+    max: 86400000,
+    labelKey: 'adminSettings.tokenInterval',
+    descKey: 'adminSettings.tokenIntervalDesc',
+  },
+  {
+    key: 'sentry.dsn',
+    group: 'maintenance',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'SENTRY_DSN',
+    labelKey: 'adminSettings.sentryDsn',
+    descKey: 'adminSettings.sentryDsnDesc',
+  },
+]
+
+// Lookup by key for O(1) access
+const DEFINITION_MAP = new Map(SETTING_DEFINITIONS.map((d) => [d.key, d]))
+
+// ─── In-Memory Cache ───
+
+const CACHE_TTL_MS = 5_000
+const cache = new Map<string, { value: string; expiresAt: number }>()
+let allCacheLoaded = false
+let allCacheExpiresAt = 0
+
+function getCached(key: string): string | undefined {
+  const entry = cache.get(key)
+  if (entry && Date.now() < entry.expiresAt) return entry.value
+  return undefined
+}
+
+function setCache(key: string, value: string): void {
+  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+// ─── Core Functions ───
+
+/**
+ * Get a setting value (async). Priority: cache → DB → env var → default.
+ */
+export async function getSetting(key: string): Promise<string> {
+  // 1. Check cache
+  const cached = getCached(key)
+  if (cached !== undefined) return cached
+
+  // 2. Check DB
+  try {
+    const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1)
+    if (row) {
+      setCache(key, row.value)
+      return row.value
+    }
+  } catch (err) {
+    log.warn(`Failed to read setting "${key}" from DB: ${(err as Error).message}`)
+  }
+
+  // 3. Env var fallback
+  const def = DEFINITION_MAP.get(key)
+  if (def?.envKey) {
+    const envVal = process.env[def.envKey]
+    if (envVal !== undefined && envVal !== '') return envVal
+  }
+
+  // 4. Default
+  return def?.defaultValue ?? ''
+}
+
+/**
+ * Synchronous setting read. Priority: cache → env var → default.
+ * Used in hot paths that cannot await (e.g. CORS origin callback).
+ */
+export function getSettingSync(key: string): string {
+  const cached = getCached(key)
+  if (cached !== undefined) return cached
+
+  const def = DEFINITION_MAP.get(key)
+  if (def?.envKey) {
+    const envVal = process.env[def.envKey]
+    if (envVal !== undefined && envVal !== '') return envVal
+  }
+
+  return def?.defaultValue ?? ''
+}
+
+/**
+ * Typed sync getter — parses value according to the expected type.
+ */
+export function getSettingTypedSync<T extends string | number | boolean>(key: string): T {
+  const raw = getSettingSync(key)
+  const def = DEFINITION_MAP.get(key)
+  if (!def) return raw as T
+
+  if (def.type === 'number') return Number(raw) as T
+  if (def.type === 'boolean') return (raw === 'true') as T
+  return raw as T
+}
+
+/**
+ * Set a setting value. Validates, upserts to DB, and invalidates cache.
+ */
+export async function setSetting(
+  key: string,
+  value: string,
+  userId?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const def = DEFINITION_MAP.get(key)
+  if (!def) return { ok: false, error: `Unknown setting: ${key}` }
+
+  // Validate
+  const error = validateSetting(def, value)
+  if (error) return { ok: false, error }
+
+  const now = new Date().toISOString()
+
+  try {
+    // Upsert: INSERT ON CONFLICT UPDATE
+    await db
+      .insert(settings)
+      .values({ key, value, updatedAt: now, updatedBy: userId ?? null })
+      .onConflictDoUpdate({
+        target: settings.key,
+        set: { value, updatedAt: now, updatedBy: userId ?? null },
+      })
+    setCache(key, value)
+    return { ok: true }
+  } catch (err) {
+    log.error(`Failed to save setting "${key}": ${(err as Error).message}`)
+    return { ok: false, error: 'Failed to save setting' }
+  }
+}
+
+/**
+ * Get all settings grouped for the admin UI.
+ * Sensitive values are masked unless the DB has no value set.
+ */
+export async function getAllSettings(): Promise<
+  Record<
+    string,
+    Array<{
+      key: string
+      value: string
+      type: SettingType
+      sensitive: boolean
+      enumValues?: string[]
+      min?: number
+      max?: number
+      labelKey: string
+      descKey: string
+      source: 'db' | 'env' | 'default'
+    }>
+  >
+> {
+  // Load all DB settings
+  const dbRows = await db.select().from(settings)
+  const dbMap = new Map(dbRows.map((r) => [r.key, r.value]))
+
+  const groups: Record<string, Array<ReturnType<typeof mapDef>>> = {}
+
+  for (const def of SETTING_DEFINITIONS) {
+    const item = mapDef(def, dbMap)
+    if (!groups[def.group]) groups[def.group] = []
+    groups[def.group].push(item)
+  }
+
+  return groups
+}
+
+function mapDef(
+  def: SettingDefinition,
+  dbMap: Map<string, string>,
+): {
+  key: string
+  value: string
+  type: SettingType
+  sensitive: boolean
+  enumValues?: string[]
+  min?: number
+  max?: number
+  labelKey: string
+  descKey: string
+  source: 'db' | 'env' | 'default'
+} {
+  let value: string
+  let source: 'db' | 'env' | 'default'
+
+  if (dbMap.has(def.key)) {
+    value = dbMap.get(def.key)!
+    source = 'db'
+  } else if (def.envKey && process.env[def.envKey]) {
+    value = process.env[def.envKey]!
+    source = 'env'
+  } else {
+    value = def.defaultValue
+    source = 'default'
+  }
+
+  // Mask sensitive values
+  if (def.sensitive && value) {
+    value = value.slice(0, 4) + '••••••••'
+  }
+
+  return {
+    key: def.key,
+    value,
+    type: def.type,
+    sensitive: def.sensitive ?? false,
+    ...(def.enumValues ? { enumValues: def.enumValues } : {}),
+    ...(def.min !== undefined ? { min: def.min } : {}),
+    ...(def.max !== undefined ? { max: def.max } : {}),
+    labelKey: def.labelKey,
+    descKey: def.descKey,
+    source,
+  }
+}
+
+function validateSetting(def: SettingDefinition, value: string): string | undefined {
+  if (def.type === 'number') {
+    const num = Number(value)
+    if (Number.isNaN(num)) return `${def.key}: must be a number`
+    if (def.min !== undefined && num < def.min) return `${def.key}: minimum is ${def.min}`
+    if (def.max !== undefined && num > def.max) return `${def.key}: maximum is ${def.max}`
+  }
+  if (def.type === 'boolean' && value !== 'true' && value !== 'false') {
+    return `${def.key}: must be "true" or "false"`
+  }
+  if (def.type === 'enum' && def.enumValues && !def.enumValues.includes(value)) {
+    return `${def.key}: must be one of ${def.enumValues.join(', ')}`
+  }
+  return undefined
+}
+
+/**
+ * Preload all settings from DB into cache. Called once at startup.
+ */
+export async function preloadSettings(): Promise<void> {
+  try {
+    const rows = await db.select().from(settings)
+    for (const row of rows) {
+      setCache(row.key, row.value)
+    }
+    allCacheLoaded = true
+    allCacheExpiresAt = Date.now() + CACHE_TTL_MS
+    log.info(`Settings cache preloaded (${rows.length} entries)`)
+  } catch (err) {
+    log.warn(`Failed to preload settings: ${(err as Error).message}`)
+  }
+}
+
+/**
+ * Invalidate cache for a specific key or all keys.
+ */
+export function invalidateCache(key?: string): void {
+  if (key) {
+    cache.delete(key)
+  } else {
+    cache.clear()
+    allCacheLoaded = false
+  }
+}
+
+/**
+ * Get the setting definition for a key.
+ */
+export function getSettingDefinition(key: string): SettingDefinition | undefined {
+  return DEFINITION_MAP.get(key)
+}
+
+/**
+ * Get the raw (unmasked) value of a setting from DB.
+ * Used internally when rebuilding storage adapters etc.
+ */
+export async function getSettingRaw(key: string): Promise<string> {
+  return getSetting(key)
+}

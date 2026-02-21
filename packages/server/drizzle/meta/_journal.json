@@ -155,6 +155,13 @@
       "when": 1771400000000,
       "tag": "0021_fix_attachment_fk_on_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1771500000000,
+      "tag": "0022_admin_settings",
+      "breakpoints": true
     }
   ]
 }

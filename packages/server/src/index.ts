@@ -8,7 +8,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
 import { existsSync, mkdirSync, accessSync, constants, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { config } from './config.js'
+import { config, getConfigSync, _setSettingsModule } from './config.js'
 import { createLogger } from './lib/logger.js'
 import { initSentry, captureException } from './lib/sentry.js'
 import { loggerMiddleware } from './middleware/logger.js'
@@ -32,6 +32,7 @@ import { refreshTokens } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
 import { routerRoutes } from './routes/routers.js'
 import { docsRoutes } from './routes/docs.js'
+import { settingsRoutes } from './routes/settings.js'
 import { connectionManager } from './ws/connections.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
@@ -41,6 +42,13 @@ await ensureRedisConnected()
 
 // Run migrations on startup
 await migrate()
+
+// Preload settings from DB into cache and inject settings module into config bridge
+import { preloadSettings, getSettingSync, getSettingTypedSync } from './lib/settings.js'
+import { _setStorageSettingsReader } from './storage/index.js'
+await preloadSettings()
+_setSettingsModule({ getSettingSync, getSettingTypedSync })
+_setStorageSettingsReader(getSettingSync)
 
 // Seed admin user from env vars
 async function seedAdmin() {
@@ -170,7 +178,13 @@ app.use(
 app.use(
   '*',
   cors({
-    origin: config.corsOrigin,
+    origin: (requestOrigin) => {
+      // Dynamic CORS: reads from DB settings cache (or env var fallback)
+      const allowed = getConfigSync<string>('cors.origin') || config.corsOrigin
+      if (!allowed) return requestOrigin || '*'
+      const origins = allowed.split(',').map((s) => s.trim())
+      return origins.includes(requestOrigin) ? requestOrigin : origins[0]
+    },
     credentials: true,
   }),
 )
@@ -286,6 +300,7 @@ app.route('/api/tasks', taskRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/routers', routerRoutes)
 app.route('/api/docs', docsRoutes)
+app.route('/api/admin/settings', settingsRoutes)
 
 // Auth guard for uploaded files: require a valid JWT (Bearer header or ?token= query param).
 // This prevents unauthenticated access to uploaded files.
@@ -319,7 +334,7 @@ app.use('/uploads/*', async (c, next) => {
 })
 if (config.storageProvider === 's3') {
   // S3 mode: proxy file reads from S3
-  const { storage } = await import('./storage/index.js')
+  const { getStorage } = await import('./storage/index.js')
   const MIME_LOOKUP: Record<string, string> = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -337,7 +352,7 @@ if (config.storageProvider === 's3') {
   app.get('/uploads/:filename', async (c) => {
     const filename = c.req.param('filename')
     try {
-      const data = await storage.read(filename)
+      const data = await getStorage().read(filename)
       const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
       const contentType = MIME_LOOKUP[ext] || 'application/octet-stream'
       return new Response(data, {

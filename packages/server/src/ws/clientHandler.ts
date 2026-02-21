@@ -13,7 +13,7 @@ import { verifyToken } from '../lib/jwt.js'
 import { isTokenRevoked } from '../lib/tokenRevocation.js'
 import { createLogger } from '../lib/logger.js'
 import { captureException } from '../lib/sentry.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents, messageAttachments, users } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
@@ -35,7 +35,6 @@ const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const WS_MAX_AUTH_ATTEMPTS = 5
 const wsAuthAttempts = new WeakMap<object, number>()
 
-const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const MAX_JSON_DEPTH = 10
 
 // ─── Room Membership Cache ───
@@ -132,13 +131,15 @@ async function isRateLimited(userId: string): Promise<boolean> {
   try {
     const redis = getRedis()
     const key = `ws:rate:${userId}`
+    const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
+    const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
     const count = (await redis.eval(
       WS_INCR_WITH_EXPIRE_LUA,
       1,
       key,
-      String(config.clientRateLimitWindow),
+      String(window),
     )) as number
-    return count > config.clientRateLimitMax
+    return count > max
   } catch {
     log.warn('Redis unavailable for WS rate limiting, rejecting request (fail-closed)')
     return true
@@ -146,7 +147,8 @@ async function isRateLimited(userId: string): Promise<boolean> {
 }
 
 export async function handleClientMessage(ws: WSContext, raw: string) {
-  if (raw.length > MAX_MESSAGE_SIZE) {
+  const maxMessageSize = getConfigSync<number>('ws.maxMessageSize') || config.maxWsMessageSize
+  if (raw.length > maxMessageSize) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
       code: WS_ERROR_CODES.MESSAGE_TOO_LARGE,

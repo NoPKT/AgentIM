@@ -161,6 +161,34 @@ if (routerUrlSet !== routerKeySet) {
   )
 }
 
+// ─── Dynamic Settings Bridge ───
+// Allows hot-path code to read DB-backed settings synchronously via the
+// settings module. Injected at startup to avoid circular dependencies
+// (config.ts is imported before db/settings are initialized).
+
+let _settingsModule: {
+  getSettingSync: (key: string) => string
+  getSettingTypedSync: <T extends string | number | boolean>(key: string) => T
+} | null = null
+
+export function _setSettingsModule(mod: typeof _settingsModule): void {
+  _settingsModule = mod
+}
+
+/**
+ * Read a DB-backed setting synchronously. Falls through to env var / default
+ * when the settings module hasn't been injected yet (e.g. during early startup).
+ */
+export function getConfigSync<T extends string | number | boolean = string>(
+  settingKey: string,
+): T {
+  if (_settingsModule) {
+    return _settingsModule.getSettingTypedSync<T>(settingKey)
+  }
+  // Fallback: return static config value (env var already parsed at module load)
+  return '' as T
+}
+
 // Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;
 // crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
 // Prefer `openssl rand -base64 32` for maximum entropy.

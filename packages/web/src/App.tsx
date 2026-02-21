@@ -16,6 +16,7 @@ const AgentsPage = lazy(() => import('./pages/AgentsPage.js'))
 const TasksPage = lazy(() => import('./pages/TasksPage.js'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage.js'))
 const UsersPage = lazy(() => import('./pages/UsersPage.js'))
+const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage.js'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'))
 
 function PageLoader() {
@@ -124,6 +125,18 @@ function AppInner() {
               <ErrorBoundary>
                 <Suspense fallback={<PageLoader />}>
                   <UsersPage />
+                </Suspense>
+              </ErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/settings"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <AdminSettingsPage />
                 </Suspense>
               </ErrorBoundary>
             </ProtectedRoute>

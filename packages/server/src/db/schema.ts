@@ -292,6 +292,15 @@ export const tasks = pgTable(
   ],
 )
 
+// ─── Settings ───
+
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
+})
+
 // ─── Audit Logs ───
 
 export const auditLogs = pgTable(

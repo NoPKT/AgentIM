@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { db } from '../db/index.js'
 import { auditLogs } from '../db/schema.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { createLogger } from './logger.js'
 
 const log = createLogger('Audit')
@@ -26,6 +26,7 @@ export type AuditAction =
   | 'member_remove'
   | 'file_upload'
   | 'file_delete'
+  | 'setting_update'
 
 interface AuditOptions {
   userId?: string | null
@@ -55,7 +56,7 @@ export async function logAudit(opts: AuditOptions): Promise<void> {
 }
 
 export function getClientIp(c: Context): string {
-  const trustProxy = config.trustProxy
+  const trustProxy = getConfigSync<boolean>('trust.proxy') || config.trustProxy
   if (trustProxy) {
     return (
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||

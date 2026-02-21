@@ -35,7 +35,10 @@ export function AppLayout() {
 
   const navLinks: NavLink[] = [
     ...(currentUser?.role === 'admin'
-      ? [{ path: '/users', label: t('settings.userManagement'), Icon: UsersIcon }]
+      ? [
+          { path: '/users', label: t('settings.userManagement'), Icon: UsersIcon },
+          { path: '/admin/settings', label: t('adminSettings.title'), Icon: SettingsIcon },
+        ]
       : []),
     { path: '/agents', label: t('agent.agents'), Icon: AgentsIcon },
     { path: '/tasks', label: t('task.tasks'), Icon: TasksIcon },

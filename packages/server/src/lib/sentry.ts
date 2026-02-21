@@ -26,6 +26,34 @@ export async function initSentry(): Promise<void> {
   }
 }
 
+/**
+ * Re-initialize Sentry with a new DSN. Called when admin updates sentry.dsn.
+ * Empty DSN disables Sentry.
+ */
+export async function reinitSentry(dsn: string): Promise<void> {
+  if (!dsn) {
+    sentryCaptureException = null
+    sentryCaptureMessage = null
+    log.info('Sentry disabled (DSN cleared)')
+    return
+  }
+
+  try {
+    // @ts-expect-error — @sentry/node is an optional peer dependency
+    const sentry = await import('@sentry/node')
+    sentry.init({
+      dsn,
+      environment: config.isProduction ? 'production' : 'development',
+      tracesSampleRate: config.isProduction ? 0.1 : 1.0,
+    })
+    sentryCaptureException = sentry.captureException
+    sentryCaptureMessage = sentry.captureMessage
+    log.info('Sentry re-initialized with new DSN')
+  } catch {
+    log.warn('Sentry SDK not installed. Run: pnpm add @sentry/node')
+  }
+}
+
 export function captureException(err: unknown): void {
   sentryCaptureException?.(err)
 }

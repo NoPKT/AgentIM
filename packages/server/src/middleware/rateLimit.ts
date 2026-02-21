@@ -2,7 +2,7 @@ import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('RateLimit')
@@ -12,7 +12,8 @@ const log = createLogger('RateLimit')
  * Falls back to socket remote address when not behind a proxy.
  */
 export function getClientIpFromRequest(c: Context): string {
-  if (config.trustProxy) {
+  const trustProxy = getConfigSync<boolean>('trust.proxy') || config.trustProxy
+  if (trustProxy) {
     return (
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
       c.req.header('x-real-ip') ||
