@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — Server + Web-Oberfläche
-  Dockerfile.gateway   — Gateway mit node-pty
+  Dockerfile.gateway   — Client mit node-pty
   docker-compose.yml   — Vollständige Stack-Bereitstellung
 ```
 
@@ -215,7 +215,7 @@ pnpm test             # Alle Tests ausführen
 ### Dokumentation
 
 - [Deployment-Guide](docs/DEPLOYMENT.md) — Produktionssetup, Nginx, Backups, Fehlerbehebung
-- [WebSocket-Protokoll](docs/WEBSOCKET.md) — Client- und Gateway-Nachrichtentypen, Authentifizierungsablauf, Fehlercodes
+- [WebSocket-Protokoll](docs/WEBSOCKET.md) — Client-Nachrichtentypen, Authentifizierungsablauf, Fehlercodes
 - [Adapter-Guide](docs/ADAPTER_GUIDE.md) — Wie man einen neuen AI-Agententyp hinzufügt
 - [API-Referenz](docs/DEPLOYMENT.md#environment-variables) — OpenAPI-Spezifikation unter `/api/docs/openapi.json` verfügbar
 - [Beitragsrichtlinien](CONTRIBUTING.md) — Codestil, Tests, PR-Prozess

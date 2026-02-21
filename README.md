@@ -215,7 +215,7 @@ pnpm test             # Run all tests
 ### Documentation
 
 - [Deployment Guide](docs/DEPLOYMENT.md) — Production setup, Nginx, backups, troubleshooting
-- [WebSocket Protocol](docs/WEBSOCKET.md) — Client & gateway message types, auth flow, error codes
+- [WebSocket Protocol](docs/WEBSOCKET.md) — Client message types, auth flow, error codes
 - [Adapter Guide](docs/ADAPTER_GUIDE.md) — How to add support for a new AI agent type
 - [API Reference](docs/DEPLOYMENT.md#environment-variables) — OpenAPI spec available at `/api/docs/openapi.json`
 - [Contributing](CONTRIBUTING.md) — Code style, testing, PR process

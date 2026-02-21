@@ -53,7 +53,7 @@ Examples:
 ```text
 feat: add agent heartbeat monitoring
 fix: resolve WebSocket reconnection loop
-docs: update gateway CLI usage instructions
+docs: update client CLI usage instructions
 ```
 
 ## Pull Request Process

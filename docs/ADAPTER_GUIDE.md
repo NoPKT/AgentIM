@@ -1,10 +1,10 @@
-# Gateway Adapter Developer Guide
+# Client Adapter Developer Guide
 
-This guide explains how to add support for a new AI CLI agent in the AgentIM Gateway.
+This guide explains how to add support for a new AI CLI agent in the AgentIM Client.
 
 ## Architecture Overview
 
-The Gateway spawns CLI processes and bridges them with the AgentIM server via WebSocket. Each agent type has an **adapter** that knows how to:
+The Client spawns CLI processes and bridges them with the AgentIM server via WebSocket. Each agent type has an **adapter** that knows how to:
 
 1. Launch the CLI tool with the right arguments
 2. Parse stdout/stderr into structured chunks (text, thinking, tool_use, etc.)
@@ -12,7 +12,7 @@ The Gateway spawns CLI processes and bridges them with the AgentIM server via We
 4. Stop/kill the process on demand
 
 ```
-Server ←→ WebSocket ←→ Gateway AgentManager ←→ Adapter ←→ CLI Process
+Server ←→ WebSocket ←→ Client AgentManager ←→ Adapter ←→ CLI Process
 ```
 
 ## Quick Start

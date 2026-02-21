@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — 서버 + Web UI
-  Dockerfile.gateway   — node-pty 포함 Gateway
+  Dockerfile.gateway   — node-pty 포함 클라이언트
   docker-compose.yml   — 풀스택 배포
 ```
 
@@ -215,7 +215,7 @@ pnpm test             # 모든 테스트 실행
 ### 문서
 
 - [배포 가이드](docs/DEPLOYMENT.md) — 프로덕션 설정, Nginx, 백업, 문제 해결
-- [WebSocket 프로토콜](docs/WEBSOCKET.md) — 클라이언트 및 게이트웨이 메시지 유형, 인증 흐름, 에러 코드
+- [WebSocket 프로토콜](docs/WEBSOCKET.md) — 클라이언트 메시지 유형, 인증 흐름, 에러 코드
 - [어댑터 가이드](docs/ADAPTER_GUIDE.md) — 새로운 AI 에이전트 유형 추가 방법
 - [API 레퍼런스](docs/DEPLOYMENT.md#environment-variables) — OpenAPI 스펙은 `/api/docs/openapi.json`에서 확인 가능
 - [기여 가이드](CONTRIBUTING.md) — 코드 스타일, 테스트, PR 프로세스

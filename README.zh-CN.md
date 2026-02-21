@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — 服务器 + Web UI
-  Dockerfile.gateway   — 含 node-pty 的 Gateway
+  Dockerfile.gateway   — 含 node-pty 的客户端
   docker-compose.yml   — 全栈部署
 ```
 
@@ -215,7 +215,7 @@ pnpm test             # 运行所有测试
 ### 文档
 
 - [部署指南](docs/DEPLOYMENT.md) — 生产环境配置、Nginx、备份、故障排查
-- [WebSocket 协议](docs/WEBSOCKET.md) — 客户端和网关消息类型、认证流程、错误码
+- [WebSocket 协议](docs/WEBSOCKET.md) — 客户端消息类型、认证流程、错误码
 - [适配器指南](docs/ADAPTER_GUIDE.md) — 如何添加新的 AI 智能体类型
 - [API 参考](docs/DEPLOYMENT.md#environment-variables) — OpenAPI 规范可通过 `/api/docs/openapi.json` 获取
 - [贡献指南](CONTRIBUTING.md) — 代码风格、测试、PR 流程

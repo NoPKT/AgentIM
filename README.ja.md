@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — サーバー + Web UI
-  Dockerfile.gateway   — node-pty 付き Gateway
+  Dockerfile.gateway   — node-pty 付きクライアント
   docker-compose.yml   — フルスタックデプロイ
 ```
 
@@ -215,7 +215,7 @@ pnpm test             # すべてのテストを実行
 ### ドキュメント
 
 - [デプロイガイド](docs/DEPLOYMENT.md) — 本番環境設定、Nginx、バックアップ、トラブルシューティング
-- [WebSocket プロトコル](docs/WEBSOCKET.md) — クライアント・ゲートウェイのメッセージ型、認証フロー、エラーコード
+- [WebSocket プロトコル](docs/WEBSOCKET.md) — クライアントのメッセージ型、認証フロー、エラーコード
 - [アダプターガイド](docs/ADAPTER_GUIDE.md) — 新しい AI エージェントタイプの追加方法
 - [API リファレンス](docs/DEPLOYMENT.md#environment-variables) — OpenAPI 仕様は `/api/docs/openapi.json` で取得可能
 - [コントリビューションガイド](CONTRIBUTING.md) — コードスタイル、テスト、PR プロセス

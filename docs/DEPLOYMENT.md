@@ -89,9 +89,9 @@ pm2 save && pm2 startup
 
 The server automatically serves the web UI from `packages/web/dist/` in production.
 
-## Gateway Deployment
+## Client Deployment
 
-The Gateway (AgentIM CLI) runs on developer machines and connects to the server via WebSocket.
+The Client (AgentIM CLI) runs on developer machines and connects to the server via WebSocket.
 
 ```bash
 # Install the CLI globally

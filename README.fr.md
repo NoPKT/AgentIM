@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — Serveur + Interface Web
-  Dockerfile.gateway   — Gateway avec node-pty
+  Dockerfile.gateway   — Client avec node-pty
   docker-compose.yml   — Déploiement complet
 ```
 
@@ -215,7 +215,7 @@ pnpm test             # Exécuter tous les tests
 ### Documentation
 
 - [Guide de déploiement](docs/DEPLOYMENT.md) — Configuration production, Nginx, sauvegardes, dépannage
-- [Protocole WebSocket](docs/WEBSOCKET.md) — Types de messages client et gateway, flux d'authentification, codes d'erreur
+- [Protocole WebSocket](docs/WEBSOCKET.md) — Types de messages client, flux d'authentification, codes d'erreur
 - [Guide des adaptateurs](docs/ADAPTER_GUIDE.md) — Comment ajouter un nouveau type d'agent IA
 - [Référence API](docs/DEPLOYMENT.md#environment-variables) — Spécification OpenAPI disponible sur `/api/docs/openapi.json`
 - [Guide de contribution](CONTRIBUTING.md) — Style de code, tests, processus PR
