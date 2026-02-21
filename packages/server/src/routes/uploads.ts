@@ -73,9 +73,13 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
 
   if (!matchesAny) return false
 
-  // Extra check for WebP: bytes 8-11 should be 'WEBP'
+  // Extra check for WebP: bytes 8-11 must be 'WEBP' and bytes 12-15 must be
+  // a valid VP8 chunk identifier ('VP8 ', 'VP8L', or 'VP8X').
   if (declaredType === 'image/webp') {
-    return buffer.length >= 12 && buffer.toString('ascii', 8, 12) === 'WEBP'
+    if (buffer.length < 16) return false
+    if (buffer.toString('ascii', 8, 12) !== 'WEBP') return false
+    const chunkId = buffer.toString('ascii', 12, 16)
+    return chunkId === 'VP8 ' || chunkId === 'VP8L' || chunkId === 'VP8X'
   }
   return true
 }

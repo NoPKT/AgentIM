@@ -24,7 +24,7 @@ import {
   AGENT_CONNECTION_TYPES,
   MAX_MESSAGE_LENGTH,
 } from '../src/index.js'
-import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES } from '../src/i18n/index.js'
+import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, en, zhCN, ja, ko, fr, de, ru } from '../src/i18n/index.js'
 
 // ─── Mentions ───
 
@@ -545,4 +545,31 @@ describe('Constants', () => {
       assert.ok(typeof LANGUAGE_NAMES[lang] === 'string')
     }
   })
+})
+
+// ─── i18n Translation Completeness ───
+
+function collectKeys(obj: object, prefix = ''): string[] {
+  return Object.entries(obj).flatMap(([k, v]) => {
+    const fullKey = prefix ? `${prefix}.${k}` : k
+    return typeof v === 'object' && v !== null ? collectKeys(v as object, fullKey) : [fullKey]
+  })
+}
+
+describe('i18n translation completeness', () => {
+  const enKeys = collectKeys(en).sort()
+  const locales: [string, object][] = [
+    ['zh-CN', zhCN],
+    ['ja', ja],
+    ['ko', ko],
+    ['fr', fr],
+    ['de', de],
+    ['ru', ru],
+  ]
+
+  for (const [lang, locale] of locales) {
+    it(`${lang} has the same keys as en`, () => {
+      assert.deepEqual(collectKeys(locale).sort(), enKeys)
+    })
+  }
 })

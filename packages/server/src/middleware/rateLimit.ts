@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { getRedis } from '../lib/redis.js'
+import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
 import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
 
@@ -33,16 +33,11 @@ export function getClientIpFromRequest(c: Context): string {
  * @param windowMs - Time window in milliseconds
  * @param maxRequests - Max requests per window per IP
  */
-// Lua script: atomic INCR + EXPIRE-on-first to prevent sticky keys without TTL
-const INCR_WITH_EXPIRE_LUA = `
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then
-  redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-return count
-`
-
-// In-memory fallback counters when Redis is unavailable
+// In-memory fallback counters when Redis is unavailable.
+// NOTE: these counters are process-local. In a multi-process or multi-node
+// deployment each process maintains its own independent counter, so the
+// effective rate limit per IP is (maxRequests × number-of-processes). Ensure
+// Redis is highly available to avoid relying on this fallback in production.
 const memoryCounters = new Map<string, { count: number; resetAt: number }>()
 
 export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefix = 'api') {

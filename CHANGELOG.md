@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-21
+
 ### Fixed
 
 - Replace hardcoded enums with constants in validators (ASSIGNEE_TYPES, NOTIFICATION_PREFS, MEMBER_TYPES)
@@ -24,11 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Web: queue-full notification via CustomEvent for UI awareness
 - Added sensitive file patterns to .gitignore (_.pem, _.key, \*.p12)
 - Enhanced ENCRYPTION_KEY validation (32+ chars required in production)
+- Extracted duplicate Redis Lua rate-limit script to shared constant in redis.ts
+- Corrected misleading JSDoc on revokeUserTokens explaining the intentional fail-open/fail-closed asymmetry
+- Added explanatory comment on SHA-256 key derivation in crypto.ts (high-entropy key, no KDF needed)
+- Web test suite now included in root CI pipeline and turbo task graph
+- Added publishConfig to gateway package.json for npm publishing
+- WebP magic byte validation now also checks VP8 chunk identifier (VP8 /VP8L/VP8X)
+- Added i18n translation completeness test to shared test suite
 
 ### Security
 
 - Added ANTHROPIC_API_KEY and CLAUDE_API_KEY to sensitive env var filter
 - Enhanced password environment variable cleanup in gateway CLI
+- Refresh token endpoint now validates Origin header (Cookie path only) in production for CSRF defence-in-depth
 
 ## [0.1.0] - 2026-02-15
 
@@ -60,4 +70,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `render.yaml` now exposes `ADMIN_USERNAME` as a configurable secret alongside `ADMIN_PASSWORD`.
 - Attachment foreign-key `ON DELETE` behaviour corrected (migration `0021`).
 
+[0.1.1]: https://github.com/NoPKT/AgentIM/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/NoPKT/AgentIM/releases/tag/v0.1.0

@@ -54,3 +54,17 @@ export async function closeRedis(): Promise<void> {
     redis = null
   }
 }
+
+/**
+ * Atomic INCR + EXPIRE-on-first Lua script.
+ * Used by rate limiter middleware and agent rate limiting in gateway handler.
+ * The EXPIRE is set only on the first INCR so that the TTL is not reset on
+ * every request, ensuring a fixed window rather than a sliding one.
+ */
+export const INCR_WITH_EXPIRE_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`

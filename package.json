@@ -24,7 +24,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "test": "pnpm --filter @agentim/shared test && pnpm --filter agentim test && pnpm --filter @agentim/server test",
+    "test": "pnpm --filter @agentim/shared test && pnpm --filter agentim test && pnpm --filter @agentim/server test && pnpm --filter @agentim/web test",
     "lint": "turbo lint",
     "clean": "turbo clean"
   },

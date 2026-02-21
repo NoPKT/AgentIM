@@ -37,8 +37,17 @@ const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
  *
  * Throws if Redis is unavailable — callers must handle this and return an
  * appropriate error response rather than silently allowing stale tokens.
- * This is consistent with isTokenRevoked() which also fails closed (returns
- * true) on Redis failure, ensuring symmetric fail-secure behavior.
+ *
+ * Note: this function and isTokenRevoked() are intentionally asymmetric:
+ * - revokeUserTokens (write path): fail-closed — throws on Redis failure,
+ *   ensuring logout/password-change always produces a visible error rather
+ *   than silently succeeding with stale tokens still active.
+ * - isTokenRevoked (read path): fail-open — returns false on Redis failure,
+ *   preventing a Redis outage from DoS-ing all authenticated users.
+ * This asymmetry is a deliberate security/availability trade-off: the worst
+ * case of fail-open on reads is that a revoked token remains valid until it
+ * expires naturally (bounded by JWT_ACCESS_EXPIRY), which is acceptable
+ * compared to a complete service outage.
  */
 export async function revokeUserTokens(userId: string): Promise<void> {
   try {

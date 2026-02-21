@@ -185,6 +185,7 @@ authRoutes.post('/refresh', async (c) => {
   // Priority 1: httpOnly Cookie (web browser path)
   // Priority 2: JSON body refreshToken (Gateway CLI path — backward compatible)
   let incomingRefreshToken = getCookie(c, REFRESH_COOKIE_NAME) ?? null
+  const usingCookie = incomingRefreshToken !== null
 
   if (!incomingRefreshToken) {
     const body = await parseJsonBody(c)
@@ -197,6 +198,18 @@ authRoutes.post('/refresh', async (c) => {
 
   if (!incomingRefreshToken) {
     return c.json({ ok: false, error: 'Refresh token required' }, 401)
+  }
+
+  // CSRF defence-in-depth: when using the Cookie path (browser clients), verify
+  // the Origin header in production to prevent cross-site refresh token abuse.
+  // Gateway CLI uses the JSON body path and skips this check.
+  // SameSite=Strict already provides primary CSRF protection; this adds a
+  // secondary layer for environments where SameSite may not be enforced.
+  if (usingCookie && config.isProduction && config.corsOrigin) {
+    const origin = c.req.header('origin')
+    if (origin && origin !== config.corsOrigin) {
+      return c.json({ ok: false, error: 'Forbidden' }, 403)
+    }
   }
 
   try {

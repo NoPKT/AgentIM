@@ -15,7 +15,7 @@ import { createLogger } from '../lib/logger.js'
 import { captureException } from '../lib/sentry.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
-import { getRedis } from '../lib/redis.js'
+import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
 import { config } from '../config.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
@@ -48,15 +48,6 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
     }
   }
 }
-
-// Lua script: atomic INCR + EXPIRE-on-first to prevent sticky keys without TTL
-const INCR_WITH_EXPIRE_LUA = `
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then
-  redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-return count
-`
 
 async function isAgentRateLimited(
   agentId: string,
