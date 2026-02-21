@@ -47,8 +47,6 @@ export const zhCN = {
     registerSubtitle: '加入 AgentIM，管理你的 AI 智能体',
     noAccount: '还没有账户？',
     hasAccount: '已有账户？',
-    alreadyHaveAccount: '已有账户？',
-    passwordMismatch: '两次输入的密码不一致',
     passwordsDoNotMatch: '两次输入的密码不一致',
     passwordTooShort: '密码至少需要 8 个字符',
     invalidCredentials: '用户名或密码错误',

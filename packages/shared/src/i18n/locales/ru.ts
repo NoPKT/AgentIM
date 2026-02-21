@@ -47,8 +47,6 @@ export const ru = {
     registerSubtitle: 'Присоединяйтесь к AgentIM для управления AI-агентами',
     noAccount: 'Нет аккаунта?',
     hasAccount: 'Уже есть аккаунт?',
-    alreadyHaveAccount: 'Уже есть аккаунт?',
-    passwordMismatch: 'Пароли не совпадают',
     passwordsDoNotMatch: 'Пароли не совпадают',
     passwordTooShort: 'Пароль должен содержать не менее 8 символов',
     invalidCredentials: 'Неверное имя пользователя или пароль',

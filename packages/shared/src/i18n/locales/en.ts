@@ -47,8 +47,6 @@ export const en = {
     registerSubtitle: 'Join AgentIM to manage your AI agents',
     noAccount: "Don't have an account?",
     hasAccount: 'Already have an account?',
-    alreadyHaveAccount: 'Already have an account?',
-    passwordMismatch: 'Passwords do not match',
     passwordsDoNotMatch: 'Passwords do not match',
     passwordTooShort: 'Password must be at least 8 characters',
     invalidCredentials: 'Invalid username or password',

@@ -47,8 +47,6 @@ export const ja = {
     registerSubtitle: 'AgentIM に参加して AI エージェントを管理',
     noAccount: 'アカウントをお持ちでないですか？',
     hasAccount: 'すでにアカウントをお持ちですか？',
-    alreadyHaveAccount: 'すでにアカウントをお持ちですか？',
-    passwordMismatch: 'パスワードが一致しません',
     passwordsDoNotMatch: 'パスワードが一致しません',
     passwordTooShort: 'パスワードは8文字以上必要です',
     invalidCredentials: 'ユーザー名またはパスワードが正しくありません',

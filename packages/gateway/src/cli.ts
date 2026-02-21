@@ -311,11 +311,13 @@ program
   })
 
 function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
+  let invalidCount = 0
   for (const spec of agentSpecs) {
     // Split only first two colons to preserve Windows paths like C:\repo
     const firstColon = spec.indexOf(':')
     if (firstColon === -1) {
       log.warn(`Invalid agent spec "${spec}", expected name:type[:workdir]`)
+      invalidCount++
       continue
     }
     const name = spec.slice(0, firstColon)
@@ -333,6 +335,11 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   if (agentSpecs.length === 0) {
     log.info('No agents specified. Use --agent to add agents.')
     log.info('Example: agentim daemon --agent claude:claude-code:/path/to/project')
+  } else if (invalidCount === agentSpecs.length) {
+    log.error('All agent specs are invalid. No agents registered.')
+    process.exit(1)
+  } else if (invalidCount > 0) {
+    log.warn(`${invalidCount} of ${agentSpecs.length} agent spec(s) were invalid and skipped.`)
   }
 }
 

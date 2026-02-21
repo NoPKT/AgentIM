@@ -16,11 +16,19 @@ export class TokenManager {
 
   /** Refresh the access token using the refresh token via HTTP API */
   async refresh(): Promise<string> {
-    const res = await fetch(`${this.config.serverBaseUrl}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: this.config.refreshToken }),
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10_000)
+    let res: Response
+    try {
+      res = await fetch(`${this.config.serverBaseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: this.config.refreshToken }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
 
     if (!res.ok) {
       throw new Error(`Token refresh failed: ${res.status}`)
@@ -50,11 +58,19 @@ export class TokenManager {
     username: string,
     password: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const res = await fetch(`${serverBaseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10_000)
+    let res: Response
+    try {
+      res = await fetch(`${serverBaseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
 
     if (!res.ok) {
       throw new Error(`Login failed: ${res.status}`)

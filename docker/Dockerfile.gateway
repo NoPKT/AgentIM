@@ -1,14 +1,7 @@
-# Gateway Dockerfile with node-pty native dependencies
+# Gateway Dockerfile
 # ── Build stage ──
-FROM node:20-bookworm-slim AS build
+FROM node:20-alpine AS build
 RUN npm install -g pnpm@10.29.3
-
-# Install native build dependencies for node-pty
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -29,7 +22,7 @@ COPY packages/gateway/ packages/gateway/
 RUN pnpm --filter @agentim/shared build && pnpm --filter agentim build
 
 # ── Production stage ──
-FROM node:20-bookworm-slim AS production
+FROM node:20-alpine AS production
 RUN npm install -g pnpm@10.29.3
 
 WORKDIR /app
@@ -39,24 +32,20 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/gateway/package.json packages/gateway/
 
-# Install production dependencies only (node-pty needs native libs at runtime)
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && pnpm install --prod --frozen-lockfile \
-    && apt-get purge -y python3 make g++ \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+# Install production dependencies only
+RUN pnpm install --prod --frozen-lockfile
 
 # Copy built artifacts
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/gateway/dist packages/gateway/dist
 
 # Create non-root user
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup -S app && adduser -S app -G app
 USER app
 
 ENV NODE_ENV=production
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD pgrep -f "node.*cli.js" > /dev/null || exit 1
 
 CMD ["node", "packages/gateway/dist/cli.js", "daemon"]

@@ -27,9 +27,9 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: ADMIN_USERNAME
-        sync: false
+        value: admin
       - key: ADMIN_PASSWORD
-        sync: false
+        generateValue: true
       - key: NODE_ENV
         value: production
       - key: CORS_ORIGIN

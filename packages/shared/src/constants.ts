@@ -51,8 +51,10 @@ export const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'text/plain',
   'text/markdown',
+  'text/csv',
   'application/json',
   'application/zip',
+  'application/x-zip-compressed',
   'application/gzip',
 ] as const
 

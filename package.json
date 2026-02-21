@@ -43,8 +43,7 @@
     },
     "onlyBuiltDependencies": [
       "argon2",
-      "esbuild",
-      "node-pty"
+      "esbuild"
     ]
   },
   "packageManager": "pnpm@10.29.3",

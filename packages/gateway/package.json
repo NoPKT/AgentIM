@@ -43,7 +43,6 @@
   "dependencies": {
     "@agentim/shared": "workspace:*",
     "commander": "^13.1.0",
-    "node-pty": "^1.0.0",
     "ws": "^8.18.0",
     "nanoid": "^5.1.0"
   },

@@ -47,8 +47,6 @@ export const de = {
     registerSubtitle: 'Tritt AgentIM bei, um deine KI-Agenten zu verwalten',
     noAccount: 'Noch kein Konto?',
     hasAccount: 'Bereits ein Konto?',
-    alreadyHaveAccount: 'Bereits ein Konto?',
-    passwordMismatch: 'Passwörter stimmen nicht überein',
     passwordsDoNotMatch: 'Passwörter stimmen nicht überein',
     passwordTooShort: 'Passwort muss mindestens 8 Zeichen lang sein',
     invalidCredentials: 'Ungültiger Benutzername oder Passwort',

@@ -47,8 +47,6 @@ export const ko = {
     registerSubtitle: 'AgentIM에 가입하여 AI 에이전트를 관리하세요',
     noAccount: '계정이 없으신가요?',
     hasAccount: '이미 계정이 있으신가요?',
-    alreadyHaveAccount: '이미 계정이 있으신가요?',
-    passwordMismatch: '비밀번호가 일치하지 않습니다',
     passwordsDoNotMatch: '비밀번호가 일치하지 않습니다',
     passwordTooShort: '비밀번호는 8자 이상이어야 합니다',
     invalidCredentials: '사용자 이름 또는 비밀번호가 올바르지 않습니다',

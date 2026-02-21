@@ -47,8 +47,6 @@ export const fr = {
     registerSubtitle: 'Rejoignez AgentIM pour gérer vos agents IA',
     noAccount: "Vous n'avez pas de compte ?",
     hasAccount: 'Vous avez déjà un compte ?',
-    alreadyHaveAccount: 'Vous avez déjà un compte ?',
-    passwordMismatch: 'Les mots de passe ne correspondent pas',
     passwordsDoNotMatch: 'Les mots de passe ne correspondent pas',
     passwordTooShort: 'Le mot de passe doit contenir au moins 8 caractères',
     invalidCredentials: "Nom d'utilisateur ou mot de passe invalide",

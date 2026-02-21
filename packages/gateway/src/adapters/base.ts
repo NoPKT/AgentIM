@@ -1,5 +1,8 @@
 import type { ChildProcess } from 'node:child_process'
 import type { ParsedChunk, RoutingMode, RoomContext } from '@agentim/shared'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('Adapter')
 
 const PROCESS_TIMEOUT_MS = Math.max(
   30_000,
@@ -153,6 +156,9 @@ export abstract class BaseAgentAdapter {
     parts.push(content)
     const prompt = parts.join('\n\n')
     if (prompt.length > MAX_PROMPT_LENGTH) {
+      log.warn(
+        `Prompt truncated from ${prompt.length} to ${MAX_PROMPT_LENGTH} chars for agent ${this.agentName}`,
+      )
       return prompt.slice(0, MAX_PROMPT_LENGTH) + '\n\n[...truncated]'
     }
     return prompt

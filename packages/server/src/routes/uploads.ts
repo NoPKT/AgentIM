@@ -23,9 +23,11 @@ const MIME_TO_EXT: Record<string, string> = {
   'image/webp': '.webp',
   'application/pdf': '.pdf',
   'application/zip': '.zip',
+  'application/x-zip-compressed': '.zip',
   'application/gzip': '.gz',
   'text/plain': '.txt',
   'text/markdown': '.md',
+  'text/csv': '.csv',
   'application/json': '.json',
 }
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024 // 2MB
@@ -38,11 +40,12 @@ const MAGIC_BYTES: [string, number[], number?][] = [
   ['image/webp', [0x52, 0x49, 0x46, 0x46]], // RIFF header; also check 'WEBP' at offset 8
   ['application/pdf', [0x25, 0x50, 0x44, 0x46]],
   ['application/zip', [0x50, 0x4b, 0x03, 0x04]],
+  ['application/x-zip-compressed', [0x50, 0x4b, 0x03, 0x04]],
   ['application/gzip', [0x1f, 0x8b]],
 ]
 
 /** Text-based MIME types that should be validated as valid UTF-8 without null bytes */
-const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'application/json'])
+const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'text/csv', 'application/json'])
 
 function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
   // For text-based types, verify the content is valid UTF-8 and contains no null bytes
