@@ -8,7 +8,7 @@ test.describe('Room management', () => {
     await page.goto('/login')
     await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
     await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-    await page.getByRole('button', { name: /sign in|login/i }).click()
+    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
     await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 

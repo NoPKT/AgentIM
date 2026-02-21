@@ -21,13 +21,13 @@ test.describe('Login page', () => {
   test('shows the login form', async ({ page }) => {
     await expect(page.getByRole('textbox', { name: /username/i })).toBeVisible()
     await expect(page.getByRole('textbox', { name: /password/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /sign in|login/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /log\s*in|sign\s*in/i })).toBeVisible()
   })
 
   test('shows error on invalid credentials', async ({ page }) => {
     await page.getByRole('textbox', { name: /username/i }).fill('wronguser')
     await page.getByRole('textbox', { name: /password/i }).fill('wrongpass')
-    await page.getByRole('button', { name: /sign in|login/i }).click()
+    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
     // Should show an error message
     await expect(page.getByRole('alert')).toBeVisible({ timeout: 5_000 })
   })
@@ -35,13 +35,13 @@ test.describe('Login page', () => {
   test('redirects to chat on successful login', async ({ page }) => {
     await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
     await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-    await page.getByRole('button', { name: /sign in|login/i }).click()
+    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
     // Should redirect away from /login
     await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
   test('does not allow empty submission', async ({ page }) => {
-    await page.getByRole('button', { name: /sign in|login/i }).click()
+    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
     // Should stay on login page with an error
     await expect(page).toHaveURL(/\/login/)
   })
@@ -53,7 +53,7 @@ test.describe('Authenticated session', () => {
     await page.goto('/login')
     await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
     await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-    await page.getByRole('button', { name: /sign in|login/i }).click()
+    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
     await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
