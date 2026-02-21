@@ -55,7 +55,7 @@ jobs:
         run: pnpm -r exec tsc --noEmit
 
       - name: Cache build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/*/dist
@@ -105,7 +105,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Restore build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/*/dist
@@ -177,7 +177,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Restore build artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/*/dist
