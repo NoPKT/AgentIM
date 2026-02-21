@@ -1,5 +1,33 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'token',
+  'secret',
+  'apiKey',
+  'api_key',
+  'authorization',
+  'encryptionKey',
+  'encryption_key',
+  'accessToken',
+  'refreshToken',
+  'tokenHash',
+])
+
+function redactSensitive(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.has(key)) {
+      result[key] = '[REDACTED]'
+    } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      result[key] = redactSensitive(value as Record<string, unknown>)
+    } else {
+      result[key] = value
+    }
+  }
+  return result
+}
+
 const LEVELS: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
@@ -35,7 +63,8 @@ function formatDev(level: LogLevel, ctx: string, message: string, extra?: Record
   const color = COLORS[level]
   const tag = level.toUpperCase().padEnd(5)
   const ctxStr = ctx ? ` [${ctx}]` : ''
-  const extraStr = extra ? ' ' + JSON.stringify(extra) : ''
+  const safe = extra ? redactSensitive(extra) : undefined
+  const extraStr = safe ? ' ' + JSON.stringify(safe) : ''
   return `${color}${time} ${tag}${RESET}${ctxStr} ${message}${extraStr}`
 }
 
@@ -45,12 +74,13 @@ function formatJson(
   message: string,
   extra?: Record<string, unknown>,
 ) {
+  const safe = extra ? redactSensitive(extra) : undefined
   return JSON.stringify({
     ts: new Date().toISOString(),
     level,
     ...(ctx ? { ctx } : {}),
     msg: message,
-    ...extra,
+    ...safe,
   })
 }
 

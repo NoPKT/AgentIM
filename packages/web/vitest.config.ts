@@ -14,10 +14,10 @@ export default defineConfig({
       // Pages have no unit tests by design (covered by E2E). Raise these as unit
       // test coverage grows.
       thresholds: {
-        lines: 5,
-        functions: 30,
-        statements: 5,
-        branches: 20,
+        lines: 9,
+        functions: 38,
+        statements: 9,
+        branches: 28,
       },
     },
   },

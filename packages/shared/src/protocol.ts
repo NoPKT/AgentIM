@@ -15,6 +15,7 @@ import type { AgentStatus, TaskStatus, RoutingMode } from './constants.js'
 export interface ClientAuth {
   type: 'client:auth'
   token: string
+  protocolVersion?: string
 }
 
 export interface ClientJoinRoom {
@@ -189,6 +190,7 @@ export interface GatewayAuth {
   type: 'gateway:auth'
   token: string
   gatewayId: string
+  protocolVersion?: string
   deviceInfo: {
     hostname: string
     platform: string

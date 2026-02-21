@@ -465,7 +465,7 @@ export function MessageInput() {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={t('chat.sendMessage')}
-              aria-label={t('chat.sendMessage')}
+              aria-label={t('chat.messageInputLabel')}
               aria-autocomplete="list"
               aria-haspopup="listbox"
               aria-expanded={showMentionMenu && filteredAgents.length > 0}

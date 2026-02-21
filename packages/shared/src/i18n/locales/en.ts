@@ -162,6 +162,8 @@ export const en = {
     lightboxZoomOut: 'Zoom out',
     lightboxResetZoom: 'Reset zoom',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: 'Message input',
+    messages: 'Messages',
   },
   agent: {
     agents: 'Agents',

@@ -128,7 +128,8 @@ export function MessageList({ onImageClick }: MessageListProps) {
         className="h-full overflow-y-auto scrollbar-thin"
         role="log"
         aria-live="polite"
-        aria-label={t('chat.rooms')}
+        aria-relevant="additions"
+        aria-label={t('chat.messages')}
       >
         {/* 加载更多按钮 */}
         {currentHasMore && (

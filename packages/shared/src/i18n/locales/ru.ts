@@ -162,6 +162,8 @@ export const ru = {
     lightboxZoomOut: 'Уменьшить',
     lightboxResetZoom: 'Сбросить масштаб',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: 'Поле ввода сообщения',
+    messages: 'Сообщения',
   },
   agent: {
     agents: 'Агенты',

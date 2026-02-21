@@ -1,7 +1,12 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
-import { gatewayMessageSchema, parseMentions, TASK_STATUSES } from '@agentim/shared'
+import {
+  gatewayMessageSchema,
+  parseMentions,
+  TASK_STATUSES,
+  CURRENT_PROTOCOL_VERSION,
+} from '@agentim/shared'
 import type {
   ServerSendToAgent,
   ServerRoomContext,
@@ -167,7 +172,12 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
 
 async function handleAuth(
   ws: WSContext,
-  msg: { token: string; gatewayId: string; deviceInfo: Record<string, string> },
+  msg: {
+    token: string
+    gatewayId: string
+    protocolVersion?: string
+    deviceInfo: Record<string, string>
+  },
 ) {
   try {
     const payload = await verifyToken(msg.token)
@@ -256,6 +266,13 @@ async function handleAuth(
       return
     }
 
+    if (msg.protocolVersion && msg.protocolVersion !== CURRENT_PROTOCOL_VERSION) {
+      log.warn('Gateway protocol version mismatch', {
+        gatewayVersion: msg.protocolVersion,
+        serverVersion: CURRENT_PROTOCOL_VERSION,
+        gatewayId: msg.gatewayId,
+      })
+    }
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
   } catch (err) {
     // Roll back in-memory gateway registration to avoid phantom authenticated sockets

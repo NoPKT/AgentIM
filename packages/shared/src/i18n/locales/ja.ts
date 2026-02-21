@@ -162,6 +162,8 @@ export const ja = {
     lightboxZoomOut: 'ズームアウト',
     lightboxResetZoom: 'ズームリセット',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: 'メッセージ入力欄',
+    messages: 'メッセージ一覧',
   },
   agent: {
     agents: 'エージェント',

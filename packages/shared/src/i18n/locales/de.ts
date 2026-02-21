@@ -163,6 +163,8 @@ export const de = {
     lightboxZoomOut: 'Verkleinern',
     lightboxResetZoom: 'Zoom zurücksetzen',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: 'Nachrichteneingabe',
+    messages: 'Nachrichten',
   },
   agent: {
     agents: 'Agenten',

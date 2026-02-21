@@ -74,6 +74,9 @@ export type AssigneeType = (typeof ASSIGNEE_TYPES)[number]
 export const SENDER_TYPES = ['user', 'agent', 'system'] as const
 export type SenderType = (typeof SENDER_TYPES)[number]
 
+/** Current WebSocket protocol version. Bumped when breaking changes are introduced. */
+export const CURRENT_PROTOCOL_VERSION = '1'
+
 // ─── WebSocket Error Codes ───
 
 /** Error codes sent to clients via server:error messages. */

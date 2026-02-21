@@ -210,32 +210,33 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
           )}
 
           {!loading && results.length > 0 && (
-            <div className="py-1">
+            <div className="py-1" role="list">
               {results.map((msg) => {
                 const room = roomMap.get(msg.roomId)
                 return (
-                  <button
-                    key={msg.id}
-                    onClick={() => handleResultClick(msg)}
-                    className="w-full px-4 py-3 text-left hover:bg-surface-hover transition-colors border-b border-border last:border-0"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-medium text-info-text bg-info-subtle px-1.5 py-0.5 rounded truncate max-w-[120px]">
-                          {room?.name ?? msg.roomId}
-                        </span>
-                        <span className="text-xs font-medium text-text-primary truncate">
-                          {msg.senderName}
+                  <div key={msg.id} role="listitem">
+                    <button
+                      onClick={() => handleResultClick(msg)}
+                      className="w-full px-4 py-3 text-left hover:bg-surface-hover transition-colors border-b border-border last:border-0"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs font-medium text-info-text bg-info-subtle px-1.5 py-0.5 rounded truncate max-w-[120px]">
+                            {room?.name ?? msg.roomId}
+                          </span>
+                          <span className="text-xs font-medium text-text-primary truncate">
+                            {msg.senderName}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-text-muted flex-shrink-0 ml-2">
+                          {timeAgo(msg.createdAt, i18n.language)}
                         </span>
                       </div>
-                      <span className="text-[10px] text-text-muted flex-shrink-0 ml-2">
-                        {timeAgo(msg.createdAt, i18n.language)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      {highlightMatch(msg.content, query)}
-                    </p>
-                  </button>
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        {highlightMatch(msg.content, query)}
+                      </p>
+                    </button>
+                  </div>
                 )
               })}
             </div>

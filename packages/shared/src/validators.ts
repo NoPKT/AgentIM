@@ -270,6 +270,7 @@ const parsedChunkSchema = z.object({
 export const clientAuthSchema = z.object({
   type: z.literal('client:auth'),
   token: z.string().min(1).max(2000),
+  protocolVersion: z.string().optional(),
 })
 
 export const clientJoinRoomSchema = z.object({
@@ -322,6 +323,7 @@ export const gatewayAuthSchema = z.object({
   type: z.literal('gateway:auth'),
   token: z.string().min(1).max(2000),
   gatewayId: z.string().min(1),
+  protocolVersion: z.string().optional(),
   deviceInfo: z.object({
     hostname: z.string(),
     platform: z.string(),

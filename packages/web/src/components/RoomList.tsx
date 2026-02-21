@@ -149,15 +149,17 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             <p className="text-xs text-text-muted">{t('common.createFirstRoom')}</p>
           </div>
         ) : (
-          sortedRooms.map((room) => {
-            const lastMsg = lastMessages.get(room.id)
-            const unread = unreadCounts.get(room.id) || 0
-            return (
-              <button
-                key={room.id}
-                onClick={() => handleRoomClick(room.id)}
-                aria-current={room.id === currentRoomId ? 'page' : undefined}
-                className={`
+          <div role="list">
+            {sortedRooms.map((room) => {
+              const lastMsg = lastMessages.get(room.id)
+              const unread = unreadCounts.get(room.id) || 0
+              return (
+                <button
+                  key={room.id}
+                  role="listitem"
+                  onClick={() => handleRoomClick(room.id)}
+                  aria-current={room.id === currentRoomId ? 'page' : undefined}
+                  className={`
                     w-full px-3 py-2.5 text-left rounded-lg transition-all relative
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
                     ${
@@ -166,50 +168,51 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                         : 'text-text-primary hover:bg-surface-hover'
                     }
                   `}
-              >
-                {/* Active indicator */}
-                {room.id === currentRoomId && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-accent rounded-r-full" />
-                )}
-                <div className="flex items-center space-x-2.5">
-                  <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate text-sm flex items-center gap-1">
-                        {room.pinnedAt && (
-                          <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                        )}
-                        {room.name}
-                      </span>
-                      <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-                        {room.broadcastMode && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
-                            BC
-                          </span>
-                        )}
-                        {lastMsg && (
-                          <span className="text-[10px] text-text-muted">
-                            {timeAgo(lastMsg.createdAt, t)}
-                          </span>
-                        )}
-                        {unread > 0 && room.id !== currentRoomId && (
-                          <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-accent rounded-full">
-                            {unread > 99 ? '99+' : unread}
-                          </span>
-                        )}
+                >
+                  {/* Active indicator */}
+                  {room.id === currentRoomId && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-accent rounded-r-full" />
+                  )}
+                  <div className="flex items-center space-x-2.5">
+                    <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate text-sm flex items-center gap-1">
+                          {room.pinnedAt && (
+                            <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                          )}
+                          {room.name}
+                        </span>
+                        <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                          {room.broadcastMode && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
+                              BC
+                            </span>
+                          )}
+                          {lastMsg && (
+                            <span className="text-[10px] text-text-muted">
+                              {timeAgo(lastMsg.createdAt, t)}
+                            </span>
+                          )}
+                          {unread > 0 && room.id !== currentRoomId && (
+                            <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-accent rounded-full">
+                              {unread > 99 ? '99+' : unread}
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      {lastMsg && (
+                        <p className="text-xs text-text-muted truncate mt-0.5">
+                          <span className="text-text-secondary">{lastMsg.senderName}: </span>
+                          {lastMsg.content.slice(0, 50)}
+                        </p>
+                      )}
                     </div>
-                    {lastMsg && (
-                      <p className="text-xs text-text-muted truncate mt-0.5">
-                        <span className="text-text-secondary">{lastMsg.senderName}: </span>
-                        {lastMsg.content.slice(0, 50)}
-                      </p>
-                    )}
                   </div>
-                </div>
-              </button>
-            )
-          })
+                </button>
+              )
+            })}
+          </div>
         )}
       </nav>
 

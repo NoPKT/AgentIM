@@ -161,6 +161,8 @@ export const zhCN = {
     lightboxZoomOut: '缩小',
     lightboxResetZoom: '重置缩放',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: '消息输入框',
+    messages: '消息列表',
   },
   agent: {
     agents: '智能体',

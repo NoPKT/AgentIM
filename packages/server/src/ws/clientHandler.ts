@@ -1,7 +1,12 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray, isNull } from 'drizzle-orm'
-import { clientMessageSchema, parseMentions, WS_ERROR_CODES } from '@agentim/shared'
+import {
+  clientMessageSchema,
+  parseMentions,
+  WS_ERROR_CODES,
+  CURRENT_PROTOCOL_VERSION,
+} from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
@@ -209,7 +214,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   try {
     switch (msg.type) {
       case 'client:auth':
-        return await handleAuth(ws, msg.token)
+        return await handleAuth(ws, msg.token, msg.protocolVersion)
       case 'client:join_room':
         return await handleJoinRoom(ws, msg.roomId)
       case 'client:leave_room':
@@ -247,7 +252,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
   }
 }
 
-async function handleAuth(ws: WSContext, token: string) {
+async function handleAuth(ws: WSContext, token: string, protocolVersion?: string) {
   // Enforce per-socket auth attempt limit to prevent brute-force token guessing
   const attempts = (wsAuthAttempts.get(ws) ?? 0) + 1
   wsAuthAttempts.set(ws, attempts)
@@ -301,6 +306,13 @@ async function handleAuth(ws: WSContext, token: string) {
         error: result.error ?? 'Connection limit exceeded',
       })
       return
+    }
+    if (protocolVersion && protocolVersion !== CURRENT_PROTOCOL_VERSION) {
+      log.warn('Client protocol version mismatch', {
+        clientVersion: protocolVersion,
+        serverVersion: CURRENT_PROTOCOL_VERSION,
+        userId: payload.sub,
+      })
     }
     connectionManager.sendToClient(ws, {
       type: 'server:auth_result',

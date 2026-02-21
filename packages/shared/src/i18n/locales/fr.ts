@@ -163,6 +163,8 @@ export const fr = {
     lightboxZoomOut: 'Zoom arrière',
     lightboxResetZoom: 'Réinitialiser le zoom',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: 'Zone de saisie du message',
+    messages: 'Messages',
   },
   agent: {
     agents: 'Agents',

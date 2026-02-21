@@ -28,6 +28,7 @@ import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
+import { cacheDel, userCacheKey } from '../lib/cache.js'
 
 export const userRoutes = new Hono<AuthEnv>()
 
@@ -78,6 +79,8 @@ userRoutes.put('/me', async (c) => {
     .update(users)
     .set({ ...updateData, updatedAt: now })
     .where(eq(users.id, userId))
+
+  await cacheDel(userCacheKey(userId))
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   return c.json({

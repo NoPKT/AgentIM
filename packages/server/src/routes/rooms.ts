@@ -30,7 +30,15 @@ import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
 import { invalidateMembershipCache } from '../ws/clientHandler.js'
+import { invalidateRoomAccessCache } from '../lib/roomAccess.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
+import {
+  cacheGet,
+  cacheSet,
+  cacheDel,
+  roomMembersCacheKey,
+  ROOM_MEMBERS_CACHE_TTL,
+} from '../lib/cache.js'
 
 const log = createLogger('Rooms')
 
@@ -199,7 +207,11 @@ roomRoutes.get('/:id', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const members = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId))
+  let members = await cacheGet<(typeof roomMembers.$inferSelect)[]>(roomMembersCacheKey(roomId))
+  if (!members) {
+    members = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId)).limit(500)
+    await cacheSet(roomMembersCacheKey(roomId), members, ROOM_MEMBERS_CACHE_TTL)
+  }
   return c.json({ ok: true, data: { ...room, members } })
 })
 
@@ -402,6 +414,9 @@ roomRoutes.post('/:id/members', async (c) => {
   if (parsed.data.memberType === 'user') {
     await invalidateMembershipCache(parsed.data.memberId, roomId)
   }
+  // Invalidate HTTP access caches
+  await invalidateRoomAccessCache(parsed.data.memberId, roomId)
+  await cacheDel(roomMembersCacheKey(roomId))
 
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
@@ -442,6 +457,9 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
   connectionManager.evictUserFromRoom(memberId, roomId)
   // Invalidate WS membership cache so the removed user cannot rejoin within the TTL
   await invalidateMembershipCache(memberId, roomId)
+  // Invalidate HTTP access caches
+  await invalidateRoomAccessCache(memberId, roomId)
+  await cacheDel(roomMembersCacheKey(roomId))
 
   logAudit({
     userId,

@@ -162,6 +162,8 @@ export const ko = {
     lightboxZoomOut: '축소',
     lightboxResetZoom: '확대/축소 초기화',
     lightboxCounter: '{{current}} / {{total}}',
+    messageInputLabel: '메시지 입력란',
+    messages: '메시지 목록',
   },
   agent: {
     agents: '에이전트',

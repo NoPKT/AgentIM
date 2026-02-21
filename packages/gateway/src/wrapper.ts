@@ -11,6 +11,7 @@ import type {
   ServerRemoveAgent,
   ServerRoomContext,
 } from '@agentim/shared'
+import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
 
 const log = createLogger('Wrapper')
 
@@ -46,6 +47,7 @@ export async function runWrapper(opts: {
       type: 'gateway:auth',
       token: tokenManager.accessToken,
       gatewayId: config.gatewayId,
+      protocolVersion: CURRENT_PROTOCOL_VERSION,
       deviceInfo,
     })
   }
