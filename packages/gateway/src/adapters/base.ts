@@ -25,11 +25,19 @@ const SENSITIVE_ENV_KEYS = new Set([
   'OPENAI_API_KEY',
   'ANTHROPIC_API_KEY',
   'GITHUB_TOKEN',
+  'GITHUB_APP_PRIVATE_KEY',
   'GITLAB_TOKEN',
   'NPM_TOKEN',
+  'HUGGINGFACE_TOKEN',
+  'HUGGINGFACE_API_TOKEN',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PUBLISHABLE_KEY',
+  'SLACK_BOT_TOKEN',
+  'SLACK_APP_TOKEN',
+  'SLACK_SIGNING_SECRET',
 ])
 
-const SENSITIVE_ENV_PREFIXES = ['ROUTER_LLM_', 'AGENTIM_SECRET_', 'SECRET_', 'API_KEY_']
+const SENSITIVE_ENV_PREFIXES = ['ROUTER_LLM_', 'AGENTIM_SECRET_', 'SECRET_', 'API_KEY_', 'STRIPE_', 'GITHUB_APP_']
 
 /** Return a copy of process.env with sensitive variables removed. */
 export function getSafeEnv(): Record<string, string | undefined> {

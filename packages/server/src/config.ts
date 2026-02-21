@@ -104,14 +104,14 @@ if (isProduction && (!config.corsOrigin || config.corsOrigin === '*')) {
   process.exit(1)
 }
 
-// Validate ENCRYPTION_KEY format if set
+// Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;
+// crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
+// Prefer `openssl rand -base64 32` for maximum entropy.
 if (process.env.ENCRYPTION_KEY) {
-  const keyLen = Buffer.from(process.env.ENCRYPTION_KEY, 'base64').length
-  if (keyLen !== 32) {
-    log.fatal(
-      `ENCRYPTION_KEY must be exactly 32 bytes (got ${keyLen}). Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)`,
+  if (process.env.ENCRYPTION_KEY.length < 16) {
+    log.warn(
+      'ENCRYPTION_KEY is very short (< 16 chars). For production use, generate a secure key with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
     )
-    process.exit(1)
   }
 } else if (isProduction) {
   log.fatal(

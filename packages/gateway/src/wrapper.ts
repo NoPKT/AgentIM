@@ -120,6 +120,7 @@ export async function runWrapper(opts: {
     process.exit(0)
   }
 
-  process.on('SIGINT', () => cleanup())
-  process.on('SIGTERM', () => cleanup())
+  process.on('SIGINT', () => void cleanup())
+  process.on('SIGTERM', () => void cleanup())
+  process.on('SIGHUP', () => void cleanup())
 }

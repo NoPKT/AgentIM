@@ -6,11 +6,14 @@ import type { Schema } from 'hast-util-sanitize'
  * so syntax-highlighting classes injected by rehype-highlight are preserved.
  * Imported by both MessageItem and ChunkBlocks to avoid duplication.
  */
+// Only allow className values that match syntax-highlighting patterns injected by
+// rehype-highlight (hljs-* classes on span, language-* and hljs on code).
+// Arbitrary className values are rejected to reduce XSS surface area.
 export const markdownSanitizeSchema: Schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    code: [...(defaultSchema.attributes?.code ?? []), 'className'],
-    span: [...(defaultSchema.attributes?.span ?? []), 'className'],
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^(hljs|language-)\S*$/]],
+    span: [...(defaultSchema.attributes?.span ?? []), ['className', /^hljs\S*$/]],
   },
 }

@@ -264,20 +264,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Track last message for room list preview
         const lastMsg = combined[combined.length - 1]
+        const lastMessages = new Map(get().lastMessages)
         if (lastMsg) {
-          const lastMessages = new Map(get().lastMessages)
-          const existing = lastMessages.get(roomId)
-          if (!existing || lastMsg.createdAt >= existing.createdAt) {
+          const existingPreview = lastMessages.get(roomId)
+          if (!existingPreview || lastMsg.createdAt >= existingPreview.createdAt) {
             lastMessages.set(roomId, {
               content: lastMsg.content,
               senderName: lastMsg.senderName,
               createdAt: lastMsg.createdAt,
             })
-            set({ messages: msgs, hasMore, lastMessages })
-            return
           }
         }
-        set({ messages: msgs, hasMore })
+        set({ messages: msgs, hasMore, lastMessages })
       }
     } catch {
       toast.error('Failed to load messages')

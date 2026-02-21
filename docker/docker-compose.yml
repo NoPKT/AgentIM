@@ -1,9 +1,14 @@
+# ⚠️  LOCAL DEVELOPMENT ONLY — do NOT use this file in production.
+#    For production deployments use render.yaml, Railway, or Northflank.
+#    Passwords below default to simple dev values; override via .env file:
+#      POSTGRES_PASSWORD=strongpassword REDIS_PASSWORD=strongpassword docker compose up
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: agentim
     # ports:
     #   - '5432:5432'  # Uncomment for local dev access only; do NOT expose in production
@@ -48,7 +53,7 @@ services:
     environment:
       - PORT=3000
       - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentim
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agentim
       - REDIS_URL=redis://redis:6379
       - 'JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate one with openssl rand -base64 32}'
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}

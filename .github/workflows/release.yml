@@ -73,7 +73,7 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
       - name: Upgrade npm (OIDC trusted publishing requires npm ≥ 11.5.1)
-        run: npm install -g npm@latest
+        run: npm install -g npm@11.5.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Pack and publish @agentim/shared

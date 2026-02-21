@@ -1,6 +1,6 @@
 # Multi-stage build: Build web + server, serve together
 FROM node:20-alpine AS base
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10.29.3
 
 # ── Build stage ──
 FROM base AS build
@@ -26,7 +26,7 @@ RUN pnpm build
 
 # ── Production stage ──
 FROM node:20-alpine AS production
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10.29.3
 WORKDIR /app
 
 # Copy package files
@@ -61,7 +61,7 @@ USER app
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/api/health | grep -q '"ok":true' || exit 1
 
 CMD ["node", "packages/server/dist/index.js"]

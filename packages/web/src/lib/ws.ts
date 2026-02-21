@@ -78,7 +78,9 @@ export class WsClient {
     this.ws.onopen = () => {
       this.reconnectInterval = 1000
       this.reconnectAttempts = 0
-      this.send({ type: 'client:auth', token })
+      // Use this._token (not the closure 'token') so that if updateToken() was called
+      // between connect() and the WebSocket opening, the freshest token is used.
+      this.send({ type: 'client:auth', token: this._token ?? token })
       this.setStatus('connected')
       this.startHeartbeat()
       // Queue flush and reconnect handlers are deferred until server:auth_result

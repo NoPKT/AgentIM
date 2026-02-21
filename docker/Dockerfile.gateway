@@ -1,7 +1,7 @@
 # Gateway Dockerfile with node-pty native dependencies
 # ── Build stage ──
 FROM node:20-bookworm-slim AS build
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10.29.3
 
 # Install native build dependencies for node-pty
 RUN apt-get update && apt-get install -y \
@@ -30,7 +30,7 @@ RUN pnpm --filter @agentim/shared build && pnpm --filter agentim build
 
 # ── Production stage ──
 FROM node:20-bookworm-slim AS production
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10.29.3
 
 WORKDIR /app
 

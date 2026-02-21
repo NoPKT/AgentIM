@@ -64,6 +64,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     })
 
     proc.stderr?.on('data', (data: Buffer) => {
+      if (done) return
       const text = data.toString().trim()
       if (text) onChunk({ type: 'error', content: text })
     })
