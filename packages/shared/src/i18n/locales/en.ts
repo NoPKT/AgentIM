@@ -326,4 +326,8 @@ export const en = {
     wsDisconnected: 'Connection lost. Reconnecting...',
     wsReconnected: 'Connection restored.',
   },
+  pwa: {
+    updateAvailable: 'A new version is available.',
+    reload: 'Reload',
+  },
 }

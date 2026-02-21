@@ -130,6 +130,17 @@ if (isProduction && config.corsOrigin) {
   }
 }
 
+// Warn when LLM router is only partially configured (likely a misconfiguration)
+const routerUrlSet = !!process.env.ROUTER_LLM_BASE_URL
+const routerKeySet = !!process.env.ROUTER_LLM_API_KEY
+if (routerUrlSet !== routerKeySet) {
+  log.warn(
+    routerUrlSet
+      ? 'ROUTER_LLM_BASE_URL is set but ROUTER_LLM_API_KEY is missing — LLM-based routing will not work.'
+      : 'ROUTER_LLM_API_KEY is set but ROUTER_LLM_BASE_URL is missing — LLM-based routing will not work.',
+  )
+}
+
 // Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;
 // crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
 // Prefer `openssl rand -base64 32` for maximum entropy.

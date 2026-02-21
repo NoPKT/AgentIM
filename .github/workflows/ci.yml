@@ -137,7 +137,6 @@ jobs:
     # E2E runs on PRs and manual dispatch; skipped on direct pushes to main
     # to keep the critical path fast. Use `workflow_dispatch` to run manually.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    continue-on-error: true  # Non-blocking while E2E suite is being established
 
     services:
       postgres:

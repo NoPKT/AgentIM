@@ -11,6 +11,10 @@ AgentIM uses Drizzle Kit for forward-only migrations. Each `.sql` file in `drizz
 3. **Apply rollbacks in reverse order** — if migrations 0020 and 0021 were applied, roll back 0021 first, then 0020.
 4. **Update Drizzle's migration tracking table** after manually running a rollback SQL so that `drizzle-kit` does not try to re-apply the rolled-back migration on the next startup.
 
+## Rollback Coverage Policy
+
+Rollback scripts are maintained for **recent migrations** (0019 onwards). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
+
 ## Rollback Files
 
 Pre-written down migrations for the three most recent schema changes are in `drizzle/rollback/`:
@@ -53,3 +57,13 @@ General rules:
 - `CREATE INDEX` → `DROP INDEX IF EXISTS`
 - `ADD CONSTRAINT` → `DROP CONSTRAINT` + `ADD CONSTRAINT` (with original definition)
 - `DROP COLUMN` → manually restore from the original migration (complex; avoid in production schemas)
+
+## Emergency Restore (Migrations 0000–0018)
+
+For rollbacks affecting foundational schema (0000–0018), restore from the last known-good backup:
+
+```bash
+# Stop all application instances first, then:
+psql "$DATABASE_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+psql "$DATABASE_URL" < backup_YYYYMMDD_HHMMSS.sql
+```

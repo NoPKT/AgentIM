@@ -329,4 +329,8 @@ export const de = {
     wsDisconnected: 'Verbindung verloren. Verbindung wird wiederhergestellt...',
     wsReconnected: 'Verbindung wiederhergestellt.',
   },
+  pwa: {
+    updateAvailable: 'Eine neue Version ist verfügbar.',
+    reload: 'Neu laden',
+  },
 }

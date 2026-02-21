@@ -329,4 +329,8 @@ export const fr = {
     wsDisconnected: 'Connexion perdue. Reconnexion...',
     wsReconnected: 'Connexion rétablie.',
   },
+  pwa: {
+    updateAvailable: 'Une nouvelle version est disponible.',
+    reload: 'Recharger',
+  },
 }

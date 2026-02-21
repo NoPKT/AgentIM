@@ -323,4 +323,8 @@ export const zhCN = {
     wsDisconnected: '连接已断开，正在重连...',
     wsReconnected: '连接已恢复。',
   },
+  pwa: {
+    updateAvailable: '新版本已就绪。',
+    reload: '立即刷新',
+  },
 }

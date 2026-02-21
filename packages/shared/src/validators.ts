@@ -263,7 +263,7 @@ export const adminUpdateUserSchema = z.object({
 const parsedChunkSchema = z.object({
   type: z.enum(CHUNK_TYPES),
   content: z.string().max(1_000_000),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 // Client messages

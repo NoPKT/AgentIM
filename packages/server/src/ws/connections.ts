@@ -461,6 +461,16 @@ class ConnectionManager {
       }
     }
   }
+
+  /** Returns a snapshot of connection counters for the /api/metrics endpoint. */
+  getStats() {
+    return {
+      clientConnections: this.clients.size,
+      gatewayConnections: this.gateways.size,
+      onlineUsers: this.onlineUsers.size,
+      connectedAgents: this.agentToGateway.size,
+    }
+  }
 }
 
 export const connectionManager = new ConnectionManager()

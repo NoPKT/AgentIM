@@ -325,4 +325,8 @@ export const ko = {
     wsDisconnected: '연결이 끊어졌습니다. 재연결 중...',
     wsReconnected: '연결이 복원되었습니다.',
   },
+  pwa: {
+    updateAvailable: '새 버전이 준비되었습니다.',
+    reload: '새로 고침',
+  },
 }

@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute.js'
 import { ErrorBoundary } from './components/ErrorBoundary.js'
 import { AppLayout } from './components/AppLayout.js'
 import { ToastContainer } from './components/ToastContainer.js'
+import { PwaUpdateBanner } from './components/PwaUpdateBanner.js'
 import './lib/i18n.js'
 
 const LoginPage = lazy(() => import('./pages/LoginPage.js'))
@@ -145,6 +146,7 @@ export function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <PwaUpdateBanner />
         <AppInner />
         <ToastContainer />
       </BrowserRouter>

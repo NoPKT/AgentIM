@@ -328,4 +328,8 @@ export const ru = {
     wsDisconnected: 'Соединение потеряно. Переподключение...',
     wsReconnected: 'Соединение восстановлено.',
   },
+  pwa: {
+    updateAvailable: 'Доступна новая версия.',
+    reload: 'Обновить',
+  },
 }

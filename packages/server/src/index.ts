@@ -238,6 +238,38 @@ app.get('/api/health', async (c) => {
   )
 })
 
+// Prometheus-compatible metrics (unauthenticated; does not expose user data)
+app.get('/api/metrics', (c) => {
+  const ws = connectionManager.getStats()
+  const mem = process.memoryUsage()
+  const lines = [
+    '# HELP agentim_ws_client_connections Number of active client WebSocket connections',
+    '# TYPE agentim_ws_client_connections gauge',
+    `agentim_ws_client_connections ${ws.clientConnections}`,
+    '# HELP agentim_ws_gateway_connections Number of active gateway WebSocket connections',
+    '# TYPE agentim_ws_gateway_connections gauge',
+    `agentim_ws_gateway_connections ${ws.gatewayConnections}`,
+    '# HELP agentim_online_users Number of users with at least one active client connection',
+    '# TYPE agentim_online_users gauge',
+    `agentim_online_users ${ws.onlineUsers}`,
+    '# HELP agentim_connected_agents Number of agents registered via active gateways',
+    '# TYPE agentim_connected_agents gauge',
+    `agentim_connected_agents ${ws.connectedAgents}`,
+    '# HELP process_uptime_seconds Server uptime in seconds',
+    '# TYPE process_uptime_seconds counter',
+    `process_uptime_seconds ${Math.round(process.uptime())}`,
+    '# HELP process_heap_bytes Node.js heap used bytes',
+    '# TYPE process_heap_bytes gauge',
+    `process_heap_bytes ${mem.heapUsed}`,
+    '# HELP process_rss_bytes Node.js resident set size bytes',
+    '# TYPE process_rss_bytes gauge',
+    `process_rss_bytes ${mem.rss}`,
+  ]
+  return c.text(lines.join('\n') + '\n', 200, {
+    'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
+  })
+})
+
 // API routes
 app.route('/api/auth', authRoutes)
 app.route('/api/users', userRoutes)

@@ -325,4 +325,8 @@ export const ja = {
     wsDisconnected: '接続が切断されました。再接続中...',
     wsReconnected: '接続が復元されました。',
   },
+  pwa: {
+    updateAvailable: '新しいバージョンが利用可能です。',
+    reload: '再読み込み',
+  },
 }
