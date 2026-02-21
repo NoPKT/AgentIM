@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { ServerMessage } from '@agentim/shared'
 
-const mockOnMessage = vi.fn(() => vi.fn())
+const mockOnMessage = vi.fn((_handler: (msg: ServerMessage) => void) => vi.fn())
 const mockOnReconnect = vi.fn(() => vi.fn())
-const mockOnStatusChange = vi.fn(() => vi.fn())
+const mockOnStatusChange = vi.fn((_handler: (status: string) => void) => vi.fn())
 const mockWsSend = vi.fn()
 
 vi.mock('../lib/ws.js', () => ({
@@ -109,8 +109,7 @@ describe('useWebSocket', () => {
     })
 
     renderHook(() => useWebSocket())
-
-    capturedHandler?.({
+    ;(capturedHandler as ((msg: ServerMessage) => void) | null)?.({
       type: 'server:presence',
       userId: 'user2',
       username: 'other',
@@ -131,8 +130,7 @@ describe('useWebSocket', () => {
     mockAuthGetState.mockReturnValue({ user: { id: 'user1' }, logout: mockLogout })
 
     renderHook(() => useWebSocket())
-
-    capturedHandler?.({
+    ;(capturedHandler as ((msg: ServerMessage) => void) | null)?.({
       type: 'server:auth_result',
       ok: false,
       error: 'Token revoked',
@@ -149,8 +147,7 @@ describe('useWebSocket', () => {
     })
 
     renderHook(() => useWebSocket())
-
-    capturedStatusHandler?.('disconnected')
+    ;(capturedStatusHandler as ((status: string) => void) | null)?.('disconnected')
 
     expect(mockChatClearStreamingState).toHaveBeenCalledTimes(1)
   })

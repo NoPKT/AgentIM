@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react'
 
 // Mock wsClient before importing the hook
 const mockUnsub = vi.fn()
-const mockOnStatusChange = vi.fn(() => mockUnsub)
+const mockOnStatusChange = vi.fn((_cb: (status: string) => void) => mockUnsub)
 const mockWsClient = {
   status: 'disconnected' as string,
   onStatusChange: mockOnStatusChange,
