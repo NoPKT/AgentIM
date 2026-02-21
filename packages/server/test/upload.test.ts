@@ -224,7 +224,9 @@ describe('File Upload', () => {
       assert.equal(uploadRes.status, 200)
 
       const fileUrl = uploadRes.data.data.url
-      const fetchRes = await fetch(`${BASE_URL}${fileUrl}`)
+      const fetchRes = await fetch(`${BASE_URL}${fileUrl}`, {
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      })
       assert.equal(fetchRes.status, 200)
       const body = await fetchRes.text()
       assert.equal(body, 'test content')
