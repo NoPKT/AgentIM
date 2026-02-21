@@ -33,6 +33,7 @@ pnpm-debug.log*
 
 # Build
 .cache/
+coverage/
 
 # Uploads (user data)
 uploads/
