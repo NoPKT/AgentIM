@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { api, setOnAuthExpired } from '../lib/api.js'
+import { api, setOnAuthExpired, setOnTokenRefresh } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from './chat.js'
 import { useAgentStore } from './agents.js'
@@ -17,6 +17,9 @@ interface AuthUser {
 interface AuthState {
   user: AuthUser | null
   isLoading: boolean
+  /** Incremented each time the access token is set or refreshed.
+   *  Components can subscribe to this to reactively re-derive auth-gated URLs. */
+  tokenVersion: number
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   loadUser: () => Promise<void>
@@ -26,6 +29,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
+  tokenVersion: 0,
 
   login: async (username, password) => {
     const res = await api.post<{
@@ -102,4 +106,10 @@ setOnAuthExpired(() => {
   useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
   useRouterStore.setState({ routers: [], loading: false })
   useAuthStore.setState({ user: null })
+})
+
+// Bump tokenVersion whenever the access token is set/refreshed so that
+// components using useUploadUrl() re-render with a fresh token in the URL.
+setOnTokenRefresh(() => {
+  useAuthStore.setState((s) => ({ tokenVersion: s.tokenVersion + 1 }))
 })

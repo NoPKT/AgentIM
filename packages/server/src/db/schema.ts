@@ -215,7 +215,7 @@ export const messageAttachments = pgTable(
     mimeType: text('mime_type').notNull(),
     size: integer('size').notNull(),
     url: text('url').notNull(),
-    uploadedBy: text('uploaded_by').references(() => users.id),
+    uploadedBy: text('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

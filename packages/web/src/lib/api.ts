@@ -29,6 +29,14 @@ const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503])
 // Refresh token is stored in a httpOnly Cookie managed by the server
 let accessToken: string | null = null
 
+// Callback invoked whenever the access token is set or refreshed.
+// Used by the auth store to bump a tokenVersion counter so React
+// components can reactively re-derive auth-gated upload URLs.
+let _onTokenRefresh: (() => void) | null = null
+export function setOnTokenRefresh(cb: () => void) {
+  _onTokenRefresh = cb
+}
+
 // One-time migration: remove stale tokens from localStorage left by older versions
 ;(() => {
   try {
@@ -50,6 +58,8 @@ function setTokens(access: string) {
   wsClient.updateToken(access)
   // Reset the auth-expired guard so future sessions can fire it again
   _authExpiredFired = false
+  // Notify listeners (e.g. auth store tokenVersion) so components can re-derive upload URLs
+  _onTokenRefresh?.()
 }
 
 function clearTokens() {

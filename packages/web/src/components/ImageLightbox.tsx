@@ -9,6 +9,7 @@ import {
   ZoomOutIcon,
   ExternalLinkIcon,
 } from './icons.js'
+import { useUploadUrls } from '../hooks/useUploadUrl.js'
 
 const ZOOM_LEVELS = [1, 1.5, 2, 3, 4]
 
@@ -32,7 +33,10 @@ export function ImageLightbox({
   const dragRef = useRef({ startX: 0, startY: 0, panX: 0, panY: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const currentImage = images[currentIndex]
+  // Convert raw /uploads/* URLs to auth-gated URLs (appends ?token=...).
+  // Re-evaluated on every token rotation so the lightbox always shows valid images.
+  const authImages = useUploadUrls(images)
+  const currentImage = authImages[currentIndex]
   const hasMultiple = images.length > 1
 
   // Reset zoom/pan on image change

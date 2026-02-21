@@ -8,6 +8,8 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -116,7 +118,7 @@ jobs:
       - name: Build (if cache miss)
         run: pnpm build
 
-      - name: Run tests
+      - name: Run tests (shared + gateway + server)
         run: pnpm --filter @agentim/shared test && pnpm --filter agentim test && pnpm --filter @agentim/server test:coverage
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentim_test
@@ -124,3 +126,6 @@ jobs:
           JWT_SECRET: ci-test-secret
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: AdminPass123
+
+      - name: Run tests (web)
+        run: pnpm --filter @agentim/web test

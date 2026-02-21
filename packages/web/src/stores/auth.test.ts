@@ -12,6 +12,7 @@ vi.mock('../lib/api.js', () => ({
     tryRefresh: vi.fn(),
   },
   setOnAuthExpired: vi.fn(),
+  setOnTokenRefresh: vi.fn(),
 }))
 
 // Mock ws client

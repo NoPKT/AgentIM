@@ -12,6 +12,7 @@ import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
 import { twMerge } from 'tailwind-merge'
 import { Textarea } from './ui.js'
 import { useMessageActions } from '../hooks/useMessageActions.js'
+import { useUploadUrls } from '../hooks/useUploadUrl.js'
 import {
   VideoIcon,
   MusicNoteIcon,
@@ -101,10 +102,15 @@ interface AttachmentListProps {
 }
 
 function AttachmentList({ attachments, onImageClick }: AttachmentListProps) {
+  // Get auth-gated URLs for all attachments in one hook call (avoids hook-in-loop violation).
+  // Raw URLs (attachment.url) are still passed to onImageClick so the lightbox can index them.
+  const authUrls = useUploadUrls(attachments.map((a) => a.url))
+
   return (
     <div className="mt-2 flex flex-wrap gap-2">
-      {attachments.map((attachment) => {
+      {attachments.map((attachment, i) => {
         const isImage = attachment.mimeType.startsWith('image/')
+        const authUrl = authUrls[i]
         return isImage ? (
           <button
             key={attachment.id}
@@ -112,7 +118,7 @@ function AttachmentList({ attachments, onImageClick }: AttachmentListProps) {
             className="block max-w-xs cursor-zoom-in"
           >
             <ImageWithSkeleton
-              src={attachment.url}
+              src={authUrl}
               alt={attachment.filename}
               className="rounded-lg border border-border max-h-60 object-contain hover:brightness-90 transition-[filter]"
             />
@@ -120,7 +126,7 @@ function AttachmentList({ attachments, onImageClick }: AttachmentListProps) {
         ) : (
           <a
             key={attachment.id}
-            href={attachment.url}
+            href={authUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center space-x-2 px-3 py-2 bg-surface-secondary rounded-lg hover:bg-surface-hover transition-colors border border-border max-w-xs"

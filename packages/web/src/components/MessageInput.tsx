@@ -17,6 +17,7 @@ import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
 import { wsClient } from '../lib/ws.js'
 import { api } from '../lib/api.js'
 import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
+import { useUploadUrls } from '../hooks/useUploadUrl.js'
 
 interface PendingAttachment {
   id: string
@@ -243,6 +244,8 @@ export function MessageInput() {
 
   const isUploading = pendingAttachments.some((a) => a.uploading)
   const readyAttachments = pendingAttachments.filter((a) => !a.uploading && !a.error)
+  // Auth-gated thumbnail URLs for the pending-attachment preview strip
+  const attachmentAuthUrls = useUploadUrls(pendingAttachments.map((a) => a.url ?? ''))
   const hasContent = content.trim().length > 0 || readyAttachments.length > 0
 
   const handleSend = () => {
@@ -369,7 +372,7 @@ export function MessageInput() {
         {/* Pending attachments preview */}
         {pendingAttachments.length > 0 && (
           <div className="px-3 pt-2 flex flex-wrap gap-2">
-            {pendingAttachments.map((att) => (
+            {pendingAttachments.map((att, i) => (
               <div
                 key={att.id}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs border ${
@@ -401,7 +404,7 @@ export function MessageInput() {
                   </>
                 )}
                 {att.mimeType.startsWith('image/') && att.url && (
-                  <img src={att.url} alt="" className="w-6 h-6 rounded object-cover" />
+                  <img src={attachmentAuthUrls[i]} alt="" className="w-6 h-6 rounded object-cover" />
                 )}
                 <span className="truncate max-w-[120px]">{att.filename}</span>
                 <button

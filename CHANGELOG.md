@@ -28,4 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker and Docker Compose deployment.
 - CI pipeline with GitHub Actions.
 
+### Fixed
+
+- CSP `connectSrc` restricted to `'self'` only (removed overly broad `wss:` wildcard).
+- CI pipeline now triggers on direct pushes to `main` in addition to pull requests.
+- `render.yaml` now exposes `ADMIN_USERNAME` as a configurable secret alongside `ADMIN_PASSWORD`.
+- Attachment foreign-key `ON DELETE` behaviour corrected (migration `0021`).
+
 [0.1.0]: https://github.com/NoPKT/AgentIM/releases/tag/v0.1.0

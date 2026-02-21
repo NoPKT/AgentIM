@@ -12,6 +12,7 @@ import { config } from './config.js'
 import { createLogger } from './lib/logger.js'
 import { initSentry, captureException } from './lib/sentry.js'
 import { loggerMiddleware } from './middleware/logger.js'
+import { verifyToken } from './lib/jwt.js'
 
 const log = createLogger('Server')
 
@@ -144,7 +145,7 @@ app.use(
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", 'data:', 'blob:'],
-            connectSrc: ["'self'", 'wss:'],
+            connectSrc: ["'self'"],
             fontSrc: ["'self'"],
             objectSrc: ["'none'"],
             frameAncestors: ["'none'"],
@@ -239,8 +240,26 @@ app.route('/api/upload', uploadRoutes)
 app.route('/api/routers', routerRoutes)
 app.route('/api/docs', docsRoutes)
 
-// Serve uploaded files with security headers
+// Auth guard for uploaded files: require a valid JWT (Bearer header or ?token= query param).
+// This prevents unauthenticated access to uploaded files.
+// Note: access tokens have a short TTL (default 15m). The web client appends the current
+// access token to upload URLs so that browser image requests carry auth credentials.
 app.use('/uploads/*', async (c, next) => {
+  const authHeader = c.req.header('Authorization')
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : (c.req.query('token') ?? '')
+
+  if (!token) {
+    return c.json({ ok: false, error: 'Unauthorized' }, 401)
+  }
+
+  try {
+    await verifyToken(token)
+  } catch {
+    return c.json({ ok: false, error: 'Invalid or expired token' }, 401)
+  }
+
   await next()
   // Prevent MIME sniffing
   c.header('X-Content-Type-Options', 'nosniff')

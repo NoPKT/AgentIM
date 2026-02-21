@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth.js'
 import { useThemeStore } from '../stores/theme.js'
 import { useRouterStore } from '../stores/routers.js'
 import { api } from '../lib/api.js'
+import { useUploadUrl } from '../hooks/useUploadUrl.js'
 import {
   getNotificationPreference,
   setNotificationPreference,
@@ -25,6 +26,7 @@ export default function SettingsPage() {
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const avatarAuthUrl = useUploadUrl(user?.avatarUrl)
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -214,7 +216,7 @@ export default function SettingsPage() {
                 <div className="relative group">
                   {user?.avatarUrl ? (
                     <img
-                      src={user.avatarUrl}
+                      src={avatarAuthUrl}
                       alt={user.displayName}
                       className="w-16 h-16 rounded-full object-cover border-2 border-border"
                     />
