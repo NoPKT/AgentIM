@@ -29,6 +29,7 @@ import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validati
 import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
+import { invalidateMembershipCache } from '../ws/clientHandler.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Rooms')
@@ -397,6 +398,11 @@ roomRoutes.post('/:id/members', async (c) => {
     ipAddress: getClientIp(c),
   })
 
+  // Invalidate WS membership cache so the new member can join immediately
+  if (parsed.data.memberType === 'user') {
+    await invalidateMembershipCache(parsed.data.memberId, roomId)
+  }
+
   await broadcastRoomUpdate(roomId)
   await sendRoomContextToAllAgents(roomId)
 
@@ -434,6 +440,8 @@ roomRoutes.delete('/:id/members/:memberId', async (c) => {
 
   // Evict removed member from WS room state (keeps joinedRooms in sync with DB)
   connectionManager.evictUserFromRoom(memberId, roomId)
+  // Invalidate WS membership cache so the removed user cannot rejoin within the TTL
+  await invalidateMembershipCache(memberId, roomId)
 
   logAudit({
     userId,

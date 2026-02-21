@@ -24,8 +24,60 @@ const log = createLogger('ClientHandler')
 const OFFLINE_DEBOUNCE_MS = 2_000
 const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+// Per-socket auth attempt counter. Limits brute-force token guessing over a
+// single WebSocket connection (complements the WS upgrade rate limit per IP).
+// WeakMap ensures entries are GC'd when the WSContext object is collected.
+const WS_MAX_AUTH_ATTEMPTS = 5
+const wsAuthAttempts = new WeakMap<object, number>()
+
 const MAX_MESSAGE_SIZE = config.maxWsMessageSize
 const MAX_JSON_DEPTH = 10
+
+// ─── Room Membership Cache ───
+// Short-lived Redis cache keyed by `rm:<userId>:<roomId>` with TTL 60s.
+// Reduces DB lookups for repeated handleJoinRoom calls (e.g. page refreshes).
+// Cache is invalidated (key deleted) whenever the HTTP API adds or removes members.
+const ROOM_MEMBER_CACHE_TTL = 60 // seconds
+
+async function getCachedMembership(
+  userId: string,
+  roomId: string,
+): Promise<'member' | 'creator' | 'none' | null> {
+  try {
+    const redis = getRedis()
+    const val = await redis.get(`rm:${userId}:${roomId}`)
+    if (val === 'member' || val === 'creator' || val === 'none') return val
+    return null
+  } catch {
+    return null // Cache miss on Redis failure — fall through to DB
+  }
+}
+
+async function setCachedMembership(
+  userId: string,
+  roomId: string,
+  status: 'member' | 'creator' | 'none',
+): Promise<void> {
+  try {
+    const redis = getRedis()
+    await redis.set(`rm:${userId}:${roomId}`, status, 'EX', ROOM_MEMBER_CACHE_TTL)
+  } catch {
+    // Cache write failure is non-fatal
+  }
+}
+
+/**
+ * Invalidate the room membership cache for a specific user+room pair.
+ * Call this from HTTP route handlers whenever members are added or removed.
+ */
+export async function invalidateMembershipCache(userId: string, roomId: string): Promise<void> {
+  try {
+    const redis = getRedis()
+    await redis.del(`rm:${userId}:${roomId}`)
+  } catch {
+    // Non-fatal — cache will expire on its own within ROOM_MEMBER_CACHE_TTL
+  }
+}
 // Maximum number of elements in a single array / keys in a single object.
 // A 10,000-element flat array has depth 1 and bypasses depth checks, so we
 // impose an independent collection-size limit to cap memory allocation.
@@ -196,6 +248,19 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
 }
 
 async function handleAuth(ws: WSContext, token: string) {
+  // Enforce per-socket auth attempt limit to prevent brute-force token guessing
+  const attempts = (wsAuthAttempts.get(ws) ?? 0) + 1
+  wsAuthAttempts.set(ws, attempts)
+  if (attempts > WS_MAX_AUTH_ATTEMPTS) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:auth_result',
+      ok: false,
+      error: 'Too many authentication attempts',
+    })
+    ws.close(1008, 'Too many authentication attempts')
+    return
+  }
+
   try {
     const payload = await verifyToken(token)
     if (payload.type !== 'access') {
@@ -271,7 +336,24 @@ async function handleJoinRoom(ws: WSContext, roomId: string) {
   const client = connectionManager.getClient(ws)
   if (!client) return
 
-  // Verify user is a member of this room (or the room creator)
+  // Check cache first before hitting the DB
+  const cached = await getCachedMembership(client.userId, roomId)
+
+  if (cached === 'none') {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.NOT_A_MEMBER,
+      message: 'You are not a member of this room',
+    })
+    return
+  }
+
+  if (cached === 'member' || cached === 'creator') {
+    connectionManager.joinRoom(ws, roomId)
+    return
+  }
+
+  // Cache miss — query DB
   const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1)
   if (!room) {
     connectionManager.sendToClient(ws, {
@@ -282,29 +364,35 @@ async function handleJoinRoom(ws: WSContext, roomId: string) {
     return
   }
 
-  if (room.createdById !== client.userId) {
-    const [membership] = await db
-      .select()
-      .from(roomMembers)
-      .where(
-        and(
-          eq(roomMembers.roomId, roomId),
-          eq(roomMembers.memberId, client.userId),
-          eq(roomMembers.memberType, 'user'),
-        ),
-      )
-      .limit(1)
-
-    if (!membership) {
-      connectionManager.sendToClient(ws, {
-        type: 'server:error',
-        code: WS_ERROR_CODES.NOT_A_MEMBER,
-        message: 'You are not a member of this room',
-      })
-      return
-    }
+  if (room.createdById === client.userId) {
+    await setCachedMembership(client.userId, roomId, 'creator')
+    connectionManager.joinRoom(ws, roomId)
+    return
   }
 
+  const [membership] = await db
+    .select()
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, client.userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
+    .limit(1)
+
+  if (!membership) {
+    await setCachedMembership(client.userId, roomId, 'none')
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.NOT_A_MEMBER,
+      message: 'You are not a member of this room',
+    })
+    return
+  }
+
+  await setCachedMembership(client.userId, roomId, 'member')
   connectionManager.joinRoom(ws, roomId)
 }
 

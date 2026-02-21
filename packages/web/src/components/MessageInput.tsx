@@ -338,13 +338,20 @@ export function MessageInput() {
       >
         {/* Mention menu */}
         {showMentionMenu && filteredAgents.length > 0 && (
-          <div className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64">
+          <div
+            id="mention-listbox"
+            role="listbox"
+            aria-label={t('chat.mentionHint')}
+            className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64"
+          >
             <div className="p-2.5 border-b border-border">
               <p className="text-xs text-text-muted">{t('chat.mentionHint')}</p>
             </div>
             {filteredAgents.map((agent, index) => (
               <button
                 key={agent.id}
+                role="option"
+                aria-selected={index === selectedMentionIndex}
                 onClick={() => insertMention(agent.name)}
                 className={`
                   w-full px-3 py-2.5 text-left hover:bg-surface-hover transition-colors
@@ -362,7 +369,7 @@ export function MessageInput() {
                     <p className="text-xs text-text-muted">{agent.type}</p>
                   </div>
                   {agent.status === 'online' && (
-                    <span className="w-2 h-2 bg-success-text rounded-full"></span>
+                    <span className="w-2 h-2 bg-success-text rounded-full" aria-hidden="true" />
                   )}
                 </div>
               </button>
@@ -441,6 +448,9 @@ export function MessageInput() {
               type="file"
               className="hidden"
               multiple
+              accept={(ALLOWED_MIME_TYPES as readonly string[]).join(',')}
+              aria-hidden="true"
+              tabIndex={-1}
               onChange={(e) => {
                 handleFileSelect(e.target.files)
                 e.target.value = ''
@@ -456,6 +466,12 @@ export function MessageInput() {
               onKeyDown={handleKeyDown}
               placeholder={t('chat.sendMessage')}
               aria-label={t('chat.sendMessage')}
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-expanded={showMentionMenu && filteredAgents.length > 0}
+              aria-controls={
+                showMentionMenu && filteredAgents.length > 0 ? 'mention-listbox' : undefined
+              }
               className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent min-h-12 max-h-[200px]"
               rows={1}
             />

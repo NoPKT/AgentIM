@@ -98,9 +98,10 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
       {/* New Room Button */}
       <button
         onClick={() => setShowNewRoomDialog(true)}
+        aria-label={t('chat.newRoom')}
         className="w-full mb-4 px-4 py-2.5 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors flex items-center justify-center space-x-2 shadow-sm"
       >
-        <PlusIcon className="w-5 h-5" />
+        <PlusIcon className="w-5 h-5" aria-hidden="true" />
         <span>{t('chat.newRoom')}</span>
       </button>
 

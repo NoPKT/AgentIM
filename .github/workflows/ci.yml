@@ -129,3 +129,103 @@ jobs:
 
       - name: Run tests (web)
         run: pnpm --filter @agentim/web test:coverage
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    # E2E runs on PRs and manual dispatch; skipped on direct pushes to main
+    # to keep the critical path fast. Use `workflow_dispatch` to run manually.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true  # Non-blocking while E2E suite is being established
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentim_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Restore build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/*/dist
+            packages/web/dist
+          key: build-${{ github.sha }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (if cache miss)
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start server in background
+        run: node packages/server/dist/index.js &
+        env:
+          PORT: 3000
+          HOST: 0.0.0.0
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentim_e2e
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: e2e-test-jwt-secret-minimum-32chars
+          ENCRYPTION_KEY: e2e-test-enc-key-minimum-32chars!!
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: AdminPass123
+          CORS_ORIGIN: http://localhost:3000
+          NODE_ENV: production
+
+      - name: Wait for server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/health && break
+            echo "Waiting for server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run E2E tests
+        run: pnpm test:e2e --project=chromium
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          E2E_ADMIN_USERNAME: admin
+          E2E_ADMIN_PASSWORD: AdminPass123
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

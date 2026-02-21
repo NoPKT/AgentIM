@@ -190,9 +190,7 @@ describe('useChatStore', () => {
     it('addStreamChunk appends chunks to an existing stream', () => {
       const chunk2: ParsedChunk = { type: 'text', content: ' World' }
       useChatStore.getState().addStreamChunk('room-1', 'agent-1', 'Agent A', 'stream-msg-1', chunk)
-      useChatStore
-        .getState()
-        .addStreamChunk('room-1', 'agent-1', 'Agent A', 'stream-msg-1', chunk2)
+      useChatStore.getState().addStreamChunk('room-1', 'agent-1', 'Agent A', 'stream-msg-1', chunk2)
       const stream = useChatStore.getState().streaming.get('room-1:agent-1')!
       expect(stream.chunks).toHaveLength(2)
     })
@@ -207,7 +205,13 @@ describe('useChatStore', () => {
         streaming: new Map([
           [
             'room-1:agent-1',
-            { messageId: 'sm', agentId: 'agent-1', agentName: 'A', chunks: initial, lastChunkAt: Date.now() },
+            {
+              messageId: 'sm',
+              agentId: 'agent-1',
+              agentName: 'A',
+              chunks: initial,
+              lastChunkAt: Date.now(),
+            },
           ],
         ]),
       })
