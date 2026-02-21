@@ -136,7 +136,7 @@ const formFieldLabelVariants = {
 type FormFieldVariant = keyof typeof formFieldLabelVariants
 
 interface FormFieldProps {
-  label: string
+  label: ReactNode
   htmlFor?: string
   required?: boolean
   error?: string

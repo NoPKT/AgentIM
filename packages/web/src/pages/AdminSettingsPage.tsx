@@ -178,7 +178,7 @@ function SettingField({
 
   if (item.type === 'boolean') {
     return (
-      <FormField label={label} helper={t(item.descKey)}>
+      <FormField label={label} helperText={t(item.descKey)}>
         <button
           type="button"
           role="switch"
@@ -202,7 +202,7 @@ function SettingField({
 
   if (item.type === 'enum' && item.enumValues) {
     return (
-      <FormField label={label} helper={t(item.descKey)}>
+      <FormField label={label} helperText={t(item.descKey)}>
         <Select value={value} onChange={(e) => onChange(e.target.value)}>
           {item.enumValues.map((v) => (
             <option key={v} value={v}>
@@ -215,7 +215,7 @@ function SettingField({
   }
 
   return (
-    <FormField label={label} helper={t(item.descKey)}>
+    <FormField label={label} helperText={t(item.descKey)}>
       <Input
         type={item.sensitive ? 'password' : item.type === 'number' ? 'number' : 'text'}
         value={value}
