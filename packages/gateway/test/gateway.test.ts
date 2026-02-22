@@ -109,10 +109,11 @@ describe('createAdapter', () => {
     adapter.dispose()
   })
 
-  it('creates cursor adapter', () => {
-    const adapter = createAdapter('cursor', { agentId: 'e', agentName: 'cur' })
-    assert.equal(adapter.type, 'cursor')
-    adapter.dispose()
+  it('throws on removed cursor adapter', () => {
+    assert.throws(
+      () => createAdapter('cursor', { agentId: 'e', agentName: 'cur' }),
+      /Unknown adapter type/,
+    )
   })
 })
 

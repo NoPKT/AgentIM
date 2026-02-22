@@ -46,6 +46,8 @@
   },
   "dependencies": {
     "@agentim/shared": "workspace:*",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.50",
+    "@openai/codex-sdk": "^0.104.0",
     "commander": "^14.0.3",
     "ws": "^8.18.0",
     "nanoid": "^5.1.0"

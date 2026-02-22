@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import type { ParsedChunk } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -6,31 +6,23 @@ import {
   type CompleteCallback,
   type ErrorCallback,
   type MessageContext,
-  getSafeEnv,
 } from './base.js'
-import { MAX_BUFFER_SIZE, type ParsedChunk } from '@agentim/shared'
+import { createLogger } from '../lib/logger.js'
+import type {
+  Query,
+  SDKMessage,
+  SDKSystemMessage,
+  SDKAssistantMessage,
+  SDKResultMessage,
+  SDKPartialAssistantMessage,
+  Options,
+} from '@anthropic-ai/claude-agent-sdk'
 
-/** Minimal shape of a Claude Code JSON-stream event. */
-interface StreamEvent {
-  type?: string
-  message?: {
-    content?: Array<{
-      type: string
-      text?: string
-      thinking?: string
-      name?: string
-      id?: string
-      content?: string | unknown[]
-      tool_use_id?: string
-    }>
-    stop_reason?: string
-  }
-  delta?: { type?: string; text?: string; thinking?: string }
-}
+const log = createLogger('ClaudeCode')
 
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
-  private process: ChildProcess | null = null
-  private buffer = ''
+  private sessionId?: string
+  private currentQuery?: Query
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -40,7 +32,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return 'claude-code' as const
   }
 
-  sendMessage(
+  async sendMessage(
     content: string,
     onChunk: ChunkCallback,
     onComplete: CompleteCallback,
@@ -53,177 +45,156 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
 
     this.isRunning = true
-    this.buffer = ''
     let fullContent = ''
-    let done = false
-    const complete = (content: string) => {
-      if (done) return
-      done = true
-      onComplete(content)
-    }
-    const fail = (err: string) => {
-      if (done) return
-      done = true
-      onError(err)
-    }
 
-    const prompt = this.buildPrompt(content, context)
-    const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose']
+    try {
+      const { query } = await import('@anthropic-ai/claude-agent-sdk')
 
-    // Use safe env (sensitive vars stripped) + remove CLAUDECODE for nested sessions
-    const env = getSafeEnv()
-    delete env.CLAUDECODE
-    const proc = spawn('claude', args, {
-      cwd: this.workingDirectory,
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
-    })
-
-    this.process = proc
-    this.startProcessTimer(proc)
-
-    proc.stdout?.on('data', (data: Buffer) => {
-      this.buffer += data.toString()
-      if (this.buffer.length > MAX_BUFFER_SIZE) {
-        this.clearProcessTimer()
-        this.isRunning = false
-        fail('Response too large')
-        this.killProcess(proc)
-        return
+      const options: Options = {
+        allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
+        permissionMode: 'bypassPermissions',
+        allowDangerouslySkipPermissions: true,
+        cwd: this.workingDirectory,
       }
-      const lines = this.buffer.split('\n')
-      this.buffer = lines.pop() ?? ''
 
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const event = JSON.parse(line)
-          for (const chunk of this.parseEvent(event)) {
-            if (chunk.type === 'text') {
-              fullContent += chunk.content
-            }
-            onChunk(chunk)
-          }
-        } catch {
-          // Skip non-JSON lines
-        }
+      if (this.sessionId) {
+        options.resume = this.sessionId
       }
-    })
 
-    proc.stderr?.on('data', (data: Buffer) => {
-      if (done) return
-      const text = data.toString().trim()
-      if (text) {
-        onChunk({ type: 'error', content: text })
+      if (context?.roomContext?.systemPrompt) {
+        options.systemPrompt = context.roomContext.systemPrompt
       }
-    })
 
-    proc.on('close', (code) => {
-      this.clearProcessTimer()
+      const prompt = this.buildPrompt(content, context)
+
+      const response = query({ prompt, options })
+      this.currentQuery = response
+
+      for await (const message of response) {
+        this.processMessage(message, onChunk, (text) => {
+          fullContent += text
+        })
+      }
+
       this.isRunning = false
-      this.process = null
-      proc.stdout?.removeAllListeners()
-      proc.stderr?.removeAllListeners()
-
-      if (this.timedOut) {
-        fail('Process timed out')
-        return
-      }
-
-      // Process remaining buffer
-      if (this.buffer.trim()) {
-        try {
-          const event = JSON.parse(this.buffer)
-          for (const chunk of this.parseEvent(event)) {
-            if (chunk.type === 'text') fullContent += chunk.content
-            onChunk(chunk)
-          }
-        } catch {
-          // Ignore
-        }
-      }
-
-      if (code === 0) {
-        complete(fullContent)
-      } else if (code === null) {
-        fail('Process killed by signal')
-      } else {
-        fail(`Process exited with code ${code}`)
-      }
-    })
-
-    proc.on('error', (err) => {
-      this.clearProcessTimer()
+      this.currentQuery = undefined
+      onComplete(fullContent)
+    } catch (err: unknown) {
       this.isRunning = false
-      this.process = null
-      proc.stdout?.removeAllListeners()
-      proc.stderr?.removeAllListeners()
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        fail(
-          'Command "claude" not found. Please install Claude Code first: https://code.claude.com/docs/en/setup',
-        )
+      this.currentQuery = undefined
+      if ((err as Error).name === 'AbortError') {
+        onComplete(fullContent || 'Interrupted')
       } else {
-        fail(err.message)
+        const msg = err instanceof Error ? err.message : String(err)
+        log.error(`ClaudeCode SDK error: ${msg}`)
+        onError(msg)
       }
-    })
+    }
   }
 
-  private parseEvent(event: StreamEvent): ParsedChunk[] {
-    const chunks: ParsedChunk[] = []
+  private processMessage(
+    message: SDKMessage,
+    onChunk: ChunkCallback,
+    appendText: (text: string) => void,
+  ) {
+    // Capture session ID from init message
+    if (message.type === 'system' && 'subtype' in message && message.subtype === 'init') {
+      const initMsg = message as SDKSystemMessage
+      this.sessionId = initMsg.session_id
+      log.info(`Session started: ${this.sessionId}`)
+      return
+    }
 
-    // Claude Code stream-json format
-    if (event.type === 'assistant' && event.message) {
-      // Emit every content block (text, thinking, tool_use, tool_result)
-      if (event.message.content) {
-        for (const block of event.message.content) {
-          if (block.type === 'text') {
-            chunks.push({ type: 'text', content: block.text ?? '' })
-          } else if (block.type === 'thinking') {
-            chunks.push({ type: 'thinking', content: block.thinking ?? '' })
-          } else if (block.type === 'tool_use') {
-            chunks.push({
-              type: 'tool_use',
-              content: JSON.stringify(block, null, 2),
-              metadata: { toolName: block.name, toolId: block.id },
-            })
-          } else if (block.type === 'tool_result') {
-            chunks.push({
-              type: 'tool_result',
-              content:
-                typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
-              metadata: { toolId: block.tool_use_id },
-            })
+    // Process assistant messages with content blocks
+    if (message.type === 'assistant') {
+      const assistantMsg = message as SDKAssistantMessage
+      if (assistantMsg.message?.content) {
+        for (const block of assistantMsg.message.content) {
+          const chunks = this.mapBlockToChunks(block)
+          for (const chunk of chunks) {
+            if (chunk.type === 'text') appendText(chunk.content)
+            onChunk(chunk)
           }
         }
       }
-      return chunks
+      return
     }
 
-    // Content block delta (streaming)
-    if (event.type === 'content_block_delta') {
-      if (event.delta?.type === 'text_delta') {
-        chunks.push({ type: 'text', content: event.delta.text ?? '' })
-      } else if (event.delta?.type === 'thinking_delta') {
-        chunks.push({ type: 'thinking', content: event.delta.thinking ?? '' })
+    // Process streaming events for incremental text
+    if (message.type === 'stream_event') {
+      const streamMsg = message as SDKPartialAssistantMessage
+      const event = streamMsg.event
+      if ('delta' in event) {
+        const delta = (event as { delta?: { type?: string; text?: string; thinking?: string } })
+          .delta
+        if (delta?.type === 'text_delta' && delta.text) {
+          appendText(delta.text)
+          onChunk({ type: 'text', content: delta.text })
+        } else if (delta?.type === 'thinking_delta' && delta.thinking) {
+          onChunk({ type: 'thinking', content: delta.thinking })
+        }
       }
+      return
     }
 
-    // Result event — skip to avoid duplicating text already emitted by assistant events.
-    // The fullContent is accumulated from assistant chunks and passed to onComplete.
+    // Extract result
+    if (message.type === 'result') {
+      const resultMsg = message as SDKResultMessage
+      if ('result' in resultMsg && resultMsg.subtype === 'success') {
+        // Result text is already accumulated from assistant messages
+      }
+      return
+    }
+  }
 
-    return chunks
+  private mapBlockToChunks(block: {
+    type: string
+    text?: string
+    thinking?: string
+    name?: string
+    id?: string
+    content?: unknown
+    tool_use_id?: string
+    input?: unknown
+  }): ParsedChunk[] {
+    switch (block.type) {
+      case 'text':
+        return [{ type: 'text', content: block.text ?? '' }]
+      case 'thinking':
+        return [{ type: 'thinking', content: block.thinking ?? '' }]
+      case 'tool_use':
+        return [
+          {
+            type: 'tool_use',
+            content: JSON.stringify(
+              { name: block.name, id: block.id, input: block.input },
+              null,
+              2,
+            ),
+            metadata: { toolName: block.name, toolId: block.id },
+          },
+        ]
+      case 'tool_result':
+        return [
+          {
+            type: 'tool_result',
+            content:
+              typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+            metadata: { toolId: block.tool_use_id },
+          },
+        ]
+      default:
+        return []
+    }
   }
 
   stop() {
-    if (this.process) {
-      this.killProcess(this.process)
-    }
+    this.currentQuery?.interrupt()
   }
 
   dispose() {
-    this.stop()
-    this.clearKillTimer()
-    this.clearProcessTimer()
+    this.currentQuery?.close()
+    this.currentQuery = undefined
+    this.sessionId = undefined
   }
 }

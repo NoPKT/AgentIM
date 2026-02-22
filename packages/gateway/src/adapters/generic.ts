@@ -1,12 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import {
-  BaseAgentAdapter,
-  type AdapterOptions,
-  type ChunkCallback,
-  type CompleteCallback,
-  type ErrorCallback,
-  type MessageContext,
-  getSafeEnv,
+import { SpawnAgentAdapter, getSafeEnv } from './spawn-base.js'
+import type {
+  AdapterOptions,
+  ChunkCallback,
+  CompleteCallback,
+  ErrorCallback,
+  MessageContext,
 } from './base.js'
 import { MAX_BUFFER_SIZE } from '@agentim/shared'
 
@@ -20,7 +19,7 @@ export interface GenericAdapterOptions extends AdapterOptions {
   args?: string[]
 }
 
-export class GenericAdapter extends BaseAgentAdapter {
+export class GenericAdapter extends SpawnAgentAdapter {
   private process: ChildProcess | null = null
   private command: string
   private cmdArgs: string[]
