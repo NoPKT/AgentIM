@@ -11,8 +11,9 @@ import { test, expect } from '@playwright/test'
 test.describe('Room management', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    // Session is restored via refresh-token cookie from storageState
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+    // Wait for the authenticated layout to confirm auth is fully complete
+    // (not just URL check, which passes before tryRefresh finishes)
+    await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 
   test('can create a new room', async ({ page }) => {

@@ -11,8 +11,9 @@ import { test, expect } from '@playwright/test'
 test.describe('App navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    // Session is restored via refresh-token cookie from storageState
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+    // Wait for the authenticated layout to confirm auth is fully complete
+    // (not just URL check, which passes before tryRefresh finishes)
+    await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 
   test('navigates to agents page', async ({ page }) => {
@@ -65,7 +66,8 @@ test.describe('App navigation', () => {
 test.describe('Admin-only pages', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+    // Wait for the authenticated layout to confirm auth is fully complete
+    await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 
   test('admin can access users page', async ({ page }) => {
