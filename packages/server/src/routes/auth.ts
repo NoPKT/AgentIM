@@ -7,7 +7,7 @@ import { users, refreshTokens } from '../db/schema.js'
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js'
 import { loginSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
-import { authRateLimit } from '../middleware/rateLimit.js'
+import { authRateLimit, rateLimitMiddleware } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
@@ -63,10 +63,14 @@ const DUMMY_HASH =
 
 export const authRoutes = new Hono<AuthEnv>()
 
-// Rate limit auth endpoints: 10 req/min per IP
-authRoutes.use('*', authRateLimit)
+// Rate limit login attempts: 10 req/min per IP (brute-force protection).
+// /refresh is intentionally excluded — it's cookie-gated and called frequently
+// by the web client on every page load/API request to restore sessions.
+// A separate, higher limit (60/min) is applied to /refresh to prevent DoS
+// while not interfering with legitimate high-frequency session restoration.
+const refreshRateLimit = rateLimitMiddleware(60_000, 60, 'auth_refresh')
 
-authRoutes.post('/login', async (c) => {
+authRoutes.post('/login', authRateLimit, async (c) => {
   const body = await parseJsonBody(c)
   if (body instanceof Response) return body
   const parsed = loginSchema.safeParse(body)
@@ -181,7 +185,7 @@ authRoutes.post('/login', async (c) => {
   })
 })
 
-authRoutes.post('/refresh', async (c) => {
+authRoutes.post('/refresh', refreshRateLimit, async (c) => {
   // Priority 1: httpOnly Cookie (web browser path)
   // Priority 2: JSON body refreshToken (Gateway CLI path — backward compatible)
   let incomingRefreshToken = getCookie(c, REFRESH_COOKIE_NAME) ?? null

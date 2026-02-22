@@ -338,4 +338,10 @@ export const api = {
   clearTokens,
   getToken,
   tryRefresh: refreshAccessToken,
+  /** Mark the initial session-recovery attempt as done so subsequent request()
+   *  calls skip the redundant ensureInitialRefresh() → /auth/refresh round-trip.
+   *  Call this after a manual tryRefresh() (e.g. in loadUser) to avoid double-refreshing. */
+  markInitialRefreshDone: () => {
+    _initialRefreshDone = true
+  },
 }

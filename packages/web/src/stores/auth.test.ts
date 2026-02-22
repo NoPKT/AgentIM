@@ -10,6 +10,7 @@ vi.mock('../lib/api.js', () => ({
     setTokens: vi.fn(),
     getToken: vi.fn(),
     tryRefresh: vi.fn(),
+    markInitialRefreshDone: vi.fn(),
   },
   setOnAuthExpired: vi.fn(),
   setOnTokenRefresh: vi.fn(),

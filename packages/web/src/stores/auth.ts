@@ -73,6 +73,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Try to restore the session via refresh token.
     if (!token) {
       const refreshed = await api.tryRefresh()
+      // Mark the initial refresh as done so request() skips the redundant
+      // ensureInitialRefresh() → /auth/refresh call on the very next API
+      // request (e.g. the login POST). Without this, every login attempt
+      // makes 3 auth-endpoint calls (refresh + refresh + login) instead of 2,
+      // which can exhaust the rate limit and cause spurious login failures.
+      api.markInitialRefreshDone()
       if (refreshed) {
         token = api.getToken()
       }
