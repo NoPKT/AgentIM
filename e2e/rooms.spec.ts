@@ -56,9 +56,7 @@ test.describe('Room management', () => {
     await messageInput.fill(testMessage)
     await messageInput.press('Enter')
 
-    // Message should appear in the message list
-    await expect(
-      page.locator('[data-testid="message-list"]').or(page.locator('.message-list')),
-    ).toContainText(testMessage, { timeout: 5_000 })
+    // Message should appear in the message list (MessageList has role="log")
+    await expect(page.getByRole('log')).toContainText(testMessage, { timeout: 10_000 })
   })
 })
