@@ -19,7 +19,14 @@ export type MessageType = (typeof MESSAGE_TYPES)[number]
 export const TASK_STATUSES = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 
-export const CHUNK_TYPES = ['text', 'thinking', 'tool_use', 'tool_result', 'error'] as const
+export const CHUNK_TYPES = [
+  'text',
+  'thinking',
+  'tool_use',
+  'tool_result',
+  'error',
+  'workspace_status',
+] as const
 export type ChunkType = (typeof CHUNK_TYPES)[number]
 
 export const ROUTING_MODES = ['broadcast', 'direct'] as const

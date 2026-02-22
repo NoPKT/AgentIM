@@ -290,6 +290,47 @@ app.get('/api/metrics', (c) => {
   })
 })
 
+// Admin metrics endpoint (JSON format for dashboard)
+app.get('/api/admin/metrics', async (c) => {
+  // Require valid JWT with admin role
+  const authHeader = c.req.header('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) {
+    return c.json({ ok: false, error: 'Unauthorized' }, 401)
+  }
+  try {
+    const payload = await verifyToken(token)
+    const { eq } = await import('drizzle-orm')
+    const { users } = await import('./db/schema.js')
+    const [user] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1)
+    if (!user || user.role !== 'admin') {
+      return c.json({ ok: false, error: 'Forbidden' }, 403)
+    }
+  } catch {
+    return c.json({ ok: false, error: 'Invalid or expired token' }, 401)
+  }
+
+  const ws = connectionManager.getStats()
+  const mem = process.memoryUsage()
+  return c.json({
+    ok: true,
+    data: {
+      connections: {
+        clients: ws.clientConnections,
+        gateways: ws.gatewayConnections,
+        onlineUsers: ws.onlineUsers,
+        connectedAgents: ws.connectedAgents,
+      },
+      process: {
+        uptimeSeconds: Math.round(process.uptime()),
+        heapUsedBytes: mem.heapUsed,
+        rssBytes: mem.rss,
+      },
+      timestamp: new Date().toISOString(),
+    },
+  })
+})
+
 // API routes
 app.route('/api/auth', authRoutes)
 app.route('/api/users', userRoutes)

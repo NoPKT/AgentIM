@@ -157,6 +157,23 @@ export interface ParsedChunk {
   metadata?: Record<string, unknown>
 }
 
+// ─── Workspace Status ───
+
+export interface WorkspaceFileChange {
+  path: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  additions?: number
+  deletions?: number
+  diff?: string
+}
+
+export interface WorkspaceStatus {
+  branch: string
+  changedFiles: WorkspaceFileChange[]
+  summary: { filesChanged: number; additions: number; deletions: number }
+  recentCommits?: Array<{ hash: string; message: string }>
+}
+
 // ─── Auth ───
 
 export interface AuthTokens {

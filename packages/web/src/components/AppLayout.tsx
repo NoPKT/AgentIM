@@ -11,6 +11,7 @@ import {
   TasksIcon,
   SettingsIcon,
   LogoutIcon,
+  DashboardIcon,
 } from './icons.js'
 import { useSwipeToClose } from '../hooks/useSwipeToClose.js'
 
@@ -45,6 +46,11 @@ export function AppLayout() {
   const navLinks: NavLink[] = [
     ...(currentUser?.role === 'admin'
       ? [
+          {
+            path: '/admin/dashboard',
+            label: t('adminDashboard.title'),
+            Icon: DashboardIcon,
+          },
           { path: '/users', label: t('settings.userManagement'), Icon: UsersIcon },
           { path: '/admin/settings', label: t('adminSettings.title'), Icon: SettingsIcon },
         ]

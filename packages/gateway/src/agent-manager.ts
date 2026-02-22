@@ -12,6 +12,7 @@ import type {
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
+import { getWorkspaceStatus } from './lib/git-utils.js'
 
 const log = createLogger('AgentManager')
 
@@ -164,21 +165,54 @@ export class AgentManager {
         (fullContent) => {
           if (completed) return
           completed = true
-          this.wsClient.send({
-            type: 'gateway:message_complete',
-            roomId: msg.roomId,
-            agentId: msg.agentId,
-            messageId,
-            fullContent,
-            chunks: allChunks,
-            conversationId: msg.conversationId,
-            depth: msg.depth,
-          })
-          this.wsClient.send({
-            type: 'gateway:agent_status',
-            agentId: msg.agentId,
-            status: 'online',
-          })
+
+          // Collect workspace status asynchronously before completing
+          const workingDir = adapter.workingDirectory
+          const sendComplete = () => {
+            this.wsClient.send({
+              type: 'gateway:message_complete',
+              roomId: msg.roomId,
+              agentId: msg.agentId,
+              messageId,
+              fullContent,
+              chunks: allChunks,
+              conversationId: msg.conversationId,
+              depth: msg.depth,
+            })
+            this.wsClient.send({
+              type: 'gateway:agent_status',
+              agentId: msg.agentId,
+              status: 'online',
+            })
+          }
+
+          if (workingDir) {
+            getWorkspaceStatus(workingDir)
+              .then((status) => {
+                if (status) {
+                  const wsChunk: ParsedChunk = {
+                    type: 'workspace_status',
+                    content: JSON.stringify(status),
+                    metadata: { workingDirectory: workingDir },
+                  }
+                  allChunks.push(wsChunk)
+                  this.wsClient.send({
+                    type: 'gateway:message_chunk',
+                    roomId: msg.roomId,
+                    agentId: msg.agentId,
+                    messageId,
+                    chunk: wsChunk,
+                  })
+                }
+                sendComplete()
+              })
+              .catch((err) => {
+                log.warn(`Workspace status collection failed: ${(err as Error).message}`)
+                sendComplete()
+              })
+          } else {
+            sendComplete()
+          }
         },
         (error) => {
           if (completed) return
