@@ -95,12 +95,12 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
 }
 
 // Presets
-/** Auth login endpoint: 40 requests per minute per IP.
+/** Auth login endpoint: 20 requests per minute per IP.
  *  Primary brute-force protection is the 5-attempt account lockout (15 min).
- *  This rate limit provides a secondary per-IP throttle. 40/min allows E2E
- *  test suites (including retries) to run without exhaustion while still
- *  blocking automated credential-stuffing attacks. */
-export const authRateLimit = rateLimitMiddleware(60_000, 40, 'auth')
+ *  This rate limit provides a secondary per-IP throttle. 20/min allows
+ *  legitimate multi-device usage while blocking automated credential-stuffing
+ *  attacks. E2E tests bypass rate limiting via NODE_ENV=test. */
+export const authRateLimit = rateLimitMiddleware(60_000, 20, 'auth')
 /** General API: 120 requests per minute */
 export const apiRateLimit = rateLimitMiddleware(60_000, 120, 'api')
 /** Sensitive endpoints: 5 requests per minute */
