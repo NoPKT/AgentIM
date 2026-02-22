@@ -209,13 +209,13 @@ export class GatewayWsClient {
     this.reconnectAttempts++
 
     if (this.probing) {
-      const jitter = Math.random() * 5000
+      const jitter = Math.random() * PROBE_INTERVAL
       this.reconnectTimer = setTimeout(() => {
         log.info(`Probing server... (attempt ${this.reconnectAttempts})`)
         this.connect()
       }, PROBE_INTERVAL + jitter)
     } else {
-      const jitter = Math.random() * 1000
+      const jitter = Math.random() * this.reconnectInterval
       if (this.reconnectAttempts % 10 === 0) {
         log.warn(`Still trying to reconnect... (${this.reconnectAttempts} attempts)`)
       }
