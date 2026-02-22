@@ -8,6 +8,9 @@ import { loginAsAdmin } from './helpers'
  * strict token rotation / logout in other tests cannot interfere.
  */
 
+// Start with a clean cookie jar — loginAsAdmin provides fresh auth per test.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 test.describe('Room management', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page)
