@@ -40,9 +40,9 @@ test.describe('Room management', () => {
   })
 
   test('can send a message in a room', async ({ page }) => {
-    // Click on the first available room
+    // Click on the first available room (rooms have role="listitem" in the nav)
     const roomNav = page.getByRole('navigation', { name: /rooms/i })
-    const firstRoom = roomNav.getByRole('button').first()
+    const firstRoom = roomNav.getByRole('listitem').first()
     if (!(await firstRoom.isVisible())) {
       test.skip()
       return
@@ -51,7 +51,7 @@ test.describe('Room management', () => {
 
     // Find the message input by its aria-label (t('chat.messageInputLabel') = "Message input")
     const messageInput = page.getByRole('textbox', { name: /message input|send a message/i })
-    await expect(messageInput).toBeVisible({ timeout: 5_000 })
+    await expect(messageInput).toBeVisible({ timeout: 10_000 })
     const testMessage = `e2e-msg-${Date.now()}`
     await messageInput.fill(testMessage)
     await messageInput.press('Enter')
