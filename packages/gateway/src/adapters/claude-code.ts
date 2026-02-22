@@ -161,7 +161,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       proc.stderr?.removeAllListeners()
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         fail(
-          'Command "claude" not found. Please install it first: npm install -g @anthropic-ai/claude-code',
+          'Command "claude" not found. Please install Claude Code first: https://code.claude.com/docs/en/setup',
         )
       } else {
         fail(err.message)
