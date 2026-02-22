@@ -113,7 +113,7 @@ async function seedAdmin() {
       })
       log.info(`Admin user created: ${config.adminUsername}`)
     } catch (err: unknown) {
-      if ((err as { code?: string })?.code === '23505') {
+      if (((err as any)?.code ?? (err as any)?.cause?.code) === '23505') {
         // UNIQUE constraint violation — another instance already created the admin
         log.info(`Admin user already exists (concurrent seed): ${config.adminUsername}`)
       } else {

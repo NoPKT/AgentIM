@@ -10,9 +10,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      // Thresholds reflect current tested surface area (lib/ + stores/ + components/).
-      // Pages have no unit tests by design (covered by E2E). Raise these as unit
-      // test coverage grows.
+      // Only measure coverage for tested surface area (lib/ + stores/ + components/ + hooks/).
+      // Pages have no unit tests by design (covered by E2E). Explicit include prevents
+      // vitest from pulling untested page files into the report and dropping thresholds.
+      include: ['src/lib/**', 'src/stores/**', 'src/components/**', 'src/hooks/**'],
       thresholds: {
         lines: 9,
         functions: 38,

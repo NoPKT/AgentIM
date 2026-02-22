@@ -198,7 +198,7 @@ userRoutes.post('/', adminMiddleware, async (c) => {
     })
   } catch (err: unknown) {
     // Handle unique constraint violation (concurrent insert or existing user)
-    if ((err as { code?: string })?.code === '23505') {
+    if (((err as any)?.code ?? (err as any)?.cause?.code) === '23505') {
       return c.json({ ok: false, error: 'Username already taken' }, 409)
     }
     throw err
