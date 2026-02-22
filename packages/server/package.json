@@ -24,7 +24,7 @@
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.0",
     "hono": "^4.12.1",
-    "drizzle-orm": "^0.39.0",
+    "drizzle-orm": "^0.45.1",
     "ioredis": "^5.4.0",
     "pg": "^8.13.0",
     "jose": "^6.0.0",
