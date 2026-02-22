@@ -204,6 +204,7 @@ export abstract class BaseAgentAdapter {
       cwd: this.workingDirectory,
       env: getSafeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
     })
 
     this.startProcessTimer(proc)
@@ -248,7 +249,13 @@ export abstract class BaseAgentAdapter {
       this.isRunning = false
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
-      fail(err.message)
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        fail(
+          `Command "${command}" not found. Please ensure it is installed and available in your PATH.`,
+        )
+      } else {
+        fail(err.message)
+      }
     })
 
     return { proc, done: () => done }

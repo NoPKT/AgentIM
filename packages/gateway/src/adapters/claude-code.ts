@@ -77,6 +77,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       cwd: this.workingDirectory,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
     })
 
     this.process = proc
@@ -158,7 +159,13 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       this.process = null
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
-      fail(err.message)
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        fail(
+          'Command "claude" not found. Please install it first: npm install -g @anthropic-ai/claude-code',
+        )
+      } else {
+        fail(err.message)
+      }
     })
   }
 
