@@ -1,19 +1,18 @@
 import { test, expect } from '@playwright/test'
 
-const ADMIN_USER = process.env.E2E_ADMIN_USERNAME || 'admin'
-const ADMIN_PASS = process.env.E2E_ADMIN_PASSWORD || 'AdminPass123'
-
-async function login(page: import('@playwright/test').Page) {
-  await page.goto('/login')
-  await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
-  await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-  await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
-}
+/**
+ * Navigation E2E tests.
+ *
+ * Authentication is provided by the global setup (storageState).
+ * On page load the app restores the session via the saved httpOnly
+ * refresh-token cookie — no extra /auth/login call is made here.
+ */
 
 test.describe('App navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page)
+    await page.goto('/')
+    // Session is restored via refresh-token cookie from storageState
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
   test('navigates to agents page', async ({ page }) => {
@@ -65,7 +64,8 @@ test.describe('App navigation', () => {
 
 test.describe('Admin-only pages', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page)
+    await page.goto('/')
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
   test('admin can access users page', async ({ page }) => {

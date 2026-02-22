@@ -13,6 +13,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000'
 
+/** Saved auth state – httpOnly refresh-token cookie captured by the setup project. */
+const AUTH_FILE = 'e2e/.auth/user.json'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -31,17 +34,32 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    /**
+     * Setup project: logs in once and writes the auth state to AUTH_FILE.
+     * Runs before any browser project that declares it as a dependency.
+     * Only a single /auth/login call is made for all subsequent tests.
+     */
+    {
+      name: 'setup',
+      testMatch: /setup\.ts/,
+    },
+
+    // Browser projects – depend on setup and load the saved auth cookies.
+    // auth.spec.ts opts out via test.use({ storageState: { cookies: [], origins: [] } }).
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: AUTH_FILE },
+      dependencies: ['setup'],
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { ...devices['Desktop Firefox'], storageState: AUTH_FILE },
+      dependencies: ['setup'],
     },
     {
       name: 'mobile-chrome',
-      use: { ...devices['Pixel 5'] },
+      use: { ...devices['Pixel 5'], storageState: AUTH_FILE },
+      dependencies: ['setup'],
     },
   ],
 })

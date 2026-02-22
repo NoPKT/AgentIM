@@ -1,16 +1,17 @@
 import { test, expect } from '@playwright/test'
 
-const ADMIN_USER = process.env.E2E_ADMIN_USERNAME || 'admin'
-const ADMIN_PASS = process.env.E2E_ADMIN_PASSWORD || 'AdminPass123'
+/**
+ * Agents page E2E tests.
+ *
+ * Authentication is provided by the global setup (storageState).
+ * On page load the app restores the session via the saved httpOnly
+ * refresh-token cookie — no extra /auth/login call is made here.
+ */
 
 test.describe('Agents page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login')
-    await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
-    await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
     await page.goto('/agents')
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
   test('agents page loads without errors', async ({ page }) => {

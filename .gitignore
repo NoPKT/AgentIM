@@ -38,6 +38,9 @@ coverage/
 # Uploads (user data)
 uploads/
 
+# E2E auth state (contains session tokens, must not be committed)
+e2e/.auth/
+
 # Sensitive files
 *.pem
 *.key

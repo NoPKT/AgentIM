@@ -10,6 +10,10 @@ import { test, expect } from '@playwright/test'
  * In CI, this is provided by the e2e job environment.
  */
 
+// These tests verify the login/logout flow, so they must start unauthenticated.
+// Override the project-level storageState so saved cookies are not loaded.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 const ADMIN_USER = process.env.E2E_ADMIN_USERNAME || 'admin'
 const ADMIN_PASS = process.env.E2E_ADMIN_PASSWORD || 'AdminPass123'
 

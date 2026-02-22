@@ -1,14 +1,17 @@
 import { test, expect } from '@playwright/test'
 
-const ADMIN_USER = process.env.E2E_ADMIN_USERNAME || 'admin'
-const ADMIN_PASS = process.env.E2E_ADMIN_PASSWORD || 'AdminPass123'
+/**
+ * Room management E2E tests.
+ *
+ * Authentication is provided by the global setup (storageState).
+ * On page load the app restores the session via the saved httpOnly
+ * refresh-token cookie — no extra /auth/login call is made here.
+ */
 
 test.describe('Room management', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login')
-    await page.getByRole('textbox', { name: /username/i }).fill(ADMIN_USER)
-    await page.getByRole('textbox', { name: /password/i }).fill(ADMIN_PASS)
-    await page.getByRole('button', { name: /log\s*in|sign\s*in/i }).click()
+    await page.goto('/')
+    // Session is restored via refresh-token cookie from storageState
     await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
 
@@ -43,8 +46,8 @@ test.describe('Room management', () => {
     }
     await firstRoom.click()
 
-    // Find the message input
-    const messageInput = page.getByRole('textbox', { name: /send message|type a message/i })
+    // Find the message input by its aria-label (t('chat.messageInputLabel') = "Message input")
+    const messageInput = page.getByRole('textbox', { name: /message input|send a message/i })
     await expect(messageInput).toBeVisible({ timeout: 5_000 })
     const testMessage = `e2e-msg-${Date.now()}`
     await messageInput.fill(testMessage)
