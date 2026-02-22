@@ -67,17 +67,14 @@ test.describe('App navigation', () => {
 })
 
 test.describe('Admin-only pages', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page)
-    await page.goto('/')
-    await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
-  })
-
   test('admin can access users page', async ({ page }) => {
+    // Login and navigate directly to /users — avoid double page.goto which
+    // triggers two token rotations and can fail under strict rotation + Secure cookies.
+    await loginAsAdmin(page)
     await page.goto('/users')
     await page.waitForLoadState('networkidle')
     // Admin should not be redirected
-    await expect(page).not.toHaveURL(/\/login/)
+    await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
     await expect(page.locator('body')).not.toContainText('Unauthorized')
   })
 })
