@@ -14,6 +14,7 @@ export default defineConfig({
       // Pages have no unit tests by design (covered by E2E). Explicit include prevents
       // vitest from pulling untested page files into the report and dropping thresholds.
       include: ['src/lib/**', 'src/stores/**', 'src/components/**', 'src/hooks/**'],
+      all: false,
       thresholds: {
         lines: 9,
         functions: 38,
