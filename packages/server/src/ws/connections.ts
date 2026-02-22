@@ -410,7 +410,7 @@ class ConnectionManager {
     msgType?: string,
     excludeWs?: WSContext,
   ) {
-    const type = msgType ?? ((JSON.parse(data) as { type?: string }).type ?? '')
+    const type = msgType ?? (JSON.parse(data) as { type?: string }).type ?? ''
     const failed: WSContext[] = []
     for (const client of this.getClientsInRoom(roomId)) {
       if (client.ws !== excludeWs) {

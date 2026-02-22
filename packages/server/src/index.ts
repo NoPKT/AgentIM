@@ -352,8 +352,11 @@ if (config.storageProvider === 's3') {
   app.get('/uploads/:filename', async (c) => {
     const filename = c.req.param('filename')
     try {
-      const { stream, contentType: s3ContentType, contentLength } =
-        await getStorage().readStream(filename)
+      const {
+        stream,
+        contentType: s3ContentType,
+        contentLength,
+      } = await getStorage().readStream(filename)
       const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
       const contentType = s3ContentType || MIME_LOOKUP[ext] || 'application/octet-stream'
       const headers: Record<string, string> = { 'Content-Type': contentType }
