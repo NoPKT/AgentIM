@@ -6,7 +6,15 @@ const log = createLogger('Redis')
 
 let redis: Redis | null = null
 
+/** Check if Redis is configured and enabled. */
+export function isRedisEnabled(): boolean {
+  return config.redisEnabled
+}
+
 export function getRedis(): Redis {
+  if (!isRedisEnabled()) {
+    throw new Error('Redis is not configured (REDIS_URL is not set)')
+  }
   if (!redis) {
     redis = new Redis(config.redisUrl, {
       maxRetriesPerRequest: 3,
@@ -32,6 +40,12 @@ export function getRedis(): Redis {
 
 /** Ensure Redis is reachable before the server starts accepting requests. */
 export async function ensureRedisConnected(retries = 3, delayMs = 1000): Promise<void> {
+  if (!isRedisEnabled()) {
+    log.info(
+      'Redis is not configured (REDIS_URL not set) — running in single-node mode with in-memory fallbacks.',
+    )
+    return
+  }
   const r = getRedis()
   for (let i = 0; i < retries; i++) {
     try {
@@ -49,7 +63,8 @@ export async function ensureRedisConnected(retries = 3, delayMs = 1000): Promise
 }
 
 /** Create a dedicated Redis connection for Pub/Sub (subscriber mode). */
-export function createRedisSubscriber(): Redis {
+export function createRedisSubscriber(): Redis | null {
+  if (!isRedisEnabled()) return null
   const sub = new Redis(config.redisUrl, {
     maxRetriesPerRequest: null, // subscriber connections must not timeout
     retryStrategy(times) {

@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
+import { getRedis, INCR_WITH_EXPIRE_LUA, isRedisEnabled } from '../lib/redis.js'
 import { config, getConfigSync } from '../config.js'
 import { createLogger } from '../lib/logger.js'
 
@@ -41,6 +41,19 @@ export function getClientIpFromRequest(c: Context): string {
 // Redis is highly available to avoid relying on this fallback in production.
 const memoryCounters = new Map<string, { count: number; resetAt: number }>()
 
+/** In-memory rate limit check. Returns true if the request should be rejected. */
+function memoryRateLimit(key: string, windowMs: number, maxRequests: number): boolean {
+  const now = Date.now()
+  const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
+  if (now > entry.resetAt) {
+    entry.count = 0
+    entry.resetAt = now + windowMs
+  }
+  entry.count++
+  memoryCounters.set(key, entry)
+  return entry.count > maxRequests
+}
+
 export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefix = 'api') {
   const isTest = process.env.NODE_ENV === 'test'
   const windowSec = Math.ceil(windowMs / 1000)
@@ -53,6 +66,15 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
 
     const ip = getClientIpFromRequest(c)
     const key = `rl:${prefix}:${ip}:${windowSec}`
+
+    if (!isRedisEnabled()) {
+      const limited = memoryRateLimit(key, windowMs, maxRequests)
+      if (limited) {
+        return c.json({ ok: false, error: 'Too many requests' }, 429)
+      }
+      await next()
+      return
+    }
 
     try {
       const redis = getRedis()
@@ -77,15 +99,8 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
           'counter, so the effective rate limit per IP is (maxRequests × number-of-processes). ' +
           'Ensure Redis is highly available to avoid this fallback in production.',
       )
-      const now = Date.now()
-      const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
-      if (now > entry.resetAt) {
-        entry.count = 0
-        entry.resetAt = now + windowMs
-      }
-      entry.count++
-      memoryCounters.set(key, entry)
-      if (entry.count > maxRequests) {
+      const limited = memoryRateLimit(key, windowMs, maxRequests)
+      if (limited) {
         return c.json({ ok: false, error: 'Too many requests' }, 429)
       }
     }

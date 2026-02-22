@@ -22,7 +22,8 @@ export const config = {
   port: Math.max(1, Math.min(65535, intEnv('PORT', 3000))),
   host: env('HOST', '0.0.0.0'),
   databaseUrl: env('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/agentim'),
-  redisUrl: env('REDIS_URL', 'redis://localhost:6379'),
+  redisUrl: process.env.REDIS_URL || '',
+  redisEnabled: !!process.env.REDIS_URL,
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
   jwtAccessExpiry: env('JWT_ACCESS_EXPIRY', '15m'),
   jwtRefreshExpiry: env('JWT_REFRESH_EXPIRY', '7d'),
@@ -102,8 +103,9 @@ if (isProduction) {
     process.exit(1)
   }
   if (!process.env.REDIS_URL) {
-    log.fatal('REDIS_URL must be set in production.')
-    process.exit(1)
+    log.warn(
+      'REDIS_URL is not set — Redis features (Pub/Sub, distributed caching, rate limiting) are disabled. This is only suitable for single-node deployments.',
+    )
   }
 }
 

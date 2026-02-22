@@ -3,7 +3,7 @@ import type Redis from 'ioredis'
 import { nanoid } from 'nanoid'
 import { WS_ERROR_CODES } from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
-import { getRedis, createRedisSubscriber } from '../lib/redis.js'
+import { getRedis, createRedisSubscriber, isRedisEnabled } from '../lib/redis.js'
 import { config, getConfigSync } from '../config.js'
 
 const log = createLogger('Connections')
@@ -525,8 +525,13 @@ class ConnectionManager {
   // ─── Redis Pub/Sub for horizontal scaling ───
 
   async initPubSub() {
+    if (!isRedisEnabled()) {
+      log.info('Redis is not configured — Pub/Sub disabled, running in single-node mode.')
+      return
+    }
     try {
       this.subscriber = createRedisSubscriber()
+      if (!this.subscriber) return
       await this.subscriber.connect()
 
       this.subscriber.on('pmessage', (_pattern: string, channel: string, raw: string) => {
@@ -559,7 +564,7 @@ class ConnectionManager {
   }
 
   private publish(channel: string, extra: Omit<PubSubPayload, 'n'>) {
-    if (!this.pubsubReady) return
+    if (!this.pubsubReady || !isRedisEnabled()) return
     const payload: PubSubPayload = { n: this.nodeId, ...extra }
     getRedis()
       .publish(channel, JSON.stringify(payload))

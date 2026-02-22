@@ -20,7 +20,7 @@ import { createLogger } from '../lib/logger.js'
 import { captureException } from '../lib/sentry.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
-import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
+import { getRedis, INCR_WITH_EXPIRE_LUA, isRedisEnabled } from '../lib/redis.js'
 import { config, getConfigSync } from '../config.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
@@ -55,17 +55,35 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
   }
 }
 
+// In-memory agent rate limit counters when Redis is not available
+const agentRateCounters = new Map<string, { count: number; resetAt: number }>()
+
 async function isAgentRateLimited(
   agentId: string,
   rateLimitWindow?: number,
   rateLimitMax?: number,
 ): Promise<boolean> {
+  const windowSec = rateLimitWindow ?? config.agentRateLimitWindow
+  const max = rateLimitMax ?? config.agentRateLimitMax
+
+  if (!isRedisEnabled()) {
+    const key = `ws:agent_rate:${agentId}`
+    const now = Date.now()
+    const windowMs = windowSec * 1000
+    const entry = agentRateCounters.get(key)
+    if (!entry || now > entry.resetAt) {
+      agentRateCounters.set(key, { count: 1, resetAt: now + windowMs })
+      return false
+    }
+    entry.count++
+    return entry.count > max
+  }
+
   try {
     const redis = getRedis()
     const key = `ws:agent_rate:${agentId}`
-    const windowSec = rateLimitWindow ?? config.agentRateLimitWindow
     const count = (await redis.eval(INCR_WITH_EXPIRE_LUA, 1, key, windowSec)) as number
-    return count > (rateLimitMax ?? config.agentRateLimitMax)
+    return count > max
   } catch {
     log.warn('Redis unavailable for agent rate limiting, rejecting request (fail-closed)')
     return true
@@ -841,15 +859,19 @@ async function routeAgentToAgent(
   // 2. Redis visited set for loop detection (with in-memory fallback)
   const visitedKey = `conv:${conversationId}:visited`
   const VISITED_TTL = 300 // 5 minutes
-  let useRedis = true
+  let useRedis = isRedisEnabled()
 
   // Add sender to visited set
-  try {
-    const redis = getRedis()
-    await redis.sadd(visitedKey, senderAgentId)
-    await redis.expire(visitedKey, VISITED_TTL)
-  } catch {
-    useRedis = false
+  if (useRedis) {
+    try {
+      const redis = getRedis()
+      await redis.sadd(visitedKey, senderAgentId)
+      await redis.expire(visitedKey, VISITED_TTL)
+    } catch {
+      useRedis = false
+      fallbackSadd(visitedKey, senderAgentId, VISITED_TTL)
+    }
+  } else {
     fallbackSadd(visitedKey, senderAgentId, VISITED_TTL)
   }
 

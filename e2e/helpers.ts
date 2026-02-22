@@ -18,3 +18,18 @@ export async function loginAsAdmin(page: Page) {
     throw new Error(`Login failed: ${res.status()} ${await res.text()}`)
   }
 }
+
+/**
+ * Get an access token by calling the login API directly.
+ * Returns the raw accessToken string for WebSocket auth testing.
+ */
+export async function getAccessToken(page: Page): Promise<string> {
+  const res = await page.request.post('/api/auth/login', {
+    data: { username: ADMIN_USER, password: ADMIN_PASS },
+  })
+  if (!res.ok()) {
+    throw new Error(`Login failed: ${res.status()} ${await res.text()}`)
+  }
+  const body = (await res.json()) as { accessToken: string }
+  return body.accessToken
+}

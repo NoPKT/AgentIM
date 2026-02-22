@@ -1,4 +1,4 @@
-import { getRedis } from './redis.js'
+import { getRedis, isRedisEnabled } from './redis.js'
 import { createLogger } from './logger.js'
 import { config } from '../config.js'
 
@@ -31,25 +31,33 @@ function parseDurationToSeconds(duration: string): number {
 
 const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
 
+// In-memory revocation map: userId → revokedAtMs
+// Only used when Redis is not available. Not persistent — revocations are lost
+// on restart, but access tokens have a short TTL (default 15m) so the window
+// of vulnerability is bounded.
+const memoryRevocations = new Map<string, number>()
+
 /**
  * Mark all access tokens issued before now as revoked for a user.
  * Called on logout or password change.
  *
- * Throws if Redis is unavailable — callers must handle this and return an
- * appropriate error response rather than silently allowing stale tokens.
+ * Throws if Redis is unavailable (when configured) — callers must handle this
+ * and return an appropriate error response rather than silently allowing stale tokens.
  *
- * Note: this function and isTokenRevoked() are intentionally asymmetric:
- * - revokeUserTokens (write path): fail-closed — throws on Redis failure,
- *   ensuring logout/password-change always produces a visible error rather
- *   than silently succeeding with stale tokens still active.
- * - isTokenRevoked (read path): fail-open — returns false on Redis failure,
- *   preventing a Redis outage from DoS-ing all authenticated users.
- * This asymmetry is a deliberate security/availability trade-off: the worst
- * case of fail-open on reads is that a revoked token remains valid until it
- * expires naturally (bounded by JWT_ACCESS_EXPIRY), which is acceptable
- * compared to a complete service outage.
+ * When Redis is not configured, falls back to in-memory storage with a warning.
  */
 export async function revokeUserTokens(userId: string): Promise<void> {
+  // Always store in memory (dual-layer when Redis is available)
+  memoryRevocations.set(userId, Date.now())
+
+  if (!isRedisEnabled()) {
+    log.warn(
+      `Token revocation for user ${userId} stored in memory only (Redis not configured). ` +
+        `Revocation will be lost on server restart, but tokens expire within ${config.jwtAccessExpiry}.`,
+    )
+    return
+  }
+
   try {
     const redis = getRedis()
     const key = `revoked:${userId}`
@@ -65,6 +73,12 @@ export async function revokeUserTokens(userId: string): Promise<void> {
  * Returns true if revoked.
  */
 export async function isTokenRevoked(userId: string, iatMs: number): Promise<boolean> {
+  // Check in-memory first (always available, covers no-Redis case)
+  const memoryRevokedAt = memoryRevocations.get(userId)
+  if (memoryRevokedAt && iatMs < memoryRevokedAt) return true
+
+  if (!isRedisEnabled()) return false
+
   try {
     const redis = getRedis()
     const key = `revoked:${userId}`

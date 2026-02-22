@@ -17,7 +17,7 @@ import { config, getConfigSync } from '../config.js'
 import { db } from '../db/index.js'
 import { messages, rooms, roomMembers, agents, messageAttachments, users } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
-import { getRedis } from '../lib/redis.js'
+import { getRedis, isRedisEnabled } from '../lib/redis.js'
 import { selectAgents } from '../lib/routerLlm.js'
 import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
@@ -39,18 +39,34 @@ const wsAuthAttempts = new WeakMap<object, number>()
 const MAX_JSON_DEPTH = 10
 
 // ─── Room Membership Cache ───
-// Short-lived Redis cache keyed by `rm:<userId>:<roomId>` with TTL 60s.
+// Short-lived cache keyed by `rm:<userId>:<roomId>` with TTL 60s.
 // Reduces DB lookups for repeated handleJoinRoom calls (e.g. page refreshes).
 // Cache is invalidated (key deleted) whenever the HTTP API adds or removes members.
 const ROOM_MEMBER_CACHE_TTL = 60 // seconds
+
+// In-memory membership cache fallback when Redis is not available
+const membershipMemoryCache = new Map<string, { value: string; expiresAt: number }>()
 
 async function getCachedMembership(
   userId: string,
   roomId: string,
 ): Promise<'member' | 'creator' | 'none' | null> {
+  const key = `rm:${userId}:${roomId}`
+
+  if (!isRedisEnabled()) {
+    const entry = membershipMemoryCache.get(key)
+    if (!entry || Date.now() > entry.expiresAt) {
+      membershipMemoryCache.delete(key)
+      return null
+    }
+    const val = entry.value
+    if (val === 'member' || val === 'creator' || val === 'none') return val
+    return null
+  }
+
   try {
     const redis = getRedis()
-    const val = await redis.get(`rm:${userId}:${roomId}`)
+    const val = await redis.get(key)
     if (val === 'member' || val === 'creator' || val === 'none') return val
     return null
   } catch {
@@ -63,9 +79,19 @@ async function setCachedMembership(
   roomId: string,
   status: 'member' | 'creator' | 'none',
 ): Promise<void> {
+  const key = `rm:${userId}:${roomId}`
+
+  if (!isRedisEnabled()) {
+    membershipMemoryCache.set(key, {
+      value: status,
+      expiresAt: Date.now() + ROOM_MEMBER_CACHE_TTL * 1000,
+    })
+    return
+  }
+
   try {
     const redis = getRedis()
-    await redis.set(`rm:${userId}:${roomId}`, status, 'EX', ROOM_MEMBER_CACHE_TTL)
+    await redis.set(key, status, 'EX', ROOM_MEMBER_CACHE_TTL)
   } catch {
     // Cache write failure is non-fatal
   }
@@ -76,9 +102,16 @@ async function setCachedMembership(
  * Call this from HTTP route handlers whenever members are added or removed.
  */
 export async function invalidateMembershipCache(userId: string, roomId: string): Promise<void> {
+  const key = `rm:${userId}:${roomId}`
+
+  // Always clear memory cache
+  membershipMemoryCache.delete(key)
+
+  if (!isRedisEnabled()) return
+
   try {
     const redis = getRedis()
-    await redis.del(`rm:${userId}:${roomId}`)
+    await redis.del(key)
   } catch {
     // Non-fatal — cache will expire on its own within ROOM_MEMBER_CACHE_TTL
   }
@@ -132,9 +165,25 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
 // Process-local: effective limit is (max × number-of-processes) in multi-process deployments.
 const wsMemoryCounters = new Map<string, { count: number; resetAt: number }>()
 
+function wsMemoryRateLimit(userId: string, window: number, max: number): boolean {
+  const now = Date.now()
+  const windowMs = window * 1000
+  const entry = wsMemoryCounters.get(userId)
+  if (!entry || now > entry.resetAt) {
+    wsMemoryCounters.set(userId, { count: 1, resetAt: now + windowMs })
+    return false
+  }
+  entry.count++
+  return entry.count > max
+}
+
 async function isRateLimited(userId: string): Promise<boolean> {
   const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
   const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
+
+  if (!isRedisEnabled()) {
+    return wsMemoryRateLimit(userId, window, max)
+  }
 
   try {
     const redis = getRedis()
@@ -144,15 +193,7 @@ async function isRateLimited(userId: string): Promise<boolean> {
   } catch {
     // Redis unavailable — fallback to in-memory rate limiting (fail-open degradation)
     log.warn('Redis unavailable for WS rate limiting, using in-memory fallback')
-    const now = Date.now()
-    const windowMs = window * 1000
-    const entry = wsMemoryCounters.get(userId)
-    if (!entry || now > entry.resetAt) {
-      wsMemoryCounters.set(userId, { count: 1, resetAt: now + windowMs })
-      return false
-    }
-    entry.count++
-    return entry.count > max
+    return wsMemoryRateLimit(userId, window, max)
   }
 }
 
@@ -698,18 +739,28 @@ async function routeToAgents(
   }
 }
 
+// In-memory typing debounce when Redis is not available
+const typingDebounceMemory = new Map<string, number>()
+
 async function handleTyping(ws: WSContext, roomId: string) {
   const client = connectionManager.getClient(ws)
   if (!client || !client.joinedRooms.has(roomId)) return
 
   // Debounce typing events: max 1 per second per user per room
-  try {
-    const redis = getRedis()
-    const key = `ws:typing:${client.userId}:${roomId}`
-    const allowed = await redis.set(key, '1', 'EX', 1, 'NX')
-    if (!allowed) return // Already sent recently, silently drop
-  } catch {
-    // Redis unavailable, allow through
+  if (!isRedisEnabled()) {
+    const debounceKey = `${client.userId}:${roomId}`
+    const lastSent = typingDebounceMemory.get(debounceKey) ?? 0
+    if (Date.now() - lastSent < 1000) return
+    typingDebounceMemory.set(debounceKey, Date.now())
+  } else {
+    try {
+      const redis = getRedis()
+      const key = `ws:typing:${client.userId}:${roomId}`
+      const allowed = await redis.set(key, '1', 'EX', 1, 'NX')
+      if (!allowed) return // Already sent recently, silently drop
+    } catch {
+      // Redis unavailable, allow through
+    }
   }
 
   connectionManager.broadcastToRoom(

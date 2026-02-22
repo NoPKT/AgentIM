@@ -20,7 +20,7 @@ const log = createLogger('Server')
 await initSentry()
 import { apiRateLimit, wsUpgradeRateLimit } from './middleware/rateLimit.js'
 import { migrate, closeDb, db } from './db/index.js'
-import { closeRedis, getRedis, ensureRedisConnected } from './lib/redis.js'
+import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
@@ -233,12 +233,15 @@ app.get('/api/health', async (c) => {
     checks.database = false
   }
 
-  try {
-    await getRedis().ping()
-    checks.redis = true
-  } catch {
-    checks.redis = false
+  if (isRedisEnabled()) {
+    try {
+      await getRedis().ping()
+      checks.redis = true
+    } catch {
+      checks.redis = false
+    }
   }
+  // When Redis is not configured, omit it from health checks entirely
 
   if (config.storageProvider === 'local') {
     try {
