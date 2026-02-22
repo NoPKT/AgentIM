@@ -95,8 +95,12 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
 }
 
 // Presets
-/** Auth endpoints: 10 requests per minute */
-export const authRateLimit = rateLimitMiddleware(60_000, 10, 'auth')
+/** Auth login endpoint: 20 requests per minute per IP.
+ *  Primary brute-force protection is the 5-attempt account lockout (15 min).
+ *  This rate limit provides a secondary per-IP throttle. 20/min allows E2E
+ *  test suites to run without exhausting the limit while still blocking
+ *  automated credential-stuffing attacks. */
+export const authRateLimit = rateLimitMiddleware(60_000, 20, 'auth')
 /** General API: 120 requests per minute */
 export const apiRateLimit = rateLimitMiddleware(60_000, 120, 'api')
 /** Sensitive endpoints: 5 requests per minute */
