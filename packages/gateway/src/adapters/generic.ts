@@ -17,12 +17,15 @@ const UNSAFE_COMMAND_PATTERN = /[;&|`${}[\]<>!#~*?\n\r]/
 export interface GenericAdapterOptions extends AdapterOptions {
   command: string
   args?: string[]
+  /** How to pass the prompt to the child process. Default: 'stdin' (safer, no length limit). */
+  promptVia?: 'arg' | 'stdin'
 }
 
 export class GenericAdapter extends SpawnAgentAdapter {
   private process: ChildProcess | null = null
   private command: string
   private cmdArgs: string[]
+  private promptVia: 'arg' | 'stdin'
 
   constructor(opts: GenericAdapterOptions) {
     super(opts)
@@ -36,6 +39,7 @@ export class GenericAdapter extends SpawnAgentAdapter {
 
     this.command = cmd
     this.cmdArgs = opts.args ?? []
+    this.promptVia = opts.promptVia ?? 'stdin'
   }
 
   get type() {
@@ -69,16 +73,22 @@ export class GenericAdapter extends SpawnAgentAdapter {
     }
 
     const prompt = this.buildPrompt(content, context)
-    const args = [...this.cmdArgs, prompt]
+    const useStdin = this.promptVia === 'stdin'
+    const args = useStdin ? [...this.cmdArgs] : [...this.cmdArgs, prompt]
     const proc = spawn(this.command, args, {
       cwd: this.workingDirectory,
       env: { ...getSafeEnv(this.passEnv), ...this.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
+      stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
     })
 
     this.process = proc
     this.startProcessTimer(proc)
+
+    // Write prompt via stdin to avoid shell injection and argument length limits
+    if (useStdin && proc.stdin) {
+      proc.stdin.write(prompt)
+      proc.stdin.end()
+    }
 
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()

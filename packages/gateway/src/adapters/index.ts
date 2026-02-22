@@ -14,7 +14,7 @@ import type { BaseAgentAdapter } from './base.js'
 
 export function createAdapter(
   type: string,
-  opts: AdapterOptions & { command?: string; args?: string[] },
+  opts: AdapterOptions & { command?: string; args?: string[]; promptVia?: 'arg' | 'stdin' },
 ): BaseAgentAdapter {
   switch (type) {
     case 'claude-code':
@@ -24,7 +24,11 @@ export function createAdapter(
     case 'gemini':
       return new GeminiAdapter(opts)
     case 'generic':
-      return new GenericAdapter({ ...opts, command: opts.command ?? 'echo' })
+      return new GenericAdapter({
+        ...opts,
+        command: opts.command ?? 'echo',
+        promptVia: opts.promptVia,
+      })
     default:
       throw new Error(`Unknown adapter type: ${type}`)
   }

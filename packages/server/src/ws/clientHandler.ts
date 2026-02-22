@@ -21,6 +21,7 @@ import { getRedis } from '../lib/redis.js'
 import { selectAgents } from '../lib/routerLlm.js'
 import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
+import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 
 const log = createLogger('ClientHandler')
 
@@ -570,6 +571,24 @@ async function handleSendMessage(
     type: 'server:new_message',
     message,
   })
+
+  // Send push notifications to offline room members
+  if (isWebPushEnabled()) {
+    const userMembers = await db
+      .select({ memberId: roomMembers.memberId })
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberType, 'user')))
+
+    for (const member of userMembers) {
+      if (member.memberId === client.userId) continue
+      if (connectionManager.isUserOnline(member.memberId)) continue
+      sendPushToUser(member.memberId, {
+        title: client.username,
+        body: content.length > 200 ? content.slice(0, 200) + '...' : content,
+        data: { roomId, messageId: id },
+      }).catch(() => {})
+    }
+  }
 
   // Route to agents based on server-parsed mentions and broadcast mode
   await routeToAgents(txResult.room, message, serverParsedMentions)

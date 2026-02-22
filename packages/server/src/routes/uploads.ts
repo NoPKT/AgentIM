@@ -182,7 +182,7 @@ uploadRoutes.post('/avatar', async (c) => {
   }
 
   const ext = MIME_TO_EXT[file.type] || extname(file.name) || '.jpg'
-  const storedFilename = `avatar_${userId}${ext}`
+  const storedFilename = `avatar_${userId}_${Date.now()}${ext}`
 
   // Remove previous avatar files with different extensions to prevent storage leakage
   const prefix = `avatar_${userId}`

@@ -24,6 +24,7 @@ import { getRedis, INCR_WITH_EXPIRE_LUA } from '../lib/redis.js'
 import { config, getConfigSync } from '../config.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
+import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 
 const log = createLogger('GatewayHandler')
 
@@ -567,6 +568,25 @@ async function handleMessageComplete(
     type: 'server:message_complete',
     message,
   })
+
+  // Send push notifications to offline room members
+  if (isWebPushEnabled()) {
+    const userMembers = await db
+      .select({ memberId: roomMembers.memberId })
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, msg.roomId), eq(roomMembers.memberType, 'user')))
+
+    for (const member of userMembers) {
+      if (connectionManager.isUserOnline(member.memberId)) continue
+      const body =
+        msg.fullContent.length > 200 ? msg.fullContent.slice(0, 200) + '...' : msg.fullContent
+      sendPushToUser(member.memberId, {
+        title: agentName,
+        body,
+        data: { roomId: msg.roomId, messageId: msg.messageId },
+      }).catch(() => {})
+    }
+  }
 
   // Update agent status back to online
   await db

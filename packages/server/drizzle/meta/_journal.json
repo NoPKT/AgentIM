@@ -169,6 +169,13 @@
       "when": 1771776712019,
       "tag": "0023_jittery_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1771779563296,
+      "tag": "0024_lush_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

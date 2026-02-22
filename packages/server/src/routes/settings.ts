@@ -79,6 +79,16 @@ settingsRoutes.put('/', async (c) => {
     }
   }
 
+  // Reinitialize Web Push when VAPID settings change
+  if (updated.some((k) => k.startsWith('push.vapid'))) {
+    try {
+      const { initWebPush } = await import('../lib/webPush.js')
+      await initWebPush()
+    } catch (err) {
+      log.warn(`Failed to reinit Web Push: ${(err as Error).message}`)
+    }
+  }
+
   if (errors.length > 0) {
     return c.json({ ok: false, error: errors.join('; '), data: { updated } }, 400)
   }

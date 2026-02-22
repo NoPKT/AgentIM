@@ -33,6 +33,14 @@ export default defineConfig({
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
+            urlPattern: /^\/uploads\/avatar_/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'avatar-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+          {
             urlPattern: /^\/uploads\//,
             handler: 'CacheFirst',
             options: {

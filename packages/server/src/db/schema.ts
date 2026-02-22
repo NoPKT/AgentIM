@@ -313,6 +313,26 @@ export const settings = pgTable('settings', {
   updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
 })
 
+// ─── Push Subscriptions ───
+
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: ts('created_at').notNull(),
+  },
+  (table) => [
+    index('push_subscriptions_user_idx').on(table.userId),
+    uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint),
+  ],
+)
+
 // ─── Audit Logs ───
 
 export const auditLogs = pgTable(

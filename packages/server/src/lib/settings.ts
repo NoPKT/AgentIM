@@ -35,6 +35,7 @@ export type SettingGroup =
   | 'rateLimit'
   | 'connections'
   | 'aiRouter'
+  | 'pushNotifications'
   | 'maintenance'
 
 // ─── Settings Registry ───
@@ -302,6 +303,33 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     max: 100,
     labelKey: 'adminSettings.maxChainDepth',
     descKey: 'adminSettings.maxChainDepthDesc',
+  },
+
+  // Push Notifications (VAPID)
+  {
+    key: 'push.vapidPublicKey',
+    group: 'pushNotifications',
+    type: 'string',
+    defaultValue: '',
+    labelKey: 'adminSettings.vapidPublicKey',
+    descKey: 'adminSettings.vapidPublicKeyDesc',
+  },
+  {
+    key: 'push.vapidPrivateKey',
+    group: 'pushNotifications',
+    type: 'string',
+    sensitive: true,
+    defaultValue: '',
+    labelKey: 'adminSettings.vapidPrivateKey',
+    descKey: 'adminSettings.vapidPrivateKeyDesc',
+  },
+  {
+    key: 'push.vapidSubject',
+    group: 'pushNotifications',
+    type: 'string',
+    defaultValue: 'mailto:noreply@agentim.app',
+    labelKey: 'adminSettings.vapidSubject',
+    descKey: 'adminSettings.vapidSubjectDesc',
   },
 
   // Maintenance

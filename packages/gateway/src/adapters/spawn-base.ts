@@ -45,6 +45,7 @@ const SENSITIVE_ENV_KEYS = new Set([
   'SLACK_BOT_TOKEN',
   'SLACK_APP_TOKEN',
   'SLACK_SIGNING_SECRET',
+  'VAPID_PRIVATE_KEY',
 ])
 
 const SENSITIVE_ENV_PREFIXES = [
@@ -167,7 +168,6 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
       cwd: this.workingDirectory,
       env: { ...getSafeEnv(this.passEnv), ...this.env },
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     })
 
     this.startProcessTimer(proc)

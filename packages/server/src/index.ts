@@ -36,6 +36,8 @@ import { settingsRoutes } from './routes/settings.js'
 import { connectionManager } from './ws/connections.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
+import { pushRoutes } from './routes/push.js'
+import { initWebPush } from './lib/webPush.js'
 
 // Verify Redis connectivity before proceeding
 await ensureRedisConnected()
@@ -129,6 +131,9 @@ async function seedAdmin() {
 }
 
 await seedAdmin()
+
+// Initialize Web Push (no-op if VAPID keys are not configured in admin settings)
+await initWebPush()
 
 // Ensure upload directory exists (local storage only)
 const uploadDir = resolve(config.uploadDir)
@@ -347,6 +352,7 @@ app.route('/api/upload', uploadRoutes)
 app.route('/api/routers', routerRoutes)
 app.route('/api/docs', docsRoutes)
 app.route('/api/admin/settings', settingsRoutes)
+app.route('/api/push', pushRoutes)
 
 // Auth guard for uploaded files: require a valid JWT (Bearer header or ?token= query param).
 // This prevents unauthenticated access to uploaded files.

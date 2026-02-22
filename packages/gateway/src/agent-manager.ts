@@ -32,6 +32,7 @@ export class AgentManager {
     workingDirectory?: string
     command?: string
     args?: string[]
+    promptVia?: 'arg' | 'stdin'
     capabilities?: string[]
     env?: Record<string, string>
     passEnv?: string[]
@@ -45,6 +46,7 @@ export class AgentManager {
         workingDirectory: opts.workingDirectory,
         command: opts.command,
         args: opts.args,
+        promptVia: opts.promptVia,
         env: opts.env,
         passEnv: opts.passEnv,
       })

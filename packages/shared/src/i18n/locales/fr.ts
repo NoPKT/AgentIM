@@ -285,6 +285,12 @@ export const fr = {
     roleAdmin: 'Administrateur',
     roleUser: 'Utilisateur',
     noUsers: 'Aucun utilisateur trouvé',
+    pushNotifications: 'Notifications push',
+    pushNotificationsDesc:
+      "Recevez des notifications même lorsque l'application est fermée ou en arrière-plan",
+    pushEnabled: 'Notifications push activées',
+    pushDisabled: 'Notifications push désactivées',
+    pushFailed: 'Échec de la configuration des notifications push',
     about: 'À propos',
     version: 'Version',
   },
@@ -366,6 +372,7 @@ export const fr = {
     groupRateLimit: 'Limitation de débit',
     groupConnections: 'Limites de connexion',
     groupAiRouter: 'Routeur IA',
+    groupPushNotifications: 'Notifications push',
     groupMaintenance: 'Maintenance',
     corsOrigin: 'Origine CORS',
     corsOriginDesc:
@@ -435,6 +442,14 @@ export const fr = {
       'Intervalle en millisecondes entre les exécutions de nettoyage des jetons expirés.',
     sentryDsn: 'DSN Sentry',
     sentryDsnDesc: 'DSN de suivi des erreurs Sentry. Laisser vide pour désactiver.',
+    vapidPublicKey: 'Clé publique VAPID',
+    vapidPublicKeyDesc:
+      'Clé publique pour Web Push (VAPID). Générer avec : npx web-push generate-vapid-keys',
+    vapidPrivateKey: 'Clé privée VAPID',
+    vapidPrivateKeyDesc: 'Clé privée pour Web Push (VAPID). Gardez-la secrète.',
+    vapidSubject: 'Sujet VAPID',
+    vapidSubjectDesc:
+      'URI de contact pour le service push (ex. mailto:admin@example.com). Requis par le protocole Web Push.',
     sourceDb: 'Base de données',
     sourceEnv: "Variable d'environnement",
     sourceDefault: 'Par défaut',

@@ -11,6 +11,7 @@ const GROUP_ORDER = [
   'rateLimit',
   'connections',
   'aiRouter',
+  'pushNotifications',
   'maintenance',
 ] as const
 
@@ -21,6 +22,7 @@ const GROUP_LABEL_KEYS: Record<string, string> = {
   rateLimit: 'adminSettings.groupRateLimit',
   connections: 'adminSettings.groupConnections',
   aiRouter: 'adminSettings.groupAiRouter',
+  pushNotifications: 'adminSettings.groupPushNotifications',
   maintenance: 'adminSettings.groupMaintenance',
 }
 

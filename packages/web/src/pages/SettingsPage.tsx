@@ -10,6 +10,7 @@ import {
   setNotificationPreference,
   requestNotificationPermission,
 } from '../lib/notifications.js'
+import { usePushNotifications } from '../hooks/usePushNotifications.js'
 import { toast } from '../stores/toast.js'
 import { Button, Input, FormField } from '../components/ui.js'
 import { RouterFormDialog } from '../components/RouterFormDialog.js'
@@ -23,6 +24,14 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState(user?.displayName || '')
   const [isSaving, setIsSaving] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(getNotificationPreference())
+
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    subscribe: pushSubscribe,
+    unsubscribe: pushUnsubscribe,
+  } = usePushNotifications()
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -538,6 +547,47 @@ export default function SettingsPage() {
                   />
                 </button>
               </div>
+
+              {pushSupported && (
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">
+                      {t('settings.pushNotifications')}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {t('settings.pushNotificationsDesc')}
+                    </p>
+                  </div>
+                  <button
+                    disabled={pushLoading}
+                    onClick={async () => {
+                      try {
+                        if (pushSubscribed) {
+                          await pushUnsubscribe()
+                          toast.success(t('settings.pushDisabled'))
+                        } else {
+                          await pushSubscribe()
+                          toast.success(t('settings.pushEnabled'))
+                        }
+                      } catch {
+                        toast.error(t('settings.pushFailed'))
+                      }
+                    }}
+                    className={`
+                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                      ${pushSubscribed ? 'bg-accent' : 'bg-surface-hover'}
+                      ${pushLoading ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
+                    <span
+                      className={`
+                        inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
+                        ${pushSubscribed ? 'translate-x-6' : 'translate-x-1'}
+                      `}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

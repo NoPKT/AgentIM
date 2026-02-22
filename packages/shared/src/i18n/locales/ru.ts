@@ -284,6 +284,12 @@ export const ru = {
     roleAdmin: 'Администратор',
     roleUser: 'Пользователь',
     noUsers: 'Пользователи не найдены',
+    pushNotifications: 'Push-уведомления',
+    pushNotificationsDesc:
+      'Получайте уведомления, даже когда приложение закрыто или в фоновом режиме',
+    pushEnabled: 'Push-уведомления включены',
+    pushDisabled: 'Push-уведомления отключены',
+    pushFailed: 'Не удалось настроить push-уведомления',
     about: 'О программе',
     version: 'Версия',
   },
@@ -364,6 +370,7 @@ export const ru = {
     groupRateLimit: 'Ограничение частоты',
     groupConnections: 'Лимиты подключений',
     groupAiRouter: 'ИИ-маршрутизатор',
+    groupPushNotifications: 'Push-уведомления',
     groupMaintenance: 'Обслуживание',
     corsOrigin: 'Источник CORS',
     corsOriginDesc:
@@ -429,6 +436,14 @@ export const ru = {
     tokenIntervalDesc: 'Интервал в миллисекундах между запусками очистки истёкших токенов.',
     sentryDsn: 'DSN Sentry',
     sentryDsnDesc: 'DSN для отслеживания ошибок Sentry. Оставьте пустым для отключения.',
+    vapidPublicKey: 'Публичный ключ VAPID',
+    vapidPublicKeyDesc:
+      'Публичный ключ для Web Push (VAPID). Сгенерируйте: npx web-push generate-vapid-keys',
+    vapidPrivateKey: 'Приватный ключ VAPID',
+    vapidPrivateKeyDesc: 'Приватный ключ для Web Push (VAPID). Храните в секрете.',
+    vapidSubject: 'Тема VAPID',
+    vapidSubjectDesc:
+      'URI контакта для push-сервиса (напр. mailto:admin@example.com). Требуется протоколом Web Push.',
     sourceDb: 'База данных',
     sourceEnv: 'Переменная окружения',
     sourceDefault: 'По умолчанию',

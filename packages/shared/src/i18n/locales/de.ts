@@ -286,6 +286,12 @@ export const de = {
     roleAdmin: 'Admin',
     roleUser: 'Benutzer',
     noUsers: 'Keine Benutzer gefunden',
+    pushNotifications: 'Push-Benachrichtigungen',
+    pushNotificationsDesc:
+      'Erhalte Benachrichtigungen auch wenn die App geschlossen oder im Hintergrund ist',
+    pushEnabled: 'Push-Benachrichtigungen aktiviert',
+    pushDisabled: 'Push-Benachrichtigungen deaktiviert',
+    pushFailed: 'Konfiguration der Push-Benachrichtigungen fehlgeschlagen',
     about: 'Über',
     version: 'Version',
   },
@@ -365,6 +371,7 @@ export const de = {
     groupRateLimit: 'Ratenbegrenzung',
     groupConnections: 'Verbindungslimits',
     groupAiRouter: 'KI-Router',
+    groupPushNotifications: 'Push-Benachrichtigungen',
     groupMaintenance: 'Wartung',
     corsOrigin: 'CORS-Ursprung',
     corsOriginDesc:
@@ -428,6 +435,14 @@ export const de = {
       'Intervall in Millisekunden zwischen den Bereinigungsläufen abgelaufener Token.',
     sentryDsn: 'Sentry-DSN',
     sentryDsnDesc: 'Sentry-Fehlerverfolgung-DSN. Leer lassen zum Deaktivieren.',
+    vapidPublicKey: 'VAPID öffentlicher Schlüssel',
+    vapidPublicKeyDesc:
+      'Öffentlicher Schlüssel für Web Push (VAPID). Generieren mit: npx web-push generate-vapid-keys',
+    vapidPrivateKey: 'VAPID privater Schlüssel',
+    vapidPrivateKeyDesc: 'Privater Schlüssel für Web Push (VAPID). Geheim halten.',
+    vapidSubject: 'VAPID-Betreff',
+    vapidSubjectDesc:
+      'Kontakt-URI für den Push-Dienst (z.B. mailto:admin@example.com). Vom Web-Push-Protokoll vorgeschrieben.',
     sourceDb: 'Datenbank',
     sourceEnv: 'Umgebungsvariable',
     sourceDefault: 'Standard',
