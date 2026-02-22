@@ -133,14 +133,14 @@ importers:
         specifier: ^3.13.0
         version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@xterm/addon-fit':
-        specifier: ^0.10.0
-        version: 0.10.0(@xterm/xterm@5.5.0)
+        specifier: ^0.11.0
+        version: 0.11.0
       '@xterm/xterm':
-        specifier: ^5.5.0
-        version: 5.5.0
+        specifier: ^6.0.0
+        version: 6.0.0
       i18next:
-        specifier: ^24.2.0
-        version: 24.2.3(typescript@5.9.3)
+        specifier: ^25.8.0
+        version: 25.8.13(typescript@5.9.3)
       i18next-browser-languagedetector:
         specifier: ^8.0.0
         version: 8.2.1
@@ -154,8 +154,8 @@ importers:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
       react-i18next:
-        specifier: ^15.4.0
-        version: 15.7.4(i18next@24.2.3(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        specifier: ^16.5.0
+        version: 16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.14)(react@19.2.4)
@@ -176,7 +176,7 @@ importers:
         version: 3.5.0
       zustand:
         specifier: ^5.0.0
-        version: 5.0.11(@types/react@19.2.14)(react@19.2.4)
+        version: 5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.0.0
@@ -1855,13 +1855,11 @@ packages:
   '@vitest/utils@4.0.18':
     resolution: {integrity: sha512-msMRKLMVLWygpK3u2Hybgi4MNjcYJvwTb0Ru09+fOyCXIgT5raYP041DRRdiJiI3k/2U6SEbAETB3YtBrUkCFA==}
 
-  '@xterm/addon-fit@0.10.0':
-    resolution: {integrity: sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ==}
-    peerDependencies:
-      '@xterm/xterm': ^5.0.0
+  '@xterm/addon-fit@0.11.0':
+    resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
 
-  '@xterm/xterm@5.5.0':
-    resolution: {integrity: sha512-hqJHYaQb5OptNunnyAnkHyM8aCjZ1MEIDTQu1iIbbTD/xops91NB5yq1ZK/dC2JDbVWtF23zUtl9JE2NqwT87A==}
+  '@xterm/xterm@6.0.0':
+    resolution: {integrity: sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg==}
 
   acorn@8.16.0:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
@@ -2525,8 +2523,8 @@ packages:
   i18next-browser-languagedetector@8.2.1:
     resolution: {integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==}
 
-  i18next@24.2.3:
-    resolution: {integrity: sha512-lfbf80OzkocvX7nmZtu7nSTNbrTYR52sLWxPtlXX1zAhVw8WEnFk4puUkCR4B1dNQwbSpEHHHemcZu//7EcB7A==}
+  i18next@25.8.13:
+    resolution: {integrity: sha512-E0vzjBY1yM+nsFrtgkjLhST2NBkirkvOVoQa0MSldhsuZ3jUge7ZNpuwG0Cfc74zwo5ZwRzg3uOgT+McBn32iA==}
     peerDependencies:
       typescript: ^5
     peerDependenciesMeta:
@@ -3254,10 +3252,10 @@ packages:
     peerDependencies:
       react: ^19.2.4
 
-  react-i18next@15.7.4:
-    resolution: {integrity: sha512-nyU8iKNrI5uDJch0z9+Y5XEr34b0wkyYj3Rp+tfbahxtlswxSCjcUL9H0nqXo9IR3/t5Y5PKIA3fx3MfUyR9Xw==}
+  react-i18next@16.5.4:
+    resolution: {integrity: sha512-6yj+dcfMncEC21QPhOTsW8mOSO+pzFmT6uvU7XXdvM/Cp38zJkmTeMeKmTrmCMD5ToT79FmiE/mRWiYWcJYW4g==}
     peerDependencies:
-      i18next: '>= 23.4.0'
+      i18next: '>= 25.6.2'
       react: '>= 16.8.0'
       react-dom: '*'
       react-native: '*'
@@ -3795,6 +3793,11 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
+
+  use-sync-external-store@1.6.0:
+    resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -6156,11 +6159,9 @@ snapshots:
       '@vitest/pretty-format': 4.0.18
       tinyrainbow: 3.0.3
 
-  '@xterm/addon-fit@0.10.0(@xterm/xterm@5.5.0)':
-    dependencies:
-      '@xterm/xterm': 5.5.0
+  '@xterm/addon-fit@0.11.0': {}
 
-  '@xterm/xterm@5.5.0': {}
+  '@xterm/xterm@6.0.0': {}
 
   acorn@8.16.0: {}
 
@@ -6831,7 +6832,7 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.28.6
 
-  i18next@24.2.3(typescript@5.9.3):
+  i18next@25.8.13(typescript@5.9.3):
     dependencies:
       '@babel/runtime': 7.28.6
     optionalDependencies:
@@ -7737,12 +7738,13 @@ snapshots:
       react: 19.2.4
       scheduler: 0.27.0
 
-  react-i18next@15.7.4(i18next@24.2.3(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3):
+  react-i18next@16.5.4(i18next@25.8.13(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3):
     dependencies:
       '@babel/runtime': 7.28.6
       html-parse-stringify: 3.0.1
-      i18next: 24.2.3(typescript@5.9.3)
+      i18next: 25.8.13(typescript@5.9.3)
       react: 19.2.4
+      use-sync-external-store: 1.6.0(react@19.2.4)
     optionalDependencies:
       react-dom: 19.2.4(react@19.2.4)
       typescript: 5.9.3
@@ -8394,6 +8396,10 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
+  use-sync-external-store@1.6.0(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+
   util-deprecate@1.0.2: {}
 
   vfile-message@4.0.3:
@@ -8685,9 +8691,10 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@5.0.11(@types/react@19.2.14)(react@19.2.4):
+  zustand@5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
     optionalDependencies:
       '@types/react': 19.2.14
       react: 19.2.4
+      use-sync-external-store: 1.6.0(react@19.2.4)
 
   zwitch@2.0.4: {}
