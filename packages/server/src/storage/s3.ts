@@ -6,7 +6,7 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3'
-import type { StorageAdapter } from './types.js'
+import type { StorageAdapter, ReadStreamResult } from './types.js'
 
 export interface S3Config {
   bucket: string
@@ -60,6 +60,22 @@ export class S3StorageAdapter implements StorageAdapter {
       chunks.push(chunk)
     }
     return Buffer.concat(chunks)
+  }
+
+  async readStream(key: string): Promise<ReadStreamResult> {
+    const res = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+    )
+    const body = res.Body
+    if (!body) throw new Error(`Empty response for key: ${key}`)
+    return {
+      stream: body.transformToWebStream() as ReadableStream<Uint8Array>,
+      contentType: res.ContentType,
+      contentLength: res.ContentLength,
+    }
   }
 
   async delete(key: string): Promise<void> {

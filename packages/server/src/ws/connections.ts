@@ -1,6 +1,9 @@
 import type { WSContext } from 'hono/ws'
+import type Redis from 'ioredis'
+import { nanoid } from 'nanoid'
 import { WS_ERROR_CODES } from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
+import { getRedis, createRedisSubscriber } from '../lib/redis.js'
 import { config, getConfigSync } from '../config.js'
 
 const log = createLogger('Connections')
@@ -24,9 +27,28 @@ interface GatewayConnection {
   agentIds: Set<string>
 }
 
+interface PubSubPayload {
+  n: string // nodeId (publisher)
+  d: string // data (JSON-serialized WS message)
+  a?: string // agentId (gateway channel)
+  u?: string // userId (control channel)
+  r?: string // roomId (control channel, evict)
+  c?: string // command: 'disconnect' | 'evict'
+}
+
+const CH_ROOM_PREFIX = 'agentim:room:'
+const CH_BROADCAST = 'agentim:broadcast'
+const CH_GATEWAY = 'agentim:gateway'
+const CH_CONTROL = 'agentim:control'
+
 class ConnectionManager {
   private clients = new Map<WSContext, ClientConnection>()
   private gateways = new Map<WSContext, GatewayConnection>()
+
+  // ─── Pub/Sub for horizontal scaling ───
+  private nodeId = nanoid()
+  private subscriber: Redis | null = null
+  private pubsubReady = false
 
   // Agent ID → gateway ws mapping
   private agentToGateway = new Map<string, WSContext>()
@@ -186,17 +208,19 @@ class ConnectionManager {
    * Called when a member is removed via the HTTP API to keep WS state in sync.
    */
   evictUserFromRoom(userId: string, roomId: string) {
+    this.localEvictUserFromRoom(userId, roomId)
+    this.publish(CH_CONTROL, { d: '', u: userId, r: roomId, c: 'evict' })
+  }
+
+  private localEvictUserFromRoom(userId: string, roomId: string) {
     for (const client of this.clients.values()) {
       if (client.userId !== userId) continue
 
-      // Always notify the client, even if they haven't joined this room
-      // in the current WS session (they still see it in the sidebar).
       this.sendToClient(client.ws, {
         type: 'server:room_removed',
         roomId,
       })
 
-      // Clean up room subscription if it was active
       if (client.joinedRooms.has(roomId)) {
         client.joinedRooms.delete(roomId)
         const set = this.roomClients.get(roomId)
@@ -376,27 +400,47 @@ class ConnectionManager {
   broadcastToRoom(roomId: string, message: object, excludeWs?: WSContext) {
     const data = JSON.stringify(message)
     const msgType = (message as { type?: string }).type ?? ''
+    this.localBroadcastToRoom(roomId, data, msgType, excludeWs)
+    this.publish(`${CH_ROOM_PREFIX}${roomId}`, { d: data })
+  }
+
+  private localBroadcastToRoom(
+    roomId: string,
+    data: string,
+    msgType?: string,
+    excludeWs?: WSContext,
+  ) {
+    const type = msgType ?? ((JSON.parse(data) as { type?: string }).type ?? '')
     const failed: WSContext[] = []
     for (const client of this.getClientsInRoom(roomId)) {
       if (client.ws !== excludeWs) {
-        const sent = this.sendToClientIfHealthy(client, data, msgType)
+        const sent = this.sendToClientIfHealthy(client, data, type)
         if (!sent) {
           log.warn(`Failed to send to client in room ${roomId}: user=${client.userId}`)
           failed.push(client.ws)
         }
       }
     }
-    // Clean up faulty connections after iteration to avoid mutating during loop
     for (const ws of failed) {
       this.removeClient(ws)
     }
   }
 
   sendToGateway(agentId: string, message: object): boolean {
+    const data = JSON.stringify(message)
+    const sent = this.localSendToGateway(agentId, data)
+    if (!sent) {
+      // Agent not on this node — try other nodes via Redis
+      this.publish(CH_GATEWAY, { d: data, a: agentId })
+    }
+    return sent
+  }
+
+  private localSendToGateway(agentId: string, data: string): boolean {
     const gw = this.getGatewayForAgent(agentId)
     if (gw) {
       try {
-        gw.ws.send(JSON.stringify(message))
+        gw.ws.send(data)
         return true
       } catch (err) {
         log.warn(`Failed to send to gateway for agent ${agentId}: ${(err as Error).message}`)
@@ -422,6 +466,11 @@ class ConnectionManager {
 
   broadcastToAll(message: object) {
     const data = JSON.stringify(message)
+    this.localBroadcastToAll(data)
+    this.publish(CH_BROADCAST, { d: data })
+  }
+
+  private localBroadcastToAll(data: string) {
     for (const client of this.clients.values()) {
       try {
         client.ws.send(data)
@@ -437,6 +486,11 @@ class ConnectionManager {
    * immediate session termination.
    */
   disconnectUser(userId: string) {
+    this.localDisconnectUser(userId)
+    this.publish(CH_CONTROL, { d: '', u: userId, c: 'disconnect' })
+  }
+
+  private localDisconnectUser(userId: string) {
     // Close client connections
     for (const [ws, client] of this.clients) {
       if (client.userId === userId) {
@@ -464,6 +518,82 @@ class ConnectionManager {
         } catch {
           /* ignore close errors */
         }
+      }
+    }
+  }
+
+  // ─── Redis Pub/Sub for horizontal scaling ───
+
+  async initPubSub() {
+    try {
+      this.subscriber = createRedisSubscriber()
+      await this.subscriber.connect()
+
+      this.subscriber.on('pmessage', (_pattern: string, channel: string, raw: string) => {
+        this.handleRedisMessage(channel, raw)
+      })
+
+      await this.subscriber.psubscribe('agentim:*')
+      this.pubsubReady = true
+      log.info(`Pub/Sub initialized (nodeId=${this.nodeId})`)
+    } catch (err) {
+      log.warn(
+        `Pub/Sub initialization failed, falling back to single-node mode: ${(err as Error).message}`,
+      )
+      this.pubsubReady = false
+      this.subscriber = null
+    }
+  }
+
+  async closePubSub() {
+    if (this.subscriber) {
+      try {
+        await this.subscriber.punsubscribe('agentim:*')
+        await this.subscriber.quit()
+      } catch {
+        /* best-effort cleanup */
+      }
+      this.subscriber = null
+      this.pubsubReady = false
+    }
+  }
+
+  private publish(channel: string, extra: Omit<PubSubPayload, 'n'>) {
+    if (!this.pubsubReady) return
+    const payload: PubSubPayload = { n: this.nodeId, ...extra }
+    getRedis()
+      .publish(channel, JSON.stringify(payload))
+      .catch((err) => {
+        log.warn(`Pub/Sub publish to ${channel} failed: ${(err as Error).message}`)
+      })
+  }
+
+  private handleRedisMessage(channel: string, raw: string) {
+    let payload: PubSubPayload
+    try {
+      payload = JSON.parse(raw) as PubSubPayload
+    } catch {
+      log.warn(`Pub/Sub: invalid JSON on ${channel}`)
+      return
+    }
+
+    // Skip messages from this node
+    if (payload.n === this.nodeId) return
+
+    if (channel.startsWith(CH_ROOM_PREFIX)) {
+      const roomId = channel.slice(CH_ROOM_PREFIX.length)
+      this.localBroadcastToRoom(roomId, payload.d)
+    } else if (channel === CH_BROADCAST) {
+      this.localBroadcastToAll(payload.d)
+    } else if (channel === CH_GATEWAY) {
+      if (payload.a) {
+        this.localSendToGateway(payload.a, payload.d)
+      }
+    } else if (channel === CH_CONTROL) {
+      if (payload.c === 'disconnect' && payload.u) {
+        this.localDisconnectUser(payload.u)
+      } else if (payload.c === 'evict' && payload.u && payload.r) {
+        this.localEvictUserFromRoom(payload.u, payload.r)
       }
     }
   }

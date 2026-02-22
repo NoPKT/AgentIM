@@ -48,6 +48,23 @@ export async function ensureRedisConnected(retries = 3, delayMs = 1000): Promise
   throw new Error(`Redis is not reachable after ${retries} attempts`)
 }
 
+/** Create a dedicated Redis connection for Pub/Sub (subscriber mode). */
+export function createRedisSubscriber(): Redis {
+  const sub = new Redis(config.redisUrl, {
+    maxRetriesPerRequest: null, // subscriber connections must not timeout
+    retryStrategy(times) {
+      const delay = Math.min(times * 200, 5000)
+      log.warn(`Pub/Sub subscriber reconnecting (attempt ${times}, delay ${delay}ms)`)
+      return delay
+    },
+    lazyConnect: true,
+  })
+  sub.on('error', (err) => {
+    log.error(`Redis subscriber error: ${err.message}`)
+  })
+  return sub
+}
+
 export async function closeRedis(): Promise<void> {
   if (redis) {
     await redis.quit()

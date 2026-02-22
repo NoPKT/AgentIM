@@ -1,6 +1,8 @@
 import { resolve } from 'node:path'
-import { writeFile, readFile, unlink, readdir, access, constants } from 'node:fs/promises'
-import type { StorageAdapter } from './types.js'
+import { createReadStream } from 'node:fs'
+import { writeFile, readFile, unlink, readdir, access, stat, constants } from 'node:fs/promises'
+import { Readable } from 'node:stream'
+import type { StorageAdapter, ReadStreamResult } from './types.js'
 
 export class LocalStorageAdapter implements StorageAdapter {
   private baseDir: string
@@ -23,6 +25,16 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async read(key: string): Promise<Buffer> {
     return readFile(this.safePath(key))
+  }
+
+  async readStream(key: string): Promise<ReadStreamResult> {
+    const filePath = this.safePath(key)
+    const fileStat = await stat(filePath)
+    const nodeStream = createReadStream(filePath)
+    return {
+      stream: Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>,
+      contentLength: fileStat.size,
+    }
   }
 
   async delete(key: string): Promise<void> {

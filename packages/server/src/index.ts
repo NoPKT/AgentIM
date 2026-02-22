@@ -352,13 +352,15 @@ if (config.storageProvider === 's3') {
   app.get('/uploads/:filename', async (c) => {
     const filename = c.req.param('filename')
     try {
-      const data = await getStorage().read(filename)
+      const { stream, contentType: s3ContentType, contentLength } =
+        await getStorage().readStream(filename)
       const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
-      const contentType = MIME_LOOKUP[ext] || 'application/octet-stream'
-      return new Response(data, {
-        status: 200,
-        headers: { 'Content-Type': contentType },
-      })
+      const contentType = s3ContentType || MIME_LOOKUP[ext] || 'application/octet-stream'
+      const headers: Record<string, string> = { 'Content-Type': contentType }
+      if (contentLength != null) {
+        headers['Content-Length'] = String(contentLength)
+      }
+      return new Response(stream, { status: 200, headers })
     } catch {
       return c.json({ ok: false, error: 'File not found' }, 404)
     }
@@ -493,6 +495,7 @@ const server = serve({
 
 injectWebSocket(server)
 startOrphanCleanup()
+await connectionManager.initPubSub()
 
 // Periodic cleanup: remove expired refresh tokens
 let tokenCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -544,6 +547,8 @@ async function shutdown(signal: string) {
       resolve()
     })
   })
+  await connectionManager.closePubSub()
+  log.info('Pub/Sub closed')
   await closeDb()
   log.info('Database connection closed')
   await closeRedis()
