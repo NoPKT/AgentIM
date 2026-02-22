@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — 服务器 + Web UI
-  Dockerfile.gateway   — 含 node-pty 的客户端
+  Dockerfile.gateway   — 含 child_process 的客户端
   docker-compose.yml   — 全栈部署
 ```
 
@@ -209,7 +209,7 @@ pnpm test             # 运行所有测试
 | 服务端   | Hono + Drizzle ORM + PostgreSQL + Redis       |
 | 认证     | JWT (jose) + argon2                           |
 | Web 前端 | React 19 + Vite + TailwindCSS v4 + Zustand    |
-| AgentIM CLI | commander.js + node-pty                    |
+| AgentIM CLI | commander.js + child_process               |
 | 国际化   | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
 ### 文档

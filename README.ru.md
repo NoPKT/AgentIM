@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — Сервер + Веб-интерфейс
-  Dockerfile.gateway   — Клиент с node-pty
+  Dockerfile.gateway   — Клиент с child_process
   docker-compose.yml   — Развёртывание полного стека
 ```
 
@@ -209,7 +209,7 @@ pnpm test             # Запустить все тесты
 | Сервер          | Hono + Drizzle ORM + PostgreSQL + Redis       |
 | Аутентификация  | JWT (jose) + argon2                           |
 | Веб-интерфейс   | React 19 + Vite + TailwindCSS v4 + Zustand    |
-| AgentIM CLI     | commander.js + node-pty                       |
+| AgentIM CLI     | commander.js + child_process                  |
 | i18n            | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
 ### Документация

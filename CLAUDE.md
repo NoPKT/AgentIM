@@ -6,7 +6,7 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 
 - `packages/shared` - Shared types, WebSocket protocol, i18n, validators (Zod)
 - `packages/server` - Hub server: Hono + PostgreSQL + Redis (Drizzle) + WebSocket
-- `packages/gateway` - AgentIM CLI: node-pty + CLI adapters
+- `packages/gateway` - AgentIM CLI: child_process + CLI adapters
 - `packages/web` - React 19 SPA/PWA: Vite + TailwindCSS v4
 
 ## Conventions

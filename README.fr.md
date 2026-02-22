@@ -188,7 +188,7 @@ packages/
   web/       — React 19 + Vite + TailwindCSS v4 (PWA)
 docker/
   Dockerfile           — Serveur + Interface Web
-  Dockerfile.gateway   — Client avec node-pty
+  Dockerfile.gateway   — Client avec child_process
   docker-compose.yml   — Déploiement complet
 ```
 
@@ -209,7 +209,7 @@ pnpm test             # Exécuter tous les tests
 | Serveur       | Hono + Drizzle ORM + PostgreSQL + Redis       |
 | Auth          | JWT (jose) + argon2                           |
 | Interface Web | React 19 + Vite + TailwindCSS v4 + Zustand    |
-| AgentIM CLI   | commander.js + node-pty                       |
+| AgentIM CLI   | commander.js + child_process                  |
 | i18n          | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
 ### Documentation

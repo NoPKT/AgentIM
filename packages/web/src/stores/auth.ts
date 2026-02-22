@@ -55,9 +55,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
     useRouterStore.setState({ routers: [], loading: false })
     // Clear all draft entries from localStorage
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i)
-      if (key?.startsWith('draft:')) localStorage.removeItem(key)
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i)
+        if (key?.startsWith('draft:')) localStorage.removeItem(key)
+      }
+    } catch {
+      // localStorage may be unavailable in strict privacy mode
     }
     set({ user: null })
   },

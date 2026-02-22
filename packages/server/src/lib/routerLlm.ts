@@ -4,7 +4,10 @@ import type { RouterConfig } from './routerConfig.js'
 
 const log = createLogger('RouterLLM')
 
-const ROUTER_TIMEOUT = 5000
+const ROUTER_TIMEOUT = Math.max(
+  1000,
+  parseInt(process.env.ROUTER_LLM_TIMEOUT_MS ?? '', 10) || 15_000,
+)
 
 const llmResponseSchema = z.object({
   choices: z
