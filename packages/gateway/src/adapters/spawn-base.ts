@@ -153,7 +153,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     const proc = spawn(command, args, {
       cwd: this.workingDirectory,
-      env: getSafeEnv(),
+      env: { ...getSafeEnv(), ...this.env },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
     })
