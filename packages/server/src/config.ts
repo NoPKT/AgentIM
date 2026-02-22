@@ -71,7 +71,7 @@ export const config = {
   uploadBodyLimit: 12 * 1024 * 1024, // 12 MB (for multipart upload with maxFileSize=10MB)
   apiBodyLimit: 1024 * 1024, // 1 MB (for JSON API requests)
   // WebSocket protocol constants
-  wsAuthTimeoutMs: 10_000,
+  wsAuthTimeoutMs: 5_000,
   maxWsMessageSize: 64 * 1024, // 64 KB (client messages)
   maxGatewayMessageSize: 256 * 1024, // 256 KB (gateway messages include agent output)
   maxAttachmentsPerMessage: 20,
