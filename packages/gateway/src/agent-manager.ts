@@ -34,6 +34,7 @@ export class AgentManager {
     args?: string[]
     capabilities?: string[]
     env?: Record<string, string>
+    passEnv?: string[]
   }): string {
     const agentId = nanoid()
     let adapter: BaseAgentAdapter
@@ -45,6 +46,7 @@ export class AgentManager {
         command: opts.command,
         args: opts.args,
         env: opts.env,
+        passEnv: opts.passEnv,
       })
     } catch (err) {
       log.error(`Failed to create adapter for type "${opts.type}": ${(err as Error).message}`)

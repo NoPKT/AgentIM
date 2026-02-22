@@ -74,13 +74,30 @@ export function MessageList({ onImageClick }: MessageListProps) {
     isScrolledUp,
   ])
 
+  // Track message count before loading more, so we can anchor scroll position
+  const prevCountRef = useRef(0)
+  const needsAnchorRef = useRef(false)
+
   const handleLoadMore = () => {
     if (!currentRoomId || !currentHasMore || isLoading) return
     const oldestMessage = currentMessages[0]
     if (oldestMessage) {
+      prevCountRef.current = currentMessages.length
+      needsAnchorRef.current = true
       loadMessages(currentRoomId, oldestMessage.createdAt)
     }
   }
+
+  // After history messages are prepended, scroll to anchor the previous first visible message
+  useEffect(() => {
+    if (!needsAnchorRef.current) return
+    const prevCount = prevCountRef.current
+    if (prevCount === 0 || currentMessages.length <= prevCount) return
+    needsAnchorRef.current = false
+    const insertedCount = currentMessages.length - prevCount
+    // Scroll to the item that was previously at index 0 (now at insertedCount)
+    virtualizer.scrollToIndex(insertedCount, { align: 'start' })
+  }, [currentMessages.length, virtualizer])
 
   if (!currentRoomId) {
     return (

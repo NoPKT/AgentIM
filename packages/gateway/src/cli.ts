@@ -35,6 +35,16 @@ import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
 
 const log = createLogger('Gateway')
 
+/** Parse comma-separated env var names from --pass-env flag */
+function parsePassEnv(raw?: string): string[] | undefined {
+  if (!raw) return undefined
+  const keys = raw
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean)
+  return keys.length > 0 ? keys : undefined
+}
+
 program
   .name('agentim')
   .description('AgentIM Gateway - Bridge AI coding agents to AgentIM')
@@ -146,6 +156,10 @@ program
   .description('Start a Claude Code agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
   .option('--foreground', 'Run in foreground instead of daemonizing')
+  .option(
+    '--pass-env <keys>',
+    'Comma-separated env var names to whitelist through the security filter',
+  )
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('claude-code', workDir)
@@ -157,8 +171,9 @@ program
       agentConfig = loadAgentConfig('claude-code')
     }
     const env = agentConfig ? agentConfigToEnv('claude-code', agentConfig) : {}
+    const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'claude-code', name, workDir, env })
+      await runWrapper({ type: 'claude-code', name, workDir, env, passEnv })
     } else {
       spawnDaemon(name, 'claude-code', workDir, env)
     }
@@ -171,6 +186,10 @@ program
   .description('Start a Codex agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
   .option('--foreground', 'Run in foreground instead of daemonizing')
+  .option(
+    '--pass-env <keys>',
+    'Comma-separated env var names to whitelist through the security filter',
+  )
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('codex', workDir)
@@ -182,8 +201,9 @@ program
       agentConfig = loadAgentConfig('codex')
     }
     const env = agentConfig ? agentConfigToEnv('codex', agentConfig) : {}
+    const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'codex', name, workDir, env })
+      await runWrapper({ type: 'codex', name, workDir, env, passEnv })
     } else {
       spawnDaemon(name, 'codex', workDir, env)
     }
@@ -196,6 +216,10 @@ program
   .description('Start a Gemini CLI agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
   .option('--foreground', 'Run in foreground instead of daemonizing')
+  .option(
+    '--pass-env <keys>',
+    'Comma-separated env var names to whitelist through the security filter',
+  )
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('gemini', workDir)
@@ -207,8 +231,9 @@ program
       agentConfig = loadAgentConfig('gemini')
     }
     const env = agentConfig ? agentConfigToEnv('gemini', agentConfig) : {}
+    const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'gemini', name, workDir, env })
+      await runWrapper({ type: 'gemini', name, workDir, env, passEnv })
     } else {
       spawnDaemon(name, 'gemini', workDir, env)
     }

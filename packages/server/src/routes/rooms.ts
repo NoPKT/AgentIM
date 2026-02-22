@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, and, inArray } from 'drizzle-orm'
-import { resolve, basename } from 'node:path'
-import { unlink } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { db } from '../db/index.js'
 import {
   rooms,
@@ -21,7 +20,7 @@ import {
   NOTIFICATION_PREFS,
 } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
-import { config } from '../config.js'
+import { getStorage } from '../storage/index.js'
 import { sanitizeText } from '../lib/sanitize.js'
 import { createLogger } from '../lib/logger.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
@@ -303,16 +302,13 @@ roomRoutes.delete('/:id', async (c) => {
 
   await db.delete(rooms).where(eq(rooms.id, roomId))
 
-  // Clean up attachment files from disk (best-effort, non-blocking)
+  // Clean up attachment files from storage (best-effort, non-blocking)
   if (attachmentUrls.length > 0) {
-    const uploadDir = resolve(config.uploadDir)
+    const storage = getStorage()
     for (const url of attachmentUrls) {
       const filename = basename(url)
-      const filePath = resolve(uploadDir, filename)
-      unlink(filePath).catch((err) => {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          log.warn(`Failed to unlink attachment ${filename}: ${(err as Error).message}`)
-        }
+      storage.delete(filename).catch((err) => {
+        log.warn(`Failed to delete attachment ${filename}: ${(err as Error).message}`)
       })
     }
   }

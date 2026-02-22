@@ -7,6 +7,9 @@ import {
   type CompleteCallback,
   type ErrorCallback,
 } from './base.js'
+import { createLogger } from '../lib/logger.js'
+
+const envLog = createLogger('EnvFilter')
 
 const PROCESS_TIMEOUT_MS = Math.max(
   30_000,
@@ -53,13 +56,22 @@ const SENSITIVE_ENV_PREFIXES = [
   'GITHUB_APP_',
 ]
 
-/** Return a copy of process.env with sensitive variables removed. */
-export function getSafeEnv(): Record<string, string | undefined> {
+/**
+ * Return a copy of process.env with sensitive variables removed.
+ * @param passEnv - Optional whitelist of env var names to pass through despite being sensitive.
+ */
+export function getSafeEnv(passEnv?: Set<string>): Record<string, string | undefined> {
   const env = { ...process.env }
+  const filtered: string[] = []
   for (const key of Object.keys(env)) {
     if (SENSITIVE_ENV_KEYS.has(key) || SENSITIVE_ENV_PREFIXES.some((p) => key.startsWith(p))) {
+      if (passEnv?.has(key)) continue
       delete env[key]
+      filtered.push(key)
     }
+  }
+  if (filtered.length > 0) {
+    envLog.debug(`Filtered ${filtered.length} sensitive env var(s): ${filtered.join(', ')}`)
   }
   return env
 }
@@ -153,7 +165,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     const proc = spawn(command, args, {
       cwd: this.workingDirectory,
-      env: { ...getSafeEnv(), ...this.env },
+      env: { ...getSafeEnv(this.passEnv), ...this.env },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
     })

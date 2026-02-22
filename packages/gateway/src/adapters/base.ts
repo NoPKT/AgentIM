@@ -10,6 +10,7 @@ export interface AdapterOptions {
   agentName: string
   workingDirectory?: string
   env?: Record<string, string>
+  passEnv?: string[]
 }
 
 export interface MessageContext {
@@ -30,6 +31,7 @@ export abstract class BaseAgentAdapter {
   readonly agentName: string
   readonly workingDirectory?: string
   protected readonly env: Record<string, string>
+  protected readonly passEnv?: Set<string>
   protected isRunning = false
 
   constructor(opts: AdapterOptions) {
@@ -37,6 +39,7 @@ export abstract class BaseAgentAdapter {
     this.agentName = opts.agentName
     this.workingDirectory = opts.workingDirectory
     this.env = opts.env ?? {}
+    this.passEnv = opts.passEnv?.length ? new Set(opts.passEnv) : undefined
   }
 
   abstract get type(): string

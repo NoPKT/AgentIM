@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
 import { sql, and, eq, lt, gt, gte, lte, desc, ilike, inArray, isNotNull } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { unlink } from 'node:fs/promises'
-import { basename, resolve } from 'node:path'
+import { basename } from 'node:path'
 import { db } from '../db/index.js'
 import {
   messages,
@@ -19,8 +18,8 @@ import { connectionManager } from '../ws/connections.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
-import { config } from '../config.js'
 import { createLogger } from '../lib/logger.js'
+import { getStorage } from '../storage/index.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Messages')
@@ -598,18 +597,15 @@ messageRoutes.delete('/:id', async (c) => {
   }
 
   // Clean up physical attachment files after transaction success
+  const storage = getStorage()
   for (const url of result.attachmentUrls) {
     try {
       const filename = basename(url)
-      await unlink(resolve(config.uploadDir, filename))
+      await storage.delete(filename)
     } catch (err: unknown) {
-      const code =
-        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
-      if (code !== 'ENOENT') {
-        log.warn(
-          `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
-        )
-      }
+      log.warn(
+        `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
+      )
     }
   }
 
@@ -692,18 +688,15 @@ messageRoutes.post('/batch-delete', async (c) => {
   })
 
   // Clean up attachment files
+  const batchStorage = getStorage()
   for (const url of txResult.attachmentUrls) {
     try {
       const filename = basename(url)
-      await unlink(resolve(config.uploadDir, filename))
+      await batchStorage.delete(filename)
     } catch (err: unknown) {
-      const code =
-        err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
-      if (code !== 'ENOENT') {
-        log.warn(
-          `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
-        )
-      }
+      log.warn(
+        `Failed to delete attachment file ${url}: ${err instanceof Error ? err.message : err}`,
+      )
     }
   }
 

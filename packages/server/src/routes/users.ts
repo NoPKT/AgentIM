@@ -20,8 +20,7 @@ import {
 } from '@agentim/shared'
 import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
-import { resolve } from 'node:path'
-import { unlink, readdir } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { sanitizeText } from '../lib/sanitize.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
@@ -29,6 +28,7 @@ import { connectionManager } from '../ws/connections.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config } from '../config.js'
 import { cacheDel, userCacheKey } from '../lib/cache.js'
+import { getStorage } from '../storage/index.js'
 
 export const userRoutes = new Hono<AuthEnv>()
 
@@ -306,14 +306,14 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     return c.json({ ok: false, error: 'User not found' }, 404)
   }
 
-  // Collect all attachment file URLs that will be deleted (cascade or direct)
-  // so we can unlink the files from disk after the transaction succeeds.
+  // Collect all storage keys that will be deleted (cascade or direct)
+  // so we can delete files from storage after the transaction succeeds.
   const filesToDelete: string[] = []
-  const uploadDir = resolve(config.uploadDir)
   try {
-    // 1. Avatars
-    const avatarFiles = (await readdir(uploadDir)).filter((f) => f.startsWith(`avatar_${targetId}`))
-    filesToDelete.push(...avatarFiles.map((f) => resolve(uploadDir, f)))
+    // 1. Avatar (from user record)
+    if (target.avatarUrl) {
+      filesToDelete.push(basename(target.avatarUrl))
+    }
 
     // 2. Attachments in rooms created by this user (will cascade-delete)
     const userRoomIds = (
@@ -332,8 +332,7 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
           .from(messageAttachments)
           .where(inArray(messageAttachments.messageId, roomMsgIds))
         for (const a of cascadeAttachments) {
-          const filename = a.url.replace(/^\/uploads\//, '')
-          if (filename) filesToDelete.push(resolve(uploadDir, filename))
+          filesToDelete.push(basename(a.url))
         }
       }
     }
@@ -349,11 +348,10 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
         ),
       )
     for (const a of orphanAttachments) {
-      const filename = a.url.replace(/^\/uploads\//, '')
-      if (filename) filesToDelete.push(resolve(uploadDir, filename))
+      filesToDelete.push(basename(a.url))
     }
   } catch {
-    // Non-fatal: file queries may fail if upload dir doesn't exist yet
+    // Non-fatal: DB queries may fail in edge cases
   }
 
   // Clean up all related resources in a transaction
@@ -395,10 +393,11 @@ userRoutes.delete('/:id', adminMiddleware, async (c) => {
     await tx.delete(users).where(eq(users.id, targetId))
   })
 
-  // Unlink files from disk after transaction succeeds (best-effort)
-  for (const filePath of filesToDelete) {
+  // Delete files from storage after transaction succeeds (best-effort)
+  const storage = getStorage()
+  for (const filename of filesToDelete) {
     try {
-      await unlink(filePath)
+      await storage.delete(filename)
     } catch {
       /* file may already be gone */
     }

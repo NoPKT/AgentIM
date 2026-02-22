@@ -24,6 +24,7 @@ export async function runWrapper(opts: {
   name?: string
   workDir?: string
   env?: Record<string, string>
+  passEnv?: string[]
 }): Promise<void> {
   const config = loadConfig()
   if (!config) {
@@ -78,6 +79,7 @@ export async function runWrapper(opts: {
               name: agentName,
               workingDirectory: workDir,
               env: opts.env,
+              passEnv: opts.passEnv,
             })
             log.info(`Agent registered: ${agentName} (${opts.type}) [${agentId}]`)
           }
