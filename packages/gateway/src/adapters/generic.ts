@@ -75,6 +75,7 @@ export class GenericAdapter extends BaseAgentAdapter {
       cwd: this.workingDirectory,
       env: getSafeEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
     })
 
     this.process = proc
@@ -122,7 +123,13 @@ export class GenericAdapter extends BaseAgentAdapter {
       this.process = null
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
-      fail(err.message)
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        fail(
+          `Command "${this.command}" not found. Please ensure it is installed and available in your PATH.`,
+        )
+      } else {
+        fail(err.message)
+      }
     })
   }
 
