@@ -3,7 +3,15 @@ import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { RoomList } from './RoomList.js'
-import { CloseIcon, MenuIcon, UsersIcon, AgentsIcon, TasksIcon, SettingsIcon } from './icons.js'
+import {
+  CloseIcon,
+  MenuIcon,
+  UsersIcon,
+  AgentsIcon,
+  TasksIcon,
+  SettingsIcon,
+  LogoutIcon,
+} from './icons.js'
 import { useSwipeToClose } from '../hooks/useSwipeToClose.js'
 
 type NavIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>
@@ -18,6 +26,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const location = useLocation()
   const currentUser = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Close sidebar on route change (mobile)
@@ -112,6 +121,13 @@ export function AppLayout() {
               {link.label}
             </Link>
           ))}
+          <button
+            onClick={() => logout()}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all text-text-secondary hover:bg-danger-subtle hover:text-danger-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <LogoutIcon className="w-4 h-4" aria-hidden="true" />
+            {t('auth.logout')}
+          </button>
         </nav>
       </aside>
 
