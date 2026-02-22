@@ -487,7 +487,7 @@ async function handleSendMessage(
         type: 'text',
         content,
         replyToId,
-        mentions: JSON.stringify(serverParsedMentions),
+        mentions: serverParsedMentions,
         createdAt: now,
       })
 
@@ -634,17 +634,12 @@ async function routeToAgents(
 
     const routerResult = await selectAgents(
       message.content,
-      cliAgents.map((a) => {
-        let capabilities: string[] | undefined
-        if (a.capabilities) {
-          try {
-            capabilities = JSON.parse(a.capabilities)
-          } catch {
-            /* ignore */
-          }
-        }
-        return { id: a.id, name: a.name, type: a.type, capabilities }
-      }),
+      cliAgents.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        capabilities: a.capabilities ?? undefined,
+      })),
       routerCfg,
       room.systemPrompt ?? undefined,
     )

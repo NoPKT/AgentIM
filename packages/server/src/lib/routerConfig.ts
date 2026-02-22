@@ -4,7 +4,7 @@ import { rooms, routers } from '../db/schema.js'
 import { decryptSecret } from './crypto.js'
 
 export function isRouterVisibleToUser(
-  router: { scope: string; visibility: string; visibilityList: string; createdById: string },
+  router: { scope: string; visibility: string; visibilityList: string[]; createdById: string },
   userId: string,
 ): boolean {
   if (router.scope === 'personal') {
@@ -12,12 +12,7 @@ export function isRouterVisibleToUser(
   }
   if (router.visibility === 'all') return true
 
-  let list: string[] = []
-  try {
-    list = JSON.parse(router.visibilityList)
-  } catch {
-    /* ignore */
-  }
+  const list = router.visibilityList
 
   if (router.visibility === 'whitelist') return list.includes(userId)
   if (router.visibility === 'blacklist') return !list.includes(userId)

@@ -24,16 +24,6 @@ import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Messages')
 
-function safeJsonParse<T>(json: string, fallback: T, validate?: (v: unknown) => boolean): T {
-  try {
-    const parsed = JSON.parse(json)
-    if (validate && !validate(parsed)) return fallback
-    return parsed as T
-  } catch {
-    return fallback
-  }
-}
-
 // Helper: attach attachments to a list of messages
 async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
   if (msgs.length === 0) return msgs
@@ -109,7 +99,7 @@ messageRoutes.get('/recent', async (c) => {
     FROM latest l
     LEFT JOIN unreads u ON u.room_id = l.room_id
     UNION ALL
-    SELECT u.room_id, ''::text, ''::text, ''::text, u.unread
+    SELECT u.room_id, ''::text, ''::text, NULL::timestamp with time zone, u.unread
     FROM unreads u
     WHERE u.room_id NOT IN (SELECT room_id FROM latest)
       AND u.unread > 0
@@ -258,8 +248,7 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
 
   const parsed = rows.map((m) => ({
     ...m,
-    mentions: safeJsonParse(m.mentions, [], Array.isArray),
-    chunks: m.chunks ? safeJsonParse(m.chunks, undefined) : undefined,
+    chunks: m.chunks ?? undefined,
   }))
 
   return c.json({
@@ -318,8 +307,7 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
 
   const parsed = items.map((m) => ({
     ...m,
-    mentions: safeJsonParse(m.mentions, [], Array.isArray),
-    chunks: m.chunks ? safeJsonParse(m.chunks, undefined) : undefined,
+    chunks: m.chunks ?? undefined,
   }))
 
   return c.json({
@@ -554,8 +542,7 @@ messageRoutes.put('/:id', async (c) => {
 
   const message = {
     ...updated,
-    mentions: safeJsonParse(updated.mentions, [], Array.isArray),
-    chunks: updated.chunks ? safeJsonParse(updated.chunks, undefined) : undefined,
+    chunks: updated.chunks ?? undefined,
   }
 
   // Broadcast edit to room

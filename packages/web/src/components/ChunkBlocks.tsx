@@ -1,10 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize from 'rehype-sanitize'
-import { markdownSanitizeSchema } from '../lib/markdown.js'
+import { LazyMarkdown } from './LazyMarkdown.js'
 import type { ParsedChunk, WorkspaceStatus, WorkspaceFileChange } from '@agentim/shared'
 
 export interface ChunkGroup {
@@ -511,12 +507,7 @@ export function TextBlock({
           {t('chat.streamingTruncated')}
         </div>
       )}
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
-      >
-        {displayContent}
-      </ReactMarkdown>
+      <LazyMarkdown>{displayContent}</LazyMarkdown>
       {isStreaming && (
         <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle" />
       )}

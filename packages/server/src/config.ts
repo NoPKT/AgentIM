@@ -80,6 +80,7 @@ export const config = {
   routerTestTimeoutMs: 10_000,
   maxRefreshTokensPerUser: 10,
   logLevel: env('LOG_LEVEL', 'info'),
+  runMigrations: env('RUN_MIGRATIONS', 'true') === 'true',
 }
 
 // Security check: refuse to start in production with weak JWT secret

@@ -146,16 +146,9 @@ async function isAdmin(userId: string): Promise<boolean> {
 }
 
 function sanitizeRouter(router: typeof routers.$inferSelect) {
-  let visibilityList: string[] = []
-  try {
-    visibilityList = JSON.parse(router.visibilityList)
-  } catch {
-    /* ignore */
-  }
   return {
     ...router,
     llmApiKey: maskApiKey(router.llmApiKey),
-    visibilityList,
   }
 }
 
@@ -240,7 +233,7 @@ routerRoutes.post('/', async (c) => {
     rateLimitWindow: parsed.data.rateLimitWindow,
     rateLimitMax: parsed.data.rateLimitMax,
     visibility: parsed.data.visibility,
-    visibilityList: JSON.stringify(parsed.data.visibilityList),
+    visibilityList: parsed.data.visibilityList,
     createdAt: now,
     updatedAt: now,
   })
@@ -326,7 +319,7 @@ routerRoutes.put('/:id', async (c) => {
   if (router.scope === 'global') {
     if (parsed.data.visibility !== undefined) updateData.visibility = parsed.data.visibility
     if (parsed.data.visibilityList !== undefined)
-      updateData.visibilityList = JSON.stringify(parsed.data.visibilityList)
+      updateData.visibilityList = parsed.data.visibilityList
   }
 
   await db.update(routers).set(updateData).where(eq(routers.id, routerId))

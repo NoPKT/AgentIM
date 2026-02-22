@@ -20,17 +20,9 @@ function enrichAgents(
   const gwMap = new Map(gatewayRows.map((g) => [g.id, g]))
   return agentRows.map((agent) => {
     const gw = gwMap.get(agent.gatewayId)
-    let capabilities: string[] | undefined
-    if (agent.capabilities) {
-      try {
-        capabilities = JSON.parse(agent.capabilities)
-      } catch {
-        /* ignore */
-      }
-    }
     return {
       ...agent,
-      capabilities,
+      capabilities: agent.capabilities ?? undefined,
       deviceInfo: gw
         ? {
             hostname: gw.hostname ?? '',

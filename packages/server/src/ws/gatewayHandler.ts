@@ -310,7 +310,7 @@ async function handleRegisterAgent(
   }
 
   const now = new Date().toISOString()
-  const capabilitiesJson = agent.capabilities ? JSON.stringify(agent.capabilities) : null
+  const capabilitiesValue = agent.capabilities ?? null
 
   // Reject if agent ID already exists and belongs to a different user's gateway
   const [existingAgent] = await db
@@ -354,7 +354,7 @@ async function handleRegisterAgent(
       status: 'online',
       gatewayId: gw.gatewayId,
       workingDirectory: agent.workingDirectory,
-      capabilities: capabilitiesJson,
+      capabilities: capabilitiesValue,
       connectionType: 'cli',
       lastSeenAt: now,
       createdAt: now,
@@ -367,7 +367,7 @@ async function handleRegisterAgent(
         type: agent.type,
         status: 'online',
         workingDirectory: agent.workingDirectory,
-        capabilities: capabilitiesJson,
+        capabilities: capabilitiesValue,
         connectionType: 'cli',
         lastSeenAt: now,
         updatedAt: now,
@@ -521,15 +521,19 @@ async function handleMessageComplete(
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
 
-  // Serialize chunks and enforce a size cap to prevent oversized DB writes.
+  // Enforce a size cap on chunks to prevent oversized DB writes.
   // Chunks are a structured representation of the response (text, thinking, tool_use, etc.)
   // so their JSON serialization should always be bounded by MAX_FULL_CONTENT_SIZE.
   const MAX_CHUNKS_JSON_SIZE = 20 * 1024 * 1024 // 20 MB (headroom for JSON overhead)
-  const chunksJson = msg.chunks ? JSON.stringify(msg.chunks) : null
-  if (chunksJson && chunksJson.length > MAX_CHUNKS_JSON_SIZE) {
-    log.warn(
-      `Agent ${msg.agentId} chunks JSON exceeds size limit (${chunksJson.length} bytes), persisting without chunks`,
-    )
+  let chunksValue: unknown[] | null = msg.chunks ?? null
+  if (chunksValue) {
+    const chunksJsonSize = JSON.stringify(chunksValue).length
+    if (chunksJsonSize > MAX_CHUNKS_JSON_SIZE) {
+      log.warn(
+        `Agent ${msg.agentId} chunks JSON exceeds size limit (${chunksJsonSize} bytes), persisting without chunks`,
+      )
+      chunksValue = null
+    }
   }
 
   // Persist agent's full message with structured chunks
@@ -541,8 +545,8 @@ async function handleMessageComplete(
     senderName: agentName,
     type: 'agent_response',
     content: msg.fullContent,
-    mentions: '[]',
-    chunks: chunksJson && chunksJson.length <= MAX_CHUNKS_JSON_SIZE ? chunksJson : null,
+    mentions: [],
+    chunks: chunksValue,
     createdAt: now,
   })
 
@@ -916,20 +920,12 @@ async function _sendRoomContextToAgent(agentId: string, roomId: string) {
     if (member.memberType === 'agent') {
       const agent = agentMap.get(member.memberId)
       if (agent) {
-        let capabilities: string[] | undefined
-        if (agent.capabilities) {
-          try {
-            capabilities = JSON.parse(agent.capabilities)
-          } catch {
-            /* ignore */
-          }
-        }
         memberList.push({
           id: agent.id,
           name: agent.name,
           type: 'agent',
           agentType: agent.type as RoomContextMember['agentType'],
-          capabilities,
+          capabilities: agent.capabilities ?? undefined,
           roleDescription: member.roleDescription ?? undefined,
           status: agent.status as RoomContextMember['status'],
         })

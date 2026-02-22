@@ -40,8 +40,13 @@ import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandl
 // Verify Redis connectivity before proceeding
 await ensureRedisConnected()
 
-// Run migrations on startup
-await migrate()
+// Run migrations on startup (can be disabled via RUN_MIGRATIONS=false)
+if (config.runMigrations) {
+  await migrate()
+  log.info('Database migrations completed')
+} else {
+  log.info('Skipping migrations (RUN_MIGRATIONS=false)')
+}
 
 // Preload settings from DB into cache and inject settings module into config bridge
 import { preloadSettings, getSettingSync, getSettingTypedSync } from './lib/settings.js'

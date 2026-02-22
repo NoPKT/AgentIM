@@ -1,11 +1,7 @@
 import { useState, useMemo, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize from 'rehype-sanitize'
-import { markdownSanitizeSchema } from '../lib/markdown.js'
+import { LazyMarkdown } from './LazyMarkdown.js'
 import { useChatStore } from '../stores/chat.js'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
@@ -299,9 +295,7 @@ function MessageContent({
 
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
+      <LazyMarkdown
         components={{
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '')
@@ -355,7 +349,7 @@ function MessageContent({
         }}
       >
         {content}
-      </ReactMarkdown>
+      </LazyMarkdown>
     </div>
   )
 }

@@ -1,4 +1,16 @@
-import { pgTable, text, integer, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  text,
+  integer,
+  boolean,
+  index,
+  uniqueIndex,
+  timestamp,
+  jsonb,
+} from 'drizzle-orm/pg-core'
+
+/** Shorthand for a timestamptz column that returns/accepts ISO strings. */
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
 // ─── Users ───
 
@@ -12,12 +24,12 @@ export const users = pgTable(
     avatarUrl: text('avatar_url'),
     role: text('role').notNull().default('user'), // 'admin' | 'user'
     failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
-    lockedUntil: text('locked_until'),
+    lockedUntil: ts('locked_until'),
     // Per-user connection limits (null = use global default from config)
     maxWsConnections: integer('max_ws_connections'),
     maxGateways: integer('max_gateways'),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [uniqueIndex('users_username_idx').on(table.username)],
 )
@@ -32,8 +44,8 @@ export const refreshTokens = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
-    expiresAt: text('expires_at').notNull(),
-    createdAt: text('created_at').notNull(),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [
     index('refresh_tokens_user_idx').on(table.userId),
@@ -56,9 +68,9 @@ export const gateways = pgTable(
     platform: text('platform'),
     arch: text('arch'),
     nodeVersion: text('node_version'),
-    connectedAt: text('connected_at'),
-    disconnectedAt: text('disconnected_at'),
-    createdAt: text('created_at').notNull(),
+    connectedAt: ts('connected_at'),
+    disconnectedAt: ts('disconnected_at'),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [index('gateways_user_idx').on(table.userId)],
 )
@@ -77,11 +89,11 @@ export const agents = pgTable(
       .notNull()
       .references(() => gateways.id, { onDelete: 'cascade' }),
     workingDirectory: text('working_directory'),
-    capabilities: text('capabilities'), // JSON array string, e.g. '["code","debug"]'
+    capabilities: jsonb('capabilities').$type<string[] | null>(),
     connectionType: text('connection_type').notNull().default('cli'), // 'cli' | 'api'
-    lastSeenAt: text('last_seen_at'),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    lastSeenAt: ts('last_seen_at'),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [
     index('agents_gateway_idx').on(table.gatewayId),
@@ -113,9 +125,9 @@ export const routers = pgTable(
     rateLimitMax: integer('rate_limit_max').notNull().default(20),
     // Visibility (for global routers)
     visibility: text('visibility').notNull().default('all'),
-    visibilityList: text('visibility_list').notNull().default('[]'), // JSON array of user IDs
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    visibilityList: jsonb('visibility_list').notNull().default([]).$type<string[]>(),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [
     index('routers_created_by_idx').on(table.createdById),
@@ -138,8 +150,8 @@ export const rooms = pgTable(
     createdById: text('created_by_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [
     index('rooms_created_by_idx').on(table.createdById),
@@ -160,10 +172,10 @@ export const roomMembers = pgTable(
     role: text('role').notNull().default('member'),
     roleDescription: text('role_description'),
     notificationPref: text('notification_pref').notNull().default('all'), // 'all' | 'mentions' | 'none'
-    pinnedAt: text('pinned_at'),
-    archivedAt: text('archived_at'),
-    lastReadAt: text('last_read_at'),
-    joinedAt: text('joined_at').notNull(),
+    pinnedAt: ts('pinned_at'),
+    archivedAt: ts('archived_at'),
+    lastReadAt: ts('last_read_at'),
+    joinedAt: ts('joined_at').notNull(),
   },
   (table) => [
     index('room_members_room_idx').on(table.roomId),
@@ -190,10 +202,10 @@ export const messages = pgTable(
     type: text('type').notNull().default('text'),
     content: text('content').notNull(),
     replyToId: text('reply_to_id'),
-    mentions: text('mentions').notNull().default('[]'), // JSON array of IDs
-    chunks: text('chunks'), // JSON array of ParsedChunk for agent responses
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at'),
+    mentions: jsonb('mentions').notNull().default([]).$type<string[]>(),
+    chunks: jsonb('chunks').$type<unknown[] | null>(),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at'),
   },
   (table) => [
     index('messages_room_idx').on(table.roomId),
@@ -216,7 +228,7 @@ export const messageAttachments = pgTable(
     size: integer('size').notNull(),
     url: text('url').notNull(),
     uploadedBy: text('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
-    createdAt: text('created_at').notNull(),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [
     index('attachments_message_idx').on(table.messageId),
@@ -236,7 +248,7 @@ export const messageReactions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     emoji: text('emoji').notNull(),
-    createdAt: text('created_at').notNull(),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [
     index('reactions_message_idx').on(table.messageId),
@@ -254,7 +266,7 @@ export const messageEdits = pgTable(
       .notNull()
       .references(() => messages.id, { onDelete: 'cascade' }),
     previousContent: text('previous_content').notNull(),
-    editedAt: text('edited_at').notNull(),
+    editedAt: ts('edited_at').notNull(),
   },
   (table) => [
     index('message_edits_message_idx').on(table.messageId),
@@ -279,8 +291,8 @@ export const tasks = pgTable(
     createdById: text('created_by_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    createdAt: text('created_at').notNull(),
-    updatedAt: text('updated_at').notNull(),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [
     index('tasks_room_idx').on(table.roomId),
@@ -297,7 +309,7 @@ export const tasks = pgTable(
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
-  updatedAt: text('updated_at').notNull(),
+  updatedAt: ts('updated_at').notNull(),
   updatedBy: text('updated_by').references(() => users.id, { onDelete: 'set null' }),
 })
 
@@ -311,9 +323,9 @@ export const auditLogs = pgTable(
     action: text('action').notNull(), // 'login' | 'logout' | 'password_change' | 'user_create' | 'user_update' | 'user_delete' | 'router_create' | 'router_update' | 'router_delete'
     targetId: text('target_id'),
     targetType: text('target_type'), // 'user' | 'router' | 'room'
-    metadata: text('metadata'), // JSON string
+    metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     ipAddress: text('ip_address'),
-    createdAt: text('created_at').notNull(),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [
     index('audit_logs_user_idx').on(table.userId),

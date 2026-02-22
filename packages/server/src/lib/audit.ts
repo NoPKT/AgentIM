@@ -45,7 +45,7 @@ export async function logAudit(opts: AuditOptions): Promise<void> {
       action: opts.action,
       targetId: opts.targetId,
       targetType: opts.targetType,
-      metadata: opts.metadata ? JSON.stringify(opts.metadata) : null,
+      metadata: opts.metadata ?? null,
       ipAddress: opts.ipAddress,
       createdAt: new Date().toISOString(),
     })

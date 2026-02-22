@@ -61,7 +61,6 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router'],
           'vendor-ui': ['zustand', 'i18next', 'react-i18next', '@tanstack/react-virtual'],
-          'vendor-markdown': ['react-markdown', 'remark-gfm', 'rehype-highlight'],
         },
       },
     },
