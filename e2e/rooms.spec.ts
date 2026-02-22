@@ -1,18 +1,17 @@
 import { test, expect } from '@playwright/test'
+import { loginAsAdmin } from './helpers'
 
 /**
  * Room management E2E tests.
  *
- * Authentication is provided by the global setup (storageState).
- * On page load the app restores the session via the saved httpOnly
- * refresh-token cookie — no extra /auth/login call is made here.
+ * Each test authenticates independently via API login so that
+ * strict token rotation / logout in other tests cannot interfere.
  */
 
 test.describe('Room management', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page)
     await page.goto('/')
-    // Wait for the authenticated layout to confirm auth is fully complete
-    // (not just URL check, which passes before tryRefresh finishes)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 

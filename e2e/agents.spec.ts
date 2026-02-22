@@ -1,15 +1,16 @@
 import { test, expect } from '@playwright/test'
+import { loginAsAdmin } from './helpers'
 
 /**
  * Agents page E2E tests.
  *
- * Authentication is provided by the global setup (storageState).
- * On page load the app restores the session via the saved httpOnly
- * refresh-token cookie — no extra /auth/login call is made here.
+ * Each test authenticates independently via API login so that
+ * strict token rotation / logout in other tests cannot interfere.
  */
 
 test.describe('Agents page', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page)
     await page.goto('/agents')
     await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
   })
