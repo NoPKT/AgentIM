@@ -47,6 +47,20 @@ agentim daemon
 - `agentim rm <name>` -- Stop and clean up an agent daemon
 - `agentim status` -- Show configuration status
 
+## Running as a Service
+
+The built-in daemon mode (`agentim claude .`) spawns a detached background process but does not automatically restart on crashes. For long-running production use, wrap the command with a process manager:
+
+```bash
+# PM2
+pm2 start "agentim claude /path/to/project --foreground" --name my-agent
+
+# systemd (create a unit file)
+# ExecStart=/usr/bin/agentim claude /path/to/project --foreground
+```
+
+Use `--foreground` when managed by an external supervisor so the process stays in the foreground.
+
 ## License
 
 AGPL-3.0 -- see [LICENSE](../../LICENSE)

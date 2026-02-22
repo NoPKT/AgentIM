@@ -29,10 +29,11 @@ FROM node:20-alpine AS production
 RUN npm install -g pnpm@10.29.3
 WORKDIR /app
 
-# Copy package files
+# Copy package files (include web stub so pnpm-workspace.yaml resolves cleanly)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
+COPY packages/web/package.json packages/web/
 
 # Create non-root user
 RUN addgroup --system app && adduser --system --ingroup app app
