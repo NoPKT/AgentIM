@@ -182,6 +182,7 @@ export const en = {
     fileAdded: 'Added',
     fileDeleted: 'Deleted',
     fileRenamed: 'Renamed',
+    streamingTruncated: 'Earlier content hidden during streaming...',
   },
   agent: {
     agents: 'Agents',

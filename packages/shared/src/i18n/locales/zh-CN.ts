@@ -181,6 +181,7 @@ export const zhCN = {
     fileAdded: '新增',
     fileDeleted: '已删除',
     fileRenamed: '已重命名',
+    streamingTruncated: '流式生成中，较早的内容已隐藏...',
   },
   agent: {
     agents: '智能体',

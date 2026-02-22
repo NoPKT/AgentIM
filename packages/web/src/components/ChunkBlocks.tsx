@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -487,6 +487,9 @@ export function ErrorBlock({ content }: { content: string }) {
   )
 }
 
+/** During streaming, only render the tail of very long text to keep ReactMarkdown fast. */
+const STREAMING_TEXT_TRUNCATE = 8000
+
 export function TextBlock({
   content,
   isStreaming = false,
@@ -494,13 +497,25 @@ export function TextBlock({
   content: string
   isStreaming?: boolean
 }) {
+  const { t } = useTranslation()
+  const truncated = isStreaming && content.length > STREAMING_TEXT_TRUNCATE
+  const displayContent = useMemo(
+    () => (truncated ? content.slice(-STREAMING_TEXT_TRUNCATE) : content),
+    [content, truncated],
+  )
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
+      {truncated && (
+        <div className="not-prose text-xs text-text-muted italic mb-1">
+          {t('chat.streamingTruncated')}
+        </div>
+      )}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
       >
-        {content}
+        {displayContent}
       </ReactMarkdown>
       {isStreaming && (
         <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle" />

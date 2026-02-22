@@ -182,6 +182,7 @@ export const ru = {
     fileAdded: 'Добавлен',
     fileDeleted: 'Удалён',
     fileRenamed: 'Переименован',
+    streamingTruncated: 'Ранее сгенерированный контент скрыт во время потоковой передачи...',
   },
   agent: {
     agents: 'Агенты',

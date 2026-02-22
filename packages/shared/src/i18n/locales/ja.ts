@@ -182,6 +182,7 @@ export const ja = {
     fileAdded: '追加',
     fileDeleted: '削除',
     fileRenamed: '名前変更',
+    streamingTruncated: 'ストリーミング中のため、以前の内容は非表示です...',
   },
   agent: {
     agents: 'エージェント',

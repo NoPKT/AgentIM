@@ -17,6 +17,7 @@ import { runWrapper } from './wrapper.js'
 import { loadAgentConfig, agentConfigToEnv } from './agent-config.js'
 import { runSetupWizard } from './setup-wizard.js'
 import { createLogger } from './lib/logger.js'
+import { printSecurityBanner } from './lib/security-banner.js'
 import {
   listDaemons,
   stopDaemon,
@@ -160,7 +161,9 @@ program
     '--pass-env <keys>',
     'Comma-separated env var names to whitelist through the security filter',
   )
+  .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (path, opts) => {
+    printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('claude-code', workDir)
     let agentConfig = loadAgentConfig('claude-code')
@@ -190,7 +193,9 @@ program
     '--pass-env <keys>',
     'Comma-separated env var names to whitelist through the security filter',
   )
+  .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (path, opts) => {
+    printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('codex', workDir)
     let agentConfig = loadAgentConfig('codex')
@@ -220,7 +225,9 @@ program
     '--pass-env <keys>',
     'Comma-separated env var names to whitelist through the security filter',
   )
+  .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (path, opts) => {
+    printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('gemini', workDir)
     let agentConfig = loadAgentConfig('gemini')
@@ -248,7 +255,9 @@ program
     '-a, --agent <spec...>',
     'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
   )
+  .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (opts) => {
+    printSecurityBanner(!opts.securityWarning)
     const config = loadConfig()
     if (!config) {
       log.error('Not logged in. Run `agentim login` first.')

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ParsedChunk } from '@agentim/shared'
 import { getAvatarGradient } from '../lib/avatars.js'
@@ -11,8 +11,17 @@ interface StreamingMessageProps {
 
 export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
   const { t, i18n } = useTranslation()
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const groups = useMemo(() => groupChunks(chunks), [chunks])
+
+  // Auto-scroll the content container to bottom when new chunks arrive
+  useEffect(() => {
+    const el = contentRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [chunks.length])
 
   // Determine what's currently happening for the status line
   const lastChunk = chunks[chunks.length - 1]
@@ -51,8 +60,10 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
             </span>
           </div>
 
-          {/* Chunk groups */}
-          <ChunkGroupRenderer groups={groups} isStreaming />
+          {/* Chunk groups - height-capped scrollable container */}
+          <div ref={contentRef} className="max-h-[60vh] overflow-y-auto">
+            <ChunkGroupRenderer groups={groups} isStreaming />
+          </div>
 
           {/* Status line */}
           <div className="mt-2 flex items-center gap-2 text-xs text-info-text">

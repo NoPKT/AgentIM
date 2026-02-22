@@ -182,6 +182,7 @@ export const ko = {
     fileAdded: '추가됨',
     fileDeleted: '삭제됨',
     fileRenamed: '이름 변경됨',
+    streamingTruncated: '스트리밍 중 이전 내용이 숨겨져 있습니다...',
   },
   agent: {
     agents: '에이전트',
