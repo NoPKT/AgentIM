@@ -28,7 +28,10 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async ensureCodex() {
     if (!this.codex) {
       const { Codex: CodexClass } = await import('@openai/codex-sdk')
-      this.codex = new CodexClass()
+      this.codex = new CodexClass({
+        apiKey: this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY || undefined,
+        baseUrl: this.env.OPENAI_BASE_URL || undefined,
+      })
     }
   }
 

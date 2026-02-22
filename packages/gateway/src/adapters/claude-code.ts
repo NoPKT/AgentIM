@@ -55,6 +55,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
         cwd: this.workingDirectory,
+        env: Object.keys(this.env).length > 0 ? this.env : undefined,
       }
 
       if (this.sessionId) {

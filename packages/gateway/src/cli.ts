@@ -12,8 +12,10 @@ import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
-import { prompt, promptPassword } from './interactive.js'
+import { prompt, promptPassword, promptSelect } from './interactive.js'
 import { runWrapper } from './wrapper.js'
+import { loadAgentConfig, agentConfigToEnv } from './agent-config.js'
+import { runSetupWizard } from './setup-wizard.js'
 import { createLogger } from './lib/logger.js'
 import {
   listDaemons,
@@ -121,6 +123,22 @@ program
     log.info('Logged out. Credentials cleared.')
   })
 
+// ─── agentim setup [agent-type] ───
+
+program
+  .command('setup [agent-type]')
+  .description('Interactive setup wizard for agent credentials')
+  .action(async (agentType) => {
+    if (!agentType) {
+      agentType = await promptSelect('Select agent type:', [
+        { label: 'Claude Code', value: 'claude-code' },
+        { label: 'Codex', value: 'codex' },
+        { label: 'Gemini', value: 'gemini' },
+      ])
+    }
+    await runSetupWizard(agentType)
+  })
+
 // ─── agentim claude [path] ───
 
 program
@@ -131,10 +149,18 @@ program
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('claude-code', workDir)
+    let agentConfig = loadAgentConfig('claude-code')
+    if (!agentConfig) {
+      log.info('No credentials configured for Claude Code.')
+      log.info('Running setup wizard...')
+      await runSetupWizard('claude-code')
+      agentConfig = loadAgentConfig('claude-code')
+    }
+    const env = agentConfig ? agentConfigToEnv('claude-code', agentConfig) : {}
     if (opts.foreground) {
-      await runWrapper({ type: 'claude-code', name, workDir })
+      await runWrapper({ type: 'claude-code', name, workDir, env })
     } else {
-      spawnDaemon(name, 'claude-code', workDir)
+      spawnDaemon(name, 'claude-code', workDir, env)
     }
   })
 
@@ -148,10 +174,18 @@ program
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('codex', workDir)
+    let agentConfig = loadAgentConfig('codex')
+    if (!agentConfig) {
+      log.info('No credentials configured for Codex.')
+      log.info('Running setup wizard...')
+      await runSetupWizard('codex')
+      agentConfig = loadAgentConfig('codex')
+    }
+    const env = agentConfig ? agentConfigToEnv('codex', agentConfig) : {}
     if (opts.foreground) {
-      await runWrapper({ type: 'codex', name, workDir })
+      await runWrapper({ type: 'codex', name, workDir, env })
     } else {
-      spawnDaemon(name, 'codex', workDir)
+      spawnDaemon(name, 'codex', workDir, env)
     }
   })
 
@@ -165,10 +199,18 @@ program
   .action(async (path, opts) => {
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('gemini', workDir)
+    let agentConfig = loadAgentConfig('gemini')
+    if (!agentConfig) {
+      log.info('No credentials configured for Gemini.')
+      log.info('Running setup wizard...')
+      await runSetupWizard('gemini')
+      agentConfig = loadAgentConfig('gemini')
+    }
+    const env = agentConfig ? agentConfigToEnv('gemini', agentConfig) : {}
     if (opts.foreground) {
-      await runWrapper({ type: 'gemini', name, workDir })
+      await runWrapper({ type: 'gemini', name, workDir, env })
     } else {
-      spawnDaemon(name, 'gemini', workDir)
+      spawnDaemon(name, 'gemini', workDir, env)
     }
   })
 
@@ -413,7 +455,12 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
  * Spawn a detached daemon process for a single agent.
  * The parent (CLI) exits immediately after spawning.
  */
-function spawnDaemon(name: string, type: string, workDir: string) {
+function spawnDaemon(
+  name: string,
+  type: string,
+  workDir: string,
+  agentEnv?: Record<string, string>,
+) {
   const config = loadConfig()
   if (!config) {
     log.error('Not logged in. Run `agentim login` first.')
@@ -442,7 +489,7 @@ function spawnDaemon(name: string, type: string, workDir: string) {
       detached: true,
       stdio: 'ignore',
       cwd: workDir,
-      env: process.env,
+      env: { ...process.env, ...agentEnv },
     },
   )
 

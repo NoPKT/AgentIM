@@ -9,6 +9,7 @@ export interface AdapterOptions {
   agentId: string
   agentName: string
   workingDirectory?: string
+  env?: Record<string, string>
 }
 
 export interface MessageContext {
@@ -28,12 +29,14 @@ export abstract class BaseAgentAdapter {
   readonly agentId: string
   readonly agentName: string
   readonly workingDirectory?: string
+  protected readonly env: Record<string, string>
   protected isRunning = false
 
   constructor(opts: AdapterOptions) {
     this.agentId = opts.agentId
     this.agentName = opts.agentName
     this.workingDirectory = opts.workingDirectory
+    this.env = opts.env ?? {}
   }
 
   abstract get type(): string

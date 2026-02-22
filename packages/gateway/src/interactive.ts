@@ -1,6 +1,41 @@
 import { createInterface } from 'node:readline'
 
 /**
+ * Prompt the user to select from a list of numbered options.
+ * Returns the `value` of the chosen option.
+ */
+export async function promptSelect(
+  question: string,
+  options: { label: string; value: string }[],
+): Promise<string> {
+  console.log(question)
+  for (let i = 0; i < options.length; i++) {
+    console.log(`  ${i + 1}) ${options[i].label}`)
+  }
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  return new Promise((resolve) => {
+    const ask = () => {
+      rl.question(`Please choose (1-${options.length}): `, (answer) => {
+        const idx = parseInt(answer.trim(), 10) - 1
+        if (idx >= 0 && idx < options.length) {
+          rl.close()
+          resolve(options[idx].value)
+        } else {
+          console.log(`Invalid choice. Please enter a number between 1 and ${options.length}.`)
+          ask()
+        }
+      })
+    }
+    ask()
+  })
+}
+
+/**
  * Prompt the user for text input via stdin.
  */
 export function prompt(question: string): Promise<string> {
