@@ -42,7 +42,8 @@
       "filelist>minimatch": "^10.2.2",
       "minimatch": "^10.2.2",
       "ajv": "^8.18.0",
-      "esbuild": "^0.25.0"
+      "esbuild": "^0.25.0",
+      "bn.js": ">=5.2.3"
     },
     "onlyBuiltDependencies": [
       "argon2",
