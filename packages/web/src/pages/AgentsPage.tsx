@@ -1,20 +1,24 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
-import type { Agent, AgentVisibility } from '@agentim/shared'
+import { toast } from '../stores/toast.js'
+import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 
 export default function AgentsPage() {
   const { t, i18n } = useTranslation()
   const agents = useAgentStore((state) => state.agents)
+  const gateways = useAgentStore((state) => state.gateways)
   const isLoading = useAgentStore((state) => state.isLoading)
   const loadError = useAgentStore((state) => state.loadError)
   const loadAgents = useAgentStore((state) => state.loadAgents)
+  const loadGateways = useAgentStore((state) => state.loadGateways)
 
   useEffect(() => {
     loadAgents()
-  }, [loadAgents])
+    loadGateways()
+  }, [loadAgents, loadGateways])
 
   if (isLoading && agents.length === 0) {
     return (
@@ -111,6 +115,21 @@ export default function AgentsPage() {
             <AgentCard key={agent.id} agent={agent} />
           ))}
         </div>
+
+        {/* Gateways Section */}
+        {gateways.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-text-primary mb-1">{t('agent.gateways')}</h2>
+            <p className="text-sm text-text-secondary mb-4">
+              {t('agent.agentsConnected', { count: gateways.length })}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {gateways.map((gw) => (
+                <GatewayCard key={gw.id} gateway={gw} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -248,6 +267,118 @@ function AgentCard({ agent }: { agent: Agent }) {
             />
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function GatewayCard({ gateway }: { gateway: Gateway }) {
+  const { t, i18n } = useTranslation()
+  const deleteGateway = useAgentStore((s) => s.deleteGateway)
+  const loadAgents = useAgentStore((s) => s.loadAgents)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const isOnline = !!gateway.connectedAt && !gateway.disconnectedAt
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      await deleteGateway(gateway.id)
+      await loadAgents()
+      toast.success(t('agent.gatewayDeleted'))
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
+  return (
+    <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md transition-all duration-200">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center">
+            <span className="text-sm font-semibold text-white">
+              {gateway.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-text-primary truncate">{gateway.name}</h3>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
+              />
+              <span className="text-xs text-text-secondary">{isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-2 text-sm">
+        {gateway.deviceInfo && (
+          <div>
+            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.device')}</dt>
+            <dd className="text-text-primary truncate">
+              {gateway.deviceInfo.platform}{' '}
+              {gateway.deviceInfo.hostname && `· ${gateway.deviceInfo.hostname}`}
+            </dd>
+          </div>
+        )}
+
+        {gateway.disconnectedAt && (
+          <div>
+            <dt className="text-text-muted text-xs font-medium mb-0.5">
+              {t('agent.disconnectedAt')}
+            </dt>
+            <dd className="text-text-primary">
+              {new Date(gateway.disconnectedAt).toLocaleString(i18n.language, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </dd>
+          </div>
+        )}
+      </div>
+
+      {/* Delete */}
+      <div className="mt-4 pt-3 border-t border-border">
+        {confirmDelete ? (
+          <div className="space-y-2">
+            <p className="text-xs text-text-secondary">{t('agent.confirmDeleteGateway')}</p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1"
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1"
+              >
+                {t('common.delete')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="w-full px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          >
+            {t('agent.deleteGateway')}
+          </button>
+        )}
       </div>
     </div>
   )

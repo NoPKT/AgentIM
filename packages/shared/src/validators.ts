@@ -4,6 +4,7 @@ import {
   AGENT_STATUSES,
   AGENT_VISIBILITIES,
   AGENT_CONNECTION_TYPES,
+  AGENT_COMMAND_ROLES,
   ROOM_TYPES,
   MEMBER_ROLES,
   MESSAGE_TYPES,
@@ -71,6 +72,7 @@ export const createRoomSchema = z.object({
   broadcastMode: z.boolean().default(false),
   systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
   routerId: z.string().max(100).optional(),
+  agentCommandRole: z.enum(AGENT_COMMAND_ROLES).default('member'),
   memberIds: z.array(z.string().max(100)).max(100).optional(),
 })
 
@@ -84,6 +86,7 @@ export const updateRoomSchema = z.object({
   broadcastMode: z.boolean().optional(),
   systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).nullable().optional(),
   routerId: z.string().max(100).nullable().optional(),
+  agentCommandRole: z.enum(AGENT_COMMAND_ROLES).optional(),
 })
 
 // ─── Router ───
@@ -483,6 +486,7 @@ const roomSchema = z.object({
   broadcastMode: z.boolean(),
   systemPrompt: z.string().optional(),
   routerId: z.string().nullable().optional(),
+  agentCommandRole: z.enum(AGENT_COMMAND_ROLES).optional(),
   createdById: z.string(),
   pinnedAt: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),

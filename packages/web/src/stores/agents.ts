@@ -1,14 +1,17 @@
 import { create } from 'zustand'
-import type { Agent, AgentVisibility } from '@agentim/shared'
+import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 import { api } from '../lib/api.js'
 
 interface AgentState {
   agents: Agent[]
   sharedAgents: Agent[]
+  gateways: Gateway[]
   isLoading: boolean
   loadError: boolean
   loadAgents: () => Promise<void>
   loadSharedAgents: () => Promise<void>
+  loadGateways: () => Promise<void>
+  deleteGateway: (gatewayId: string) => Promise<void>
   updateAgent: (agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'> & Partial<Agent>) => void
   updateAgentVisibility: (agentId: string, visibility: AgentVisibility) => Promise<void>
 }
@@ -16,6 +19,7 @@ interface AgentState {
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: [],
   sharedAgents: [],
+  gateways: [],
   isLoading: false,
   loadError: false,
 
@@ -40,6 +44,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (res.ok && res.data) {
       set({ sharedAgents: res.data })
     }
+  },
+
+  loadGateways: async () => {
+    const res = await api.get<Gateway[]>('/agents/gateways/list')
+    if (res.ok && res.data) {
+      set({ gateways: res.data })
+    }
+  },
+
+  deleteGateway: async (gatewayId) => {
+    const res = await api.delete(`/agents/gateways/${gatewayId}`)
+    if (!res.ok) throw new Error(res.error ?? 'Failed to delete gateway')
+    set({
+      gateways: get().gateways.filter((g) => g.id !== gatewayId),
+      agents: get().agents.filter((a) => a.gatewayId !== gatewayId),
+    })
   },
 
   updateAgent: (update) => {

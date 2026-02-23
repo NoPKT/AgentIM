@@ -22,6 +22,7 @@ import { selectAgents } from '../lib/routerLlm.js'
 import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
+import { getRoomMemberRole } from '../lib/roomAccess.js'
 
 const log = createLogger('ClientHandler')
 
@@ -632,15 +633,30 @@ async function handleSendMessage(
   }
 
   // Route to agents based on server-parsed mentions and broadcast mode
-  await routeToAgents(txResult.room, message, serverParsedMentions)
+  await routeToAgents(txResult.room, message, serverParsedMentions, client.userId)
 }
 
 async function routeToAgents(
-  room: { id: string; broadcastMode: boolean; systemPrompt: string | null },
+  room: {
+    id: string
+    broadcastMode: boolean
+    systemPrompt: string | null
+    agentCommandRole: string
+  },
   message: { id: string; content: string; senderName: string },
   mentions: string[],
+  senderId: string,
 ) {
   const roomId = room.id
+
+  // Check agent command permission — only when agentCommandRole is restricted
+  if (room.agentCommandRole !== 'member') {
+    const ROLE_HIERARCHY: Record<string, number> = { owner: 2, admin: 1, member: 0 }
+    const requiredLevel = ROLE_HIERARCHY[room.agentCommandRole] ?? 0
+    const senderRole = await getRoomMemberRole(senderId, roomId)
+    const senderLevel = senderRole ? (ROLE_HIERARCHY[senderRole] ?? 0) : 0
+    if (senderLevel < requiredLevel) return
+  }
 
   // Get agent members in this room
   const agentMembers = await db

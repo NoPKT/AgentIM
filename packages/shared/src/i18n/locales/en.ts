@@ -124,6 +124,8 @@ export const en = {
     systemPromptPlaceholder: 'Describe room purpose...',
     systemPromptDesc: 'Shared with agents as context',
     noSystemPrompt: 'No system prompt set',
+    agentCommandRole: 'Agent Command Permission',
+    agentCommandRoleDesc: 'Minimum role required to send commands to agents in this room',
     roleDescription: 'Role Description',
     reconnecting: 'Reconnecting...',
     disconnected: 'Disconnected',
@@ -214,6 +216,11 @@ export const en = {
     gemini: 'Gemini CLI',
     cursor: 'Cursor',
     generic: 'Generic',
+    deleteGateway: 'Delete Gateway',
+    gatewayDeleted: 'Gateway deleted successfully',
+    disconnectedAt: 'Disconnected at',
+    confirmDeleteGateway:
+      'Are you sure you want to delete this gateway? All associated agents will be removed.',
   },
   task: {
     tasks: 'Tasks',

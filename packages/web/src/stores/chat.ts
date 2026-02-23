@@ -110,6 +110,7 @@ interface ChatState {
       broadcastMode?: boolean
       systemPrompt?: string | null
       routerId?: string | null
+      agentCommandRole?: 'member' | 'admin' | 'owner'
     },
   ) => Promise<void>
   deleteRoom: (roomId: string) => Promise<void>

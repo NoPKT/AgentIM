@@ -125,6 +125,9 @@ export const fr = {
     systemPromptPlaceholder: "Décrivez l'objectif du salon...",
     systemPromptDesc: 'Partagé avec les agents comme contexte',
     noSystemPrompt: 'Aucun prompt système défini',
+    agentCommandRole: "Permission de commande d'agent",
+    agentCommandRoleDesc:
+      'Rôle minimum requis pour envoyer des commandes aux agents dans cette salle',
     roleDescription: 'Description du rôle',
     reconnecting: 'Reconnexion...',
     disconnected: 'Déconnecté',
@@ -215,6 +218,11 @@ export const fr = {
     gemini: 'Gemini CLI',
     cursor: 'Cursor',
     generic: 'Générique',
+    deleteGateway: 'Supprimer la passerelle',
+    gatewayDeleted: 'Passerelle supprimée avec succès',
+    disconnectedAt: 'Déconnecté à',
+    confirmDeleteGateway:
+      'Êtes-vous sûr de vouloir supprimer cette passerelle ? Tous les agents associés seront supprimés.',
   },
   task: {
     tasks: 'Tâches',

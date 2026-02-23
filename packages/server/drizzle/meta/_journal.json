@@ -183,6 +183,13 @@
       "when": 1771800000000,
       "tag": "0025_add_pinned_archived_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1771900000000,
+      "tag": "0026_add_agent_command_role",
+      "breakpoints": true
     }
   ]
 }

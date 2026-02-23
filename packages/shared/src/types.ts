@@ -3,6 +3,7 @@ import type {
   AgentStatus,
   AgentVisibility,
   AgentConnectionType,
+  AgentCommandRole,
   UserRole,
   RoomType,
   MemberRole,
@@ -85,6 +86,7 @@ export interface Room {
   broadcastMode: boolean
   systemPrompt?: string
   routerId?: string | null
+  agentCommandRole?: AgentCommandRole
   createdById: string
   pinnedAt?: string | null
   archivedAt?: string | null

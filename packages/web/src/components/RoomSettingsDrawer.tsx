@@ -10,7 +10,8 @@ import { AddAgentDialog } from './AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
 import { Button, Input, Textarea, Select } from './ui.js'
 import { CloseIcon, PencilIcon, PlusIcon } from './icons.js'
-import type { RoomMember, Room } from '@agentim/shared'
+import type { RoomMember, Room, AgentCommandRole } from '@agentim/shared'
+import { AGENT_COMMAND_ROLES } from '@agentim/shared'
 import type { TFunction } from 'i18next'
 
 interface RoomSettingsDrawerProps {
@@ -560,6 +561,40 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                 ))}
               </Select>
               <p className="text-xs text-text-secondary mt-1">{t('router.routerDesc')}</p>
+            </div>
+
+            {/* Agent Command Role Selector */}
+            <div className="px-5 py-4 border-b border-border">
+              <label className="block text-xs font-medium text-text-secondary uppercase tracking-wider mb-2">
+                {t('chat.agentCommandRole')}
+              </label>
+              <Select
+                value={room?.agentCommandRole ?? 'member'}
+                onChange={async (e) => {
+                  const agentCommandRole = e.target.value as AgentCommandRole
+                  setUpdating(true)
+                  try {
+                    await updateRoom(roomId, { agentCommandRole })
+                    toast.success(t('chat.roomUpdated'))
+                  } catch {
+                    toast.error(t('common.error'))
+                  } finally {
+                    setUpdating(false)
+                  }
+                }}
+                disabled={updating}
+              >
+                {AGENT_COMMAND_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {role === 'member'
+                      ? t('chat.roleMember')
+                      : role === 'admin'
+                        ? t('chat.roleAdmin')
+                        : t('chat.roleOwner')}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-text-secondary mt-1">{t('chat.agentCommandRoleDesc')}</p>
             </div>
 
             <NotificationSection

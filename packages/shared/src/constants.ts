@@ -38,6 +38,9 @@ export type AgentConnectionType = (typeof AGENT_CONNECTION_TYPES)[number]
 export const NOTIFICATION_PREFS = ['all', 'mentions', 'none'] as const
 export type NotificationPref = (typeof NOTIFICATION_PREFS)[number]
 
+export const AGENT_COMMAND_ROLES = ['member', 'admin', 'owner'] as const
+export type AgentCommandRole = (typeof AGENT_COMMAND_ROLES)[number]
+
 export const ROUTER_SCOPES = ['global', 'personal'] as const
 export type RouterScope = (typeof ROUTER_SCOPES)[number]
 

@@ -130,6 +130,7 @@ roomRoutes.post('/', async (c) => {
         broadcastMode: parsed.data.broadcastMode,
         systemPrompt: parsed.data.systemPrompt ?? null,
         routerId: parsed.data.routerId ?? null,
+        agentCommandRole: parsed.data.agentCommandRole,
         createdById: userId,
         createdAt: now,
         updatedAt: now,

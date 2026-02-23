@@ -30,6 +30,7 @@ import { agentRoutes } from './routes/agents.js'
 import { taskRoutes } from './routes/tasks.js'
 import { refreshTokens } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
+import { startGatewayCleanup, stopGatewayCleanup } from './lib/gatewayCleanup.js'
 import { routerRoutes } from './routes/routers.js'
 import { docsRoutes } from './routes/docs.js'
 import { settingsRoutes } from './routes/settings.js'
@@ -557,6 +558,7 @@ const server = serve({
 
 injectWebSocket(server)
 startOrphanCleanup()
+startGatewayCleanup()
 await connectionManager.initPubSub()
 
 // Periodic cleanup: remove expired refresh tokens
@@ -590,6 +592,7 @@ const SHUTDOWN_TIMEOUT_MS = 10_000
 async function shutdown(signal: string) {
   log.info(`${signal} received, shutting down gracefully...`)
   stopOrphanCleanup()
+  stopGatewayCleanup()
   stopTokenCleanup()
   // Notify connected WS clients about the shutdown
   connectionManager.broadcastToAll({

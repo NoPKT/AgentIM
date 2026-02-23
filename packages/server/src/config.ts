@@ -56,6 +56,8 @@ export const config = {
   // Periodic cleanup intervals (ms)
   orphanFileCheckInterval: Math.max(60000, intEnv('ORPHAN_FILE_CHECK_INTERVAL', 3600000)),
   tokenCleanupInterval: Math.max(60000, intEnv('TOKEN_CLEANUP_INTERVAL', 3600000)),
+  gatewayCleanupInterval: Math.max(60000, intEnv('GATEWAY_CLEANUP_INTERVAL', 86400000)), // 24h
+  gatewayMaxOfflineDays: Math.max(1, intEnv('GATEWAY_MAX_OFFLINE_DAYS', 30)),
   // Client WebSocket rate limiting
   clientRateLimitWindow: Math.max(1, Math.min(300, intEnv('CLIENT_RATE_LIMIT_WINDOW', 10))),
   clientRateLimitMax: Math.max(1, Math.min(1000, intEnv('CLIENT_RATE_LIMIT_MAX', 30))),

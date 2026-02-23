@@ -124,6 +124,8 @@ export const ru = {
     systemPromptPlaceholder: 'Опишите назначение комнаты...',
     systemPromptDesc: 'Передаётся агентам в качестве контекста',
     noSystemPrompt: 'Системный промпт не задан',
+    agentCommandRole: 'Разрешение на команды агентам',
+    agentCommandRoleDesc: 'Минимальная роль для отправки команд агентам в этой комнате',
     roleDescription: 'Описание роли',
     reconnecting: 'Переподключение...',
     disconnected: 'Отключено',
@@ -214,6 +216,11 @@ export const ru = {
     gemini: 'Gemini CLI',
     cursor: 'Cursor',
     generic: 'Общий',
+    deleteGateway: 'Удалить шлюз',
+    gatewayDeleted: 'Шлюз успешно удалён',
+    disconnectedAt: 'Отключён в',
+    confirmDeleteGateway:
+      'Вы уверены, что хотите удалить этот шлюз? Все связанные агенты будут удалены.',
   },
   task: {
     tasks: 'Задачи',

@@ -105,7 +105,17 @@ export async function getRoomMemberRole(
     )
     .limit(1)
 
-  return (membership?.role as 'owner' | 'admin' | 'member') ?? null
+  if (membership) return membership.role as 'owner' | 'admin' | 'member'
+
+  // Room-creator shortcut: creator is always 'owner' even without a roomMembers record
+  const [room] = await db
+    .select({ createdById: rooms.createdById })
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1)
+  if (room && room.createdById === userId) return 'owner'
+
+  return null
 }
 
 /**

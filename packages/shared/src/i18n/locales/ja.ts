@@ -124,6 +124,8 @@ export const ja = {
     systemPromptPlaceholder: 'ルームの目的を記述...',
     systemPromptDesc: 'エージェントにコンテキストとして共有',
     noSystemPrompt: 'システムプロンプト未設定',
+    agentCommandRole: 'エージェントコマンド権限',
+    agentCommandRoleDesc: 'このルームでエージェントにコマンドを送信するために必要な最低ロール',
     roleDescription: '役割の説明',
     reconnecting: '再接続中...',
     disconnected: '切断されました',
@@ -214,6 +216,11 @@ export const ja = {
     gemini: 'Gemini CLI',
     cursor: 'Cursor',
     generic: '汎用',
+    deleteGateway: 'ゲートウェイを削除',
+    gatewayDeleted: 'ゲートウェイが正常に削除されました',
+    disconnectedAt: '切断時刻',
+    confirmDeleteGateway:
+      'このゲートウェイを削除してもよろしいですか？関連するすべてのエージェントが削除されます。',
   },
   task: {
     tasks: 'タスク',

@@ -147,6 +147,7 @@ export const rooms = pgTable(
     broadcastMode: boolean('broadcast_mode').notNull().default(false),
     systemPrompt: text('system_prompt'),
     routerId: text('router_id').references(() => routers.id, { onDelete: 'set null' }),
+    agentCommandRole: text('agent_command_role').notNull().default('member'),
     createdById: text('created_by_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, ne, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agents, gateways, roomMembers, users } from '../db/schema.js'
+import { agents, gateways, roomMembers, rooms, users } from '../db/schema.js'
 import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
@@ -218,4 +218,62 @@ agentRoutes.get('/gateways/list', async (c) => {
   const userId = c.get('userId')
   const gwList = await db.select().from(gateways).where(eq(gateways.userId, userId))
   return c.json({ ok: true, data: gwList })
+})
+
+// Delete gateway (owner only) — cascade deletes all associated agents
+agentRoutes.delete('/gateways/:gatewayId', async (c) => {
+  const gatewayId = c.req.param('gatewayId')
+  const userId = c.get('userId')
+
+  // Verify ownership
+  const [gw] = await db.select().from(gateways).where(eq(gateways.id, gatewayId)).limit(1)
+  if (!gw) {
+    return c.json({ ok: false, error: 'Gateway not found' }, 404)
+  }
+  if (gw.userId !== userId) {
+    return c.json({ ok: false, error: 'You do not own this gateway' }, 403)
+  }
+
+  // Collect agents belonging to this gateway
+  const agentRows = await db
+    .select({ id: agents.id })
+    .from(agents)
+    .where(eq(agents.gatewayId, gatewayId))
+  const agentIds = agentRows.map((a) => a.id)
+
+  // Collect affected rooms
+  let affectedRoomIds: string[] = []
+  if (agentIds.length > 0) {
+    const memberRows = await db
+      .select({ roomId: roomMembers.roomId })
+      .from(roomMembers)
+      .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
+    affectedRoomIds = [...new Set(memberRows.map((r) => r.roomId))]
+
+    // Clean up room memberships
+    await db
+      .delete(roomMembers)
+      .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
+  }
+
+  // Delete gateway (agents cascade-deleted via FK)
+  await db.delete(gateways).where(eq(gateways.id, gatewayId))
+
+  // Notify connection manager and mark agents as deleted
+  for (const agentId of agentIds) {
+    connectionManager.sendToGateway(agentId, {
+      type: 'server:remove_agent',
+      agentId,
+    })
+    connectionManager.markAgentDeleted(agentId)
+    connectionManager.unregisterAgentById(agentId, userId)
+  }
+
+  // Broadcast room updates for affected rooms
+  for (const roomId of affectedRoomIds) {
+    await broadcastRoomUpdate(roomId).catch(() => {})
+    await sendRoomContextToAllAgents(roomId).catch(() => {})
+  }
+
+  return c.json({ ok: true })
 })
