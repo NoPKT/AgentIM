@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-02-21
-
 ### Fixed
 
 - Replace hardcoded enums with constants in validators (ASSIGNEE_TYPES, NOTIFICATION_PREFS, MEMBER_TYPES)
@@ -33,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added publishConfig to gateway package.json for npm publishing
 - WebP magic byte validation now also checks VP8 chunk identifier (VP8 /VP8L/VP8X)
 - Added i18n translation completeness test to shared test suite
+- Increased displayName max length from 50 to 100 characters (independent from username limit)
+- Centralized LLM router timeout config into config.ts (ROUTER_LLM_TIMEOUT_MS)
+- Strengthened Redis production warning with security impact details
+- Updated MIGRATION_ROLLBACK.md to cover rollback scripts 0019–0026
+- Added missing rollback scripts for migrations 0024–0026
 
 ### Security
 
@@ -70,5 +73,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `render.yaml` now exposes `ADMIN_USERNAME` as a configurable secret alongside `ADMIN_PASSWORD`.
 - Attachment foreign-key `ON DELETE` behaviour corrected (migration `0021`).
 
-[0.1.1]: https://github.com/NoPKT/AgentIM/compare/v0.1.0...v0.1.1
+[Unreleased]: https://github.com/NoPKT/AgentIM/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/NoPKT/AgentIM/releases/tag/v0.1.0

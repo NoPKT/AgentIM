@@ -80,6 +80,7 @@ export const config = {
   maxAttachmentsPerMessage: 20,
   maxReactionsPerMessage: 20,
   typingDebounceMs: 1_000,
+  routerLlmTimeoutMs: Math.max(1000, intEnv('ROUTER_LLM_TIMEOUT_MS', 15_000)),
   routerTestTimeoutMs: 10_000,
   maxRefreshTokensPerUser: 10,
   logLevel: env('LOG_LEVEL', 'info'),
@@ -106,7 +107,7 @@ if (isProduction) {
   }
   if (!process.env.REDIS_URL) {
     log.warn(
-      'REDIS_URL is not set — Redis features (Pub/Sub, distributed caching, rate limiting) are disabled. This is only suitable for single-node deployments.',
+      'REDIS_URL is not set — Redis features are disabled. Without Redis: (1) token revocation only works within the current process, (2) rate limiting is per-process (not global), (3) Pub/Sub for multi-node sync is unavailable. Strongly recommended for production. Only omit for single-node / personal deployments.',
     )
   }
 }

@@ -17,6 +17,7 @@ import {
   MAX_MESSAGE_LENGTH,
   MAX_ROOM_NAME_LENGTH,
   MAX_USERNAME_LENGTH,
+  MAX_DISPLAY_NAME_LENGTH,
   MAX_SYSTEM_PROMPT_LENGTH,
   MEMBER_TYPES,
   SENDER_TYPES,
@@ -47,7 +48,7 @@ export const registerSchema = z.object({
   displayName: z
     .string()
     .min(1)
-    .max(MAX_USERNAME_LENGTH)
+    .max(MAX_DISPLAY_NAME_LENGTH)
     .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
 })
@@ -222,7 +223,7 @@ export const updateUserSchema = z.object({
   displayName: z
     .string()
     .min(1)
-    .max(MAX_USERNAME_LENGTH)
+    .max(MAX_DISPLAY_NAME_LENGTH)
     .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   avatarUrl: z.string().startsWith('/uploads/').max(500).optional(),
@@ -243,7 +244,7 @@ export const adminCreateUserSchema = z.object({
   displayName: z
     .string()
     .min(1)
-    .max(MAX_USERNAME_LENGTH)
+    .max(MAX_DISPLAY_NAME_LENGTH)
     .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   role: z.enum(USER_ROLES).default('user'),
@@ -253,7 +254,7 @@ export const adminUpdateUserSchema = z.object({
   displayName: z
     .string()
     .min(1)
-    .max(MAX_USERNAME_LENGTH)
+    .max(MAX_DISPLAY_NAME_LENGTH)
     .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   role: z.enum(USER_ROLES).optional(),

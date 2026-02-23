@@ -71,6 +71,7 @@ export const ALLOWED_MIME_TYPES = [
 export const MAX_MESSAGE_LENGTH = 100_000
 export const MAX_ROOM_NAME_LENGTH = 100
 export const MAX_USERNAME_LENGTH = 50
+export const MAX_DISPLAY_NAME_LENGTH = 100
 export const MAX_SYSTEM_PROMPT_LENGTH = 10_000
 export const MAX_BUFFER_SIZE = 10 * 1024 * 1024 // 10 MB
 export const DEFAULT_PAGE_SIZE = 50
