@@ -1,8 +1,11 @@
 import { getRedis, isRedisEnabled } from './redis.js'
+import Redis from 'ioredis'
 import { createLogger } from './logger.js'
 import { config } from '../config.js'
 
 const log = createLogger('TokenRevocation')
+
+const TOKEN_REVOCATION_CHANNEL = 'token-revocations'
 
 /** Parse a duration string like '15m', '1h', '30s' to seconds (minimum 1) */
 function parseDurationToSeconds(duration: string): number {
@@ -66,7 +69,10 @@ export async function revokeUserTokens(userId: string): Promise<void> {
   try {
     const redis = getRedis()
     const key = `revoked:${userId}`
-    await redis.set(key, String(Date.now()), 'EX', ACCESS_TOKEN_TTL)
+    const now = String(Date.now())
+    await redis.set(key, now, 'EX', ACCESS_TOKEN_TTL)
+    // Broadcast to other processes so they update their in-memory maps
+    await redis.publish(TOKEN_REVOCATION_CHANNEL, JSON.stringify({ userId, revokedAt: now }))
   } catch (err) {
     log.error(`Failed to set token revocation for user ${userId}: ${(err as Error).message}`)
     throw err
@@ -100,5 +106,35 @@ export async function isTokenRevoked(userId: string, iatMs: number): Promise<boo
         'allowing request (fail-open). Cross-process revocations may be missed.',
     )
     return false
+  }
+}
+
+let subscriber: Redis | null = null
+
+/**
+ * Subscribe to token revocation events from other processes via Redis pub/sub.
+ * Call once at server startup. No-op when Redis is not configured.
+ */
+export async function initTokenRevocationSubscriber(): Promise<void> {
+  if (!isRedisEnabled()) return
+
+  try {
+    // Create a dedicated connection for subscribing (ioredis requirement)
+    subscriber = getRedis().duplicate()
+    await subscriber.subscribe(TOKEN_REVOCATION_CHANNEL)
+    subscriber.on('message', (_channel: string, message: string) => {
+      try {
+        const { userId, revokedAt } = JSON.parse(message) as {
+          userId: string
+          revokedAt: string
+        }
+        memoryRevocations.set(userId, Number(revokedAt))
+      } catch (err) {
+        log.warn(`Failed to parse token revocation message: ${(err as Error).message}`)
+      }
+    })
+    log.info('Token revocation subscriber initialized')
+  } catch (err) {
+    log.warn(`Failed to init token revocation subscriber: ${(err as Error).message}`)
   }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { useChatStore } from '../stores/chat.js'
+import { useShallow } from 'zustand/shallow'
+import { useChatStore, selectTypingNames } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
 import { MessageList } from '../components/MessageList.js'
 import { MessageInput } from '../components/MessageInput.js'
@@ -26,21 +27,11 @@ export default function ChatPage() {
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
   const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
-  const typingUsers = useChatStore((s) => s.typingUsers)
   const currentUser = useAuthStore((s) => s.user)
 
-  const typingNames = useMemo(() => {
-    if (!currentRoomId) return []
-    const names: string[] = []
-    for (const [key, value] of typingUsers) {
-      if (key.startsWith(`${currentRoomId}:`) && value.expiresAt > Date.now()) {
-        if (!currentUser || !key.endsWith(`:${currentUser.id}`)) {
-          names.push(value.username)
-        }
-      }
-    }
-    return names
-  }, [currentRoomId, typingUsers, currentUser])
+  const typingNames = useChatStore(
+    useShallow((s) => selectTypingNames(s, currentRoomId, currentUser?.id)),
+  )
   const connectionStatus = useConnectionStatus()
 
   const currentRoom = rooms.find((r) => r.id === currentRoomId)

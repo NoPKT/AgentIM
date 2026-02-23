@@ -3,6 +3,7 @@ import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
 import { createLogger } from './lib/logger.js'
 import type {
+  AgentType,
   GatewayMessage,
   ServerSendToAgent,
   ServerStopAgent,
@@ -66,7 +67,7 @@ export class AgentManager {
       agent: {
         id: agentId,
         name: opts.name,
-        type: opts.type,
+        type: opts.type as AgentType,
         workingDirectory: opts.workingDirectory,
         capabilities: opts.capabilities,
       },
@@ -106,7 +107,7 @@ export class AgentManager {
         agent: {
           id: agentId,
           name: adapter.agentName,
-          type: adapter.type,
+          type: adapter.type as AgentType,
           workingDirectory: adapter.workingDirectory,
           capabilities: this.agentCapabilities.get(agentId),
         },

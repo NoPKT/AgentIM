@@ -29,9 +29,9 @@ const passwordSchema = z
   .string()
   .min(8)
   .max(128)
-  .refine((p) => /[a-z]/.test(p), 'Password must contain a lowercase letter')
-  .refine((p) => /[A-Z]/.test(p), 'Password must contain an uppercase letter')
-  .refine((p) => /[0-9]/.test(p), 'Password must contain a digit')
+  .refine((p) => /[a-z]/.test(p), 'validation.passwordLowercase')
+  .refine((p) => /[A-Z]/.test(p), 'validation.passwordUppercase')
+  .refine((p) => /[0-9]/.test(p), 'validation.passwordDigit')
 
 // ─── Auth ───
 
@@ -46,7 +46,7 @@ export const registerSchema = z.object({
     .string()
     .min(1)
     .max(MAX_USERNAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
 })
 
@@ -66,7 +66,7 @@ export const createRoomSchema = z.object({
     .string()
     .min(1)
     .max(MAX_ROOM_NAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace'),
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
   type: z.enum(ROOM_TYPES).default('group'),
   broadcastMode: z.boolean().default(false),
   systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
@@ -79,7 +79,7 @@ export const updateRoomSchema = z.object({
     .string()
     .min(1)
     .max(MAX_ROOM_NAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
     .optional(),
   broadcastMode: z.boolean().optional(),
   systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).nullable().optional(),
@@ -93,24 +93,24 @@ export const createRouterSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace'),
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
   description: z.string().max(1000).optional(),
   scope: z.enum(ROUTER_SCOPES).default('personal'),
   llmBaseUrl: z
     .string()
     .url()
     .max(500)
-    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'Must be an HTTP(S) URL'),
+    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl'),
   llmApiKey: z
     .string()
     .min(1)
     .max(500)
-    .refine((s) => s.trim().length > 0, 'API key cannot be only whitespace'),
+    .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace'),
   llmModel: z
     .string()
     .min(1)
     .max(200)
-    .refine((s) => s.trim().length > 0, 'Model cannot be only whitespace'),
+    .refine((s) => s.trim().length > 0, 'validation.modelWhitespace'),
   maxChainDepth: z.number().int().min(1).max(100).default(5),
   rateLimitWindow: z.number().int().min(1).max(3600).default(60),
   rateLimitMax: z.number().int().min(1).max(1000).default(20),
@@ -123,26 +123,26 @@ export const updateRouterSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .refine((s) => s.trim().length > 0, 'Name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
     .optional(),
   description: z.string().max(1000).nullable().optional(),
   llmBaseUrl: z
     .string()
     .url()
     .max(500)
-    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'Must be an HTTP(S) URL')
+    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl')
     .optional(),
   llmApiKey: z
     .string()
     .min(1)
     .max(500)
-    .refine((s) => s.trim().length > 0, 'API key cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace')
     .optional(),
   llmModel: z
     .string()
     .min(1)
     .max(200)
-    .refine((s) => s.trim().length > 0, 'Model cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.modelWhitespace')
     .optional(),
   maxChainDepth: z.number().int().min(1).max(100).optional(),
   rateLimitWindow: z.number().int().min(1).max(3600).optional(),
@@ -187,7 +187,7 @@ export const createTaskSchema = z.object({
     .string()
     .min(1)
     .max(200)
-    .refine((s) => s.trim().length > 0, 'Title cannot be only whitespace'),
+    .refine((s) => s.trim().length > 0, 'validation.titleWhitespace'),
   description: z.string().max(10000).default(''),
   assigneeId: z.string().max(100).optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
@@ -198,7 +198,7 @@ export const updateTaskSchema = z.object({
     .string()
     .min(1)
     .max(200)
-    .refine((s) => s.trim().length > 0, 'Title cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.titleWhitespace')
     .optional(),
   description: z.string().max(10000).optional(),
   status: z.enum(TASK_STATUSES).optional(),
@@ -219,7 +219,7 @@ export const updateUserSchema = z.object({
     .string()
     .min(1)
     .max(MAX_USERNAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   avatarUrl: z.string().startsWith('/uploads/').max(500).optional(),
 })
@@ -240,7 +240,7 @@ export const adminCreateUserSchema = z.object({
     .string()
     .min(1)
     .max(MAX_USERNAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   role: z.enum(USER_ROLES).default('user'),
 })
@@ -250,7 +250,7 @@ export const adminUpdateUserSchema = z.object({
     .string()
     .min(1)
     .max(MAX_USERNAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'Display name cannot be only whitespace')
+    .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
   role: z.enum(USER_ROLES).optional(),
   password: passwordSchema.optional(),

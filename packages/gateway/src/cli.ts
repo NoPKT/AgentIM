@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { spawn as cpSpawn } from 'node:child_process'
+import { mkdirSync, openSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { program } from 'commander'
 import { nanoid } from 'nanoid'
@@ -272,6 +275,9 @@ program
     // If auth fails *after* a successful refresh it is a permanent error
     // (e.g. gateway ID conflict, connection-limit) — not an expired-token issue.
     let hasRefreshed = false
+    // Unique ID for the current connection; prevents stale refresh callbacks
+    // from affecting a newer connection.
+    let connectionId = 0
 
     const authenticate = (wsClient: GatewayWsClient) => {
       wsClient.send({
@@ -287,6 +293,7 @@ program
       url: config.serverUrl,
       onConnected: () => {
         // Reset per-connection refresh state on every new connection.
+        connectionId++
         refreshingToken = null
         hasRefreshed = false
         authenticate(wsClient)
@@ -307,14 +314,18 @@ program
             // First failure: try a token refresh (guarded by lock + one-shot flag).
             // Second failure after a successful refresh: permanent error — exit.
             if (!refreshingToken && config.refreshToken && !hasRefreshed) {
+              const refreshConnId = connectionId
               log.info('Auth failed, refreshing token...')
               refreshingToken = tokenManager.refresh().then(
                 () => {
+                  // Only act if this is still the same connection
+                  if (refreshConnId !== connectionId) return
                   hasRefreshed = true
                   refreshingToken = null
                   authenticate(wsClient)
                 },
                 (err: unknown) => {
+                  if (refreshConnId !== connectionId) return
                   log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
                   log.error('Please re-login: agentim login')
                   process.exit(1)
@@ -515,13 +526,19 @@ function spawnDaemon(
     }
   }
 
+  // Create log directory and open log file for daemon output
+  const logDir = join(homedir(), '.agentim', 'logs')
+  mkdirSync(logDir, { recursive: true })
+  const logFile = join(logDir, `${name}.log`)
+  const logFd = openSync(logFile, 'a')
+
   const agentSpec = `${name}:${type}:${workDir}`
   const child = cpSpawn(
     process.execPath,
     [...process.execArgv, ...getEntryArgs(), 'daemon', '--agent', agentSpec],
     {
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', logFd, logFd],
       cwd: workDir,
       env: { ...process.env, ...agentEnv },
     },
@@ -540,6 +557,7 @@ function spawnDaemon(
     })
     log.info(`Agent "${name}" (${type}) started in background (PID ${child.pid})`)
     log.info(`Working directory: ${workDir}`)
+    log.info(`Log file: ${logFile}`)
     log.info(`Use 'agentim list' to see running agents`)
   } else {
     log.error('Failed to start daemon process')

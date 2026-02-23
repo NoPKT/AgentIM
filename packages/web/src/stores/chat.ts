@@ -786,3 +786,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 }))
+
+/**
+ * Derive typing user names for a room, excluding the current user.
+ * Returns a stable string[] — the result only changes when names actually differ.
+ */
+export function selectTypingNames(
+  state: ChatState,
+  roomId: string | null,
+  excludeUserId: string | undefined,
+): string[] {
+  if (!roomId) return EMPTY_NAMES
+  const names: string[] = []
+  const now = Date.now()
+  for (const [key, value] of state.typingUsers) {
+    if (key.startsWith(`${roomId}:`) && value.expiresAt > now) {
+      if (!excludeUserId || !key.endsWith(`:${excludeUserId}`)) {
+        names.push(value.username)
+      }
+    }
+  }
+  return names.length === 0 ? EMPTY_NAMES : names
+}
+
+const EMPTY_NAMES: string[] = []

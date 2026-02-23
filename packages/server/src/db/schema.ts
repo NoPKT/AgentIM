@@ -184,6 +184,8 @@ export const roomMembers = pgTable(
     index('room_members_room_type_idx').on(table.roomId, table.memberType),
     index('room_members_member_type_idx').on(table.memberId, table.memberType),
     uniqueIndex('room_members_unique_idx').on(table.roomId, table.memberId),
+    index('room_members_pinned_idx').on(table.memberId, table.pinnedAt),
+    index('room_members_archived_idx').on(table.memberId, table.archivedAt),
   ],
 )
 

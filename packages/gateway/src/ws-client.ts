@@ -107,6 +107,19 @@ export class GatewayWsClient {
     })
   }
 
+  private getMessagePriority(type: GatewayMessage['type']): 'critical' | 'high' | 'normal' {
+    if (type === 'gateway:auth' || type === 'gateway:register_agent') return 'critical'
+    if (
+      type === 'gateway:message_chunk' ||
+      type === 'gateway:message_complete' ||
+      type === 'gateway:agent_status'
+    )
+      return 'high'
+    return 'normal'
+  }
+
+  private droppedCount = 0
+
   send(msg: GatewayMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       try {
@@ -119,21 +132,48 @@ export class GatewayWsClient {
       if (this.sendQueue.length < MAX_QUEUE_SIZE) {
         this.sendQueue.push(msg)
       } else {
-        // Prioritize critical messages: drop oldest non-critical messages to make room
-        const critical = msg.type === 'gateway:auth' || msg.type === 'gateway:register_agent'
-        if (critical) {
+        const priority = this.getMessagePriority(msg.type)
+
+        if (priority === 'critical') {
           // Drop the oldest non-critical message to make room
-          const idx = this.sendQueue.findIndex(
-            (m) => m.type !== 'gateway:auth' && m.type !== 'gateway:register_agent',
-          )
+          const idx = this.sendQueue.findIndex((m) => this.getMessagePriority(m.type) === 'normal')
           if (idx >= 0) {
+            this.droppedCount++
             this.sendQueue.splice(idx, 1)
             this.sendQueue.push(msg)
           } else {
-            log.warn('Send queue full (all critical), dropping message')
+            // Try dropping oldest high-priority message
+            const highIdx = this.sendQueue.findIndex(
+              (m) => this.getMessagePriority(m.type) === 'high',
+            )
+            if (highIdx >= 0) {
+              this.droppedCount++
+              this.sendQueue.splice(highIdx, 1)
+              this.sendQueue.push(msg)
+            } else {
+              log.warn('Send queue full (all critical), dropping message')
+            }
+          }
+        } else if (priority === 'high') {
+          // Drop the oldest normal-priority message to make room
+          const idx = this.sendQueue.findIndex((m) => this.getMessagePriority(m.type) === 'normal')
+          if (idx >= 0) {
+            this.droppedCount++
+            this.sendQueue.splice(idx, 1)
+            this.sendQueue.push(msg)
+          } else {
+            log.warn(
+              `Send queue full (no normal-priority to drop), dropping high-priority ${msg.type}`,
+            )
+            this.droppedCount++
           }
         } else {
-          log.warn(`Send queue full, dropping ${msg.type} message`)
+          // Normal priority — just drop it
+          this.droppedCount++
+        }
+
+        if (this.droppedCount > 0 && this.droppedCount % 50 === 0) {
+          log.warn(`Total messages dropped due to full queue: ${this.droppedCount}`)
         }
       }
     }

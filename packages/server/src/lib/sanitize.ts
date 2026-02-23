@@ -18,7 +18,7 @@ export function stripHtml(input: string): string {
  * Strips all HTML tags and trims whitespace.
  */
 export function sanitizeText(input: string): string {
-  return stripHtml(input).trim()
+  return sanitizeContent(stripHtml(input)).trim()
 }
 
 // Patterns that are unambiguously dangerous regardless of context.

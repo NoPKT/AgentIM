@@ -176,6 +176,13 @@
       "when": 1771779563296,
       "tag": "0024_lush_captain_midlands",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1771800000000,
+      "tag": "0025_add_pinned_archived_indexes",
+      "breakpoints": true
     }
   ]
 }

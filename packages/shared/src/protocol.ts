@@ -8,7 +8,7 @@ import type {
   RoomMember,
   RoomContext,
 } from './types.js'
-import type { AgentStatus, TaskStatus, RoutingMode, SenderType } from './constants.js'
+import type { AgentStatus, AgentType, TaskStatus, RoutingMode, SenderType } from './constants.js'
 
 // ─── Client → Server Messages ───
 
@@ -205,7 +205,7 @@ export interface GatewayRegisterAgent {
   agent: {
     id: string
     name: string
-    type: string
+    type: AgentType
     workingDirectory?: string
     capabilities?: string[]
   }

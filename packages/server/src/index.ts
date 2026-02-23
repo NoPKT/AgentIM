@@ -38,6 +38,7 @@ import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
 import { pushRoutes } from './routes/push.js'
 import { initWebPush } from './lib/webPush.js'
+import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
 
 // Verify Redis connectivity before proceeding
 await ensureRedisConnected()
@@ -134,6 +135,9 @@ await seedAdmin()
 
 // Initialize Web Push (no-op if VAPID keys are not configured in admin settings)
 await initWebPush()
+
+// Subscribe to cross-process token revocation events (no-op if Redis is not configured)
+await initTokenRevocationSubscriber()
 
 // Ensure upload directory exists (local storage only)
 const uploadDir = resolve(config.uploadDir)
