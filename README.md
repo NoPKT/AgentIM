@@ -19,12 +19,12 @@
 
 ## What is AgentIM?
 
-AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
+AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI *(coming soon)*, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
 
 ### Key Features
 
 - **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
-- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI, Cursor, or any CLI agent side by side
+- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI *(coming soon)*, Cursor, or any CLI agent side by side
 - **Cross-Device** — Manage agents running on your workstation from any device via PWA
 - **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
 - **Task Management** — Assign, track, and manage tasks across agents

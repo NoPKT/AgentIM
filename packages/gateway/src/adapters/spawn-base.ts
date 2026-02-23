@@ -200,6 +200,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
         return
       }
       onChunk({ type: 'text', content: text })
+      this.startProcessTimer(proc)
     })
 
     proc.stderr?.on('data', (data: Buffer) => {

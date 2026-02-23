@@ -30,7 +30,7 @@ agentim daemon
 | ------------- | ------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI      |
 | `codex`       | OpenAI Codex CLI               |
-| `gemini`      | Google Gemini CLI (SDK pending)|
+| `gemini`      | Google Gemini CLI *(coming soon)* |
 | `generic`     | Any CLI tool (custom commands) |
 
 ## Commands

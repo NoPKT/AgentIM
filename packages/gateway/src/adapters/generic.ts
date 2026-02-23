@@ -101,6 +101,7 @@ export class GenericAdapter extends SpawnAgentAdapter {
         return
       }
       onChunk({ type: 'text', content: text })
+      this.startProcessTimer(proc)
     })
 
     proc.stderr?.on('data', (data: Buffer) => {

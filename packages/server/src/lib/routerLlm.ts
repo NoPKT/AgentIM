@@ -9,6 +9,8 @@ const ROUTER_TIMEOUT = Math.max(
   parseInt(process.env.ROUTER_LLM_TIMEOUT_MS ?? '', 10) || 15_000,
 )
 
+const MAX_ROUTER_AGENTS = Math.max(1, parseInt(process.env.ROUTER_LLM_MAX_AGENTS ?? '', 10) || 20)
+
 const llmResponseSchema = z.object({
   choices: z
     .array(
@@ -23,6 +25,25 @@ const routerResultSchema = z.object({
   agentIds: z.array(z.string()),
 })
 
+/** Tokenize a string into lowercase alpha-numeric words for keyword matching. */
+function tokenize(text: string): Set<string> {
+  return new Set(text.toLowerCase().match(/[a-z0-9\u4e00-\u9fff]+/g) ?? [])
+}
+
+/** Score an agent by keyword overlap between the message and the agent's name/capabilities. */
+function scoreAgent(
+  messageTokens: Set<string>,
+  agent: { name: string; type: string; capabilities?: string[] },
+): number {
+  const agentText = [agent.name, agent.type, ...(agent.capabilities ?? [])].join(' ')
+  const agentTokens = tokenize(agentText)
+  let overlap = 0
+  for (const token of messageTokens) {
+    if (agentTokens.has(token)) overlap++
+  }
+  return overlap
+}
+
 export async function selectAgents(
   content: string,
   agents: Array<{ id: string; name: string; type: string; capabilities?: string[] }>,
@@ -31,6 +52,16 @@ export async function selectAgents(
 ): Promise<string[] | null> {
   if (!routerConfig.llmBaseUrl || !routerConfig.llmApiKey) return null
   if (agents.length === 0) return []
+
+  // Pre-filter agents by keyword relevance when the list is too large for the LLM context
+  if (agents.length > MAX_ROUTER_AGENTS) {
+    const messageTokens = tokenize(content)
+    const scored = agents
+      .map((a) => ({ agent: a, score: scoreAgent(messageTokens, a) }))
+      .sort((a, b) => b.score - a.score)
+    agents = scored.slice(0, MAX_ROUTER_AGENTS).map((s) => s.agent)
+    log.debug(`Pre-filtered ${scored.length} agents to top ${agents.length} by keyword relevance`)
+  }
 
   const agentDescriptions = agents
     .map((a) => {
