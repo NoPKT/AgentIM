@@ -40,7 +40,13 @@ import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandl
 import { pushRoutes } from './routes/push.js'
 import { initWebPush } from './lib/webPush.js'
 import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
-import { renderPrometheusMetrics, setActiveRoomsGetter } from './lib/metrics.js'
+import {
+  renderPrometheusMetrics,
+  setActiveRoomsGetter,
+  getCountersSnapshot,
+  getHistogramsSnapshot,
+  getActiveRooms,
+} from './lib/metrics.js'
 
 // Verify Redis connectivity before proceeding
 await ensureRedisConnected()
@@ -338,6 +344,7 @@ app.get('/api/admin/metrics', async (c) => {
 
   const ws = connectionManager.getStats()
   const mem = process.memoryUsage()
+  const histSnap = getHistogramsSnapshot()
   return c.json({
     ok: true,
     data: {
@@ -351,6 +358,14 @@ app.get('/api/admin/metrics', async (c) => {
         uptimeSeconds: Math.round(process.uptime()),
         heapUsedBytes: mem.heapUsed,
         rssBytes: mem.rss,
+      },
+      activity: {
+        messagesTotal: getCountersSnapshot(),
+        activeRooms: getActiveRooms(),
+      },
+      performance: {
+        agentResponse: histSnap['agentim_agent_response_duration_seconds'] ?? {},
+        httpRequest: histSnap['agentim_http_request_duration_seconds'] ?? {},
       },
       timestamp: new Date().toISOString(),
     },

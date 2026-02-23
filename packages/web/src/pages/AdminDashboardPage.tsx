@@ -2,6 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../lib/api.js'
 
+interface HistogramSnapshot {
+  buckets: number[]
+  counts: number[]
+  sum: number
+  count: number
+  avg: number
+  p50: number
+  p95: number
+  p99: number
+}
+
 interface AdminMetrics {
   connections: {
     clients: number
@@ -13,6 +24,14 @@ interface AdminMetrics {
     uptimeSeconds: number
     heapUsedBytes: number
     rssBytes: number
+  }
+  activity?: {
+    messagesTotal: Record<string, number>
+    activeRooms: number
+  }
+  performance?: {
+    agentResponse: Record<string, HistogramSnapshot>
+    httpRequest: Record<string, HistogramSnapshot>
   }
   timestamp: string
 }
@@ -31,6 +50,12 @@ function formatUptime(seconds: number): string {
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024)
   return `${mb.toFixed(1)} MB`
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 0.001) return '<1ms'
+  if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`
+  return `${seconds.toFixed(2)}s`
 }
 
 /** Simple SVG sparkline chart */
@@ -114,6 +139,169 @@ function MemoryBar({ label, used, total }: { label: string; used: number; total:
   )
 }
 
+/** SVG bar chart for histogram buckets */
+function BarChart({
+  buckets,
+  counts,
+  color,
+  height = 80,
+  width = 320,
+}: {
+  buckets: number[]
+  counts: number[]
+  color: string
+  height?: number
+  width?: number
+}) {
+  const max = Math.max(...counts, 1)
+  const barWidth = width / buckets.length - 2
+  const padding = 16
+
+  return (
+    <svg width={width} height={height + padding} className="w-full">
+      {buckets.map((bucket, i) => {
+        const barHeight = (counts[i] / max) * height
+        const x = i * (barWidth + 2) + 1
+        const y = height - barHeight
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barWidth} height={barHeight} fill={color} rx={2} opacity={0.8}>
+              <title>{`≤${bucket}s: ${counts[i]}`}</title>
+            </rect>
+            <text
+              x={x + barWidth / 2}
+              y={height + padding - 2}
+              textAnchor="middle"
+              className="fill-text-muted"
+              fontSize={8}
+            >
+              {bucket >= 1 ? `${bucket}s` : `${bucket * 1000}ms`}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+/** Histogram card with bar chart + percentile stats */
+function HistogramCard({
+  title,
+  snapshot,
+  color,
+  t,
+}: {
+  title: string
+  snapshot: HistogramSnapshot | null
+  color: string
+  t: (key: string) => string
+}) {
+  if (!snapshot || snapshot.count === 0) {
+    return (
+      <div className="bg-surface rounded-xl border border-border p-4">
+        <div className="text-xs text-text-muted font-medium uppercase tracking-wide mb-2">
+          {title}
+        </div>
+        <div className="text-sm text-text-muted">{t('adminDashboard.noData')}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-4">
+      <div className="text-xs text-text-muted font-medium uppercase tracking-wide mb-3">
+        {title}
+      </div>
+      <BarChart buckets={snapshot.buckets} counts={snapshot.counts} color={color} />
+      <div className="grid grid-cols-4 gap-2 mt-3">
+        <div className="text-center">
+          <div className="text-xs text-text-muted">{t('adminDashboard.average')}</div>
+          <div className="text-sm font-semibold text-text-primary">
+            {formatDuration(snapshot.avg)}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-xs text-text-muted">p50</div>
+          <div className="text-sm font-semibold text-text-primary">
+            {formatDuration(snapshot.p50)}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-xs text-text-muted">p95</div>
+          <div className="text-sm font-semibold text-text-primary">
+            {formatDuration(snapshot.p95)}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-xs text-text-muted">p99</div>
+          <div className="text-sm font-semibold text-text-primary">
+            {formatDuration(snapshot.p99)}
+          </div>
+        </div>
+      </div>
+      <div className="text-xs text-text-muted mt-2 text-right">
+        {t('adminDashboard.totalRequests')}: {snapshot.count}
+      </div>
+    </div>
+  )
+}
+
+/** Table of slowest HTTP endpoints */
+function EndpointTable({
+  httpRequest,
+  t,
+}: {
+  httpRequest: Record<string, HistogramSnapshot>
+  t: (key: string) => string
+}) {
+  const entries = Object.entries(httpRequest)
+    .filter(([, snap]) => snap.count > 0)
+    .map(([labels, snap]) => {
+      const match = labels.match(/path="([^"]+)"/)
+      const endpoint = match ? match[1] : labels
+      return { endpoint, avg: snap.avg, count: snap.count }
+    })
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 5)
+
+  if (entries.length === 0) {
+    return (
+      <div className="bg-surface rounded-xl border border-border p-4">
+        <div className="text-xs text-text-muted font-medium uppercase tracking-wide mb-2">
+          {t('adminDashboard.slowestEndpoints')}
+        </div>
+        <div className="text-sm text-text-muted">{t('adminDashboard.noData')}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-4">
+      <div className="text-xs text-text-muted font-medium uppercase tracking-wide mb-3">
+        {t('adminDashboard.slowestEndpoints')}
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-text-muted">
+            <th className="pb-2 font-medium">{t('adminDashboard.endpoint')}</th>
+            <th className="pb-2 font-medium text-right">{t('adminDashboard.avgDuration')}</th>
+            <th className="pb-2 font-medium text-right">{t('adminDashboard.totalRequests')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e) => (
+            <tr key={e.endpoint} className="border-t border-border">
+              <td className="py-1.5 text-text-primary font-mono text-xs">{e.endpoint}</td>
+              <td className="py-1.5 text-text-primary text-right">{formatDuration(e.avg)}</td>
+              <td className="py-1.5 text-text-muted text-right">{e.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function AdminDashboardPage() {
   const { t } = useTranslation()
   const [metrics, setMetrics] = useState<AdminMetrics | null>(null)
@@ -125,6 +313,9 @@ export default function AdminDashboardPage() {
     agents: number[]
     heap: number[]
     rss: number[]
+    messages: number[]
+    wsMessages: number[]
+    activeRooms: number[]
   }>({
     clients: [],
     gateways: [],
@@ -132,6 +323,9 @@ export default function AdminDashboardPage() {
     agents: [],
     heap: [],
     rss: [],
+    messages: [],
+    wsMessages: [],
+    activeRooms: [],
   })
 
   const fetchMetrics = useCallback(async () => {
@@ -151,6 +345,14 @@ export default function AdminDashboardPage() {
         push(h.agents, data.data.connections.connectedAgents)
         push(h.heap, data.data.process.heapUsedBytes)
         push(h.rss, data.data.process.rssBytes)
+        if (data.data.activity) {
+          const counters = data.data.activity.messagesTotal
+          const msgTotal = counters['agentim_messages_total'] ?? 0
+          const wsTotal = counters['agentim_ws_messages_total'] ?? 0
+          push(h.messages, msgTotal)
+          push(h.wsMessages, wsTotal)
+          push(h.activeRooms, data.data.activity.activeRooms)
+        }
       } else {
         setError(data.error || 'Failed to fetch metrics')
       }
@@ -166,6 +368,61 @@ export default function AdminDashboardPage() {
   }, [fetchMetrics])
 
   const h = historyRef.current
+
+  // Extract aggregate agent response histogram
+  const agentSnap =
+    metrics?.performance?.agentResponse &&
+    Object.values(metrics.performance.agentResponse).find((s) => s.count > 0)
+
+  // Aggregate all HTTP histogram entries into one for the overview chart
+  const httpEntries = metrics?.performance?.httpRequest
+    ? Object.values(metrics.performance.httpRequest).filter((s) => s.count > 0)
+    : []
+  const httpAggSnap: HistogramSnapshot | null =
+    httpEntries.length > 0
+      ? httpEntries.reduce(
+          (acc, s) => ({
+            buckets: s.buckets,
+            counts: s.counts.map((c, i) => (acc.counts[i] ?? 0) + c),
+            sum: acc.sum + s.sum,
+            count: acc.count + s.count,
+            avg: 0,
+            p50: 0,
+            p95: 0,
+            p99: 0,
+          }),
+          {
+            buckets: httpEntries[0].buckets,
+            counts: new Array(httpEntries[0].buckets.length).fill(0) as number[],
+            sum: 0,
+            count: 0,
+            avg: 0,
+            p50: 0,
+            p95: 0,
+            p99: 0,
+          },
+        )
+      : null
+  if (httpAggSnap && httpAggSnap.count > 0) {
+    httpAggSnap.avg = httpAggSnap.sum / httpAggSnap.count
+    // Approximate percentiles from aggregated cumulative counts
+    for (const pctKey of ['p50', 'p95', 'p99'] as const) {
+      const pct = pctKey === 'p50' ? 0.5 : pctKey === 'p95' ? 0.95 : 0.99
+      const target = Math.ceil(httpAggSnap.count * pct)
+      let found = httpAggSnap.buckets[httpAggSnap.buckets.length - 1]
+      for (let i = 0; i < httpAggSnap.buckets.length; i++) {
+        if (httpAggSnap.counts[i] >= target) {
+          found = httpAggSnap.buckets[i]
+          break
+        }
+      }
+      httpAggSnap[pctKey] = found
+    }
+  }
+
+  const messagesTotal = metrics?.activity?.messagesTotal?.['agentim_messages_total'] ?? 0
+  const wsMessagesTotal = metrics?.activity?.messagesTotal?.['agentim_ws_messages_total'] ?? 0
+  const activeRooms = metrics?.activity?.activeRooms ?? 0
 
   return (
     <div className="h-full overflow-y-auto p-6">
@@ -245,6 +502,47 @@ export default function AdminDashboardPage() {
                 history={h.rss}
                 color="#ef4444"
               />
+            </div>
+
+            {/* Message Activity */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <MetricCard
+                label={t('adminDashboard.messagesTotal')}
+                value={messagesTotal}
+                history={h.messages}
+                color="#06b6d4"
+              />
+              <MetricCard
+                label={t('adminDashboard.wsMessagesTotal')}
+                value={wsMessagesTotal}
+                history={h.wsMessages}
+                color="#8b5cf6"
+              />
+              <MetricCard
+                label={t('adminDashboard.activeRooms')}
+                value={activeRooms}
+                history={h.activeRooms}
+                color="#10b981"
+              />
+            </div>
+
+            {/* Agent Performance */}
+            <HistogramCard
+              title={t('adminDashboard.agentPerformance')}
+              snapshot={agentSnap ?? null}
+              color="#f59e0b"
+              t={t}
+            />
+
+            {/* HTTP Performance */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <HistogramCard
+                title={t('adminDashboard.httpPerformance')}
+                snapshot={httpAggSnap}
+                color="#3b82f6"
+                t={t}
+              />
+              <EndpointTable httpRequest={metrics.performance?.httpRequest ?? {}} t={t} />
             </div>
           </div>
         ) : (

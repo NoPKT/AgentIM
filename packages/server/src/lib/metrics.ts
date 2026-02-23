@@ -73,6 +73,65 @@ export function observeHttpDuration(method: string, path: string, durationSecond
   }
 }
 
+// ─── Snapshot exports (for admin dashboard JSON API) ───
+
+export interface HistogramSnapshot {
+  buckets: number[]
+  counts: number[]
+  sum: number
+  count: number
+  avg: number
+  p50: number
+  p95: number
+  p99: number
+}
+
+function computePercentile(data: HistogramData, pct: number): number {
+  const target = Math.ceil(data.count * pct)
+  if (target <= 0) return 0
+  for (let i = 0; i < data.buckets.length; i++) {
+    if (data.counts[i] >= target) return data.buckets[i]
+  }
+  return data.buckets[data.buckets.length - 1]
+}
+
+function toSnapshot(data: HistogramData): HistogramSnapshot {
+  return {
+    buckets: data.buckets,
+    counts: data.counts,
+    sum: data.sum,
+    count: data.count,
+    avg: data.count > 0 ? data.sum / data.count : 0,
+    p50: computePercentile(data, 0.5),
+    p95: computePercentile(data, 0.95),
+    p99: computePercentile(data, 0.99),
+  }
+}
+
+export function getCountersSnapshot(): Record<string, number> {
+  const result: Record<string, number> = {}
+  for (const [key, value] of counters) {
+    result[key] = value
+  }
+  return result
+}
+
+export function getHistogramsSnapshot(): Record<string, Record<string, HistogramSnapshot>> {
+  const result: Record<string, Record<string, HistogramSnapshot>> = {}
+  for (const [name, metric] of histograms) {
+    const entries: Record<string, HistogramSnapshot> = {}
+    for (const [labels, data] of metric) {
+      entries[labels || '_'] = toSnapshot(data)
+    }
+    result[name] = entries
+  }
+  return result
+}
+
+export function getActiveRooms(): number {
+  return activeRoomsGetter ? activeRoomsGetter() : 0
+}
+
 // ─── Active rooms gauge ───
 
 let activeRoomsGetter: (() => number) | undefined

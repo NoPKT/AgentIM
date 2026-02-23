@@ -1,7 +1,13 @@
-# ⚠️  LOCAL DEVELOPMENT ONLY — do NOT use this file in production.
-#    For production deployments use render.yaml, Railway, or Northflank.
-#    Passwords below default to simple dev values; override via .env file:
-#      POSTGRES_PASSWORD=strongpassword REDIS_PASSWORD=strongpassword docker compose up
+# AgentIM — Docker Compose (production-ready)
+#
+# Quick start:
+#   ./deploy.sh           # auto-generates .env and starts all services
+#
+# Manual start:
+#   cp .env.docker.example .env   # fill in secrets
+#   docker compose up -d --build
+#
+# PostgreSQL and Redis are internal — not exposed to the host network.
 
 services:
   postgres:
@@ -50,18 +56,21 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - '${PORT:-3000}:3000'
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PORT=3000
       - HOST=0.0.0.0
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/agentim
       - REDIS_URL=redis://redis:6379
-      - 'JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set. Generate one with openssl rand -base64 32}'
+      - 'JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required. Run ./deploy.sh or set it in .env}'
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-}
-      - 'ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set. Generate one with openssl rand -base64 32}'
+      - 'ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required. Run ./deploy.sh or set it in .env}'
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set with a strong password}
+      - 'ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Run ./deploy.sh or set it in .env}'
     depends_on:
       postgres:
         condition: service_healthy
