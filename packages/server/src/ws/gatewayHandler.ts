@@ -704,40 +704,51 @@ async function handleTaskUpdate(ws: WSContext, taskId: string, status: string, r
     return
   }
 
-  // Verify the task belongs to a room where one of the gateway's agents is a member
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
-  if (!task) {
-    log.warn(`Task ${taskId} not found, ignoring update`)
-    return
-  }
-
   const gwAgentIds = [...gw.agentIds]
-  const memberCheck = await db
-    .select({ memberId: roomMembers.memberId })
-    .from(roomMembers)
-    .where(
-      and(
-        eq(roomMembers.roomId, task.roomId),
-        eq(roomMembers.memberType, 'agent'),
-        inArray(roomMembers.memberId, gwAgentIds),
-      ),
-    )
-    .limit(1)
-  if (memberCheck.length === 0) {
-    log.warn(`Gateway ${gw.gatewayId} has no agents in room ${task.roomId}, rejecting task update`)
-    return
-  }
 
-  const now = new Date().toISOString()
-  const updateData: Record<string, unknown> = { status, updatedAt: now }
-  if (result) updateData.description = result
+  // Use a transaction with SELECT FOR UPDATE to prevent concurrent agents
+  // from racing on the same task row.
+  const updated = await db.transaction(async (tx) => {
+    const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1).for('update')
+    if (!task) {
+      log.warn(`Task ${taskId} not found, ignoring update`)
+      return null
+    }
 
-  await db.update(tasks).set(updateData).where(eq(tasks.id, taskId))
+    // Verify the task belongs to a room where one of the gateway's agents is a member
+    const memberCheck = await tx
+      .select({ memberId: roomMembers.memberId })
+      .from(roomMembers)
+      .where(
+        and(
+          eq(roomMembers.roomId, task.roomId),
+          eq(roomMembers.memberType, 'agent'),
+          inArray(roomMembers.memberId, gwAgentIds),
+        ),
+      )
+      .limit(1)
+    if (memberCheck.length === 0) {
+      log.warn(
+        `Gateway ${gw.gatewayId} has no agents in room ${task.roomId}, rejecting task update`,
+      )
+      return null
+    }
 
-  connectionManager.broadcastToRoom(task.roomId, {
-    type: 'server:task_update',
-    task: { ...task, ...updateData },
+    const now = new Date().toISOString()
+    const updateData: Record<string, unknown> = { status, updatedAt: now }
+    if (result) updateData.description = result
+
+    await tx.update(tasks).set(updateData).where(eq(tasks.id, taskId))
+
+    return { ...task, ...updateData }
   })
+
+  if (updated) {
+    connectionManager.broadcastToRoom(updated.roomId, {
+      type: 'server:task_update',
+      task: updated,
+    })
+  }
 }
 
 async function handlePermissionRequest(

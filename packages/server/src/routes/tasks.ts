@@ -115,15 +115,7 @@ taskRoutes.put('/:id', async (c) => {
   const taskId = c.req.param('id')
   const userId = c.get('userId')
 
-  const [existing] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
-  if (!existing) {
-    return c.json({ ok: false, error: 'Task not found' }, 404)
-  }
-
-  if (!(await isRoomMember(userId, existing.roomId))) {
-    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
-  }
-
+  // Parse and validate request body before entering the transaction
   const body = await parseJsonBody(c)
   if (body instanceof Response) return body
   const parsed = updateTaskSchema.safeParse(body)
@@ -134,109 +126,130 @@ taskRoutes.put('/:id', async (c) => {
     )
   }
 
-  // Check if non-status fields are being modified
-  const hasNonStatusFields =
-    parsed.data.title !== undefined ||
-    parsed.data.description !== undefined ||
-    parsed.data.assigneeId !== undefined ||
-    parsed.data.assigneeType !== undefined
-
-  if (hasNonStatusFields) {
-    const isCreator = existing.createdById === userId
-    const isAssignee = existing.assigneeId === userId
-    const isAdmin = await isRoomAdmin(userId, existing.roomId)
-    if (!isCreator && !isAssignee && !isAdmin) {
-      return c.json(
-        { ok: false, error: 'Only task creator, assignee, or room admin can modify task details' },
-        403,
-      )
+  // Use a transaction with SELECT FOR UPDATE to prevent TOCTOU races
+  // when multiple agents concurrently update the same task.
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .limit(1)
+      .for('update')
+    if (!existing) {
+      return { error: 'Task not found', status: 404 as const }
     }
-  }
 
-  // Validate assignee consistency: assigneeId and assigneeType must stay paired.
-  // If either is set to null, clear both to prevent orphaned fields.
-  if (parsed.data.assigneeType === null && parsed.data.assigneeId === undefined) {
-    parsed.data.assigneeId = null
-  }
-  if (parsed.data.assigneeId === null && parsed.data.assigneeType === undefined) {
-    parsed.data.assigneeType = null
-  }
+    if (!(await isRoomMember(userId, existing.roomId))) {
+      return { error: 'Not a member of this room', status: 403 as const }
+    }
 
-  // Compute effective values after merging request with existing record.
-  // Normalize legacy data: missing assigneeType defaults to 'user' when assigneeId is present
-  // (task creation previously allowed omitting assigneeType, storing null in DB).
-  const effectiveAssigneeId =
-    parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : existing.assigneeId
-  const rawEffectiveType =
-    parsed.data.assigneeType !== undefined ? parsed.data.assigneeType : existing.assigneeType
-  const effectiveAssigneeType = effectiveAssigneeId && !rawEffectiveType ? 'user' : rawEffectiveType
+    // Check if non-status fields are being modified
+    const hasNonStatusFields =
+      parsed.data.title !== undefined ||
+      parsed.data.description !== undefined ||
+      parsed.data.assigneeId !== undefined ||
+      parsed.data.assigneeType !== undefined
 
-  // Reject mismatched combinations that would leave orphaned fields
-  if (!effectiveAssigneeId && effectiveAssigneeType) {
-    return c.json({ ok: false, error: 'assigneeId is required when assigneeType is set' }, 400)
-  }
+    if (hasNonStatusFields) {
+      const isCreator = existing.createdById === userId
+      const isAssignee = existing.assigneeId === userId
+      const isAdmin = await isRoomAdmin(userId, existing.roomId)
+      if (!isCreator && !isAssignee && !isAdmin) {
+        return {
+          error: 'Only task creator, assignee, or room admin can modify task details',
+          status: 403 as const,
+        }
+      }
+    }
 
-  // If assigneeType changes (non-null) but assigneeId stays the same, re-validate
-  if (
-    parsed.data.assigneeType !== undefined &&
-    parsed.data.assigneeType !== null &&
-    parsed.data.assigneeId === undefined &&
-    effectiveAssigneeId
-  ) {
+    // Validate assignee consistency: assigneeId and assigneeType must stay paired.
+    // If either is set to null, clear both to prevent orphaned fields.
+    if (parsed.data.assigneeType === null && parsed.data.assigneeId === undefined) {
+      parsed.data.assigneeId = null
+    }
+    if (parsed.data.assigneeId === null && parsed.data.assigneeType === undefined) {
+      parsed.data.assigneeType = null
+    }
+
+    // Compute effective values after merging request with existing record.
+    // Normalize legacy data: missing assigneeType defaults to 'user' when assigneeId is present
+    // (task creation previously allowed omitting assigneeType, storing null in DB).
+    const effectiveAssigneeId =
+      parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : existing.assigneeId
+    const rawEffectiveType =
+      parsed.data.assigneeType !== undefined ? parsed.data.assigneeType : existing.assigneeType
+    const effectiveAssigneeType =
+      effectiveAssigneeId && !rawEffectiveType ? 'user' : rawEffectiveType
+
+    // Reject mismatched combinations that would leave orphaned fields
+    if (!effectiveAssigneeId && effectiveAssigneeType) {
+      return { error: 'assigneeId is required when assigneeType is set', status: 400 as const }
+    }
+
+    // If assigneeType changes (non-null) but assigneeId stays the same, re-validate
     if (
-      !(await isRoomMember(
-        effectiveAssigneeId,
-        existing.roomId,
-        undefined,
-        parsed.data.assigneeType as 'user' | 'agent',
-      ))
+      parsed.data.assigneeType !== undefined &&
+      parsed.data.assigneeType !== null &&
+      parsed.data.assigneeId === undefined &&
+      effectiveAssigneeId
     ) {
-      return c.json(
-        {
-          ok: false,
+      if (
+        !(await isRoomMember(
+          effectiveAssigneeId,
+          existing.roomId,
+          undefined,
+          parsed.data.assigneeType as 'user' | 'agent',
+        ))
+      ) {
+        return {
           error: 'Current assignee is not valid for the new assigneeType; provide a new assigneeId',
-        },
-        400,
-      )
+          status: 400 as const,
+        }
+      }
     }
-  }
 
-  // Validate assignee is a member of the room
-  if (parsed.data.assigneeId !== undefined && parsed.data.assigneeId !== null) {
-    const assigneeType = (effectiveAssigneeType ?? 'user') as 'user' | 'agent'
-    if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId, undefined, assigneeType))) {
-      return c.json({ ok: false, error: 'Assignee is not a member of this room' }, 400)
+    // Validate assignee is a member of the room
+    if (parsed.data.assigneeId !== undefined && parsed.data.assigneeId !== null) {
+      const assigneeType = (effectiveAssigneeType ?? 'user') as 'user' | 'agent'
+      if (!(await isRoomMember(parsed.data.assigneeId, existing.roomId, undefined, assigneeType))) {
+        return { error: 'Assignee is not a member of this room', status: 400 as const }
+      }
     }
-  }
 
-  // Validate status transition — prevent nonsensical backwards transitions
-  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
-    const TERMINAL_STATUSES = new Set(['completed', 'cancelled'])
-    if (TERMINAL_STATUSES.has(existing.status) && parsed.data.status === 'in_progress') {
-      return c.json(
-        { ok: false, error: `Cannot transition from "${existing.status}" to "in_progress"` },
-        400,
-      )
+    // Validate status transition — prevent nonsensical backwards transitions
+    if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+      const TERMINAL_STATUSES = new Set(['completed', 'cancelled'])
+      if (TERMINAL_STATUSES.has(existing.status) && parsed.data.status === 'in_progress') {
+        return {
+          error: `Cannot transition from "${existing.status}" to "in_progress"`,
+          status: 400 as const,
+        }
+      }
     }
+
+    const now = new Date().toISOString()
+    const updateData: Record<string, unknown> = { updatedAt: now }
+    if (parsed.data.title !== undefined) updateData.title = sanitizeText(parsed.data.title)
+    if (parsed.data.description !== undefined)
+      updateData.description = sanitizeContent(parsed.data.description)
+    if (parsed.data.status !== undefined) updateData.status = parsed.data.status
+    if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
+    if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType
+    // Auto-repair legacy data: backfill missing assigneeType when assigneeId is present
+    if (existing.assigneeId && !existing.assigneeType && updateData.assigneeType === undefined) {
+      updateData.assigneeType = 'user'
+    }
+
+    await tx.update(tasks).set(updateData).where(eq(tasks.id, taskId))
+
+    const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
+    return { data: task }
+  })
+
+  if ('error' in result) {
+    return c.json({ ok: false, error: result.error }, result.status)
   }
-
-  const now = new Date().toISOString()
-  const updateData: Record<string, unknown> = { updatedAt: now }
-  if (parsed.data.title !== undefined) updateData.title = sanitizeText(parsed.data.title)
-  if (parsed.data.description !== undefined)
-    updateData.description = sanitizeContent(parsed.data.description)
-  if (parsed.data.status !== undefined) updateData.status = parsed.data.status
-  if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
-  if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType
-  // Auto-repair legacy data: backfill missing assigneeType when assigneeId is present
-  if (existing.assigneeId && !existing.assigneeType && updateData.assigneeType === undefined) {
-    updateData.assigneeType = 'user'
-  }
-
-  await db.update(tasks).set(updateData).where(eq(tasks.id, taskId))
-
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1)
-  return c.json({ ok: true, data: task })
+  return c.json({ ok: true, data: result.data })
 })
 
 // Delete task (creator or room admin only)
