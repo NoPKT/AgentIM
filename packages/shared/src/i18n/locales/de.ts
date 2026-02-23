@@ -393,6 +393,9 @@ export const de = {
       toolInputTooManyKeys: 'Tool-Eingabe hat zu viele Schlüssel',
     },
   },
+  a11y: {
+    skipToContent: 'Zum Inhalt springen',
+  },
   pwa: {
     updateAvailable: 'Eine neue Version ist verfügbar.',
     reload: 'Neu laden',

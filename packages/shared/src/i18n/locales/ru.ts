@@ -391,6 +391,9 @@ export const ru = {
       toolInputTooManyKeys: 'Слишком много ключей во входных данных инструмента',
     },
   },
+  a11y: {
+    skipToContent: 'Перейти к содержанию',
+  },
   pwa: {
     updateAvailable: 'Доступна новая версия.',
     reload: 'Обновить',

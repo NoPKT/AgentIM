@@ -82,7 +82,8 @@ export async function getCachedMessages(roomId: string): Promise<Message[]> {
     const db = await getDb()
     const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
     return await db.getAllFromIndex('messages', 'by-room', range)
-  } catch {
+  } catch (err) {
+    console.warn('[MessageCache] Failed to get cached messages', err)
     return []
   }
 }
@@ -109,8 +110,8 @@ export async function setCachedMessages(roomId: string, messages: Message[]): Pr
     }
 
     await tx.done
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to set cached messages', err)
   }
 }
 
@@ -135,8 +136,8 @@ export async function addCachedMessage(message: Message): Promise<void> {
       }
       await tx.done
     }
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to add cached message', err)
   }
 }
 
@@ -144,8 +145,8 @@ export async function updateCachedMessage(message: Message): Promise<void> {
   try {
     const db = await getDb()
     await db.put('messages', message)
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to update cached message', err)
   }
 }
 
@@ -153,8 +154,8 @@ export async function removeCachedMessage(roomId: string, messageId: string): Pr
   try {
     const db = await getDb()
     await db.delete('messages', messageId)
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to remove cached message', err)
   }
 }
 
@@ -171,8 +172,8 @@ async function deleteMessagesForRoom(roomId: string): Promise<void> {
       cursor = await cursor.continue()
     }
     await tx.done
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to delete messages for room', err)
   }
 }
 
@@ -182,7 +183,8 @@ export async function getCachedRooms(): Promise<Room[]> {
   try {
     const db = await getDb()
     return await db.getAll('rooms')
-  } catch {
+  } catch (err) {
+    console.warn('[MessageCache] Failed to get cached rooms', err)
     return []
   }
 }
@@ -196,8 +198,8 @@ export async function setCachedRooms(rooms: Room[]): Promise<void> {
       await tx.objectStore('rooms').put(room)
     }
     await tx.done
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to set cached rooms', err)
   }
 }
 
@@ -214,7 +216,8 @@ export async function getCachedRoomMeta(): Promise<
       map.set(item.roomId, { lastMessage: item.lastMessage, unread: item.unread })
     }
     return map
-  } catch {
+  } catch (err) {
+    console.warn('[MessageCache] Failed to get cached room meta', err)
     return new Map()
   }
 }
@@ -226,8 +229,8 @@ export async function setCachedRoomMeta(
   try {
     const db = await getDb()
     await db.put('room-meta', { roomId, ...meta })
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to set cached room meta', err)
   }
 }
 
@@ -239,8 +242,8 @@ export async function clearRoomCache(roomId: string): Promise<void> {
     const db = await getDb()
     await db.delete('room-meta', roomId)
     await db.delete('rooms', roomId)
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to clear room cache', err)
   }
 }
 
@@ -253,8 +256,8 @@ export async function clearCache(): Promise<void> {
     await tx.objectStore('room-meta').clear()
     await tx.objectStore('pending-messages').clear()
     await tx.done
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to clear cache', err)
   }
 }
 
@@ -264,8 +267,8 @@ export async function addPendingMessage(msg: PendingMessage): Promise<void> {
   try {
     const db = await getDb()
     await db.put('pending-messages', msg)
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to add pending message', err)
   }
 }
 
@@ -273,7 +276,8 @@ export async function getPendingMessages(): Promise<PendingMessage[]> {
   try {
     const db = await getDb()
     return await db.getAll('pending-messages')
-  } catch {
+  } catch (err) {
+    console.warn('[MessageCache] Failed to get pending messages', err)
     return []
   }
 }
@@ -282,7 +286,7 @@ export async function removePendingMessage(id: string): Promise<void> {
   try {
     const db = await getDb()
     await db.delete('pending-messages', id)
-  } catch {
-    // Silently fail
+  } catch (err) {
+    console.warn('[MessageCache] Failed to remove pending message', err)
   }
 }

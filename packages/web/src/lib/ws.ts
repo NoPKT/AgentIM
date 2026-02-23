@@ -93,6 +93,7 @@ export class WsClient {
         const parsed = serverMessageSchema.safeParse(raw)
         if (!parsed.success) {
           console.warn('[WS] Invalid server message, skipping:', parsed.error.issues)
+          window.dispatchEvent(new CustomEvent('ws:validation_error', { detail: { raw } }))
           return
         }
         const msg: ServerMessage = parsed.data

@@ -68,12 +68,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
       scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
     return () => cancelAnimationFrame(scrollRAF.current)
-  }, [
-    currentMessages.length,
-    streamingMessages.length,
-    streamingMessages[0]?.chunks.length,
-    isScrolledUp,
-  ])
+  }, [currentMessages.length, streamingMessages.length, streamingMessages.length > 0, isScrolledUp])
 
   // Track message count before loading more, so we can anchor scroll position
   const prevCountRef = useRef(0)

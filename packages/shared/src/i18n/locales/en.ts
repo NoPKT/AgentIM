@@ -388,6 +388,9 @@ export const en = {
       toolInputTooManyKeys: 'Tool input has too many keys',
     },
   },
+  a11y: {
+    skipToContent: 'Skip to content',
+  },
   pwa: {
     updateAvailable: 'A new version is available.',
     reload: 'Reload',

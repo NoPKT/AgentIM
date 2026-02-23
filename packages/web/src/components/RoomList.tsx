@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
@@ -95,6 +95,43 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
     [rooms, showArchived, lastMessages],
   )
 
+  const roomListRef = useRef<HTMLDivElement>(null)
+
+  const handleRoomListKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!sortedRooms.length) return
+      const currentIndex = sortedRooms.findIndex((r) => r.id === currentRoomId)
+      let nextIndex: number | null = null
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          nextIndex = currentIndex < sortedRooms.length - 1 ? currentIndex + 1 : 0
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : sortedRooms.length - 1
+          break
+        case 'Home':
+          e.preventDefault()
+          nextIndex = 0
+          break
+        case 'End':
+          e.preventDefault()
+          nextIndex = sortedRooms.length - 1
+          break
+        default:
+          return
+      }
+
+      if (nextIndex !== null) {
+        const room = sortedRooms[nextIndex]
+        handleRoomClick(room.id)
+      }
+    },
+    [sortedRooms, currentRoomId, handleRoomClick],
+  )
+
   return (
     <div className="p-4">
       {/* New Room Button */}
@@ -154,14 +191,21 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             <p className="text-xs text-text-muted">{t('common.createFirstRoom')}</p>
           </div>
         ) : (
-          <div role="list">
+          <div
+            role="listbox"
+            aria-label={t('chat.rooms')}
+            tabIndex={0}
+            ref={roomListRef}
+            onKeyDown={handleRoomListKeyDown}
+          >
             {sortedRooms.map((room) => {
               const lastMsg = lastMessages.get(room.id)
               const unread = unreadCounts.get(room.id) || 0
               return (
                 <button
                   key={room.id}
-                  role="listitem"
+                  role="option"
+                  aria-selected={room.id === currentRoomId}
                   onClick={() => handleRoomClick(room.id)}
                   aria-current={room.id === currentRoomId ? 'page' : undefined}
                   className={`

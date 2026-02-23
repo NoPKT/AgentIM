@@ -387,6 +387,9 @@ export const ja = {
       toolInputTooManyKeys: 'ツール入力のキーが多すぎます',
     },
   },
+  a11y: {
+    skipToContent: 'メインコンテンツにスキップ',
+  },
   pwa: {
     updateAvailable: '新しいバージョンが利用可能です。',
     reload: '再読み込み',

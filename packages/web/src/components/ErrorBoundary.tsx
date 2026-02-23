@@ -82,6 +82,37 @@ export class ErrorBoundary extends Component<Props, State> {
     _errorReporter?.(error, info.componentStack ?? undefined)
   }
 
+  componentDidMount() {
+    this._onError = (event: ErrorEvent) => {
+      console.error('[ErrorBoundary] Uncaught error:', event.error)
+      _errorReporter?.(event.error instanceof Error ? event.error : new Error(String(event.error)))
+      this.setState({
+        hasError: true,
+        error: event.error instanceof Error ? event.error : new Error(String(event.error)),
+      })
+    }
+    this._onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const err = event.reason instanceof Error ? event.reason : new Error(String(event.reason))
+      console.error('[ErrorBoundary] Unhandled rejection:', err)
+      _errorReporter?.(err)
+      this.setState({ hasError: true, error: err })
+    }
+    window.addEventListener('error', this._onError)
+    window.addEventListener('unhandledrejection', this._onUnhandledRejection)
+  }
+
+  componentWillUnmount() {
+    if (this._onError) {
+      window.removeEventListener('error', this._onError)
+    }
+    if (this._onUnhandledRejection) {
+      window.removeEventListener('unhandledrejection', this._onUnhandledRejection)
+    }
+  }
+
+  private _onError: ((event: ErrorEvent) => void) | null = null
+  private _onUnhandledRejection: ((event: PromiseRejectionEvent) => void) | null = null
+
   render() {
     if (this.state.hasError) {
       return (

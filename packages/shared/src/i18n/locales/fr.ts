@@ -393,6 +393,9 @@ export const fr = {
       toolInputTooManyKeys: "L'entrée de l'outil contient trop de clés",
     },
   },
+  a11y: {
+    skipToContent: 'Aller au contenu principal',
+  },
   pwa: {
     updateAvailable: 'Une nouvelle version est disponible.',
     reload: 'Recharger',

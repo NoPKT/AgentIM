@@ -64,6 +64,14 @@ export function AppLayout() {
 
   return (
     <div className="flex h-dvh bg-surface-secondary">
+      {/* Skip to content link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-black dark:focus:bg-gray-900 dark:focus:text-white"
+      >
+        {t('a11y.skipToContent')}
+      </a>
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -138,7 +146,7 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile top bar */}
         <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
           <button

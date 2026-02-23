@@ -384,6 +384,9 @@ export const zhCN = {
       toolInputTooManyKeys: '工具输入键数过多',
     },
   },
+  a11y: {
+    skipToContent: '跳转到主要内容',
+  },
   pwa: {
     updateAvailable: '新版本已就绪。',
     reload: '立即刷新',

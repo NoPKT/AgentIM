@@ -26,6 +26,8 @@ interface AuthState {
   updateUser: (data: Partial<AuthUser>) => void
 }
 
+let _isLoggingOut = false
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
@@ -48,22 +50,28 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await api.post('/auth/logout').catch(() => {})
-    api.clearTokens()
-    wsClient.disconnect()
-    useChatStore.getState().reset()
-    useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
-    useRouterStore.setState({ routers: [], loading: false })
-    // Clear all draft entries from localStorage
+    if (_isLoggingOut) return
+    _isLoggingOut = true
     try {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i)
-        if (key?.startsWith('draft:')) localStorage.removeItem(key)
+      await api.post('/auth/logout').catch(() => {})
+      api.clearTokens()
+      wsClient.disconnect()
+      useChatStore.getState().reset()
+      useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
+      useRouterStore.setState({ routers: [], loading: false })
+      // Clear all draft entries from localStorage
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i)
+          if (key?.startsWith('draft:')) localStorage.removeItem(key)
+        }
+      } catch {
+        // localStorage may be unavailable in strict privacy mode
       }
-    } catch {
-      // localStorage may be unavailable in strict privacy mode
+      set({ user: null })
+    } finally {
+      _isLoggingOut = false
     }
-    set({ user: null })
   },
 
   loadUser: async () => {

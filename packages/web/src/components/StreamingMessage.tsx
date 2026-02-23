@@ -36,7 +36,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
     : t('chat.agentWorking')
 
   return (
-    <div className="px-6 py-4">
+    <div className="px-6 py-4" role="status" aria-busy="true">
       <div className="flex items-start space-x-3">
         {/* Avatar */}
         <div

@@ -386,6 +386,9 @@ export const ko = {
       toolInputTooManyKeys: '도구 입력 키가 너무 많습니다',
     },
   },
+  a11y: {
+    skipToContent: '본문으로 건너뛰기',
+  },
   pwa: {
     updateAvailable: '새 버전이 준비되었습니다.',
     reload: '새로 고침',
