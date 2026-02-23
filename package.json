@@ -28,13 +28,16 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.5.0",
     "turbo": "^2.8.10",
-    "typescript": "^5.8.0",
-    "prettier": "^3.5.0"
+    "typescript": "^5.8.0"
   },
   "pnpm": {
     "overrides": {
@@ -48,6 +51,11 @@
     "onlyBuiltDependencies": [
       "argon2",
       "esbuild"
+    ]
+  },
+  "lint-staged": {
+    "packages/*/src/**/*.{ts,tsx}": [
+      "prettier --check"
     ]
   },
   "packageManager": "pnpm@10.29.3",

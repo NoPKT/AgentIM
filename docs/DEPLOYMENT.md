@@ -181,6 +181,58 @@ agentim claude /path/to/project
 - [ ] **Redis auth**: Use `redis://:password@host:6379` format
 - [ ] **`NODE_ENV=production`**: Enables CSP headers, hides error details
 
+## Key Rotation
+
+### Rotating JWT_SECRET
+
+Changing `JWT_SECRET` invalidates **all existing access and refresh tokens** — every user will be logged out immediately.
+
+```bash
+# 1. Generate a new secret
+NEW_JWT_SECRET=$(openssl rand -base64 32)
+
+# 2. Update your .env or environment configuration
+# Replace the old JWT_SECRET value with the new one
+
+# 3. Restart the server
+# Docker
+docker compose down && docker compose up -d
+
+# PM2
+pm2 restart agentim-server
+
+# Manual
+# Stop the server, update .env, restart
+```
+
+**Impact:** All users and gateways must re-authenticate. Gateway CLI daemons will automatically reconnect and re-login if credentials are saved. Web users will be redirected to the login page.
+
+**Recommended:** Rotate JWT_SECRET if you suspect it has been compromised, or as part of routine security maintenance (e.g., quarterly).
+
+### Rotating ENCRYPTION_KEY
+
+`ENCRYPTION_KEY` is used to encrypt sensitive data at rest (e.g., router LLM API keys stored in the database). Changing it **breaks decryption of all previously encrypted values**.
+
+```bash
+# 1. Before rotating: export current router configurations
+# (API keys will be needed to re-enter after rotation)
+curl https://your-server.com/api/routers \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" | jq '.data'
+
+# 2. Generate a new key (must be exactly 32 bytes when decoded)
+NEW_ENCRYPTION_KEY=$(openssl rand -base64 32)
+
+# 3. Update your .env and restart the server
+
+# 4. Re-enter encrypted values (router LLM API keys)
+# Use the Web UI: Settings > Routers > Edit each router
+# Or use the API to update each router's llmApiKey
+```
+
+**Impact:** All AES-256-GCM encrypted fields become unreadable. You must re-enter any encrypted values (currently: router LLM API keys) after rotation.
+
+**Recommended:** Only rotate when the key is compromised. Unlike JWT_SECRET, routine rotation requires manual re-entry of encrypted values.
+
 ## Admin Password Management
 
 ### Reset admin password

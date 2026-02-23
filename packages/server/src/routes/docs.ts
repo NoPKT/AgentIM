@@ -391,6 +391,79 @@ const spec = {
         responses: { '200': { description: 'Reactions updated' } },
       },
     },
+    '/messages/batch-delete': {
+      post: {
+        tags: ['Messages'],
+        summary: 'Batch delete messages',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messageIds'],
+                properties: {
+                  messageIds: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    maxItems: 100,
+                    description: 'IDs of messages to delete (must all be in the same room)',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Messages deleted, returns count' },
+          '400': { description: 'Messages from multiple rooms or validation error' },
+          '403': { description: 'No permission to delete' },
+        },
+      },
+    },
+    '/metrics': {
+      get: {
+        tags: ['System'],
+        summary: 'Prometheus metrics',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Prometheus-format metrics (client connections, gateways, agents, memory)',
+            content: { 'text/plain': { schema: { type: 'string' } } },
+          },
+        },
+      },
+    },
+    '/admin/metrics': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Admin dashboard metrics',
+        responses: {
+          '200': {
+            description:
+              'System metrics: user/room/message/agent counts, active connections, memory usage',
+          },
+          '403': { description: 'Admin access required' },
+        },
+      },
+    },
+    '/admin/settings': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Get all system settings',
+        responses: {
+          '200': { description: 'Key-value settings map' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+      put: {
+        tags: ['Admin'],
+        summary: 'Update system settings',
+        responses: {
+          '200': { description: 'Settings updated' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+    },
     '/agents': {
       get: {
         tags: ['Agents'],
@@ -553,6 +626,7 @@ const spec = {
   },
   tags: [
     { name: 'System', description: 'System endpoints' },
+    { name: 'Admin', description: 'Admin-only endpoints' },
     { name: 'Auth', description: 'Authentication' },
     { name: 'Users', description: 'User management' },
     { name: 'Rooms', description: 'Room management' },

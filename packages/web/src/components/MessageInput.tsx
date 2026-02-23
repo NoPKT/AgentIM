@@ -33,6 +33,7 @@ interface PendingAttachment {
   uploading?: boolean
   progress?: number
   error?: string
+  file?: File
 }
 
 export function MessageInput() {
@@ -118,6 +119,7 @@ export function MessageInput() {
           size: file.size,
           url: '',
           uploading: true,
+          file,
         }
 
         setPendingAttachments((prev) => [...prev, pending])
@@ -168,6 +170,57 @@ export function MessageInput() {
   const removeAttachment = useCallback((id: string) => {
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [])
+
+  const retryUpload = useCallback(
+    async (att: PendingAttachment) => {
+      if (!att.file) return
+      const file = att.file
+      setPendingAttachments((prev) =>
+        prev.map((a) =>
+          a.id === att.id ? { ...a, uploading: true, error: undefined, progress: undefined } : a,
+        ),
+      )
+      try {
+        const res = await api.upload<{
+          id: string
+          filename: string
+          mimeType: string
+          size: number
+          url: string
+        }>('/upload', file, {
+          onProgress: (percent) => {
+            setPendingAttachments((prev) =>
+              prev.map((a) => (a.id === att.id ? { ...a, progress: percent } : a)),
+            )
+          },
+        })
+        if (res.ok && res.data) {
+          setPendingAttachments((prev) =>
+            prev.map((a) =>
+              a.id === att.id
+                ? { ...a, id: res.data!.id, url: res.data!.url, uploading: false, file: undefined }
+                : a,
+            ),
+          )
+        } else {
+          setPendingAttachments((prev) =>
+            prev.map((a) =>
+              a.id === att.id
+                ? { ...a, uploading: false, error: res.error || t('chat.uploadFailed') }
+                : a,
+            ),
+          )
+        }
+      } catch {
+        setPendingAttachments((prev) =>
+          prev.map((a) =>
+            a.id === att.id ? { ...a, uploading: false, error: t('chat.uploadFailed') } : a,
+          ),
+        )
+      }
+    },
+    [t],
+  )
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value
@@ -419,6 +472,29 @@ export function MessageInput() {
                   />
                 )}
                 <span className="truncate max-w-[120px]">{att.filename}</span>
+                {att.error && att.file && (
+                  <button
+                    onClick={() => retryUpload(att)}
+                    className="p-0.5 rounded hover:bg-black/10 flex-shrink-0"
+                    aria-label={t('common.retry')}
+                    title={t('common.retry')}
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.4-4.5M20 15a9 9 0 01-15.4 4.5"
+                      />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={() => removeAttachment(att.id)}
                   className="p-0.5 rounded hover:bg-black/10 flex-shrink-0"
