@@ -29,7 +29,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
       onError(
         'Gemini SDK (@google/gemini-cli-sdk) is not yet published to npm. ' +
           'Gemini agent support will be enabled once the SDK is available. ' +
-          'Follow https://github.com/anthropics/AgentIM for updates.',
+          'Follow https://github.com/NoPKT/AgentIM for updates.',
       )
       return
     }
