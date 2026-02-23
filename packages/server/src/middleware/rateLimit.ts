@@ -54,7 +54,12 @@ function memoryRateLimit(key: string, windowMs: number, maxRequests: number): bo
   return entry.count > maxRequests
 }
 
-export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefix = 'api') {
+export function rateLimitMiddleware(
+  windowMs: number,
+  maxRequests: number,
+  prefix = 'api',
+  options?: { useUserId?: boolean },
+) {
   const isTest = process.env.NODE_ENV === 'test'
   const windowSec = Math.ceil(windowMs / 1000)
 
@@ -64,8 +69,9 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
       return
     }
 
-    const ip = getClientIpFromRequest(c)
-    const key = `rl:${prefix}:${ip}:${windowSec}`
+    const userId = options?.useUserId ? c.get('userId') : undefined
+    const identity = userId ? `u:${userId}` : getClientIpFromRequest(c)
+    const key = `rl:${prefix}:${identity}:${windowSec}`
 
     if (!isRedisEnabled()) {
       const limited = memoryRateLimit(key, windowMs, maxRequests)
@@ -118,9 +124,9 @@ export function rateLimitMiddleware(windowMs: number, maxRequests: number, prefi
 export const authRateLimit = rateLimitMiddleware(60_000, 20, 'auth')
 /** General API: 120 requests per minute */
 export const apiRateLimit = rateLimitMiddleware(60_000, 120, 'api')
-/** Sensitive endpoints: 5 requests per minute */
-export const sensitiveRateLimit = rateLimitMiddleware(60_000, 5, 'sens')
-/** Upload endpoints: 10 requests per minute */
-export const uploadRateLimit = rateLimitMiddleware(60_000, 10, 'upload')
+/** Sensitive endpoints: 5 requests per minute per user (falls back to IP if unauthenticated) */
+export const sensitiveRateLimit = rateLimitMiddleware(60_000, 5, 'sens', { useUserId: true })
+/** Upload endpoints: 10 requests per minute per user (falls back to IP if unauthenticated) */
+export const uploadRateLimit = rateLimitMiddleware(60_000, 10, 'upload', { useUserId: true })
 /** WebSocket upgrade: 30 attempts per minute per IP — prevents connection exhaustion attacks */
 export const wsUpgradeRateLimit = rateLimitMiddleware(60_000, 30, 'ws_upgrade')
