@@ -329,6 +329,7 @@ export const gatewayAuthSchema = z.object({
     platform: z.string(),
     arch: z.string(),
     nodeVersion: z.string(),
+    agentimVersion: z.string().optional(),
   }),
 })
 
@@ -442,6 +443,7 @@ const deviceInfoSchema = z.object({
   platform: z.string(),
   arch: z.string(),
   nodeVersion: z.string(),
+  agentimVersion: z.string().optional(),
 })
 
 const agentSchema = z.object({
@@ -516,10 +518,11 @@ export const gatewaySchema = z.object({
   userId: z.string(),
   name: z.string(),
   deviceInfo: z.object({
+    hostname: z.string(),
     platform: z.string(),
     arch: z.string(),
     nodeVersion: z.string(),
-    agentimVersion: z.string(),
+    agentimVersion: z.string().optional(),
   }),
   connectedAt: z.string().optional(),
   disconnectedAt: z.string().optional(),
@@ -686,7 +689,7 @@ export const serverSendToAgentSchema = z.object({
   messageId: z.string(),
   content: z.string(),
   senderName: z.string(),
-  senderType: z.enum(MEMBER_TYPES),
+  senderType: z.enum(SENDER_TYPES),
   routingMode: z.enum(ROUTING_MODES),
   conversationId: z.string(),
   depth: z.number().int().min(0),

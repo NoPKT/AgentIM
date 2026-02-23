@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerMessage } from '@agentim/shared'
+import { serverMessageSchema } from '@agentim/shared'
 
 type MessageHandler = (msg: ServerMessage) => void
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting'
@@ -88,7 +89,13 @@ export class WsClient {
 
     this.ws.onmessage = (evt) => {
       try {
-        const msg = JSON.parse(evt.data) as ServerMessage
+        const raw = JSON.parse(evt.data)
+        const parsed = serverMessageSchema.safeParse(raw)
+        if (!parsed.success) {
+          console.warn('[WS] Invalid server message, skipping:', parsed.error.issues)
+          return
+        }
+        const msg: ServerMessage = parsed.data
         if (msg.type === 'server:pong') {
           this.clearPongTimeout()
           return

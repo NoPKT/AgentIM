@@ -47,6 +47,7 @@ export interface DeviceInfo {
   platform: string
   arch: string
   nodeVersion: string
+  agentimVersion?: string
 }
 
 export interface Gateway {

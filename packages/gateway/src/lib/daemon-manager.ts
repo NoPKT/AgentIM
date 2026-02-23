@@ -7,7 +7,8 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { homedir, platform } from 'node:os'
+import { execSync } from 'node:child_process'
 import { createLogger } from './logger.js'
 
 const log = createLogger('DaemonManager')
@@ -40,6 +41,28 @@ function isProcessAlive(pid: number): boolean {
     return true
   } catch {
     return false
+  }
+}
+
+/**
+ * Verify that the process with the given PID is actually an agentim process.
+ * Prevents acting on a recycled PID that now belongs to an unrelated process.
+ */
+function isAgentimProcess(pid: number): boolean {
+  try {
+    if (platform() === 'linux') {
+      const cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf-8')
+      return cmdline.includes('agentim')
+    }
+    // macOS / other Unix: use ps
+    const output = execSync(`ps -p ${pid} -o command=`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    }).trim()
+    return output.includes('agentim')
+  } catch {
+    // If we cannot verify, assume it's valid to avoid false negatives
+    return true
   }
 }
 
@@ -80,7 +103,7 @@ export function listDaemons(): (DaemonInfo & { alive: boolean })[] {
     const filePath = join(DAEMONS_DIR, file)
     try {
       const info = JSON.parse(readFileSync(filePath, 'utf-8')) as DaemonInfo
-      result.push({ ...info, alive: isProcessAlive(info.pid) })
+      result.push({ ...info, alive: isProcessAlive(info.pid) && isAgentimProcess(info.pid) })
     } catch {
       // Skip malformed files
     }
@@ -97,8 +120,8 @@ export function stopDaemon(name: string): boolean {
     return false
   }
 
-  if (!isProcessAlive(info.pid)) {
-    log.warn(`Daemon "${name}" (PID ${info.pid}) is already dead, cleaning up`)
+  if (!isProcessAlive(info.pid) || !isAgentimProcess(info.pid)) {
+    log.warn(`Daemon "${name}" (PID ${info.pid}) is not a live agentim process, cleaning up`)
     removeDaemonInfo(name)
     return false
   }

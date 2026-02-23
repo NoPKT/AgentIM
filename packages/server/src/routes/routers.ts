@@ -131,9 +131,8 @@ async function resolvesToPrivateIp(urlStr: string): Promise<boolean> {
 
 function maskApiKey(storedKey: string): string {
   const key = decryptSecret(storedKey)
-  if (!key) return '••••'
-  if (key.length <= 4) return '••••'
-  return '••••' + key.slice(-4)
+  if (!key || key.length <= 8) return '••••'
+  return '••••' + key.slice(-2)
 }
 
 async function isAdmin(userId: string): Promise<boolean> {

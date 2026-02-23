@@ -1,5 +1,6 @@
 import WebSocket from 'ws'
 import type { GatewayMessage, ServerGatewayMessage, ServerSendToAgent } from '@agentim/shared'
+import { serverGatewayMessageSchema } from '@agentim/shared'
 import { createLogger } from './lib/logger.js'
 
 const log = createLogger('Gateway')
@@ -74,12 +75,19 @@ export class GatewayWsClient {
 
     this.ws.on('message', (data) => {
       try {
-        const msg = JSON.parse(data.toString())
-        if (msg.type === 'server:pong') {
+        const raw = JSON.parse(data.toString())
+        if (raw.type === 'server:pong') {
           this.clearPongTimeout()
           return
         }
-        this.onMessage(msg)
+        const parsed = serverGatewayMessageSchema.safeParse(raw)
+        if (!parsed.success) {
+          log.warn(
+            `Invalid server message (type=${raw?.type}), skipping: ${parsed.error.issues.map((i: { message: string }) => i.message).join(', ')}`,
+          )
+          return
+        }
+        this.onMessage(parsed.data)
       } catch (err) {
         log.warn(`Failed to parse server message: ${(err as Error).message}`)
       }

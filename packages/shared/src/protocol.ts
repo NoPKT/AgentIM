@@ -8,7 +8,7 @@ import type {
   RoomMember,
   RoomContext,
 } from './types.js'
-import type { AgentStatus, TaskStatus, RoutingMode } from './constants.js'
+import type { AgentStatus, TaskStatus, RoutingMode, SenderType } from './constants.js'
 
 // ─── Client → Server Messages ───
 
@@ -196,6 +196,7 @@ export interface GatewayAuth {
     platform: string
     arch: string
     nodeVersion: string
+    agentimVersion?: string
   }
 }
 
@@ -284,7 +285,7 @@ export interface ServerSendToAgent {
   messageId: string
   content: string
   senderName: string
-  senderType: 'user' | 'agent'
+  senderType: SenderType
   routingMode: RoutingMode
   conversationId: string
   depth: number
