@@ -8,6 +8,7 @@ import {
   CURRENT_PROTOCOL_VERSION,
 } from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
+import { getPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
 import { isTokenRevoked } from '../lib/tokenRevocation.js'
@@ -23,6 +24,7 @@ import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 import { getRoomMemberRole } from '../lib/roomAccess.js'
+import { incCounter } from '../lib/metrics.js'
 
 const log = createLogger('ClientHandler')
 
@@ -228,6 +230,8 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
     return
   }
 
+  incCounter('agentim_ws_messages_total', { direction: 'in' })
+
   const parsed = clientMessageSchema.safeParse(data)
   if (!parsed.success) {
     connectionManager.sendToClient(ws, {
@@ -286,6 +290,8 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
         return handleTyping(ws, msg.roomId)
       case 'client:stop_generation':
         return handleStopGeneration(ws, msg.roomId, msg.agentId)
+      case 'client:permission_response':
+        return handlePermissionResponse(ws, msg.requestId, msg.decision)
       case 'client:ping':
         connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
@@ -608,6 +614,9 @@ async function handleSendMessage(
     createdAt: now,
   }
 
+  // Record user message metric
+  incCounter('agentim_messages_total', { type: 'user' })
+
   // Broadcast to all clients in the room
   connectionManager.broadcastToRoom(roomId, {
     type: 'server:new_message',
@@ -808,6 +817,33 @@ async function handleStopGeneration(ws: WSContext, roomId: string, agentId: stri
     agentId,
   }
   connectionManager.sendToGateway(agentId, stopMsg)
+}
+
+function handlePermissionResponse(ws: WSContext, requestId: string, decision: 'allow' | 'deny') {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const pending = getPendingPermission(requestId)
+  if (!pending) {
+    log.warn(`Permission response for unknown requestId=${requestId}`)
+    return
+  }
+
+  // Verify user is in the room
+  if (!client.joinedRooms.has(pending.roomId)) {
+    log.warn(`User ${client.userId} not in room ${pending.roomId} for permission response`)
+    return
+  }
+
+  clearPendingPermission(requestId)
+
+  // Forward decision to gateway
+  connectionManager.sendToGateway(pending.agentId, {
+    type: 'server:permission_response',
+    requestId,
+    agentId: pending.agentId,
+    decision,
+  })
 }
 
 export function handleClientDisconnect(ws: WSContext) {

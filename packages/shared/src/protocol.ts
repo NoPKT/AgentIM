@@ -8,7 +8,14 @@ import type {
   RoomMember,
   RoomContext,
 } from './types.js'
-import type { AgentStatus, AgentType, TaskStatus, RoutingMode, SenderType } from './constants.js'
+import type {
+  AgentStatus,
+  AgentType,
+  TaskStatus,
+  RoutingMode,
+  SenderType,
+  PermissionDecision,
+} from './constants.js'
 
 // ─── Client → Server Messages ───
 
@@ -48,6 +55,12 @@ export interface ClientStopGeneration {
   agentId: string
 }
 
+export interface ClientPermissionResponse {
+  type: 'client:permission_response'
+  requestId: string
+  decision: 'allow' | 'deny'
+}
+
 export interface ClientPing {
   type: 'client:ping'
   ts: number
@@ -60,6 +73,7 @@ export type ClientMessage =
   | ClientSendMessage
   | ClientTyping
   | ClientStopGeneration
+  | ClientPermissionResponse
   | ClientPing
 
 // ─── Server → Client Messages ───
@@ -160,6 +174,22 @@ export interface ServerError {
   message: string
 }
 
+export interface ServerPermissionRequest {
+  type: 'server:permission_request'
+  requestId: string
+  agentId: string
+  agentName: string
+  roomId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  expiresAt: string
+}
+
+export interface ServerPermissionRequestExpired {
+  type: 'server:permission_request_expired'
+  requestId: string
+}
+
 export interface ServerRoomRemoved {
   type: 'server:room_removed'
   roomId: string
@@ -181,6 +211,8 @@ export type ServerMessage =
   | ServerReadReceipt
   | ServerPresence
   | ServerReactionUpdate
+  | ServerPermissionRequest
+  | ServerPermissionRequestExpired
   | ServerPong
   | ServerError
 
@@ -254,6 +286,16 @@ export interface GatewayTaskUpdate {
   result?: string
 }
 
+export interface GatewayPermissionRequest {
+  type: 'gateway:permission_request'
+  requestId: string
+  agentId: string
+  roomId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  timeoutMs: number
+}
+
 export interface GatewayPing {
   type: 'gateway:ping'
   ts: number
@@ -268,6 +310,7 @@ export type GatewayMessage =
   | GatewayAgentStatus
   | GatewayTerminalData
   | GatewayTaskUpdate
+  | GatewayPermissionRequest
   | GatewayPing
 
 // ─── Server → Gateway Messages ───
@@ -307,6 +350,13 @@ export interface ServerRemoveAgent {
   agentId: string
 }
 
+export interface ServerPermissionResponse {
+  type: 'server:permission_response'
+  requestId: string
+  agentId: string
+  decision: PermissionDecision
+}
+
 export interface ServerPong {
   type: 'server:pong'
   ts: number
@@ -318,6 +368,7 @@ export type ServerGatewayMessage =
   | ServerStopAgent
   | ServerRemoveAgent
   | ServerRoomContext
+  | ServerPermissionResponse
   | ServerPong
 
 // ─── All Messages Union ───

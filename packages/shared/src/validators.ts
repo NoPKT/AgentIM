@@ -22,6 +22,7 @@ import {
   SENDER_TYPES,
   ASSIGNEE_TYPES,
   NOTIFICATION_PREFS,
+  PERMISSION_DECISIONS,
 } from './constants.js'
 
 // ─── Password Complexity ───
@@ -306,6 +307,12 @@ export const clientStopGenerationSchema = z.object({
   agentId: z.string().min(1),
 })
 
+export const clientPermissionResponseSchema = z.object({
+  type: z.literal('client:permission_response'),
+  requestId: z.string().min(1).max(100),
+  decision: z.enum(['allow', 'deny']),
+})
+
 export const clientPingSchema = z.object({
   type: z.literal('client:ping'),
   ts: z.number(),
@@ -318,6 +325,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientSendMessageSchema,
   clientTypingSchema,
   clientStopGenerationSchema,
+  clientPermissionResponseSchema,
   clientPingSchema,
 ])
 
@@ -390,6 +398,16 @@ export const gatewayTaskUpdateSchema = z.object({
   result: z.string().optional(),
 })
 
+export const gatewayPermissionRequestSchema = z.object({
+  type: z.literal('gateway:permission_request'),
+  requestId: z.string().min(1).max(100),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  toolName: z.string().min(1).max(200),
+  toolInput: z.record(z.string(), z.unknown()),
+  timeoutMs: z.number().int().min(1000).max(600_000),
+})
+
 export const gatewayPingSchema = z.object({
   type: z.literal('gateway:ping'),
   ts: z.number(),
@@ -404,6 +422,7 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAgentStatusSchema,
   gatewayTerminalDataSchema,
   gatewayTaskUpdateSchema,
+  gatewayPermissionRequestSchema,
   gatewayPingSchema,
 ])
 
@@ -642,6 +661,22 @@ export const serverReactionUpdateSchema = z.object({
   reactions: z.array(messageReactionSchema),
 })
 
+export const serverPermissionRequestSchema = z.object({
+  type: z.literal('server:permission_request'),
+  requestId: z.string(),
+  agentId: z.string(),
+  agentName: z.string(),
+  roomId: z.string(),
+  toolName: z.string(),
+  toolInput: z.record(z.string(), z.unknown()),
+  expiresAt: z.string(),
+})
+
+export const serverPermissionRequestExpiredSchema = z.object({
+  type: z.literal('server:permission_request_expired'),
+  requestId: z.string(),
+})
+
 export const serverRoomRemovedSchema = z.object({
   type: z.literal('server:room_removed'),
   roomId: z.string(),
@@ -674,6 +709,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverReadReceiptSchema,
   serverPresenceSchema,
   serverReactionUpdateSchema,
+  serverPermissionRequestSchema,
+  serverPermissionRequestExpiredSchema,
   serverPongSchema,
   serverErrorSchema,
 ])
@@ -715,11 +752,19 @@ export const serverRemoveAgentSchema = z.object({
   agentId: z.string(),
 })
 
+export const serverPermissionResponseSchema = z.object({
+  type: z.literal('server:permission_response'),
+  requestId: z.string(),
+  agentId: z.string(),
+  decision: z.enum(PERMISSION_DECISIONS),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
   serverStopAgentSchema,
   serverRemoveAgentSchema,
   serverRoomContextSchema,
+  serverPermissionResponseSchema,
   serverPongSchema,
 ])

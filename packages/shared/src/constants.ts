@@ -84,6 +84,14 @@ export type AssigneeType = (typeof ASSIGNEE_TYPES)[number]
 export const SENDER_TYPES = ['user', 'agent', 'system'] as const
 export type SenderType = (typeof SENDER_TYPES)[number]
 
+export const PERMISSION_LEVELS = ['bypass', 'interactive'] as const
+export type PermissionLevel = (typeof PERMISSION_LEVELS)[number]
+
+export const PERMISSION_DECISIONS = ['allow', 'deny', 'timeout'] as const
+export type PermissionDecision = (typeof PERMISSION_DECISIONS)[number]
+
+export const PERMISSION_TIMEOUT_MS = 300_000 // 5 minutes
+
 /** Current WebSocket protocol version. Bumped when breaking changes are introduced. */
 export const CURRENT_PROTOCOL_VERSION = '1'
 

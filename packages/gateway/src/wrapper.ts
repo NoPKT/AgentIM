@@ -6,10 +6,12 @@ import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
 import { createLogger } from './lib/logger.js'
 import type {
+  PermissionLevel,
   ServerSendToAgent,
   ServerStopAgent,
   ServerRemoveAgent,
   ServerRoomContext,
+  ServerPermissionResponse,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
 
@@ -25,6 +27,7 @@ export async function runWrapper(opts: {
   workDir?: string
   env?: Record<string, string>
   passEnv?: string[]
+  permissionLevel?: PermissionLevel
 }): Promise<void> {
   const config = loadConfig()
   if (!config) {
@@ -115,10 +118,16 @@ export async function runWrapper(opts: {
         msg.type === 'server:send_to_agent' ||
         msg.type === 'server:stop_agent' ||
         msg.type === 'server:remove_agent' ||
-        msg.type === 'server:room_context'
+        msg.type === 'server:room_context' ||
+        msg.type === 'server:permission_response'
       ) {
         agentManager.handleServerMessage(
-          msg as ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext,
+          msg as
+            | ServerSendToAgent
+            | ServerStopAgent
+            | ServerRemoveAgent
+            | ServerRoomContext
+            | ServerPermissionResponse,
         )
       }
     },
@@ -127,7 +136,7 @@ export async function runWrapper(opts: {
     },
   })
 
-  agentManager = new AgentManager(wsClient)
+  agentManager = new AgentManager(wsClient, opts.permissionLevel ?? 'interactive')
   wsClient.connect()
 
   // Graceful shutdown

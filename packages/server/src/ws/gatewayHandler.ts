@@ -6,6 +6,7 @@ import {
   parseMentions,
   TASK_STATUSES,
   CURRENT_PROTOCOL_VERSION,
+  PERMISSION_TIMEOUT_MS,
 } from '@agentim/shared'
 import type {
   ServerSendToAgent,
@@ -13,6 +14,8 @@ import type {
   RoomContext,
   RoomContextMember,
 } from '@agentim/shared'
+import { addPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
+import { incCounter, observeAgentDuration } from '../lib/metrics.js'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
 import { isTokenRevoked } from '../lib/tokenRevocation.js'
@@ -139,6 +142,8 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
     return
   }
 
+  incCounter('agentim_ws_messages_total', { direction: 'in' })
+
   const parsed = gatewayMessageSchema.safeParse(data)
   if (!parsed.success) {
     log.warn(`Gateway sent invalid message format: ${parsed.error.issues[0]?.message ?? 'unknown'}`)
@@ -174,6 +179,8 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return await handleTerminalData(ws, msg)
       case 'gateway:task_update':
         return await handleTaskUpdate(ws, msg.taskId, msg.status, msg.result)
+      case 'gateway:permission_request':
+        return await handlePermissionRequest(ws, msg)
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return
@@ -582,6 +589,9 @@ async function handleMessageComplete(
     createdAt: now,
   }
 
+  // Record agent message metric
+  incCounter('agentim_messages_total', { type: 'agent' })
+
   connectionManager.broadcastToRoom(msg.roomId, {
     type: 'server:message_complete',
     message,
@@ -727,6 +737,69 @@ async function handleTaskUpdate(ws: WSContext, taskId: string, status: string, r
   connectionManager.broadcastToRoom(task.roomId, {
     type: 'server:task_update',
     task: { ...task, ...updateData },
+  })
+}
+
+async function handlePermissionRequest(
+  ws: WSContext,
+  msg: {
+    requestId: string
+    agentId: string
+    roomId: string
+    toolName: string
+    toolInput: Record<string, unknown>
+    timeoutMs: number
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted permission request for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  const [agent] = await db
+    .select({ name: agents.name })
+    .from(agents)
+    .where(eq(agents.id, msg.agentId))
+    .limit(1)
+  const agentName = agent?.name ?? 'Unknown Agent'
+
+  const timeoutMs = Math.min(msg.timeoutMs, PERMISSION_TIMEOUT_MS)
+  const expiresAt = new Date(Date.now() + timeoutMs).toISOString()
+
+  // Set up timeout — auto-deny and notify both gateway and clients
+  const timer = setTimeout(() => {
+    clearPendingPermission(msg.requestId)
+    // Notify gateway of timeout
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:permission_response',
+      requestId: msg.requestId,
+      agentId: msg.agentId,
+      decision: 'timeout',
+    })
+    // Notify clients of expiration
+    connectionManager.broadcastToRoom(msg.roomId, {
+      type: 'server:permission_request_expired',
+      requestId: msg.requestId,
+    })
+  }, timeoutMs)
+
+  addPendingPermission(msg.requestId, {
+    agentId: msg.agentId,
+    roomId: msg.roomId,
+    timer,
+  })
+
+  // Broadcast to room clients
+  connectionManager.broadcastToRoom(msg.roomId, {
+    type: 'server:permission_request',
+    requestId: msg.requestId,
+    agentId: msg.agentId,
+    agentName,
+    roomId: msg.roomId,
+    toolName: msg.toolName,
+    toolInput: msg.toolInput,
+    expiresAt,
   })
 }
 

@@ -6,6 +6,7 @@ import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
 import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
 import { Button, Input, Modal, ModalPanel } from './ui.js'
+import { CachedDataBanner } from './CachedDataBanner.js'
 
 function timeAgo(dateStr: string, t: (key: string) => string): string {
   const now = Date.now()
@@ -31,6 +32,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
     createRoom,
     lastMessages,
     unreadCounts,
+    showingCachedRooms,
   } = useChatStore()
   const [showNewRoomDialog, setShowNewRoomDialog] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
@@ -104,6 +106,9 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
         <PlusIcon className="w-5 h-5" aria-hidden="true" />
         <span>{t('chat.newRoom')}</span>
       </button>
+
+      {/* Cached data banner */}
+      {showingCachedRooms && <CachedDataBanner type="rooms" />}
 
       {/* Room List */}
       <nav className="space-y-1" aria-label={t('chat.rooms')}>

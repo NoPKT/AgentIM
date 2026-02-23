@@ -5,26 +5,40 @@ import { createLogger } from './lib/logger.js'
 import type {
   AgentType,
   GatewayMessage,
+  PermissionLevel,
+  PermissionDecision,
   ServerSendToAgent,
   ServerStopAgent,
   ServerRemoveAgent,
   ServerRoomContext,
+  ServerPermissionResponse,
   ServerGatewayMessage,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
+import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import { getWorkspaceStatus } from './lib/git-utils.js'
 
 const log = createLogger('AgentManager')
+
+interface PendingPermission {
+  resolve: (decision: { behavior: 'allow' | 'deny' }) => void
+  reject: (err: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
   private agentCapabilities = new Map<string, string[]>()
   private roomContexts = new Map<string, RoomContext>()
+  private pendingPermissions = new Map<string, PendingPermission>()
+  private agentCurrentRoom = new Map<string, string>()
   private wsClient: GatewayWsClient
+  private permissionLevel: PermissionLevel
 
-  constructor(wsClient: GatewayWsClient) {
+  constructor(wsClient: GatewayWsClient, permissionLevel: PermissionLevel = 'interactive') {
     this.wsClient = wsClient
+    this.permissionLevel = permissionLevel
   }
 
   addAgent(opts: {
@@ -50,6 +64,32 @@ export class AgentManager {
         promptVia: opts.promptVia,
         env: opts.env,
         passEnv: opts.passEnv,
+        permissionLevel: this.permissionLevel,
+        onPermissionRequest:
+          this.permissionLevel === 'interactive'
+            ? async ({ requestId, toolName, toolInput, timeoutMs }) => {
+                const roomId = this.agentCurrentRoom.get(agentId)
+                if (!roomId) {
+                  return { behavior: 'deny' as const }
+                }
+                return new Promise<{ behavior: 'allow' | 'deny' }>((resolve, reject) => {
+                  const timer = setTimeout(() => {
+                    this.pendingPermissions.delete(requestId)
+                    resolve({ behavior: 'deny' })
+                  }, timeoutMs)
+                  this.pendingPermissions.set(requestId, { resolve, reject, timer })
+                  this.wsClient.send({
+                    type: 'gateway:permission_request',
+                    requestId,
+                    agentId,
+                    roomId,
+                    toolName,
+                    toolInput,
+                    timeoutMs,
+                  })
+                })
+              }
+            : undefined,
       })
     } catch (err) {
       log.error(`Failed to create adapter for type "${opts.type}": ${(err as Error).message}`)
@@ -119,7 +159,12 @@ export class AgentManager {
   }
 
   handleServerMessage(
-    msg: ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext,
+    msg:
+      | ServerSendToAgent
+      | ServerStopAgent
+      | ServerRemoveAgent
+      | ServerRoomContext
+      | ServerPermissionResponse,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -129,7 +174,22 @@ export class AgentManager {
       this.handleRemoveAgent(msg.agentId)
     } else if (msg.type === 'server:room_context') {
       this.handleRoomContext(msg)
+    } else if (msg.type === 'server:permission_response') {
+      this.handlePermissionResponse(msg)
     }
+  }
+
+  private handlePermissionResponse(msg: ServerPermissionResponse) {
+    const pending = this.pendingPermissions.get(msg.requestId)
+    if (!pending) {
+      log.warn(`No pending permission for requestId=${msg.requestId}`)
+      return
+    }
+    clearTimeout(pending.timer)
+    this.pendingPermissions.delete(msg.requestId)
+    const behavior = msg.decision === 'allow' ? 'allow' : 'deny'
+    pending.resolve({ behavior })
+    log.info(`Permission ${msg.decision} for requestId=${msg.requestId}`)
   }
 
   private handleRoomContext(msg: ServerRoomContext) {
@@ -144,6 +204,9 @@ export class AgentManager {
       log.warn(`Agent not found: ${msg.agentId}`)
       return
     }
+
+    // Track which room this agent is responding to
+    this.agentCurrentRoom.set(msg.agentId, msg.roomId)
 
     const messageId = msg.messageId
     const allChunks: ParsedChunk[] = []
@@ -309,5 +372,12 @@ export class AgentManager {
     this.adapters.clear()
     this.agentCapabilities.clear()
     this.roomContexts.clear()
+    this.agentCurrentRoom.clear()
+    // Reject all pending permissions
+    for (const [id, pending] of this.pendingPermissions) {
+      clearTimeout(pending.timer)
+      pending.resolve({ behavior: 'deny' })
+    }
+    this.pendingPermissions.clear()
   }
 }

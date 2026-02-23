@@ -610,6 +610,7 @@ class ConnectionManager {
       gatewayConnections: this.gateways.size,
       onlineUsers: this.onlineUsers.size,
       connectedAgents: this.agentToGateway.size,
+      activeRooms: this.roomClients.size,
     }
   }
 }

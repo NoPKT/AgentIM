@@ -40,6 +40,7 @@ import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandl
 import { pushRoutes } from './routes/push.js'
 import { initWebPush } from './lib/webPush.js'
 import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
+import { renderPrometheusMetrics, setActiveRoomsGetter } from './lib/metrics.js'
 
 // Verify Redis connectivity before proceeding
 await ensureRedisConnected()
@@ -276,6 +277,9 @@ app.get('/api/health', async (c) => {
   )
 })
 
+// Register active rooms getter for Prometheus metrics
+setActiveRoomsGetter(() => connectionManager.getStats().activeRooms)
+
 // Prometheus-compatible metrics (unauthenticated; does not expose user data)
 app.get('/api/metrics', (c) => {
   const ws = connectionManager.getStats()
@@ -303,7 +307,11 @@ app.get('/api/metrics', (c) => {
     '# TYPE process_rss_bytes gauge',
     `process_rss_bytes ${mem.rss}`,
   ]
-  return c.text(lines.join('\n') + '\n', 200, {
+
+  // Append dynamic metrics (counters, histograms, active rooms gauge)
+  const dynamicMetrics = renderPrometheusMetrics()
+  const output = lines.join('\n') + '\n' + dynamicMetrics
+  return c.text(output, 200, {
     'Content-Type': 'text/plain; version=0.0.4; charset=utf-8',
   })
 })

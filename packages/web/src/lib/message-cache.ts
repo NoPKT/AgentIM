@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from 'idb'
 import type { Room, Message } from '@agentim/shared'
 
 const DB_NAME = 'agentim-cache'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const MAX_MESSAGES_PER_ROOM = 200
 
 interface RoomMeta {
@@ -14,6 +14,16 @@ interface RoomMeta {
 interface LastMessageInfo {
   content: string
   senderName: string
+  createdAt: string
+}
+
+export interface PendingMessage {
+  id: string
+  roomId: string
+  content: string
+  mentions: string[]
+  replyToId?: string
+  attachmentIds?: string[]
   createdAt: string
 }
 
@@ -30,6 +40,11 @@ interface CacheDB {
   'room-meta': {
     key: string
     value: RoomMeta
+  }
+  'pending-messages': {
+    key: string
+    value: PendingMessage
+    indexes: { 'by-room': string }
   }
 }
 
@@ -48,6 +63,11 @@ function getDb(): Promise<IDBPDatabase<CacheDB>> {
         }
         if (!db.objectStoreNames.contains('room-meta')) {
           db.createObjectStore('room-meta', { keyPath: 'roomId' })
+        }
+        // v2: pending messages for offline queue
+        if (!db.objectStoreNames.contains('pending-messages')) {
+          const pendingStore = db.createObjectStore('pending-messages', { keyPath: 'id' })
+          pendingStore.createIndex('by-room', 'roomId')
         }
       },
     })
@@ -227,11 +247,41 @@ export async function clearRoomCache(roomId: string): Promise<void> {
 export async function clearCache(): Promise<void> {
   try {
     const db = await getDb()
-    const tx = db.transaction(['messages', 'rooms', 'room-meta'], 'readwrite')
+    const tx = db.transaction(['messages', 'rooms', 'room-meta', 'pending-messages'], 'readwrite')
     await tx.objectStore('messages').clear()
     await tx.objectStore('rooms').clear()
     await tx.objectStore('room-meta').clear()
+    await tx.objectStore('pending-messages').clear()
     await tx.done
+  } catch {
+    // Silently fail
+  }
+}
+
+// ─── Pending Messages (Offline Queue) ───
+
+export async function addPendingMessage(msg: PendingMessage): Promise<void> {
+  try {
+    const db = await getDb()
+    await db.put('pending-messages', msg)
+  } catch {
+    // Silently fail
+  }
+}
+
+export async function getPendingMessages(): Promise<PendingMessage[]> {
+  try {
+    const db = await getDb()
+    return await db.getAll('pending-messages')
+  } catch {
+    return []
+  }
+}
+
+export async function removePendingMessage(id: string): Promise<void> {
+  try {
+    const db = await getDb()
+    await db.delete('pending-messages', id)
   } catch {
     // Silently fail
   }

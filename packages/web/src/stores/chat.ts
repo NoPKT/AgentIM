@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { nanoid } from 'nanoid'
 import type { Room, RoomMember, Message, MessageReaction, ParsedChunk } from '@agentim/shared'
 import { api } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
@@ -16,6 +17,10 @@ import {
   setCachedRoomMeta,
   clearRoomCache,
   clearCache,
+  addPendingMessage,
+  getPendingMessages,
+  removePendingMessage,
+  type PendingMessage,
 } from '../lib/message-cache.js'
 
 interface StreamingMessage {
@@ -59,6 +64,12 @@ interface ChatState {
   terminalBuffers: Map<string, TerminalBuffer>
   onlineUsers: Set<string>
   readReceipts: Map<string, ReadReceipt[]>
+  /** True when rooms are loaded from cache and server data has not yet arrived */
+  showingCachedRooms: boolean
+  /** True when messages are loaded from cache and server data has not yet arrived */
+  showingCachedMessages: boolean
+  /** Pending messages queued while offline */
+  pendingMessages: PendingMessage[]
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
@@ -126,6 +137,8 @@ interface ChatState {
   toggleArchive: (roomId: string) => Promise<void>
   // Server-initiated eviction: clean up local state without an API call.
   evictRoom: (roomId: string) => void
+  /** Flush pending messages queued while offline */
+  flushPendingMessages: () => Promise<void>
   reset: () => void
 }
 
@@ -145,6 +158,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   terminalBuffers: new Map(),
   onlineUsers: new Set(),
   readReceipts: new Map(),
+  showingCachedRooms: false,
+  showingCachedMessages: false,
+  pendingMessages: [],
 
   setReplyTo: (message) => set({ replyTo: message }),
 
@@ -206,13 +222,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         lastMessages.set(roomId, meta.lastMessage)
         if (meta.unread > 0) unreadCounts.set(roomId, meta.unread)
       }
-      set({ rooms: cachedRooms, lastMessages, unreadCounts })
+      set({ rooms: cachedRooms, lastMessages, unreadCounts, showingCachedRooms: true })
     }
 
     try {
       const res = await api.get<Room[]>('/rooms')
       if (res.ok && res.data) {
-        set({ rooms: res.data })
+        set({ rooms: res.data, showingCachedRooms: false })
         setCachedRooms(res.data)
       }
       // Load last message + server-side unread counts for each room
@@ -244,7 +260,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ lastMessages, unreadCounts })
       }
     } catch {
-      toast.error('Failed to load rooms')
+      // Keep showing cached rooms if API fails (offline)
+      if (get().rooms.length === 0) {
+        toast.error('Failed to load rooms')
+      }
     }
   },
 
@@ -283,7 +302,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (cached.length > 0 && !get().messages.has(roomId)) {
         const msgs = new Map(get().messages)
         msgs.set(roomId, cached)
-        set({ messages: msgs })
+        set({ messages: msgs, showingCachedMessages: true })
       }
     }
 
@@ -323,7 +342,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             })
           }
         }
-        set({ messages: msgs, hasMore, lastMessages })
+        set({ messages: msgs, hasMore, lastMessages, showingCachedMessages: false })
 
         // Write back to IndexedDB (first page only)
         if (!cursor) {
@@ -331,7 +350,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
     } catch {
-      toast.error('Failed to load messages')
+      // Keep showing cached messages if API fails (offline)
+      if (!get().messages.has(roomId) || (get().messages.get(roomId)?.length ?? 0) === 0) {
+        toast.error('Failed to load messages')
+      }
     } finally {
       const loadingDone = new Set(get().loadingMessages)
       loadingDone.delete(roomId)
@@ -341,14 +363,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: (roomId, content, mentions, attachmentIds?) => {
     const replyTo = get().replyTo
-    wsClient.send({
-      type: 'client:send_message',
+    const msg = {
+      type: 'client:send_message' as const,
       roomId,
       content,
       mentions,
       ...(replyTo ? { replyToId: replyTo.id } : {}),
       ...(attachmentIds && attachmentIds.length > 0 ? { attachmentIds } : {}),
-    })
+    }
+    wsClient.send(msg)
+
+    // Persist to IndexedDB if offline so message survives page refresh
+    if (wsClient.status !== 'connected') {
+      const pending: PendingMessage = {
+        id: nanoid(),
+        roomId,
+        content,
+        mentions,
+        replyToId: replyTo?.id,
+        attachmentIds,
+        createdAt: new Date().toISOString(),
+      }
+      addPendingMessage(pending)
+      set({ pendingMessages: [...get().pendingMessages, pending] })
+    }
+
     if (replyTo) set({ replyTo: null })
   },
 
@@ -659,6 +698,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  flushPendingMessages: async () => {
+    const pending = await getPendingMessages()
+    if (pending.length === 0) return
+    for (const msg of pending) {
+      wsClient.send({
+        type: 'client:send_message',
+        roomId: msg.roomId,
+        content: msg.content,
+        mentions: msg.mentions,
+        ...(msg.replyToId ? { replyToId: msg.replyToId } : {}),
+        ...(msg.attachmentIds && msg.attachmentIds.length > 0
+          ? { attachmentIds: msg.attachmentIds }
+          : {}),
+      })
+      await removePendingMessage(msg.id)
+    }
+    set({ pendingMessages: [] })
+  },
+
   evictRoom: (roomId) => {
     // Clean up all local state for a room we were server-evicted from.
     // This mirrors deleteRoom's cleanup but skips the API call.
@@ -726,6 +784,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       terminalBuffers: new Map(),
       onlineUsers: new Set(),
       readReceipts: new Map(),
+      showingCachedRooms: false,
+      showingCachedMessages: false,
+      pendingMessages: [],
     })
 
     // Fire-and-forget IndexedDB clear

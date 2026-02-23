@@ -1,4 +1,4 @@
-export { BaseAgentAdapter } from './base.js'
+export { BaseAgentAdapter, type PermissionRequestCallback } from './base.js'
 export { SpawnAgentAdapter, getSafeEnv } from './spawn-base.js'
 export { ClaudeCodeAdapter } from './claude-code.js'
 export { CodexAdapter } from './codex.js'
@@ -11,6 +11,7 @@ import { CodexAdapter } from './codex.js'
 import { GeminiAdapter } from './gemini.js'
 import { GenericAdapter } from './generic.js'
 import type { BaseAgentAdapter } from './base.js'
+import { getCustomAdapter, getCustomAdaptersPath } from '../custom-adapters.js'
 
 export function createAdapter(
   type: string,
@@ -29,7 +30,20 @@ export function createAdapter(
         command: opts.command ?? 'echo',
         promptVia: opts.promptVia,
       })
-    default:
-      throw new Error(`Unknown adapter type: ${type}`)
+    default: {
+      const custom = getCustomAdapter(type)
+      if (custom) {
+        return new GenericAdapter({
+          ...opts,
+          command: custom.command,
+          args: custom.args,
+          promptVia: custom.promptVia,
+          env: { ...custom.env, ...opts.env },
+        })
+      }
+      throw new Error(
+        `Unknown adapter type: ${type}. Check your custom adapters config at ${getCustomAdaptersPath()}`,
+      )
+    }
   }
 }

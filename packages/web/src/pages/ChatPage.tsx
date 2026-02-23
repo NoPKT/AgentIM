@@ -1,14 +1,18 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/shallow'
+import type { ServerMessage } from '@agentim/shared'
 import { useChatStore, selectTypingNames } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
+import { wsClient } from '../lib/ws.js'
 import { MessageList } from '../components/MessageList.js'
 import { MessageInput } from '../components/MessageInput.js'
 import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
 import { SearchDialog } from '../components/SearchDialog.js'
 import { TerminalViewer } from '../components/TerminalViewer.js'
+import { PermissionCard, type PermissionRequestData } from '../components/PermissionCard.js'
+import { CachedDataBanner } from '../components/CachedDataBanner.js'
 import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
 import { ImageLightbox } from '../components/ImageLightbox.js'
 import { useLightbox } from '../hooks/useLightbox.js'
@@ -25,8 +29,13 @@ export default function ChatPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
+  const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
+    () => new Map(),
+  )
   const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
+  const showingCachedMessages = useChatStore((s) => s.showingCachedMessages)
+  const flushPendingMessages = useChatStore((s) => s.flushPendingMessages)
   const currentUser = useAuthStore((s) => s.user)
 
   const typingNames = useChatStore(
@@ -66,6 +75,64 @@ export default function ChatPage() {
       loadRoomMembers(currentRoomId)
     }
   }, [currentRoomId, loadRoomMembers])
+
+  // Flush offline pending messages on reconnect
+  useEffect(() => {
+    const unsub = wsClient.onReconnect(() => {
+      flushPendingMessages()
+    })
+    return unsub
+  }, [flushPendingMessages])
+
+  // Handle permission request WS messages
+  useEffect(() => {
+    const unsub = wsClient.onMessage((msg: ServerMessage) => {
+      if (msg.type === 'server:permission_request') {
+        setPermissionRequests((prev) => {
+          const next = new Map(prev)
+          next.set(msg.requestId, {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            agentName: msg.agentName,
+            roomId: msg.roomId,
+            toolName: msg.toolName,
+            toolInput: msg.toolInput,
+            expiresAt: msg.expiresAt,
+          })
+          return next
+        })
+      } else if (msg.type === 'server:permission_request_expired') {
+        setPermissionRequests((prev) => {
+          const existing = prev.get(msg.requestId)
+          if (!existing || existing.resolved) return prev
+          const next = new Map(prev)
+          next.set(msg.requestId, { ...existing, resolved: 'timedOut' })
+          return next
+        })
+      }
+    })
+    return unsub
+  }, [])
+
+  // Handle user decision on a permission request
+  const handlePermissionResolved = useCallback(
+    (requestId: string, decision: 'allowed' | 'denied') => {
+      setPermissionRequests((prev) => {
+        const existing = prev.get(requestId)
+        if (!existing) return prev
+        const next = new Map(prev)
+        next.set(requestId, { ...existing, resolved: decision })
+        return next
+      })
+    },
+    [],
+  )
+
+  // Filter permission requests for the current room
+  const activePermissionRequests = useMemo(() => {
+    if (!currentRoomId) return []
+    return Array.from(permissionRequests.values()).filter((r) => r.roomId === currentRoomId)
+  }, [currentRoomId, permissionRequests])
 
   if (!currentRoomId) {
     return (
@@ -161,8 +228,24 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* Cached data banner */}
+      {showingCachedMessages && <CachedDataBanner type="messages" />}
+
       {/* Messages */}
       <MessageList onImageClick={lightbox.openLightbox} />
+
+      {/* Permission request cards */}
+      {activePermissionRequests.length > 0 && (
+        <div className="border-t border-border">
+          {activePermissionRequests.map((req) => (
+            <PermissionCard
+              key={req.requestId}
+              request={req}
+              onResolved={handlePermissionResolved}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Typing indicator */}
       {typingNames.length > 0 && (

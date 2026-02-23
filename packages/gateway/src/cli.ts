@@ -21,6 +21,7 @@ import { loadAgentConfig, agentConfigToEnv } from './agent-config.js'
 import { runSetupWizard } from './setup-wizard.js'
 import { createLogger } from './lib/logger.js'
 import { printSecurityBanner } from './lib/security-banner.js'
+import { listCustomAdapters, getCustomAdaptersPath } from './custom-adapters.js'
 import {
   listDaemons,
   stopDaemon,
@@ -30,10 +31,12 @@ import {
   readDaemonInfo,
 } from './lib/daemon-manager.js'
 import type {
+  PermissionLevel,
   ServerSendToAgent,
   ServerStopAgent,
   ServerRemoveAgent,
   ServerRoomContext,
+  ServerPermissionResponse,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
 
@@ -159,6 +162,7 @@ program
   .command('claude [path]')
   .description('Start a Claude Code agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--foreground', 'Run in foreground instead of daemonizing')
   .option(
     '--pass-env <keys>',
@@ -169,6 +173,7 @@ program
     printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('claude-code', workDir)
+    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
     let agentConfig = loadAgentConfig('claude-code')
     if (!agentConfig) {
       log.info('No credentials configured for Claude Code.')
@@ -179,9 +184,9 @@ program
     const env = agentConfig ? agentConfigToEnv('claude-code', agentConfig) : {}
     const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'claude-code', name, workDir, env, passEnv })
+      await runWrapper({ type: 'claude-code', name, workDir, env, passEnv, permissionLevel })
     } else {
-      spawnDaemon(name, 'claude-code', workDir, env)
+      spawnDaemon(name, 'claude-code', workDir, env, permissionLevel)
     }
   })
 
@@ -191,6 +196,7 @@ program
   .command('codex [path]')
   .description('Start a Codex agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--foreground', 'Run in foreground instead of daemonizing')
   .option(
     '--pass-env <keys>',
@@ -201,6 +207,7 @@ program
     printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('codex', workDir)
+    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
     let agentConfig = loadAgentConfig('codex')
     if (!agentConfig) {
       log.info('No credentials configured for Codex.')
@@ -211,9 +218,9 @@ program
     const env = agentConfig ? agentConfigToEnv('codex', agentConfig) : {}
     const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'codex', name, workDir, env, passEnv })
+      await runWrapper({ type: 'codex', name, workDir, env, passEnv, permissionLevel })
     } else {
-      spawnDaemon(name, 'codex', workDir, env)
+      spawnDaemon(name, 'codex', workDir, env, permissionLevel)
     }
   })
 
@@ -223,6 +230,7 @@ program
   .command('gemini [path]')
   .description('Start a Gemini CLI agent (background daemon)')
   .option('-n, --name <name>', 'Agent name')
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--foreground', 'Run in foreground instead of daemonizing')
   .option(
     '--pass-env <keys>',
@@ -233,6 +241,7 @@ program
     printSecurityBanner(!opts.securityWarning)
     const workDir = path ?? process.cwd()
     const name = opts.name ?? generateAgentName('gemini', workDir)
+    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
     let agentConfig = loadAgentConfig('gemini')
     if (!agentConfig) {
       log.info('No credentials configured for Gemini.')
@@ -243,9 +252,9 @@ program
     const env = agentConfig ? agentConfigToEnv('gemini', agentConfig) : {}
     const passEnv = parsePassEnv(opts.passEnv)
     if (opts.foreground) {
-      await runWrapper({ type: 'gemini', name, workDir, env, passEnv })
+      await runWrapper({ type: 'gemini', name, workDir, env, passEnv, permissionLevel })
     } else {
-      spawnDaemon(name, 'gemini', workDir, env)
+      spawnDaemon(name, 'gemini', workDir, env, permissionLevel)
     }
   })
 
@@ -258,9 +267,11 @@ program
     '-a, --agent <spec...>',
     'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
   )
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (opts) => {
     printSecurityBanner(!opts.securityWarning)
+    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
     const config = loadConfig()
     if (!config) {
       log.error('Not logged in. Run `agentim login` first.')
@@ -343,10 +354,16 @@ program
           msg.type === 'server:send_to_agent' ||
           msg.type === 'server:stop_agent' ||
           msg.type === 'server:remove_agent' ||
-          msg.type === 'server:room_context'
+          msg.type === 'server:room_context' ||
+          msg.type === 'server:permission_response'
         ) {
           agentManager.handleServerMessage(
-            msg as ServerSendToAgent | ServerStopAgent | ServerRemoveAgent | ServerRoomContext,
+            msg as
+              | ServerSendToAgent
+              | ServerStopAgent
+              | ServerRemoveAgent
+              | ServerRoomContext
+              | ServerPermissionResponse,
           )
         }
       },
@@ -355,7 +372,7 @@ program
       },
     })
 
-    agentManager = new AgentManager(wsClient)
+    agentManager = new AgentManager(wsClient, permissionLevel)
 
     wsClient.connect()
 
@@ -463,6 +480,32 @@ program
     log.info(`Config: ${getConfigPath()}`)
   })
 
+// ─── agentim adapters ───
+
+program
+  .command('adapters')
+  .description('List all configured custom adapters')
+  .action(() => {
+    const adapters = listCustomAdapters()
+    if (adapters.length === 0) {
+      log.info('No custom adapters configured.')
+      log.info(`Add custom adapters to: ${getCustomAdaptersPath()}`)
+      return
+    }
+
+    console.log(`\n  Custom adapters (${getCustomAdaptersPath()}):\n`)
+    console.log('  Name\t\t\tCommand\t\t\tDescription')
+    console.log('  ' + '\u2500'.repeat(72))
+    for (const adapter of adapters) {
+      const cmd = adapter.args?.length
+        ? `${adapter.command} ${adapter.args.join(' ')}`
+        : adapter.command
+      const desc = adapter.description ?? '(no description)'
+      console.log(`  ${adapter.name}\t\t${cmd}\t\t${desc}`)
+    }
+    console.log()
+  })
+
 function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
   let invalidCount = 0
   for (const spec of agentSpecs) {
@@ -505,6 +548,7 @@ function spawnDaemon(
   type: string,
   workDir: string,
   agentEnv?: Record<string, string>,
+  permissionLevel?: PermissionLevel,
 ) {
   const config = loadConfig()
   if (!config) {
@@ -533,16 +577,16 @@ function spawnDaemon(
   const logFd = openSync(logFile, 'a')
 
   const agentSpec = `${name}:${type}:${workDir}`
-  const child = cpSpawn(
-    process.execPath,
-    [...process.execArgv, ...getEntryArgs(), 'daemon', '--agent', agentSpec],
-    {
-      detached: true,
-      stdio: ['ignore', logFd, logFd],
-      cwd: workDir,
-      env: { ...process.env, ...agentEnv },
-    },
-  )
+  const daemonArgs = [...process.execArgv, ...getEntryArgs(), 'daemon', '--agent', agentSpec]
+  if (permissionLevel === 'bypass') {
+    daemonArgs.push('--yes')
+  }
+  const child = cpSpawn(process.execPath, daemonArgs, {
+    detached: true,
+    stdio: ['ignore', logFd, logFd],
+    cwd: workDir,
+    env: { ...process.env, ...agentEnv },
+  })
 
   child.unref()
 

@@ -52,10 +52,32 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
       const options: Options = {
         allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
-        permissionMode: 'bypassPermissions',
-        allowDangerouslySkipPermissions: true,
         cwd: this.workingDirectory,
         env: Object.keys(this.env).length > 0 ? this.env : undefined,
+      }
+
+      if (this.permissionLevel === 'bypass') {
+        options.permissionMode = 'bypassPermissions'
+        options.allowDangerouslySkipPermissions = true
+      } else {
+        options.permissionMode = 'default'
+        if (this.onPermissionRequest) {
+          const requestPermission = this.onPermissionRequest
+          options.canUseTool = async (toolName: string, toolInput: Record<string, unknown>) => {
+            const { nanoid } = await import('nanoid')
+            const requestId = nanoid()
+            const result = await requestPermission({
+              requestId,
+              toolName,
+              toolInput,
+              timeoutMs: 300_000,
+            })
+            if (result.behavior === 'allow') {
+              return { behavior: 'allow' as const }
+            }
+            return { behavior: 'deny' as const, message: 'Permission denied by user' }
+          }
+        }
       }
 
       if (this.sessionId) {

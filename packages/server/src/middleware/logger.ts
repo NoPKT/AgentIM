@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import { nanoid } from 'nanoid'
 import { createLogger } from '../lib/logger.js'
+import { observeHttpDuration } from '../lib/metrics.js'
 
 const log = createLogger('HTTP')
 
@@ -13,4 +14,5 @@ export const loggerMiddleware = createMiddleware(async (c, next) => {
   await next()
   const ms = Date.now() - start
   log.info(`${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`, { requestId })
+  observeHttpDuration(c.req.method, c.req.path, ms / 1000)
 })

@@ -1,9 +1,16 @@
-import type { ParsedChunk, RoutingMode, RoomContext } from '@agentim/shared'
+import type { ParsedChunk, RoutingMode, RoomContext, PermissionLevel } from '@agentim/shared'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('Adapter')
 
 const MAX_PROMPT_LENGTH = 200_000 // ~200KB cap to prevent oversized prompts
+
+export type PermissionRequestCallback = (opts: {
+  requestId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  timeoutMs: number
+}) => Promise<{ behavior: 'allow' | 'deny' }>
 
 export interface AdapterOptions {
   agentId: string
@@ -11,6 +18,8 @@ export interface AdapterOptions {
   workingDirectory?: string
   env?: Record<string, string>
   passEnv?: string[]
+  permissionLevel?: PermissionLevel
+  onPermissionRequest?: PermissionRequestCallback
 }
 
 export interface MessageContext {
@@ -32,6 +41,8 @@ export abstract class BaseAgentAdapter {
   readonly workingDirectory?: string
   protected readonly env: Record<string, string>
   protected readonly passEnv?: Set<string>
+  protected readonly permissionLevel: PermissionLevel
+  protected readonly onPermissionRequest?: PermissionRequestCallback
   protected isRunning = false
 
   constructor(opts: AdapterOptions) {
@@ -40,6 +51,8 @@ export abstract class BaseAgentAdapter {
     this.workingDirectory = opts.workingDirectory
     this.env = opts.env ?? {}
     this.passEnv = opts.passEnv?.length ? new Set(opts.passEnv) : undefined
+    this.permissionLevel = opts.permissionLevel ?? 'interactive'
+    this.onPermissionRequest = opts.onPermissionRequest
   }
 
   abstract get type(): string

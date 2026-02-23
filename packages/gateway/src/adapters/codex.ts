@@ -8,7 +8,7 @@ import {
   type MessageContext,
 } from './base.js'
 import { createLogger } from '../lib/logger.js'
-import type { Codex, Thread, ThreadEvent, ThreadItem } from '@openai/codex-sdk'
+import type { Codex, Thread, ThreadItem } from '@openai/codex-sdk'
 
 const log = createLogger('Codex')
 
@@ -38,15 +38,16 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async ensureThread() {
     await this.ensureCodex()
     if (!this.thread) {
+      const approvalPolicy = this.permissionLevel === 'bypass' ? 'never' : 'on-request'
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId)
         log.info(`Resumed Codex thread: ${this.threadId}`)
       } else {
         this.thread = this.codex!.startThread({
           workingDirectory: this.workingDirectory,
-          approvalPolicy: 'never',
+          approvalPolicy,
         })
-        log.info('Started new Codex thread')
+        log.info(`Started new Codex thread (approvalPolicy=${approvalPolicy})`)
       }
     }
   }
@@ -78,6 +79,9 @@ export class CodexAdapter extends BaseAgentAdapter {
           log.info(`Codex thread ID: ${this.threadId}`)
           continue
         }
+
+        // Note: Codex SDK handles permissions via approvalPolicy parameter.
+        // Interactive approval is managed internally by the SDK.
 
         if (event.type === 'item.completed') {
           const chunks = this.mapItemToChunks(event.item)
