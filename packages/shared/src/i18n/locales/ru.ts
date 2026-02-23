@@ -129,6 +129,7 @@ export const ru = {
     roleDescription: 'Описание роли',
     reconnecting: 'Переподключение...',
     disconnected: 'Отключено',
+    reconnect: 'Переподключиться',
     reply: 'Ответить',
     searchMessages: 'Поиск сообщений...',
     searchHint: 'Введите минимум 2 символа для поиска',

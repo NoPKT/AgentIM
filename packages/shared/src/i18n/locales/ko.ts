@@ -129,6 +129,7 @@ export const ko = {
     roleDescription: '역할 설명',
     reconnecting: '재연결 중...',
     disconnected: '연결 끊김',
+    reconnect: '다시 연결',
     reply: '답장',
     searchMessages: '메시지 검색...',
     searchHint: '2자 이상 입력하여 검색',

@@ -131,6 +131,7 @@ export const de = {
     roleDescription: 'Rollenbeschreibung',
     reconnecting: 'Verbindung wird wiederhergestellt...',
     disconnected: 'Verbindung getrennt',
+    reconnect: 'Erneut verbinden',
     reply: 'Antworten',
     searchMessages: 'Nachrichten durchsuchen...',
     searchHint: 'Mindestens 2 Zeichen eingeben, um zu suchen',

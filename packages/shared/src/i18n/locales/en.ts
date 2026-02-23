@@ -129,6 +129,7 @@ export const en = {
     roleDescription: 'Role Description',
     reconnecting: 'Reconnecting...',
     disconnected: 'Disconnected',
+    reconnect: 'Reconnect',
     reply: 'Reply',
     searchMessages: 'Search messages...',
     searchHint: 'Type at least 2 characters to search',

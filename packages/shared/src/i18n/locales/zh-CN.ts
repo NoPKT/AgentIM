@@ -128,6 +128,7 @@ export const zhCN = {
     roleDescription: '角色描述',
     reconnecting: '重新连接中...',
     disconnected: '已断开连接',
+    reconnect: '重新连接',
     reply: '回复',
     searchMessages: '搜索消息...',
     searchHint: '输入至少 2 个字符进行搜索',

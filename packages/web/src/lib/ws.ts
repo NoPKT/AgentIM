@@ -197,6 +197,15 @@ export class WsClient {
     return this.ws?.readyState === WebSocket.OPEN
   }
 
+  /** Manually retry connection after max reconnect attempts were exhausted. */
+  reconnect() {
+    if (!this._token) return
+    this.reconnectAttempts = 0
+    this.reconnectInterval = 1000
+    this.shouldReconnect = true
+    this.connect(this._token)
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat()
     this.pingTimer = setInterval(() => {

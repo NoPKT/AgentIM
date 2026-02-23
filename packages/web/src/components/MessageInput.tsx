@@ -359,6 +359,15 @@ export function MessageInput() {
             }`}
           />
           {connectionStatus === 'reconnecting' ? t('chat.reconnecting') : t('chat.disconnected')}
+          {connectionStatus === 'disconnected' && (
+            <button
+              type="button"
+              onClick={() => wsClient.reconnect()}
+              className="ml-auto underline hover:no-underline text-xs"
+            >
+              {t('chat.reconnect')}
+            </button>
+          )}
         </div>
       )}
 

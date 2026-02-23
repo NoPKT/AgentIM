@@ -129,6 +129,7 @@ export const ja = {
     roleDescription: '役割の説明',
     reconnecting: '再接続中...',
     disconnected: '切断されました',
+    reconnect: '再接続',
     reply: '返信',
     searchMessages: 'メッセージを検索...',
     searchHint: '2文字以上入力して検索',

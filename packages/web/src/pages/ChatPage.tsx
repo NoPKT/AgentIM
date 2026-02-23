@@ -182,6 +182,15 @@ export default function ChatPage() {
               {connectionStatus === 'reconnecting'
                 ? t('chat.reconnecting')
                 : t('chat.disconnected')}
+              {connectionStatus === 'disconnected' && (
+                <button
+                  type="button"
+                  onClick={() => wsClient.reconnect()}
+                  className="ml-1 underline hover:no-underline"
+                >
+                  {t('chat.reconnect')}
+                </button>
+              )}
             </span>
           )}
         </div>

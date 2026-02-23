@@ -131,6 +131,7 @@ export const fr = {
     roleDescription: 'Description du rôle',
     reconnecting: 'Reconnexion...',
     disconnected: 'Déconnecté',
+    reconnect: 'Reconnecter',
     reply: 'Répondre',
     searchMessages: 'Rechercher des messages...',
     searchHint: 'Tapez au moins 2 caractères pour rechercher',
