@@ -150,7 +150,7 @@ program
       agentType = await promptSelect('Select agent type:', [
         { label: 'Claude Code', value: 'claude-code' },
         { label: 'Codex', value: 'codex' },
-        { label: 'Gemini', value: 'gemini' },
+        { label: 'Gemini (Coming Soon)', value: 'gemini' },
       ])
     }
     await runSetupWizard(agentType)

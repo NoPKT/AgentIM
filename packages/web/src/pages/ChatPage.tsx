@@ -249,7 +249,11 @@ export default function ChatPage() {
 
       {/* Typing indicator */}
       {typingNames.length > 0 && (
-        <div className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5">
+        <div
+          className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
+          role="status"
+          aria-live="polite"
+        >
           <div className="flex space-x-0.5">
             <span
               className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"

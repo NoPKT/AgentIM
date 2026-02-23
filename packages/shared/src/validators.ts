@@ -226,7 +226,13 @@ export const updateUserSchema = z.object({
     .max(MAX_DISPLAY_NAME_LENGTH)
     .refine((s) => s.trim().length > 0, 'validation.displayNameWhitespace')
     .optional(),
-  avatarUrl: z.string().startsWith('/uploads/').max(500).optional(),
+  avatarUrl: z
+    .string()
+    .startsWith('/uploads/')
+    .max(500)
+    .refine((s) => !s.includes('..'), 'validation.avatarUrlTraversal')
+    .refine((s) => /^\/uploads\/[\w./-]+$/.test(s), 'validation.avatarUrlInvalid')
+    .optional(),
 })
 
 export const changePasswordSchema = z.object({
@@ -405,7 +411,9 @@ export const gatewayPermissionRequestSchema = z.object({
   agentId: z.string().min(1),
   roomId: z.string().min(1),
   toolName: z.string().min(1).max(200),
-  toolInput: z.record(z.string(), z.unknown()),
+  toolInput: z
+    .record(z.string(), z.unknown())
+    .refine((obj) => Object.keys(obj).length <= 100, 'validation.toolInputTooManyKeys'),
   timeoutMs: z.number().int().min(1000).max(600_000),
 })
 
@@ -669,7 +677,9 @@ export const serverPermissionRequestSchema = z.object({
   agentName: z.string(),
   roomId: z.string(),
   toolName: z.string(),
-  toolInput: z.record(z.string(), z.unknown()),
+  toolInput: z
+    .record(z.string(), z.unknown())
+    .refine((obj) => Object.keys(obj).length <= 100, 'validation.toolInputTooManyKeys'),
   expiresAt: z.string(),
 })
 

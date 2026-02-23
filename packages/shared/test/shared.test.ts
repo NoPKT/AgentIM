@@ -15,6 +15,7 @@ import {
   updateTaskSchema,
   changePasswordSchema,
   adminCreateUserSchema,
+  updateUserSchema,
   clientMessageSchema,
   gatewayMessageSchema,
   AGENT_TYPES,
@@ -23,6 +24,8 @@ import {
   ROUTING_MODES,
   AGENT_CONNECTION_TYPES,
   MAX_MESSAGE_LENGTH,
+  WS_CLIENT_MESSAGE_SIZE_LIMIT,
+  WS_GATEWAY_MESSAGE_SIZE_LIMIT,
 } from '../src/index.js'
 import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, en, zhCN, ja, ko, fr, de, ru } from '../src/i18n/index.js'
 
@@ -87,6 +90,14 @@ describe('insertMention', () => {
 
   it('inserts at end', () => {
     assert.equal(insertMention('hello', 'bot', 5), 'hello@bot ')
+  })
+
+  it('clamps position below 0 to 0', () => {
+    assert.equal(insertMention('hello', 'bot', -5), '@bot hello')
+  })
+
+  it('clamps position beyond length', () => {
+    assert.equal(insertMention('hello', 'bot', 100), 'hello@bot ')
   })
 })
 
@@ -324,6 +335,43 @@ describe('updateTaskSchema', () => {
   })
 })
 
+describe('updateUserSchema', () => {
+  it('accepts valid avatarUrl', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/avatar_abc123.jpg',
+    })
+    assert.equal(result.success, true)
+  })
+
+  it('rejects avatarUrl with path traversal', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/../../etc/passwd',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('rejects avatarUrl with special characters', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/<script>alert(1)</script>',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('rejects avatarUrl not starting with /uploads/', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/etc/passwd',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('accepts valid displayName update', () => {
+    const result = updateUserSchema.safeParse({
+      displayName: 'New Name',
+    })
+    assert.equal(result.success, true)
+  })
+})
+
 describe('changePasswordSchema', () => {
   it('accepts valid password change', () => {
     const result = changePasswordSchema.safeParse({
@@ -527,6 +575,11 @@ describe('Constants', () => {
   it('MAX_MESSAGE_LENGTH is reasonable', () => {
     assert.ok(MAX_MESSAGE_LENGTH >= 1000)
     assert.ok(MAX_MESSAGE_LENGTH <= 1_000_000)
+  })
+
+  it('WS message size limits are defined', () => {
+    assert.equal(WS_CLIENT_MESSAGE_SIZE_LIMIT, 64 * 1024)
+    assert.equal(WS_GATEWAY_MESSAGE_SIZE_LIMIT, 256 * 1024)
   })
 
   it('SUPPORTED_LANGUAGES includes 7 languages', () => {

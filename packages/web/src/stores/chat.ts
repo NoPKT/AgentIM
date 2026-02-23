@@ -396,7 +396,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const msgs = new Map(get().messages)
     const roomMsgs = msgs.get(message.roomId) ?? []
     // Dedup: skip if message already exists (race between WS and REST)
-    if (roomMsgs.some((m) => m.id === message.id)) return
+    if (roomMsgs.length > 0) {
+      const existingIds = new Set(roomMsgs.map((m) => m.id))
+      if (existingIds.has(message.id)) return
+    }
     let updated = [...roomMsgs, message]
     if (updated.length > MAX_CACHED_MESSAGES) {
       updated = updated.slice(-MAX_CACHED_MESSAGES)

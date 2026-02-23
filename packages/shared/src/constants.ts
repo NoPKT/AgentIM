@@ -93,6 +93,10 @@ export type PermissionDecision = (typeof PERMISSION_DECISIONS)[number]
 
 export const PERMISSION_TIMEOUT_MS = 300_000 // 5 minutes
 
+/** Maximum size (bytes) for a single WebSocket message frame. */
+export const WS_CLIENT_MESSAGE_SIZE_LIMIT = 64 * 1024 // 64 KB
+export const WS_GATEWAY_MESSAGE_SIZE_LIMIT = 256 * 1024 // 256 KB
+
 /** Current WebSocket protocol version. Bumped when breaking changes are introduced. */
 export const CURRENT_PROTOCOL_VERSION = '1'
 

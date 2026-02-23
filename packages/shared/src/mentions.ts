@@ -1,10 +1,12 @@
 const MENTION_REGEX = /@([a-zA-Z][\w-]*)/g
 
 export function parseMentions(content: string): string[] {
+  const seen = new Set<string>()
   const mentions: string[] = []
   let match: RegExpExecArray | null
   while ((match = MENTION_REGEX.exec(content)) !== null) {
-    if (!mentions.includes(match[1])) {
+    if (!seen.has(match[1])) {
+      seen.add(match[1])
       mentions.push(match[1])
     }
   }
@@ -20,5 +22,6 @@ function escapeRegex(s: string): string {
 }
 
 export function insertMention(content: string, name: string, position: number): string {
-  return content.slice(0, position) + `@${name} ` + content.slice(position)
+  const clamped = Math.max(0, Math.min(position, content.length))
+  return content.slice(0, clamped) + `@${name} ` + content.slice(clamped)
 }
