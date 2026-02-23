@@ -58,7 +58,7 @@ export interface ClientStopGeneration {
 export interface ClientPermissionResponse {
   type: 'client:permission_response'
   requestId: string
-  decision: 'allow' | 'deny'
+  decision: Extract<PermissionDecision, 'allow' | 'deny'>
 }
 
 export interface ClientPing {

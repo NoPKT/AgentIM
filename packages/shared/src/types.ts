@@ -7,11 +7,15 @@ import type {
   UserRole,
   RoomType,
   MemberRole,
+  MemberType,
   MessageType,
   TaskStatus,
   ChunkType,
   RouterScope,
   RouterVisibility,
+  SenderType,
+  AssigneeType,
+  NotificationPref,
 } from './constants.js'
 
 // ─── Core Entities ───
@@ -97,10 +101,10 @@ export interface Room {
 export interface RoomMember {
   roomId: string
   memberId: string
-  memberType: 'user' | 'agent'
+  memberType: MemberType
   role: MemberRole
   roleDescription?: string
-  notificationPref?: 'all' | 'mentions' | 'none'
+  notificationPref?: NotificationPref
   pinnedAt?: string
   archivedAt?: string
   lastReadAt?: string
@@ -111,7 +115,7 @@ export interface Message {
   id: string
   roomId: string
   senderId: string
-  senderType: 'user' | 'agent' | 'system'
+  senderType: SenderType
   senderName: string
   type: MessageType
   content: string
@@ -146,7 +150,7 @@ export interface Task {
   description: string
   status: TaskStatus
   assigneeId?: string
-  assigneeType?: 'user' | 'agent'
+  assigneeType?: AssigneeType
   createdById: string
   createdAt: string
   updatedAt: string
@@ -211,7 +215,7 @@ export interface PaginatedResponse<T> {
 export interface RoomContextMember {
   id: string
   name: string
-  type: 'user' | 'agent'
+  type: MemberType
   agentType?: AgentType
   capabilities?: string[]
   roleDescription?: string

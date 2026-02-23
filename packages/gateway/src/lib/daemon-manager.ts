@@ -26,7 +26,7 @@ export interface DaemonInfo {
 
 function ensureDir() {
   if (!existsSync(DAEMONS_DIR)) {
-    mkdirSync(DAEMONS_DIR, { recursive: true })
+    mkdirSync(DAEMONS_DIR, { recursive: true, mode: 0o700 })
   }
 }
 
@@ -69,7 +69,10 @@ function isAgentimProcess(pid: number): boolean {
 /** Write daemon info to a PID file. */
 export function writeDaemonInfo(info: DaemonInfo): void {
   ensureDir()
-  writeFileSync(pidFilePath(info.name), JSON.stringify(info, null, 2), 'utf-8')
+  writeFileSync(pidFilePath(info.name), JSON.stringify(info, null, 2), {
+    encoding: 'utf-8',
+    mode: 0o600,
+  })
 }
 
 /** Read daemon info from a PID file. Returns null if not found. */

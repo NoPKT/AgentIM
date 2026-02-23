@@ -27,6 +27,7 @@ export class WsClient {
   private _token: string | null = null
   private pendingQueue: ClientMessage[] = []
   private _tokenRefresher: (() => Promise<string | null>) | null = null
+  private _connecting = false
   private _boundOnline: (() => void) | null = null
   private _boundOffline: (() => void) | null = null
 
@@ -53,6 +54,9 @@ export class WsClient {
   }
 
   connect(token: string) {
+    // Guard against concurrent connect() calls (e.g. rapid reconnect + manual reconnect)
+    if (this._connecting) return
+    this._connecting = true
     this._token = token
     this.shouldReconnect = true
     // Clear any pending reconnect timer to prevent concurrent connections
@@ -77,6 +81,7 @@ export class WsClient {
     this.ws = new WebSocket(url)
 
     this.ws.onopen = () => {
+      this._connecting = false
       this.reconnectInterval = 1000
       this.reconnectAttempts = 0
       // Use this._token (not the closure 'token') so that if updateToken() was called
@@ -120,6 +125,7 @@ export class WsClient {
     }
 
     this.ws.onclose = () => {
+      this._connecting = false
       this.stopHeartbeat()
       this.scheduleReconnect()
     }

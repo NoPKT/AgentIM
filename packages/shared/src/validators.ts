@@ -408,8 +408,8 @@ export const gatewayMessageCompleteSchema = z.object({
   roomId: z.string().min(1),
   agentId: z.string().min(1),
   messageId: z.string().min(1),
-  fullContent: z.string().max(10_000_000),
-  chunks: z.array(parsedChunkSchema).max(10_000).optional(),
+  fullContent: z.string().max(200_000),
+  chunks: z.array(parsedChunkSchema).max(5_000).optional(),
   conversationId: z.string().max(100).optional(),
   depth: z.number().int().min(0).optional(),
 })

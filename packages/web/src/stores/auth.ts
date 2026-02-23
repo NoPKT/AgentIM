@@ -69,6 +69,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         // localStorage may be unavailable in strict privacy mode
       }
       set({ user: null })
+      // Signal other tabs to logout via storage event
+      try {
+        localStorage.setItem(LOGOUT_KEY, Date.now().toString())
+        localStorage.removeItem(LOGOUT_KEY)
+      } catch {
+        // localStorage may be unavailable
+      }
     } finally {
       _isLoggingOut = false
     }
@@ -131,3 +138,21 @@ setOnAuthExpired(() => {
 setOnTokenRefresh(() => {
   useAuthStore.setState((s) => ({ tokenVersion: s.tokenVersion + 1 }))
 })
+
+// Cross-tab logout: when another tab logs out, sync the state here.
+// The logout() function writes a sentinel key; other tabs detect it via 'storage' event.
+const LOGOUT_KEY = 'agentim:logout'
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === LOGOUT_KEY && e.newValue) {
+      // Another tab logged out — clear local state without calling the API again
+      api.clearTokens()
+      wsClient.disconnect()
+      useChatStore.getState().reset()
+      useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
+      useRouterStore.setState({ routers: [], loading: false })
+      useAuthStore.setState({ user: null })
+    }
+  })
+}

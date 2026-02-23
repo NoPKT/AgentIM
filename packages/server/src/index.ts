@@ -417,6 +417,8 @@ app.use('/uploads/*', async (c, next) => {
   await next()
   // Prevent MIME sniffing
   c.header('X-Content-Type-Options', 'nosniff')
+  // Strict CSP for uploaded content: prevent any script/style execution
+  c.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
   // Force download for non-safe types (prevent SVG XSS, HTML injection, etc.)
   const contentType = c.res.headers.get('Content-Type') ?? ''
   const safeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']

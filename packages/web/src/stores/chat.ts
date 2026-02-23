@@ -679,16 +679,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   togglePin: async (roomId) => {
+    // Optimistic update: toggle pin state immediately before API call
+    const userId = useAuthStore.getState().user?.id ?? null
+    const prevMembers = get().roomMembers
+    const list = prevMembers.get(roomId)
+    if (list && userId) {
+      const currentMember = list.find((m) => m.memberId === userId)
+      const isPinned = !!currentMember?.pinnedAt
+      const optimisticMembers = new Map(prevMembers)
+      optimisticMembers.set(
+        roomId,
+        list.map((m) =>
+          m.memberId === userId
+            ? { ...m, pinnedAt: isPinned ? undefined : new Date().toISOString() }
+            : m,
+        ),
+      )
+      set({ roomMembers: optimisticMembers })
+    }
     try {
       const res = await api.put<{ pinned: boolean }>(`/rooms/${roomId}/pin`)
       if (res.ok && res.data) {
+        // Apply server-confirmed state
         const members = new Map(get().roomMembers)
-        const list = members.get(roomId)
-        if (list) {
-          const userId = useAuthStore.getState().user?.id ?? null
+        const currentList = members.get(roomId)
+        if (currentList) {
           members.set(
             roomId,
-            list.map((m) =>
+            currentList.map((m) =>
               m.memberId === userId
                 ? { ...m, pinnedAt: res.data!.pinned ? new Date().toISOString() : undefined }
                 : m,
@@ -696,8 +714,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           )
           set({ roomMembers: members })
         }
+      } else {
+        // Revert on failure
+        set({ roomMembers: prevMembers })
       }
     } catch {
+      // Revert on error
+      set({ roomMembers: prevMembers })
       toast.error('Failed to toggle pin')
     }
   },

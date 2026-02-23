@@ -97,6 +97,12 @@ export const PERMISSION_TIMEOUT_MS = 300_000 // 5 minutes
 export const WS_CLIENT_MESSAGE_SIZE_LIMIT = 64 * 1024 // 64 KB
 export const WS_GATEWAY_MESSAGE_SIZE_LIMIT = 256 * 1024 // 256 KB
 
+/** Maximum allowed fullContent size in gateway:message_complete (must fit within WS frame with overhead). */
+export const MAX_FULL_CONTENT_SIZE = 200_000 // 200 KB
+
+/** Maximum JSON nesting depth for WebSocket message parsing. */
+export const MAX_JSON_DEPTH = 15
+
 /** Current WebSocket protocol version. Bumped when breaking changes are introduced. */
 export const CURRENT_PROTOCOL_VERSION = '1'
 

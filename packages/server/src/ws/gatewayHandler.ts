@@ -7,6 +7,8 @@ import {
   TASK_STATUSES,
   CURRENT_PROTOCOL_VERSION,
   PERMISSION_TIMEOUT_MS,
+  MAX_FULL_CONTENT_SIZE,
+  MAX_JSON_DEPTH,
 } from '@agentim/shared'
 import type {
   ServerSendToAgent,
@@ -31,10 +33,7 @@ import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 
 const log = createLogger('GatewayHandler')
 
-// ws.gatewayMessageSize is available via getConfigSync() if needed at runtime
-const MAX_JSON_DEPTH = 15 // gateway messages may have deeper nesting (chunks with metadata)
 const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
-const MAX_FULL_CONTENT_SIZE = 10 * 1024 * 1024 // 10 MB per complete message
 
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
 function safeJsonParse(raw: string, maxDepth: number): unknown {
@@ -193,7 +192,12 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
   if (msg.type !== 'gateway:auth' && msg.type !== 'gateway:ping') {
     const gw = connectionManager.getGateway(ws)
     if (!gw) {
-      log.warn('Unauthenticated gateway attempted to send message')
+      log.warn('Unauthenticated gateway attempted to send message, closing connection')
+      try {
+        ws.close(1008, 'Not authenticated')
+      } catch {
+        /* already closed */
+      }
       return
     }
   }

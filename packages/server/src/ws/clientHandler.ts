@@ -6,6 +6,7 @@ import {
   parseMentions,
   WS_ERROR_CODES,
   CURRENT_PROTOCOL_VERSION,
+  MAX_JSON_DEPTH,
 } from '@agentim/shared'
 import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
 import { getPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
@@ -39,7 +40,7 @@ const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const WS_MAX_AUTH_ATTEMPTS = 5
 const wsAuthAttempts = new WeakMap<object, number>()
 
-const MAX_JSON_DEPTH = 10
+// MAX_JSON_DEPTH imported from @agentim/shared (unified across client/gateway handlers)
 
 // ─── Room Membership Cache ───
 // Short-lived cache keyed by `rm:<userId>:<roomId>` with TTL 60s.
