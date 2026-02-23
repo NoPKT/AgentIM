@@ -75,6 +75,12 @@ export const MAX_DISPLAY_NAME_LENGTH = 100
 export const MAX_SYSTEM_PROMPT_LENGTH = 10_000
 export const MAX_BUFFER_SIZE = 10 * 1024 * 1024 // 10 MB
 export const DEFAULT_PAGE_SIZE = 50
+export const MAX_ROUTER_NAME_LENGTH = 100
+export const MAX_ROUTER_DESCRIPTION_LENGTH = 1000
+export const MAX_MENTIONS_PER_MESSAGE = 50
+export const MAX_ATTACHMENTS_PER_MESSAGE = 20
+export const MAX_TOOL_INPUT_KEYS = 100
+export const MAX_TOOL_INPUT_KEY_LENGTH = 200
 
 export const MEMBER_TYPES = ['user', 'agent'] as const
 export type MemberType = (typeof MEMBER_TYPES)[number]
@@ -93,8 +99,9 @@ export type PermissionDecision = (typeof PERMISSION_DECISIONS)[number]
 
 export const PERMISSION_TIMEOUT_MS = 300_000 // 5 minutes
 
-/** Maximum size (bytes) for a single WebSocket message frame. */
-export const WS_CLIENT_MESSAGE_SIZE_LIMIT = 64 * 1024 // 64 KB
+/** Maximum size (bytes) for a single WebSocket message payload (client → server).
+ *  Must accommodate MAX_MESSAGE_LENGTH (100 KB content) plus JSON envelope overhead. */
+export const WS_CLIENT_MESSAGE_SIZE_LIMIT = 128 * 1024 // 128 KB
 export const WS_GATEWAY_MESSAGE_SIZE_LIMIT = 256 * 1024 // 256 KB
 
 /** Maximum allowed fullContent size in gateway:message_complete (must fit within WS frame with overhead). */
@@ -120,5 +127,8 @@ export const WS_ERROR_CODES = {
   NOT_A_MEMBER: 'NOT_A_MEMBER',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   SESSION_REVOKED: 'SESSION_REVOKED',
+  PERMISSION_DENIED: 'PERMISSION_DENIED',
+  INVALID_TOKEN: 'INVALID_TOKEN',
+  GATEWAY_NOT_FOUND: 'GATEWAY_NOT_FOUND',
 } as const
 export type WsErrorCode = (typeof WS_ERROR_CODES)[keyof typeof WS_ERROR_CODES]

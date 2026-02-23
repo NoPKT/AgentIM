@@ -1,4 +1,5 @@
 import type { ParsedChunk } from '@agentim/shared'
+import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -77,7 +78,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
               requestId,
               toolName,
               toolInput,
-              timeoutMs: 300_000,
+              timeoutMs: PERMISSION_TIMEOUT_MS,
             })
             if (result.behavior === 'allow') {
               return { behavior: 'allow' as const }
@@ -220,6 +221,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
   stop() {
     this.currentQuery?.interrupt()
+    this.currentQuery = undefined
+    this.sessionId = undefined
   }
 
   dispose() {

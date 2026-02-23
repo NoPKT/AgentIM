@@ -36,15 +36,62 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   }
 })
 
+// ─── Admin Role Cache ───
+// Short-lived in-process cache to avoid querying DB on every admin request.
+// Entries expire after 60 seconds, so role changes take effect within 1 minute.
+const ADMIN_CACHE_TTL_MS = 60_000
+const ADMIN_CACHE_MAX_SIZE = 500
+const adminRoleCache = new Map<string, { role: string; expiresAt: number }>()
+
+function getCachedAdminRole(userId: string): string | null {
+  const entry = adminRoleCache.get(userId)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    adminRoleCache.delete(userId)
+    return null
+  }
+  return entry.role
+}
+
+function setCachedAdminRole(userId: string, role: string) {
+  // Evict oldest entries if cache is full
+  if (adminRoleCache.size >= ADMIN_CACHE_MAX_SIZE) {
+    const firstKey = adminRoleCache.keys().next().value
+    if (firstKey !== undefined) adminRoleCache.delete(firstKey)
+  }
+  adminRoleCache.set(userId, { role, expiresAt: Date.now() + ADMIN_CACHE_TTL_MS })
+}
+
+/** Clear admin cache for a specific user (call on role change / password change) */
+export function invalidateAdminCache(userId: string) {
+  adminRoleCache.delete(userId)
+}
+
 export const adminMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   const userId = c.get('userId')
+
+  // Check cache first
+  const cachedRole = getCachedAdminRole(userId)
+  if (cachedRole !== null) {
+    if (cachedRole !== 'admin') {
+      return c.json({ ok: false, error: 'Admin access required' }, 403)
+    }
+    await next()
+    return
+  }
+
+  // Cache miss — query DB
   const [user] = await db
     .select({ role: users.role })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
+
   if (!user || user.role !== 'admin') {
+    if (user) setCachedAdminRole(userId, user.role)
     return c.json({ ok: false, error: 'Admin access required' }, 403)
   }
+
+  setCachedAdminRole(userId, user.role)
   await next()
 })

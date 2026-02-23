@@ -18,7 +18,12 @@ import {
   adminCreateUserSchema,
   adminUpdateUserSchema,
 } from '@agentim/shared'
-import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
+import {
+  authMiddleware,
+  adminMiddleware,
+  invalidateAdminCache,
+  type AuthEnv,
+} from '../middleware/auth.js'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { basename } from 'node:path'
 import { sanitizeText } from '../lib/sanitize.js'
@@ -246,6 +251,8 @@ userRoutes.put('/:id', adminMiddleware, async (c) => {
       return c.json({ ok: false, error: 'Cannot demote yourself' }, 400)
     }
     updateData.role = parsed.data.role
+    // Invalidate admin role cache when role changes
+    invalidateAdminCache(targetId)
   }
   if (parsed.data.password) {
     updateData.passwordHash = await hash(parsed.data.password)

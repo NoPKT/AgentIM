@@ -1,8 +1,9 @@
-const MENTION_REGEX = /@([a-zA-Z0-9_][\w-]*)/g
+const MENTION_REGEX = /@([a-zA-Z0-9_][a-zA-Z0-9_-]*)/g
 
 export function parseMentions(content: string): string[] {
   const seen = new Set<string>()
   const mentions: string[] = []
+  MENTION_REGEX.lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = MENTION_REGEX.exec(content)) !== null) {
     if (!seen.has(match[1])) {

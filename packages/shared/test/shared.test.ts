@@ -578,7 +578,7 @@ describe('Constants', () => {
   })
 
   it('WS message size limits are defined', () => {
-    assert.equal(WS_CLIENT_MESSAGE_SIZE_LIMIT, 64 * 1024)
+    assert.equal(WS_CLIENT_MESSAGE_SIZE_LIMIT, 128 * 1024)
     assert.equal(WS_GATEWAY_MESSAGE_SIZE_LIMIT, 256 * 1024)
   })
 

@@ -17,13 +17,14 @@ export class TokenManager {
   /** Refresh the access token using the refresh token via HTTP API */
   async refresh(): Promise<string> {
     const MAX_RETRIES = 3
-    const RETRY_DELAYS = [2000, 4000, 6000]
+    const BASE_DELAY = 2000
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
-        const delay = RETRY_DELAYS[attempt - 1]
-        log.warn(`Token refresh retry ${attempt}/${MAX_RETRIES} after ${delay}ms...`)
+        // Exponential backoff with jitter: 2s, 4s, 8s + random
+        const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 1000
+        log.warn(`Token refresh retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms...`)
         await new Promise<void>((resolve) => setTimeout(resolve, delay))
       }
 

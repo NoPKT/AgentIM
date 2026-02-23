@@ -174,13 +174,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateReadReceipt: (roomId, userId, username, lastReadAt) => {
     const MAX_RECEIPTS_PER_ROOM = 100
     const readReceipts = new Map(get().readReceipts)
-    const receipts = (readReceipts.get(roomId) ?? []).filter((r) => r.userId !== userId)
-    receipts.push({ userId, username, lastReadAt })
+    // Use a Map keyed by userId for O(1) upsert instead of O(n) filter+push
+    const existing = readReceipts.get(roomId) ?? []
+    const byUser = new Map(existing.map((r) => [r.userId, r]))
+    byUser.set(userId, { userId, username, lastReadAt })
     // Cap per-room receipts to prevent unbounded growth
-    readReceipts.set(
-      roomId,
-      receipts.length > MAX_RECEIPTS_PER_ROOM ? receipts.slice(-MAX_RECEIPTS_PER_ROOM) : receipts,
-    )
+    let receipts = [...byUser.values()]
+    if (receipts.length > MAX_RECEIPTS_PER_ROOM) {
+      receipts = receipts.slice(-MAX_RECEIPTS_PER_ROOM)
+    }
+    readReceipts.set(roomId, receipts)
     set({ readReceipts })
   },
 
@@ -374,17 +377,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // If offline, only persist to IndexedDB — don't attempt WS send
     if (wsClient.status !== 'connected') {
-      const pending: PendingMessage = {
-        id: nanoid(),
-        roomId,
-        content,
-        mentions,
-        replyToId: replyTo?.id,
-        attachmentIds,
-        createdAt: new Date().toISOString(),
+      // Dedup: skip if an identical pending message already exists for this room
+      const existingPending = get().pendingMessages
+      const isDuplicate = existingPending.some((p) => p.roomId === roomId && p.content === content)
+      if (!isDuplicate) {
+        const pending: PendingMessage = {
+          id: nanoid(),
+          roomId,
+          content,
+          mentions,
+          replyToId: replyTo?.id,
+          attachmentIds,
+          createdAt: new Date().toISOString(),
+        }
+        addPendingMessage(pending)
+        set({ pendingMessages: [...existingPending, pending] })
       }
-      addPendingMessage(pending)
-      set({ pendingMessages: [...get().pendingMessages, pending] })
     } else {
       wsClient.send(msg)
     }

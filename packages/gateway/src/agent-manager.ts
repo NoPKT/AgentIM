@@ -368,6 +368,7 @@ export class AgentManager {
   }
 
   async disposeAll() {
+    const DISPOSE_TIMEOUT_MS = 10_000
     const disposePromises: Promise<void>[] = []
     for (const [id, adapter] of this.adapters) {
       disposePromises.push(
@@ -380,13 +381,23 @@ export class AgentManager {
         agentId: id,
       })
     }
-    await Promise.allSettled(disposePromises)
+    // Race disposal against a timeout to prevent hanging on slow agents
+    await Promise.race([
+      Promise.allSettled(disposePromises),
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          log.warn(`Agent disposal timed out after ${DISPOSE_TIMEOUT_MS}ms, forcing cleanup`)
+          resolve()
+        }, DISPOSE_TIMEOUT_MS)
+        timer.unref()
+      }),
+    ])
     this.adapters.clear()
     this.agentCapabilities.clear()
     this.roomContexts.clear()
     this.agentCurrentRoom.clear()
     // Reject all pending permissions
-    for (const [id, pending] of this.pendingPermissions) {
+    for (const [, pending] of this.pendingPermissions) {
       clearTimeout(pending.timer)
       pending.resolve({ behavior: 'deny' })
     }

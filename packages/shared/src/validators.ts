@@ -19,6 +19,12 @@ import {
   MAX_USERNAME_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_SYSTEM_PROMPT_LENGTH,
+  MAX_ROUTER_NAME_LENGTH,
+  MAX_ROUTER_DESCRIPTION_LENGTH,
+  MAX_MENTIONS_PER_MESSAGE,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_TOOL_INPUT_KEYS,
+  MAX_TOOL_INPUT_KEY_LENGTH,
   MEMBER_TYPES,
   SENDER_TYPES,
   ASSIGNEE_TYPES,
@@ -98,9 +104,9 @@ export const createRouterSchema = z
     name: z
       .string()
       .min(1)
-      .max(100)
+      .max(MAX_ROUTER_NAME_LENGTH)
       .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-    description: z.string().max(1000).optional(),
+    description: z.string().max(MAX_ROUTER_DESCRIPTION_LENGTH).optional(),
     scope: z.enum(ROUTER_SCOPES).default('personal'),
     llmBaseUrl: z
       .string()
@@ -141,10 +147,10 @@ export const updateRouterSchema = z
     name: z
       .string()
       .min(1)
-      .max(100)
+      .max(MAX_ROUTER_NAME_LENGTH)
       .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
       .optional(),
-    description: z.string().max(1000).nullable().optional(),
+    description: z.string().max(MAX_ROUTER_DESCRIPTION_LENGTH).nullable().optional(),
     llmBaseUrl: z
       .string()
       .url()
@@ -195,9 +201,9 @@ export const addMemberSchema = z.object({
 
 export const sendMessageSchema = z.object({
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
-  mentions: z.array(z.string()).max(50).default([]),
+  mentions: z.array(z.string()).max(MAX_MENTIONS_PER_MESSAGE).default([]),
   replyToId: z.string().optional(),
-  attachmentIds: z.array(z.string()).max(20).optional(),
+  attachmentIds: z.array(z.string()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
 })
 
 export const editMessageSchema = z.object({
@@ -302,7 +308,10 @@ export const adminUpdateUserSchema = z.object({
 const parsedChunkSchema = z.object({
   type: z.enum(CHUNK_TYPES),
   content: z.string().max(1_000_000),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z
+    .record(z.string(), z.unknown())
+    .refine((obj) => Object.keys(obj).length <= 50, 'validation.metadataTooManyKeys')
+    .optional(),
 })
 
 // Client messages
@@ -326,9 +335,9 @@ export const clientSendMessageSchema = z.object({
   type: z.literal('client:send_message'),
   roomId: z.string().min(1),
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),
-  mentions: z.array(z.string()).max(50).default([]),
+  mentions: z.array(z.string()).max(MAX_MENTIONS_PER_MESSAGE).default([]),
   replyToId: z.string().optional(),
-  attachmentIds: z.array(z.string()).max(20).optional(),
+  attachmentIds: z.array(z.string()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
 })
 
 export const clientTypingSchema = z.object({
@@ -441,7 +450,14 @@ export const gatewayPermissionRequestSchema = z.object({
   toolName: z.string().min(1).max(200),
   toolInput: z
     .record(z.string(), z.unknown())
-    .refine((obj) => Object.keys(obj).length <= 100, 'validation.toolInputTooManyKeys'),
+    .refine(
+      (obj) => Object.keys(obj).length <= MAX_TOOL_INPUT_KEYS,
+      'validation.toolInputTooManyKeys',
+    )
+    .refine(
+      (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
+      'validation.toolInputKeyTooLong',
+    ),
   timeoutMs: z.number().int().min(1000).max(600_000),
 })
 
@@ -602,7 +618,7 @@ const roomContextMemberSchema = z.object({
 const roomContextSchema = z.object({
   roomId: z.string(),
   roomName: z.string(),
-  systemPrompt: z.string().optional(),
+  systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
   members: z.array(roomContextMemberSchema),
 })
 
@@ -707,7 +723,14 @@ export const serverPermissionRequestSchema = z.object({
   toolName: z.string(),
   toolInput: z
     .record(z.string(), z.unknown())
-    .refine((obj) => Object.keys(obj).length <= 100, 'validation.toolInputTooManyKeys'),
+    .refine(
+      (obj) => Object.keys(obj).length <= MAX_TOOL_INPUT_KEYS,
+      'validation.toolInputTooManyKeys',
+    )
+    .refine(
+      (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
+      'validation.toolInputKeyTooLong',
+    ),
   expiresAt: z.string(),
 })
 

@@ -75,7 +75,7 @@ export const config = {
   apiBodyLimit: 1024 * 1024, // 1 MB (for JSON API requests)
   // WebSocket protocol constants
   wsAuthTimeoutMs: 5_000,
-  maxWsMessageSize: 64 * 1024, // 64 KB (client messages)
+  maxWsMessageSize: 128 * 1024, // 128 KB (client messages — accommodates 100 KB content + JSON overhead)
   maxGatewayMessageSize: 256 * 1024, // 256 KB (gateway messages include agent output)
   maxAttachmentsPerMessage: 20,
   maxReactionsPerMessage: 20,

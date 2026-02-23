@@ -1,1 +1,2 @@
 pnpm exec lint-staged
+pnpm --filter @agentim/shared exec tsc --noEmit

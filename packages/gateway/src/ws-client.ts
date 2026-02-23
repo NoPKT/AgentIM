@@ -196,18 +196,19 @@ export class GatewayWsClient {
     if (this.flushing) return // Prevent concurrent flushes
     this.flushing = true
     try {
-      const toSend = [...this.sendQueue]
-      this.sendQueue = []
+      // Drain the queue atomically: splice in place so that any messages
+      // arriving during flush are appended *after* the batch we are sending.
+      const toSend = this.sendQueue.splice(0)
       for (let i = 0; i < toSend.length; i++) {
         if (this.ws?.readyState !== WebSocket.OPEN) {
-          // Put remaining messages (including current) back in the queue
+          // Put remaining messages back at the *front* of the queue
+          // (messages added during flush stay at the end, preserving order)
           this.sendQueue.unshift(...toSend.slice(i))
           return
         }
         try {
           this.ws.send(JSON.stringify(toSend[i]))
         } catch {
-          // Put current and remaining messages back in the queue
           this.sendQueue.unshift(...toSend.slice(i))
           return
         }
@@ -232,15 +233,29 @@ export class GatewayWsClient {
         try {
           this.ws.send(JSON.stringify({ type: 'gateway:ping', ts: Date.now() }))
         } catch (err) {
-          log.warn(`Failed to send ping: ${(err as Error).message}, terminating connection`)
+          log.warn(`Failed to send ping: ${(err as Error).message}, forcing reconnect`)
           this.stopHeartbeat()
-          this.ws?.terminate()
+          if (this.ws) {
+            this.ws.removeAllListeners()
+            this.ws.close(1006, 'ping failed')
+            this.ws = null
+          }
+          this.onDisconnected()
+          this.scheduleReconnect()
           return
         }
         this.pongTimer = setTimeout(() => {
-          log.warn('Pong timeout, reconnecting...')
+          log.warn('Pong timeout, forcing reconnect...')
           this.stopHeartbeat()
-          this.ws?.terminate()
+          // Use close() instead of terminate() to ensure 'close' event fires
+          // and triggers scheduleReconnect() properly
+          if (this.ws) {
+            this.ws.removeAllListeners()
+            this.ws.close(1006, 'pong timeout')
+            this.ws = null
+          }
+          this.onDisconnected()
+          this.scheduleReconnect()
         }, PONG_TIMEOUT)
       }
     }, PING_INTERVAL)
