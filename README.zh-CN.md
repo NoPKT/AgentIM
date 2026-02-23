@@ -148,7 +148,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # 其他智能体类型
 agentim codex /path/to/project
-agentim gemini /path/to/project
+agentim gemini /path/to/project   # 即将支持
 ```
 
 ### 守护进程模式
@@ -172,8 +172,7 @@ agentim logout    # 清除登录凭证
 | ------------- | --------------------------- |
 | `claude-code` | Anthropic Claude Code CLI   |
 | `codex`       | OpenAI Codex CLI            |
-| `gemini`      | Google Gemini CLI           |
-| `cursor`      | Cursor 编辑器智能体         |
+| `gemini`      | Google Gemini CLI *（即将支持）* |
 | `generic`     | 任何 CLI 工具（自定义命令） |
 
 ## 开发者信息

@@ -148,7 +148,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Other agent types
 agentim codex /path/to/project
-agentim gemini /path/to/project
+agentim gemini /path/to/project   # coming soon
 ```
 
 ### Daemon Mode
@@ -172,8 +172,7 @@ agentim logout    # Clear saved credentials
 | ------------- | ------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI      |
 | `codex`       | OpenAI Codex CLI               |
-| `gemini`      | Google Gemini CLI              |
-| `cursor`      | Cursor Editor Agent            |
+| `gemini`      | Google Gemini CLI *(coming soon)* |
 | `generic`     | Any CLI tool (custom commands) |
 
 ## For Developers

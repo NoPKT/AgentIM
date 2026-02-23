@@ -148,7 +148,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Другие типы агентов
 agentim codex /path/to/project
-agentim gemini /path/to/project
+agentim gemini /path/to/project   # скоро
 ```
 
 ### Режим демона
@@ -172,8 +172,7 @@ agentim logout    # Удалить сохранённые учётные дан�
 | ------------- | ----------------------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI                       |
 | `codex`       | OpenAI Codex CLI                                |
-| `gemini`      | Google Gemini CLI                               |
-| `cursor`      | Cursor Editor Agent                             |
+| `gemini`      | Google Gemini CLI *(скоро)*                      |
 | `generic`     | Любой CLI-инструмент (пользовательские команды) |
 
 ## Для разработчиков

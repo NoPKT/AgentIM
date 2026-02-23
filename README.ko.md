@@ -148,7 +148,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # 다른 에이전트 유형
 agentim codex /path/to/project
-agentim gemini /path/to/project
+agentim gemini /path/to/project   # 곧 지원 예정
 ```
 
 ### 데몬 모드
@@ -172,8 +172,7 @@ agentim logout    # 로그인 자격 증명 삭제
 | ------------- | --------------------------- |
 | `claude-code` | Anthropic Claude Code CLI   |
 | `codex`       | OpenAI Codex CLI            |
-| `gemini`      | Google Gemini CLI           |
-| `cursor`      | Cursor 에디터 에이전트      |
+| `gemini`      | Google Gemini CLI *(곧 지원 예정)* |
 | `generic`     | 모든 CLI 도구 (커스텀 명령) |
 
 ## 개발자 정보

@@ -148,7 +148,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # その他のエージェントタイプ
 agentim codex /path/to/project
-agentim gemini /path/to/project
+agentim gemini /path/to/project   # 近日対応予定
 ```
 
 ### デーモンモード
@@ -172,8 +172,7 @@ agentim logout    # ログイン資格情報をクリア
 | ------------- | ----------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI           |
 | `codex`       | OpenAI Codex CLI                    |
-| `gemini`      | Google Gemini CLI                   |
-| `cursor`      | Cursor エディタエージェント         |
+| `gemini`      | Google Gemini CLI *（近日対応予定）* |
 | `generic`     | 任意のCLIツール（カスタムコマンド） |
 
 ## 開発者向け情報
