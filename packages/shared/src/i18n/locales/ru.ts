@@ -386,6 +386,9 @@ export const ru = {
       httpUrl: 'Должен быть HTTP(S) URL',
       apiKeyWhitespace: 'API-ключ не может состоять только из пробелов',
       modelWhitespace: 'Модель не может состоять только из пробелов',
+      avatarUrlTraversal: 'URL аватара не должен содержать обход пути',
+      avatarUrlInvalid: 'URL аватара содержит недопустимые символы',
+      toolInputTooManyKeys: 'Слишком много ключей во входных данных инструмента',
     },
   },
   pwa: {

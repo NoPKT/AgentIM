@@ -383,6 +383,9 @@ export const en = {
       httpUrl: 'Must be an HTTP(S) URL',
       apiKeyWhitespace: 'API key cannot be only whitespace',
       modelWhitespace: 'Model cannot be only whitespace',
+      avatarUrlTraversal: 'Avatar URL must not contain path traversal',
+      avatarUrlInvalid: 'Avatar URL contains invalid characters',
+      toolInputTooManyKeys: 'Tool input has too many keys',
     },
   },
   pwa: {

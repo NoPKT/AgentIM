@@ -371,9 +371,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...(replyTo ? { replyToId: replyTo.id } : {}),
       ...(attachmentIds && attachmentIds.length > 0 ? { attachmentIds } : {}),
     }
-    wsClient.send(msg)
 
-    // Persist to IndexedDB if offline so message survives page refresh
+    // If offline, only persist to IndexedDB — don't attempt WS send
     if (wsClient.status !== 'connected') {
       const pending: PendingMessage = {
         id: nanoid(),
@@ -386,6 +385,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       addPendingMessage(pending)
       set({ pendingMessages: [...get().pendingMessages, pending] })
+    } else {
+      wsClient.send(msg)
     }
 
     if (replyTo) set({ replyTo: null })

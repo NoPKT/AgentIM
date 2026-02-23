@@ -104,6 +104,8 @@ function isInternalUrl(urlStr: string): boolean {
  * Resolve a hostname's DNS records and check if any resolved IPs are private.
  * This catches hostnames that resolve to internal addresses (SSRF via DNS rebinding).
  */
+const DNS_TIMEOUT_MS = 5000
+
 async function resolvesToPrivateIp(urlStr: string): Promise<boolean> {
   try {
     const { hostname } = new URL(urlStr)
@@ -111,17 +113,24 @@ async function resolvesToPrivateIp(urlStr: string): Promise<boolean> {
     if (/^(\d+\.){3}\d+$/.test(hostname) || hostname.includes(':')) return false
 
     const dns = await import('node:dns/promises')
+    const withTimeout = <T>(p: Promise<T>): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DNS timeout')), DNS_TIMEOUT_MS),
+        ),
+      ])
     try {
-      const addresses = await dns.resolve4(hostname)
+      const addresses = await withTimeout(dns.resolve4(hostname))
       if (addresses.some(isPrivateIp)) return true
     } catch {
-      /* no A records — try AAAA */
+      /* no A records or timeout — try AAAA */
     }
     try {
-      const addresses = await dns.resolve6(hostname)
+      const addresses = await withTimeout(dns.resolve6(hostname))
       if (addresses.some(isPrivateIp)) return true
     } catch {
-      /* no AAAA records */
+      /* no AAAA records or timeout */
     }
     return false
   } catch {

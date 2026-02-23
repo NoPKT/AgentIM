@@ -382,6 +382,9 @@ export const ja = {
       httpUrl: 'HTTP(S) URLである必要があります',
       apiKeyWhitespace: 'APIキーは空白のみにできません',
       modelWhitespace: 'モデルは空白のみにできません',
+      avatarUrlTraversal: 'アバターURLにパストラバーサルを含めることはできません',
+      avatarUrlInvalid: 'アバターURLに無効な文字が含まれています',
+      toolInputTooManyKeys: 'ツール入力のキーが多すぎます',
     },
   },
   pwa: {

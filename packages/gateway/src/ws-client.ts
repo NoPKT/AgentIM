@@ -54,7 +54,7 @@ export class GatewayWsClient {
     if (this.ws) {
       this.ws.removeAllListeners()
       if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-        this.ws.terminate()
+        this.ws.close(1000, 'reconnecting')
       }
       this.ws = null
     }

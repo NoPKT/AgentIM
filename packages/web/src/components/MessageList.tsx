@@ -67,6 +67,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     scrollRAF.current = requestAnimationFrame(() => {
       scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     })
+    return () => cancelAnimationFrame(scrollRAF.current)
   }, [
     currentMessages.length,
     streamingMessages.length,

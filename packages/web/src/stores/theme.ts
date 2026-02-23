@@ -42,11 +42,18 @@ export const useThemeStore = create<ThemeState>((set) => ({
 }))
 
 // Listen for system theme changes
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+const systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const systemThemeHandler = () => {
   const { mode } = useThemeStore.getState()
   if (mode === 'system') {
     const isDark = resolveIsDark('system')
     applyTheme(isDark)
     useThemeStore.setState({ isDark })
   }
-})
+}
+systemThemeMediaQuery.addEventListener('change', systemThemeHandler)
+
+/** Remove the system theme media query listener (useful for cleanup in tests). */
+export function unsubscribeSystemTheme() {
+  systemThemeMediaQuery.removeEventListener('change', systemThemeHandler)
+}

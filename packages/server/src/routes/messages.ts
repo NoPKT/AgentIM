@@ -598,9 +598,9 @@ messageRoutes.delete('/:id', async (c) => {
 
   logAudit({
     userId,
-    action: 'file_delete',
+    action: 'message_delete',
     targetId: messageId,
-    targetType: 'file',
+    targetType: 'message',
     metadata: { roomId: result.roomId, attachmentCount: result.attachmentUrls.length },
     ipAddress: getClientIp(c),
   })
@@ -630,49 +630,65 @@ messageRoutes.post('/batch-delete', async (c) => {
 
   const { messageIds } = parsed.data
 
-  // Fetch all requested messages in one query
-  const msgs = await db.select().from(messages).where(inArray(messages.id, messageIds))
-
-  if (msgs.length === 0) {
-    return c.json({ ok: true, data: { deleted: 0 } })
-  }
-
-  // All messages must belong to the same room
-  const roomIds = new Set(msgs.map((m) => m.roomId))
-  if (roomIds.size > 1) {
-    return c.json({ ok: false, error: 'All messages must belong to the same room' }, 400)
-  }
-  const roomId = msgs[0].roomId
-
-  // Check room membership
-  if (!(await isRoomMember(userId, roomId))) {
-    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
-  }
-
-  // Check permissions: sender can delete own, room admin/owner can delete any
-  const admin = await isRoomAdmin(userId, roomId)
-  const ownIds = new Set<string>()
-  for (const msg of msgs) {
-    if (msg.senderId === userId && msg.senderType === 'user') {
-      ownIds.add(msg.id)
-    }
-  }
-
-  const deletableIds = admin ? msgs.map((m) => m.id) : [...ownIds]
-  if (deletableIds.length === 0) {
-    return c.json({ ok: false, error: 'No permission to delete these messages' }, 403)
-  }
-
-  // Collect attachments and delete in transaction
+  // Move all queries into a single transaction to eliminate TOCTOU race
   const txResult = await db.transaction(async (tx) => {
+    // Fetch all requested messages inside the transaction
+    const msgs = await tx.select().from(messages).where(inArray(messages.id, messageIds))
+
+    if (msgs.length === 0) {
+      return { deleted: 0, deletableIds: [], attachmentUrls: [], roomId: null as string | null }
+    }
+
+    // All messages must belong to the same room
+    const roomIds = new Set(msgs.map((m) => m.roomId))
+    if (roomIds.size > 1) {
+      return { error: 'All messages must belong to the same room', status: 400 as const }
+    }
+    const roomId = msgs[0].roomId
+
+    // Check room membership
+    if (!(await isRoomMember(userId, roomId, tx))) {
+      return { error: 'Not a member of this room', status: 403 as const }
+    }
+
+    // Check permissions: sender can delete own, room admin/owner can delete any
+    const admin = await isRoomAdmin(userId, roomId)
+    const ownIds = new Set<string>()
+    for (const msg of msgs) {
+      if (msg.senderId === userId && msg.senderType === 'user') {
+        ownIds.add(msg.id)
+      }
+    }
+
+    const deletableIds = admin ? msgs.map((m) => m.id) : [...ownIds]
+    if (deletableIds.length === 0) {
+      return { error: 'No permission to delete these messages', status: 403 as const }
+    }
+
     const attachments = await tx
       .select({ url: messageAttachments.url })
       .from(messageAttachments)
       .where(inArray(messageAttachments.messageId, deletableIds))
 
     await tx.delete(messages).where(inArray(messages.id, deletableIds))
-    return { attachmentUrls: attachments.map((a) => a.url) }
+    return {
+      deleted: deletableIds.length,
+      deletableIds,
+      attachmentUrls: attachments.map((a) => a.url),
+      roomId,
+    }
   })
+
+  if ('error' in txResult) {
+    return c.json({ ok: false, error: txResult.error }, txResult.status)
+  }
+
+  if (txResult.deleted === 0) {
+    return c.json({ ok: true, data: { deleted: 0 } })
+  }
+
+  const { deletableIds } = txResult
+  const roomId = txResult.roomId!
 
   // Clean up attachment files
   const batchStorage = getStorage()
@@ -689,9 +705,9 @@ messageRoutes.post('/batch-delete', async (c) => {
 
   logAudit({
     userId,
-    action: 'file_delete',
+    action: 'message_delete',
     targetId: deletableIds.join(','),
-    targetType: 'file',
+    targetType: 'message',
     metadata: {
       roomId,
       count: deletableIds.length,

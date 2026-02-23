@@ -73,7 +73,8 @@ export function decryptSecret(stored: string): string | null {
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])
     return decrypted.toString('utf8')
   } catch (err) {
-    log.warn(`Failed to decrypt secret: ${(err as Error).message}`)
+    const prefix = stored.length > 20 ? stored.slice(0, 20) + '...' : stored
+    log.warn(`Failed to decrypt secret (prefix="${prefix}"): ${(err as Error).message}`)
     return null
   }
 }

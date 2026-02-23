@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { createNodeWebSocket } from '@hono/node-ws'
@@ -223,13 +224,18 @@ app.use('/api/*', async (c, next) => {
 
 // Global error handler
 app.onError((err, c) => {
+  const errorId = nanoid()
   captureException(err)
   log.error(
-    `Unhandled error: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
+    `Unhandled error [${errorId}]: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
   )
   const status = 'status' in err && typeof err.status === 'number' ? err.status : 500
   return c.json(
-    { ok: false, error: config.isProduction ? 'Internal server error' : err.message },
+    {
+      ok: false,
+      error: config.isProduction ? 'Internal server error' : err.message,
+      errorId,
+    },
     status as ContentfulStatusCode,
   )
 })

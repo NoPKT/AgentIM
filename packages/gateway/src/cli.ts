@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn as cpSpawn } from 'node:child_process'
-import { mkdirSync, openSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -11,6 +11,7 @@ import { getDeviceInfo } from './device.js'
 
 const require = createRequire(import.meta.url)
 const { version } = require('../package.json')
+import { getSafeEnv } from './adapters/spawn-base.js'
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
@@ -585,10 +586,12 @@ function spawnDaemon(
     detached: true,
     stdio: ['ignore', logFd, logFd],
     cwd: workDir,
-    env: { ...process.env, ...agentEnv },
+    env: { ...getSafeEnv(), ...agentEnv },
   })
 
   child.unref()
+  // Close log FD in parent — child process has inherited it
+  closeSync(logFd)
 
   if (child.pid) {
     writeDaemonInfo({

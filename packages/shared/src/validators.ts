@@ -93,68 +93,96 @@ export const updateRoomSchema = z.object({
 
 // ─── Router ───
 
-export const createRouterSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(100)
-    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-  description: z.string().max(1000).optional(),
-  scope: z.enum(ROUTER_SCOPES).default('personal'),
-  llmBaseUrl: z
-    .string()
-    .url()
-    .max(500)
-    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl'),
-  llmApiKey: z
-    .string()
-    .min(1)
-    .max(500)
-    .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace'),
-  llmModel: z
-    .string()
-    .min(1)
-    .max(200)
-    .refine((s) => s.trim().length > 0, 'validation.modelWhitespace'),
-  maxChainDepth: z.number().int().min(1).max(100).default(5),
-  rateLimitWindow: z.number().int().min(1).max(3600).default(60),
-  rateLimitMax: z.number().int().min(1).max(1000).default(20),
-  visibility: z.enum(ROUTER_VISIBILITIES).default('all'),
-  visibilityList: z.array(z.string().max(100)).max(500).default([]),
-})
+export const createRouterSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
+    description: z.string().max(1000).optional(),
+    scope: z.enum(ROUTER_SCOPES).default('personal'),
+    llmBaseUrl: z
+      .string()
+      .url()
+      .max(500)
+      .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl'),
+    llmApiKey: z
+      .string()
+      .min(1)
+      .max(500)
+      .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace'),
+    llmModel: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine((s) => s.trim().length > 0, 'validation.modelWhitespace'),
+    maxChainDepth: z.number().int().min(1).max(100).default(5),
+    rateLimitWindow: z.number().int().min(1).max(3600).default(60),
+    rateLimitMax: z.number().int().min(1).max(1000).default(20),
+    visibility: z.enum(ROUTER_VISIBILITIES).default('all'),
+    visibilityList: z.array(z.string().max(100)).max(500).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.visibility === 'whitelist' || data.visibility === 'blacklist') &&
+      data.visibilityList.length === 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `visibilityList must not be empty when visibility is '${data.visibility}'`,
+        path: ['visibilityList'],
+      })
+    }
+  })
 
-export const updateRouterSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(100)
-    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
-    .optional(),
-  description: z.string().max(1000).nullable().optional(),
-  llmBaseUrl: z
-    .string()
-    .url()
-    .max(500)
-    .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl')
-    .optional(),
-  llmApiKey: z
-    .string()
-    .min(1)
-    .max(500)
-    .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace')
-    .optional(),
-  llmModel: z
-    .string()
-    .min(1)
-    .max(200)
-    .refine((s) => s.trim().length > 0, 'validation.modelWhitespace')
-    .optional(),
-  maxChainDepth: z.number().int().min(1).max(100).optional(),
-  rateLimitWindow: z.number().int().min(1).max(3600).optional(),
-  rateLimitMax: z.number().int().min(1).max(1000).optional(),
-  visibility: z.enum(ROUTER_VISIBILITIES).optional(),
-  visibilityList: z.array(z.string().max(100)).max(500).optional(),
-})
+export const updateRouterSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
+      .optional(),
+    description: z.string().max(1000).nullable().optional(),
+    llmBaseUrl: z
+      .string()
+      .url()
+      .max(500)
+      .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl')
+      .optional(),
+    llmApiKey: z
+      .string()
+      .min(1)
+      .max(500)
+      .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace')
+      .optional(),
+    llmModel: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine((s) => s.trim().length > 0, 'validation.modelWhitespace')
+      .optional(),
+    maxChainDepth: z.number().int().min(1).max(100).optional(),
+    rateLimitWindow: z.number().int().min(1).max(3600).optional(),
+    rateLimitMax: z.number().int().min(1).max(1000).optional(),
+    visibility: z.enum(ROUTER_VISIBILITIES).optional(),
+    visibilityList: z.array(z.string().max(100)).max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.visibility !== undefined &&
+      (data.visibility === 'whitelist' || data.visibility === 'blacklist') &&
+      data.visibilityList !== undefined &&
+      data.visibilityList.length === 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `visibilityList must not be empty when visibility is '${data.visibility}'`,
+        path: ['visibilityList'],
+      })
+    }
+  })
 
 export const addMemberSchema = z.object({
   memberId: z.string().min(1).max(100),

@@ -168,35 +168,36 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
 // Process-local: effective limit is (max × number-of-processes) in multi-process deployments.
 const wsMemoryCounters = new Map<string, { count: number; resetAt: number }>()
 
-function wsMemoryRateLimit(userId: string, window: number, max: number): boolean {
+function wsMemoryRateLimit(compositeKey: string, window: number, max: number): boolean {
   const now = Date.now()
   const windowMs = window * 1000
-  const entry = wsMemoryCounters.get(userId)
+  const entry = wsMemoryCounters.get(compositeKey)
   if (!entry || now > entry.resetAt) {
-    wsMemoryCounters.set(userId, { count: 1, resetAt: now + windowMs })
+    wsMemoryCounters.set(compositeKey, { count: 1, resetAt: now + windowMs })
     return false
   }
   entry.count++
   return entry.count > max
 }
 
-async function isRateLimited(userId: string): Promise<boolean> {
+async function isRateLimited(userId: string, roomId?: string): Promise<boolean> {
   const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
   const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
+  const keySuffix = roomId ? `${userId}:${roomId}` : userId
 
   if (!isRedisEnabled()) {
-    return wsMemoryRateLimit(userId, window, max)
+    return wsMemoryRateLimit(keySuffix, window, max)
   }
 
   try {
     const redis = getRedis()
-    const key = `ws:rate:${userId}`
+    const key = `ws:rate:${keySuffix}`
     const count = (await redis.eval(WS_INCR_WITH_EXPIRE_LUA, 1, key, String(window))) as number
     return count > max
   } catch {
     // Redis unavailable — fallback to in-memory rate limiting (fail-open degradation)
     log.warn('Redis unavailable for WS rate limiting, using in-memory fallback')
-    return wsMemoryRateLimit(userId, window, max)
+    return wsMemoryRateLimit(keySuffix, window, max)
   }
 }
 

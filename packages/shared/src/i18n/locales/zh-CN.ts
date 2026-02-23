@@ -379,6 +379,9 @@ export const zhCN = {
       httpUrl: '必须是 HTTP(S) URL',
       apiKeyWhitespace: 'API 密钥不能全为空白',
       modelWhitespace: '模型不能全为空白',
+      avatarUrlTraversal: '头像 URL 不能包含路径遍历',
+      avatarUrlInvalid: '头像 URL 包含无效字符',
+      toolInputTooManyKeys: '工具输入键数过多',
     },
   },
   pwa: {

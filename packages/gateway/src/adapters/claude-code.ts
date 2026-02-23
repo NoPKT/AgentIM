@@ -20,6 +20,9 @@ import type {
 
 const log = createLogger('ClaudeCode')
 
+// Cache the dynamically imported query function to avoid repeated import() calls
+let _cachedQueryFn: (typeof import('@anthropic-ai/claude-agent-sdk'))['query'] | null = null
+
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private sessionId?: string
   private currentQuery?: Query
@@ -48,7 +51,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     try {
-      const { query } = await import('@anthropic-ai/claude-agent-sdk')
+      if (!_cachedQueryFn) {
+        const mod = await import('@anthropic-ai/claude-agent-sdk')
+        _cachedQueryFn = mod.query
+      }
+      const query = _cachedQueryFn
 
       const options: Options = {
         allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],

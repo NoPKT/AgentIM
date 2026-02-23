@@ -26,13 +26,14 @@ export type AuditAction =
   | 'member_remove'
   | 'file_upload'
   | 'file_delete'
+  | 'message_delete'
   | 'setting_update'
 
 interface AuditOptions {
   userId?: string | null
   action: AuditAction
   targetId?: string
-  targetType?: 'user' | 'router' | 'room' | 'file' | 'member'
+  targetType?: 'user' | 'router' | 'room' | 'file' | 'member' | 'message'
   metadata?: Record<string, unknown>
   ipAddress?: string
 }

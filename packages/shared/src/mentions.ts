@@ -1,4 +1,4 @@
-const MENTION_REGEX = /@([a-zA-Z][\w-]*)/g
+const MENTION_REGEX = /@([a-zA-Z0-9_][\w-]*)/g
 
 export function parseMentions(content: string): string[] {
   const seen = new Set<string>()

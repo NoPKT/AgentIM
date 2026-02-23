@@ -388,6 +388,9 @@ export const de = {
       httpUrl: 'Muss eine HTTP(S)-URL sein',
       apiKeyWhitespace: 'API-Schlüssel darf nicht nur aus Leerzeichen bestehen',
       modelWhitespace: 'Modell darf nicht nur aus Leerzeichen bestehen',
+      avatarUrlTraversal: 'Avatar-URL darf keine Pfadtraversierung enthalten',
+      avatarUrlInvalid: 'Avatar-URL enthält ungültige Zeichen',
+      toolInputTooManyKeys: 'Tool-Eingabe hat zu viele Schlüssel',
     },
   },
   pwa: {

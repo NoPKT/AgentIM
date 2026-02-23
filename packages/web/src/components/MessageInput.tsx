@@ -24,6 +24,8 @@ import { api } from '../lib/api.js'
 import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
 
+const MAX_UPLOAD_RETRIES = 3
+
 interface PendingAttachment {
   id: string
   filename: string
@@ -34,6 +36,7 @@ interface PendingAttachment {
   progress?: number
   error?: string
   file?: File
+  retryCount?: number
 }
 
 export function MessageInput() {
@@ -79,7 +82,7 @@ export function MessageInput() {
       } else {
         localStorage.removeItem(`draft:${currentRoomId}`)
       }
-    }, 300)
+    }, 1000)
     return () => clearTimeout(draftTimerRef.current)
   }, [content, currentRoomId])
 
@@ -174,10 +177,23 @@ export function MessageInput() {
   const retryUpload = useCallback(
     async (att: PendingAttachment) => {
       if (!att.file) return
+      const currentRetries = att.retryCount ?? 0
+      if (currentRetries >= MAX_UPLOAD_RETRIES) {
+        toast.error(`${att.filename}: max retries (${MAX_UPLOAD_RETRIES}) exceeded`)
+        return
+      }
       const file = att.file
       setPendingAttachments((prev) =>
         prev.map((a) =>
-          a.id === att.id ? { ...a, uploading: true, error: undefined, progress: undefined } : a,
+          a.id === att.id
+            ? {
+                ...a,
+                uploading: true,
+                error: undefined,
+                progress: undefined,
+                retryCount: currentRetries + 1,
+              }
+            : a,
         ),
       )
       try {

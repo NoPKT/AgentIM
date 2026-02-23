@@ -388,6 +388,9 @@ export const fr = {
       httpUrl: 'Doit être une URL HTTP(S)',
       apiKeyWhitespace: 'La clé API ne peut pas être uniquement des espaces',
       modelWhitespace: 'Le modèle ne peut pas être uniquement des espaces',
+      avatarUrlTraversal: "L'URL de l'avatar ne doit pas contenir de traversée de chemin",
+      avatarUrlInvalid: "L'URL de l'avatar contient des caractères invalides",
+      toolInputTooManyKeys: "L'entrée de l'outil contient trop de clés",
     },
   },
   pwa: {

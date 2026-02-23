@@ -88,8 +88,18 @@ async function isAgentRateLimited(
     const count = (await redis.eval(INCR_WITH_EXPIRE_LUA, 1, key, windowSec)) as number
     return count > max
   } catch {
-    log.warn('Redis unavailable for agent rate limiting, rejecting request (fail-closed)')
-    return true
+    // Redis unavailable — fallback to in-memory rate limiting (fail-open, consistent with clientHandler)
+    log.warn('Redis unavailable for agent rate limiting, using in-memory fallback')
+    const key = `ws:agent_rate:${agentId}`
+    const now = Date.now()
+    const windowMs = windowSec * 1000
+    const entry = agentRateCounters.get(key)
+    if (!entry || now > entry.resetAt) {
+      agentRateCounters.set(key, { count: 1, resetAt: now + windowMs })
+      return false
+    }
+    entry.count++
+    return entry.count > max
   }
 }
 

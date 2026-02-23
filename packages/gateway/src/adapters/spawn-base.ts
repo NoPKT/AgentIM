@@ -116,7 +116,9 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
       proc.kill('SIGTERM')
       const escalate = setTimeout(() => {
         try {
-          proc.kill('SIGKILL')
+          if (!proc.killed && proc.exitCode === null) {
+            proc.kill('SIGKILL')
+          }
         } catch {}
       }, 5000)
       escalate.unref()
@@ -139,7 +141,9 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
     proc.kill('SIGTERM')
     this.killTimer = setTimeout(() => {
       try {
-        proc.kill('SIGKILL')
+        if (!proc.killed && proc.exitCode === null) {
+          proc.kill('SIGKILL')
+        }
       } catch {}
       this.killTimer = null
     }, 5000)
@@ -207,6 +211,8 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
       if (done) return
       const text = data.toString().trim()
       if (text) onChunk({ type: 'error', content: text })
+      // Reset process timer on stderr activity (agent is still working)
+      this.startProcessTimer(proc)
     })
 
     proc.on('close', (code) => {

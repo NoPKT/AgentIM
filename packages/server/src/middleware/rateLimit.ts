@@ -41,8 +41,17 @@ export function getClientIpFromRequest(c: Context): string {
 // Redis is highly available to avoid relying on this fallback in production.
 const memoryCounters = new Map<string, { count: number; resetAt: number }>()
 
+let memoryRateLimitWarned = false
+
 /** In-memory rate limit check. Returns true if the request should be rejected. */
 function memoryRateLimit(key: string, windowMs: number, maxRequests: number): boolean {
+  if (!memoryRateLimitWarned) {
+    memoryRateLimitWarned = true
+    log.warn(
+      'Using in-memory rate limiting. In multi-process/multi-node deployments, ' +
+        'enable Redis for accurate cross-process rate limiting.',
+    )
+  }
   const now = Date.now()
   const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
   if (now > entry.resetAt) {
