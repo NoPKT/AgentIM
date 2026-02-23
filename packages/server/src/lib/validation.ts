@@ -29,6 +29,21 @@ export async function parseJsonBody(c: Context): Promise<unknown | Response> {
 }
 
 /**
+ * Safely parse a query parameter as an integer with bounds.
+ * Returns `defaultVal` when the raw value is missing, empty, or non-numeric.
+ */
+export function parseQueryInt(
+  raw: string | undefined,
+  defaultVal: number,
+  min: number,
+  max: number,
+): number {
+  const parsed = parseInt(raw ?? '', 10)
+  const value = Number.isNaN(parsed) ? defaultVal : parsed
+  return Math.min(Math.max(value, min), max)
+}
+
+/**
  * Validate that a URL parameter is a plausible nanoid or short string ID.
  * Rejects empty strings and excessively long values.
  */

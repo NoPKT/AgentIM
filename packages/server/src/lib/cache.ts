@@ -42,6 +42,9 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
       memoryCache.delete(key)
       return null
     }
+    // Move to end for LRU ordering
+    memoryCache.delete(key)
+    memoryCache.set(key, entry)
     return entry.value as T
   }
   try {
@@ -57,10 +60,10 @@ export async function cacheSet(key: string, value: unknown, ttlSeconds: number):
   if (!isRedisEnabled()) {
     if (memoryCache.size >= MAX_MEMORY_CACHE_SIZE && !memoryCache.has(key)) {
       evictExpiredMemoryEntries()
-      // If still over capacity, evict oldest entry
+      // If still over capacity, evict least-recently-used entry
       if (memoryCache.size >= MAX_MEMORY_CACHE_SIZE) {
-        const oldest = memoryCache.keys().next().value
-        if (oldest) memoryCache.delete(oldest)
+        const lru = memoryCache.keys().next().value
+        if (lru) memoryCache.delete(lru)
       }
     }
     memoryCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 })

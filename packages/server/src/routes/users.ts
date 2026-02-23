@@ -22,6 +22,7 @@ import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/aut
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { basename } from 'node:path'
 import { sanitizeText } from '../lib/sanitize.js'
+import { parseQueryInt } from '../lib/validation.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
@@ -144,8 +145,8 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
 // ─── Admin User Management ───
 
 userRoutes.get('/', adminMiddleware, async (c) => {
-  const limit = Math.min(Math.max(Number(c.req.query('limit')) || 100, 1), 500)
-  const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
+  const limit = parseQueryInt(c.req.query('limit'), 100, 1, 500)
+  const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   const result = await db
     .select({

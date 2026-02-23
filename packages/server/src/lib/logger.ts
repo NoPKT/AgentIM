@@ -4,20 +4,29 @@ const SENSITIVE_KEYS = new Set([
   'password',
   'token',
   'secret',
-  'apiKey',
+  'apikey',
   'api_key',
   'authorization',
-  'encryptionKey',
+  'encryptionkey',
   'encryption_key',
-  'accessToken',
-  'refreshToken',
-  'tokenHash',
+  'accesstoken',
+  'refreshtoken',
+  'tokenhash',
+  'llmapikey',
+  's3accesskeyid',
+  's3secretaccesskey',
+  'vapidpublickey',
+  'vapidprivatekey',
+  'privatekey',
+  'secretkey',
+  'secret_key',
+  'p256dh',
 ])
 
 function redactSensitive(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(obj)) {
-    if (SENSITIVE_KEYS.has(key)) {
+    if (SENSITIVE_KEYS.has(key.toLowerCase())) {
       result[key] = '[REDACTED]'
     } else if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       result[key] = redactSensitive(value as Record<string, unknown>)

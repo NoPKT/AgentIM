@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn as cpSpawn } from 'node:child_process'
-import { closeSync, mkdirSync, openSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -520,8 +520,14 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
     const name = spec.slice(0, firstColon)
     const rest = spec.slice(firstColon + 1)
     const secondColon = rest.indexOf(':')
-    const type = secondColon === -1 ? rest : rest.slice(0, secondColon)
-    const workdir = secondColon === -1 ? undefined : rest.slice(secondColon + 1) || undefined
+    // Detect Windows drive letter (e.g. "claude-code:C:\repo" → type="claude-code:C:\repo", no workdir)
+    const isWindowsDrive =
+      secondColon !== -1 &&
+      secondColon === 1 &&
+      (rest[secondColon + 1] === '\\' || rest[secondColon + 1] === '/')
+    const type = secondColon === -1 || isWindowsDrive ? rest : rest.slice(0, secondColon)
+    const workdir =
+      secondColon === -1 || isWindowsDrive ? undefined : rest.slice(secondColon + 1) || undefined
     agentManager.addAgent({
       name,
       type,
@@ -537,6 +543,38 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
     process.exit(1)
   } else if (invalidCount > 0) {
     log.warn(`${invalidCount} of ${agentSpecs.length} agent spec(s) were invalid and skipped.`)
+  }
+}
+
+const LOG_MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+const LOG_MAX_BACKUPS = 3
+
+/** Rotate a log file if it exceeds LOG_MAX_SIZE. Keeps up to LOG_MAX_BACKUPS backups (.1, .2, .3). */
+function rotateLogIfNeeded(logFile: string) {
+  try {
+    const st = statSync(logFile)
+    if (st.size < LOG_MAX_SIZE) return
+  } catch {
+    // File doesn't exist yet — nothing to rotate
+    return
+  }
+
+  // Shift existing backups: .3 → delete, .2 → .3, .1 → .2
+  for (let i = LOG_MAX_BACKUPS; i >= 1; i--) {
+    const src = i === 1 ? logFile : `${logFile}.${i - 1}`
+    const dst = `${logFile}.${i}`
+    try {
+      if (i === LOG_MAX_BACKUPS) {
+        try {
+          unlinkSync(dst)
+        } catch {
+          // doesn't exist
+        }
+      }
+      renameSync(src, dst)
+    } catch {
+      // source doesn't exist — skip
+    }
   }
 }
 
@@ -575,6 +613,7 @@ function spawnDaemon(
   const logDir = join(homedir(), '.agentim', 'logs')
   mkdirSync(logDir, { recursive: true })
   const logFile = join(logDir, `${name}.log`)
+  rotateLogIfNeeded(logFile)
   const logFd = openSync(logFile, 'a')
 
   const agentSpec = `${name}:${type}:${workDir}`

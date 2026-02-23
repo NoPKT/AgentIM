@@ -27,8 +27,10 @@ export class GatewayWsClient {
   private onConnected: () => void
   private onDisconnected: () => void
   private onAuthFailed: (() => Promise<void>) | null = null
+  private onDroppedMessage: ((msg: GatewayMessage) => void) | null = null
   private shouldReconnect = true
   private connecting = false // Prevent concurrent connect attempts
+  private flushing = false
   private probing = false
   private sendQueue: GatewayMessage[] = []
 
@@ -38,18 +40,21 @@ export class GatewayWsClient {
     onConnected: () => void
     onDisconnected: () => void
     onAuthFailed?: () => Promise<void>
+    onDroppedMessage?: (msg: GatewayMessage) => void
   }) {
     this.url = opts.url
     this.onMessage = opts.onMessage
     this.onConnected = opts.onConnected
     this.onDisconnected = opts.onDisconnected
     this.onAuthFailed = opts.onAuthFailed ?? null
+    this.onDroppedMessage = opts.onDroppedMessage ?? null
   }
 
   connect() {
     if (this.connecting) return // Prevent concurrent connect attempts
     this.connecting = true
     this.shouldReconnect = true
+    this.stopHeartbeat() // Prevent timer leaks from previous connection
     // Clean up old WebSocket before creating new one
     if (this.ws) {
       this.ws.removeAllListeners()
@@ -69,6 +74,7 @@ export class GatewayWsClient {
       this.connecting = false
       this.reconnectInterval = 3000
       this.reconnectAttempts = 0
+      this.droppedCount = 0
       this.startHeartbeat()
       this.onConnected()
     })
@@ -112,7 +118,8 @@ export class GatewayWsClient {
     if (
       type === 'gateway:message_chunk' ||
       type === 'gateway:message_complete' ||
-      type === 'gateway:agent_status'
+      type === 'gateway:agent_status' ||
+      type === 'gateway:permission_request'
     )
       return 'high'
     return 'normal'
@@ -138,8 +145,9 @@ export class GatewayWsClient {
           // Drop the oldest non-critical message to make room
           const idx = this.sendQueue.findIndex((m) => this.getMessagePriority(m.type) === 'normal')
           if (idx >= 0) {
+            const [dropped] = this.sendQueue.splice(idx, 1)
             this.droppedCount++
-            this.sendQueue.splice(idx, 1)
+            this.onDroppedMessage?.(dropped)
             this.sendQueue.push(msg)
           } else {
             // Try dropping oldest high-priority message
@@ -147,8 +155,9 @@ export class GatewayWsClient {
               (m) => this.getMessagePriority(m.type) === 'high',
             )
             if (highIdx >= 0) {
+              const [dropped] = this.sendQueue.splice(highIdx, 1)
               this.droppedCount++
-              this.sendQueue.splice(highIdx, 1)
+              this.onDroppedMessage?.(dropped)
               this.sendQueue.push(msg)
             } else {
               log.warn('Send queue full (all critical), dropping message')
@@ -158,18 +167,21 @@ export class GatewayWsClient {
           // Drop the oldest normal-priority message to make room
           const idx = this.sendQueue.findIndex((m) => this.getMessagePriority(m.type) === 'normal')
           if (idx >= 0) {
+            const [dropped] = this.sendQueue.splice(idx, 1)
             this.droppedCount++
-            this.sendQueue.splice(idx, 1)
+            this.onDroppedMessage?.(dropped)
             this.sendQueue.push(msg)
           } else {
             log.warn(
               `Send queue full (no normal-priority to drop), dropping high-priority ${msg.type}`,
             )
             this.droppedCount++
+            this.onDroppedMessage?.(msg)
           }
         } else {
           // Normal priority — just drop it
           this.droppedCount++
+          this.onDroppedMessage?.(msg)
         }
 
         if (this.droppedCount > 0 && this.droppedCount % 50 === 0) {
@@ -181,21 +193,27 @@ export class GatewayWsClient {
 
   /** Flush queued messages (call after authentication succeeds) */
   flushQueue() {
-    const toSend = [...this.sendQueue]
-    this.sendQueue = []
-    for (let i = 0; i < toSend.length; i++) {
-      if (this.ws?.readyState !== WebSocket.OPEN) {
-        // Put remaining messages (including current) back in the queue
-        this.sendQueue.unshift(...toSend.slice(i))
-        return
+    if (this.flushing) return // Prevent concurrent flushes
+    this.flushing = true
+    try {
+      const toSend = [...this.sendQueue]
+      this.sendQueue = []
+      for (let i = 0; i < toSend.length; i++) {
+        if (this.ws?.readyState !== WebSocket.OPEN) {
+          // Put remaining messages (including current) back in the queue
+          this.sendQueue.unshift(...toSend.slice(i))
+          return
+        }
+        try {
+          this.ws.send(JSON.stringify(toSend[i]))
+        } catch {
+          // Put current and remaining messages back in the queue
+          this.sendQueue.unshift(...toSend.slice(i))
+          return
+        }
       }
-      try {
-        this.ws.send(JSON.stringify(toSend[i]))
-      } catch {
-        // Put current and remaining messages back in the queue
-        this.sendQueue.unshift(...toSend.slice(i))
-        return
-      }
+    } finally {
+      this.flushing = false
     }
   }
 

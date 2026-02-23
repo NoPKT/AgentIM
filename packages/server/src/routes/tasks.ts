@@ -7,7 +7,12 @@ import { createTaskSchema, updateTaskSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { sanitizeText, sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
+import {
+  validateIdParams,
+  parseJsonBody,
+  formatZodError,
+  parseQueryInt,
+} from '../lib/validation.js'
 
 export const taskRoutes = new Hono<AuthEnv>()
 
@@ -18,8 +23,8 @@ taskRoutes.use('/rooms/:roomId', validateIdParams)
 // List all tasks for current user's rooms
 taskRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '') || 50, 1), 100)
-  const offset = Math.max(parseInt(c.req.query('offset') ?? '') || 0, 0)
+  const limit = parseQueryInt(c.req.query('limit'), 50, 1, 100)
+  const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   const memberRows = await db
     .select({ roomId: roomMembers.roomId })
@@ -43,8 +48,8 @@ taskRoutes.get('/', async (c) => {
 taskRoutes.get('/rooms/:roomId', async (c) => {
   const roomId = c.req.param('roomId')
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '') || 50, 1), 100)
-  const offset = Math.max(parseInt(c.req.query('offset') ?? '') || 0, 0)
+  const limit = parseQueryInt(c.req.query('limit'), 50, 1, 100)
+  const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   if (!(await isRoomMember(userId, roomId))) {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)

@@ -98,7 +98,9 @@ export async function sendPushToUser(userId: string, payload: Record<string, unk
         await db
           .delete(pushSubscriptions)
           .where(eq(pushSubscriptions.id, sub.id))
-          .catch(() => {})
+          .catch((deleteErr) => {
+            log.warn(`Failed to delete expired push subscription: ${(deleteErr as Error).message}`)
+          })
         log.debug(`Removed expired push subscription for user ${userId}`)
       } else {
         log.warn(`Failed to send push to user ${userId}: ${(err as Error).message}`)

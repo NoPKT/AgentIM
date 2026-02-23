@@ -622,7 +622,11 @@ async function handleMessageComplete(
         title: agentName,
         body,
         data: { roomId: msg.roomId, messageId: msg.messageId },
-      }).catch(() => {})
+      }).catch((err) => {
+        log.warn(
+          `Failed to push notification to user ${member.memberId}: ${(err as Error).message}`,
+        )
+      })
     }
   }
 

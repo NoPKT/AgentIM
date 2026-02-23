@@ -60,8 +60,12 @@ async function cleanupZombieGateways(): Promise<void> {
 
   // Broadcast room updates for affected rooms
   for (const roomId of affectedRoomIds) {
-    await broadcastRoomUpdate(roomId).catch(() => {})
-    await sendRoomContextToAllAgents(roomId).catch(() => {})
+    await broadcastRoomUpdate(roomId).catch((err) => {
+      log.warn(`Failed to broadcast room update for ${roomId}: ${(err as Error).message}`)
+    })
+    await sendRoomContextToAllAgents(roomId).catch((err) => {
+      log.warn(`Failed to send room context for ${roomId}: ${(err as Error).message}`)
+    })
   }
 }
 

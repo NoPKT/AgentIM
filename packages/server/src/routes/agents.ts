@@ -4,9 +4,17 @@ import { db } from '../db/index.js'
 import { agents, gateways, roomMembers, rooms, users } from '../db/schema.js'
 import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
-import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
+import {
+  validateIdParams,
+  parseJsonBody,
+  formatZodError,
+  parseQueryInt,
+} from '../lib/validation.js'
 import { connectionManager } from '../ws/connections.js'
 import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('AgentRoutes')
 
 export const agentRoutes = new Hono<AuthEnv>()
 
@@ -38,8 +46,8 @@ function enrichAgents(
 // List all agents for the current user (through their gateways)
 agentRoutes.get('/', async (c) => {
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(Number(c.req.query('limit')) || 100, 1), 500)
-  const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
+  const limit = parseQueryInt(c.req.query('limit'), 100, 1, 500)
+  const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   const userGateways = await db.select().from(gateways).where(eq(gateways.userId, userId))
   if (userGateways.length === 0) {
@@ -60,8 +68,8 @@ agentRoutes.get('/', async (c) => {
 // List shared agents from other users
 agentRoutes.get('/shared', async (c) => {
   const userId = c.get('userId')
-  const limit = Math.min(Math.max(Number(c.req.query('limit')) || 100, 1), 500)
-  const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
+  const limit = parseQueryInt(c.req.query('limit'), 100, 1, 500)
+  const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   // JOIN gateways to exclude current user's agents at the SQL level,
   // so pagination is consistent regardless of how many shared agents the user owns.
@@ -271,8 +279,12 @@ agentRoutes.delete('/gateways/:gatewayId', async (c) => {
 
   // Broadcast room updates for affected rooms
   for (const roomId of affectedRoomIds) {
-    await broadcastRoomUpdate(roomId).catch(() => {})
-    await sendRoomContextToAllAgents(roomId).catch(() => {})
+    await broadcastRoomUpdate(roomId).catch((err) => {
+      log.warn(`Failed to broadcast room update for ${roomId}: ${(err as Error).message}`)
+    })
+    await sendRoomContextToAllAgents(roomId).catch((err) => {
+      log.warn(`Failed to send room context for ${roomId}: ${(err as Error).message}`)
+    })
   }
 
   return c.json({ ok: true })

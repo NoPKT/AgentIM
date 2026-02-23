@@ -16,6 +16,9 @@ const PROCESS_TIMEOUT_MS = Math.max(
   parseInt(process.env.AGENTIM_PROCESS_TIMEOUT_MS ?? '', 10) || 5 * 60 * 1000,
 ) // default 5 minutes, minimum 30 seconds
 
+const ABSOLUTE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes — cannot be reset by data chunks
+const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
+
 /**
  * Sensitive env var prefixes/names stripped before passing to child processes.
  * Prevents leaking DB credentials, JWT secrets, etc. to AI agent subprocesses.
@@ -138,7 +141,11 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
       clearTimeout(this.killTimer)
       this.killTimer = null
     }
-    proc.kill('SIGTERM')
+    try {
+      proc.kill('SIGTERM')
+    } catch {
+      // Process may have already exited
+    }
     this.killTimer = setTimeout(() => {
       try {
         if (!proc.killed && proc.exitCode === null) {
@@ -193,11 +200,25 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     this.startProcessTimer(proc)
 
+    // Absolute timeout that cannot be reset by data chunks
+    const absoluteTimer = setTimeout(() => {
+      if (done) return
+      this.timedOut = true
+      this.clearProcessTimer()
+      this.isRunning = false
+      fail('Process exceeded absolute timeout (30 minutes)')
+      this.killProcess(proc)
+    }, ABSOLUTE_TIMEOUT_MS)
+    absoluteTimer.unref()
+
+    let stderrSize = 0
+
     proc.stdout?.on('data', (data: Buffer) => {
       const text = data.toString()
       fullContent += text
       if (fullContent.length > MAX_BUFFER_SIZE) {
         this.clearProcessTimer()
+        clearTimeout(absoluteTimer)
         this.isRunning = false
         fail('Response too large')
         this.killProcess(proc)
@@ -209,6 +230,15 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     proc.stderr?.on('data', (data: Buffer) => {
       if (done) return
+      stderrSize += data.length
+      if (stderrSize > STDERR_MAX_BUFFER_SIZE) {
+        this.clearProcessTimer()
+        clearTimeout(absoluteTimer)
+        this.isRunning = false
+        fail('Stderr output too large (exceeded 5MB)')
+        this.killProcess(proc)
+        return
+      }
       const text = data.toString().trim()
       if (text) onChunk({ type: 'error', content: text })
       // Reset process timer on stderr activity (agent is still working)
@@ -217,6 +247,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     proc.on('close', (code) => {
       this.clearProcessTimer()
+      clearTimeout(absoluteTimer)
       this.isRunning = false
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()
@@ -233,6 +264,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
 
     proc.on('error', (err) => {
       this.clearProcessTimer()
+      clearTimeout(absoluteTimer)
       this.isRunning = false
       proc.stdout?.removeAllListeners()
       proc.stderr?.removeAllListeners()

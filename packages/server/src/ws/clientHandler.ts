@@ -638,7 +638,11 @@ async function handleSendMessage(
         title: client.username,
         body: content.length > 200 ? content.slice(0, 200) + '...' : content,
         data: { roomId, messageId: id },
-      }).catch(() => {})
+      }).catch((err) => {
+        log.warn(
+          `Failed to push notification to user ${member.memberId}: ${(err as Error).message}`,
+        )
+      })
     }
   }
 

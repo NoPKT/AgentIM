@@ -7,6 +7,7 @@ interface PendingPermission {
   agentId: string
   roomId: string
   timer: ReturnType<typeof setTimeout>
+  createdAt: number
 }
 
 const pending = new Map<string, PendingPermission>()
@@ -15,7 +16,7 @@ export function addPendingPermission(
   requestId: string,
   opts: { agentId: string; roomId: string; timer: ReturnType<typeof setTimeout> },
 ) {
-  pending.set(requestId, opts)
+  pending.set(requestId, { ...opts, createdAt: Date.now() })
 }
 
 export function getPendingPermission(requestId: string): PendingPermission | undefined {
@@ -32,4 +33,28 @@ export function clearPendingPermission(requestId: string) {
 
 export function getPendingCount(): number {
   return pending.size
+}
+
+// Periodic cleanup of stale entries that were never resolved
+const STALE_THRESHOLD = PERMISSION_TIMEOUT_MS * 2
+const CLEANUP_INTERVAL = 60_000
+
+const permissionCleanupTimer = setInterval(() => {
+  const now = Date.now()
+  let cleaned = 0
+  for (const [requestId, entry] of pending) {
+    if (now - entry.createdAt > STALE_THRESHOLD) {
+      clearTimeout(entry.timer)
+      pending.delete(requestId)
+      cleaned++
+    }
+  }
+  if (cleaned > 0) {
+    log.info(`Cleaned up ${cleaned} stale pending permission(s)`)
+  }
+}, CLEANUP_INTERVAL)
+permissionCleanupTimer.unref()
+
+export function stopPermissionCleanup() {
+  clearInterval(permissionCleanupTimer)
 }

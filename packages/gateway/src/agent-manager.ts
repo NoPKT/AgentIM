@@ -75,6 +75,9 @@ export class AgentManager {
                 return new Promise<{ behavior: 'allow' | 'deny' }>((resolve, reject) => {
                   const timer = setTimeout(() => {
                     this.pendingPermissions.delete(requestId)
+                    log.warn(
+                      `Permission request ${requestId} timed out after ${timeoutMs}ms (tool=${toolName}), auto-denying`,
+                    )
                     resolve({ behavior: 'deny' })
                   }, timeoutMs)
                   this.pendingPermissions.set(requestId, { resolve, reject, timer })
@@ -257,7 +260,16 @@ export class AgentManager {
           }
 
           if (workingDir) {
-            getWorkspaceStatus(workingDir)
+            const WORKSPACE_STATUS_TIMEOUT = 15_000
+            Promise.race([
+              getWorkspaceStatus(workingDir),
+              new Promise<null>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error('Workspace status timed out')),
+                  WORKSPACE_STATUS_TIMEOUT,
+                ),
+              ),
+            ])
               .then((status) => {
                 if (status) {
                   const wsChunk: ParsedChunk = {

@@ -17,7 +17,12 @@ import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
+import {
+  validateIdParams,
+  parseJsonBody,
+  formatZodError,
+  parseQueryInt,
+} from '../lib/validation.js'
 import { createLogger } from '../lib/logger.js'
 import { getStorage } from '../storage/index.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -194,8 +199,7 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
   const userId = c.get('userId')
   const q = c.req.query('q')?.trim()
   const roomId = c.req.query('roomId')
-  const limitRaw = parseInt(c.req.query('limit') ?? '20', 10)
-  const limit = Number.isNaN(limitRaw) || limitRaw < 1 ? 20 : Math.min(limitRaw, 50)
+  const limit = parseQueryInt(c.req.query('limit'), 20, 1, 50)
 
   if (!q || q.length < 2) {
     return c.json({ ok: false, error: 'Query must be at least 2 characters' }, 400)
