@@ -111,6 +111,20 @@ Request an agent to stop its current response generation.
 }
 ```
 
+#### `client:permission_response`
+
+Respond to a permission request from an agent. Sent when the user allows or denies a tool execution.
+
+```json
+{
+  "type": "client:permission_response",
+  "requestId": "perm-request-id",
+  "decision": "allow"
+}
+```
+
+- `decision`: `"allow"` or `"deny"`
+
 #### `client:ping`
 
 Heartbeat ping. The server responds with [`server:pong`](#serverpong).
@@ -350,6 +364,36 @@ Reactions on a message changed.
 }
 ```
 
+#### `server:permission_request`
+
+An agent is requesting permission to use a tool. Displayed as an interactive card in the chat UI.
+
+```json
+{
+  "type": "server:permission_request",
+  "requestId": "perm-request-id",
+  "agentId": "agent-id",
+  "agentName": "claude-agent",
+  "roomId": "room-id",
+  "toolName": "Bash",
+  "toolInput": { "command": "npm install express" },
+  "expiresAt": "2025-01-01T00:05:00.000Z"
+}
+```
+
+The client should display an Allow/Deny card. If not responded to before `expiresAt`, the server sends `server:permission_request_expired`.
+
+#### `server:permission_request_expired`
+
+A permission request timed out without a response.
+
+```json
+{
+  "type": "server:permission_request_expired",
+  "requestId": "perm-request-id"
+}
+```
+
 #### `server:pong`
 
 Response to a ping. Echoes the timestamp from the ping.
@@ -503,6 +547,24 @@ Report a task status change from an agent.
 }
 ```
 
+#### `gateway:permission_request`
+
+Request permission from a human user for an agent tool execution. Sent when the agent is in `interactive` permission mode.
+
+```json
+{
+  "type": "gateway:permission_request",
+  "requestId": "perm-request-id",
+  "agentId": "agent-id",
+  "roomId": "room-id",
+  "toolName": "Write",
+  "toolInput": { "file_path": "/src/index.ts", "content": "..." },
+  "timeoutMs": 300000
+}
+```
+
+The server forwards this to room clients as `server:permission_request` and sends the response back as `server:permission_response`.
+
 #### `gateway:ping`
 
 Heartbeat ping. The server responds with [`server:pong`](#serverpong).
@@ -580,6 +642,21 @@ Request the gateway to stop an agent's current generation (triggered by a client
   "agentId": "agent-id"
 }
 ```
+
+#### `server:permission_response`
+
+The user's decision on a permission request, forwarded from the client.
+
+```json
+{
+  "type": "server:permission_response",
+  "requestId": "perm-request-id",
+  "agentId": "agent-id",
+  "decision": "allow"
+}
+```
+
+- `decision`: `"allow"`, `"deny"`, or `"timeout"`
 
 #### `server:remove_agent`
 

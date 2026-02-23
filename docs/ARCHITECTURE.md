@@ -44,7 +44,7 @@ AgentIM is a unified IM-style platform for managing and orchestrating multiple A
 │              (Node.js, one per machine)                  │
 │                                                         │
 │   ┌──────────────┐    ┌──────────────┐                 │
-│   │  Claude Code │    │   Cursor AI  │  … more agents  │
+│   │  Claude Code │    │    Codex     │  … more agents  │
 │   │  (CLI Agent) │    │  (CLI Agent) │                 │
 │   └──────────────┘    └──────────────┘                 │
 └─────────────────────────────────────────────────────────┘
@@ -124,6 +124,33 @@ All connections must authenticate within `WS_AUTH_TIMEOUT_MS` (default 10s) or
 be closed with code `4001`.
 
 See [`WEBSOCKET.md`](./WEBSOCKET.md) for the full message protocol reference.
+
+### Permission Request Flow
+
+When agents run in `interactive` permission mode (default), tool calls require human approval:
+
+```
+Gateway (adapter.canUseTool / onPermissionRequest)
+  │  1. gateway:permission_request → Server
+  ▼
+Server (gatewayHandler)
+  │  2. Store pending permission (permission-store)
+  │  3. Set timeout (5 min)
+  │  4. server:permission_request → Room clients (broadcast)
+  ▼
+Browser (PermissionCard UI)
+  │  5. User clicks Allow / Deny
+  │  6. client:permission_response → Server
+  ▼
+Server (clientHandler)
+  │  7. Clear timeout
+  │  8. server:permission_response → Gateway
+  ▼
+Gateway (agent-manager resolves Promise)
+  │  9. Adapter continues or stops tool execution
+```
+
+If the user does not respond within 5 minutes, the server auto-denies the request and sends `server:permission_request_expired` to the client.
 
 ## Security Architecture
 

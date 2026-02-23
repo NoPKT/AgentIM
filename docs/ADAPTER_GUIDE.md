@@ -250,12 +250,53 @@ Run tests:
 pnpm --filter agentim test
 ```
 
+## Permission Modes
+
+Adapters support two permission levels controlled by the `-y`/`--yes` CLI flag:
+
+- **`interactive`** (default) — Tool calls are forwarded to the Web UI for human approval via the permission request protocol. The adapter's `onPermissionRequest` callback sends a `gateway:permission_request` message and waits for the user's response.
+- **`bypass`** — Tool calls are auto-approved. For Claude Code, this uses `bypassPermissions` mode. For Codex, this sets `approvalPolicy: 'never'`.
+
+### BaseAgentAdapter Permission Properties
+
+| Property / Method | Description |
+|---|---|
+| `permissionLevel: PermissionLevel` | `'bypass'` or `'interactive'` |
+| `onPermissionRequest?: PermissionRequestCallback` | Callback injected by AgentManager for interactive permission flow |
+
+## Custom Adapters (No Code Required)
+
+You can define custom adapter types without modifying source code by creating `~/.agentim/adapters.json`:
+
+```json
+{
+  "my-copilot": {
+    "command": "copilot-cli",
+    "args": ["--mode", "chat"],
+    "promptVia": "stdin",
+    "env": { "MODEL": "gpt-4" },
+    "description": "My custom copilot adapter"
+  }
+}
+```
+
+Configuration fields:
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `command` | Yes | — | CLI executable to run |
+| `args` | No | `[]` | Extra arguments (prompt is appended or piped) |
+| `promptVia` | No | `"arg"` | How to pass the prompt: `"arg"` (append to args) or `"stdin"` |
+| `env` | No | `{}` | Extra environment variables |
+| `description` | No | — | Human-readable description |
+
+Custom adapters use the `GenericAdapter` under the hood. List all adapters with `aim adapters`.
+
 ## Existing Adapters Reference
 
-| Adapter       | CLI          | Args Pattern                                        | Structured Output                      |
-| ------------- | ------------ | --------------------------------------------------- | -------------------------------------- |
-| `claude-code` | `claude`     | `-p <prompt> --output-format stream-json --verbose` | JSON events (thinking, tool_use, text) |
-| `codex`       | `codex`      | `-q <prompt>`                                       | Plain text                             |
-| `gemini`      | `gemini`     | `-p <prompt>`                                       | Plain text                             |
-| `cursor`      | `cursor`     | `--message <prompt>`                                | Plain text                             |
-| `generic`     | configurable | `<...args> <prompt>`                                | Plain text                             |
+| Adapter       | CLI          | SDK / Process | Structured Output                      |
+| ------------- | ------------ | ------------- | -------------------------------------- |
+| `claude-code` | `claude`     | Agent SDK (`@anthropic-ai/claude-agent-sdk`) | JSON events (thinking, tool_use, text) |
+| `codex`       | `codex`      | Codex SDK (`@openai/codex-sdk`)   | Structured events                      |
+| `gemini`      | `gemini`     | CLI subprocess (`-p <prompt>`)    | Plain text                             |
+| `generic`     | configurable | CLI subprocess (`<...args> <prompt>`) | Plain text                             |
