@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Strengthened Redis production warning with security impact details
 - Updated MIGRATION_ROLLBACK.md to cover rollback scripts 0019–0026
 - Added missing rollback scripts for migrations 0024–0026
+- Gateway CLI: Gemini command now indicates "coming soon — SDK not yet published" in help text
+- Docker Compose: added TRUST_PROXY environment variable pass-through
+- Admin dashboard: shows Redis connection warning banner when Redis is disabled
+- Admin metrics API: exposes `infrastructure.redisEnabled` status
 
 ### Security
 

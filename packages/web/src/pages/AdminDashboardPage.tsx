@@ -33,6 +33,9 @@ interface AdminMetrics {
     agentResponse: Record<string, HistogramSnapshot>
     httpRequest: Record<string, HistogramSnapshot>
   }
+  infrastructure?: {
+    redisEnabled: boolean
+  }
   timestamp: string
 }
 
@@ -435,6 +438,12 @@ export default function AdminDashboardPage() {
         {error && (
           <div className="mb-4 p-3 bg-danger-subtle border border-danger/20 rounded-lg text-sm text-danger-text">
             {error}
+          </div>
+        )}
+
+        {metrics?.infrastructure?.redisEnabled === false && (
+          <div className="mb-4 p-3 bg-warning-subtle border border-warning/20 rounded-lg text-sm text-warning-text">
+            {t('adminDashboard.redisWarning')}
           </div>
         )}
 

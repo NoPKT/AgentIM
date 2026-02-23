@@ -497,5 +497,7 @@ export const en = {
     noData: 'No data yet',
     endpoint: 'Endpoint',
     avgDuration: 'Avg Duration',
+    redisWarning:
+      'Redis is not connected — token revocation, global rate limiting, and multi-node sync are unavailable. Recommended for production use.',
   },
 }

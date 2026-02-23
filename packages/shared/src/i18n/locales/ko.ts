@@ -493,5 +493,7 @@ export const ko = {
     noData: '아직 데이터가 없습니다',
     endpoint: '엔드포인트',
     avgDuration: '평균 소요 시간',
+    redisWarning:
+      'Redis가 연결되지 않았습니다 — 토큰 폐기, 글로벌 속도 제한, 멀티 노드 동기화를 사용할 수 없습니다. 프로덕션 환경에서는 사용을 권장합니다.',
   },
 }

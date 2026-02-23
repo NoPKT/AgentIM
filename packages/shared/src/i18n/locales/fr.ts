@@ -512,5 +512,7 @@ export const fr = {
     noData: 'Pas encore de données',
     endpoint: 'Point de terminaison',
     avgDuration: 'Durée moyenne',
+    redisWarning:
+      "Redis n'est pas connecté — la révocation des jetons, la limitation de débit globale et la synchronisation multi-nœuds sont indisponibles. Recommandé pour la production.",
   },
 }

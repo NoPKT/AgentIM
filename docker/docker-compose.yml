@@ -68,6 +68,7 @@ services:
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
       - 'ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required. Run ./deploy.sh or set it in .env}'
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - 'ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Run ./deploy.sh or set it in .env}'

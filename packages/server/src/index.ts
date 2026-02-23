@@ -359,6 +359,9 @@ app.get('/api/admin/metrics', async (c) => {
         heapUsedBytes: mem.heapUsed,
         rssBytes: mem.rss,
       },
+      infrastructure: {
+        redisEnabled: config.redisEnabled,
+      },
       activity: {
         messagesTotal: getCountersSnapshot(),
         activeRooms: getActiveRooms(),

@@ -505,5 +505,7 @@ export const de = {
     noData: 'Noch keine Daten',
     endpoint: 'Endpunkt',
     avgDuration: 'Durchschn. Dauer',
+    redisWarning:
+      'Redis ist nicht verbunden — Token-Widerruf, globales Rate-Limiting und Multi-Node-Synchronisation sind nicht verfügbar. Für den Produktionseinsatz empfohlen.',
   },
 }

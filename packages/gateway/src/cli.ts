@@ -228,7 +228,7 @@ program
 
 program
   .command('gemini [path]')
-  .description('Start a Gemini CLI agent (background daemon)')
+  .description('Start a Gemini CLI agent (coming soon — SDK not yet published)')
   .option('-n, --name <name>', 'Agent name')
   .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--foreground', 'Run in foreground instead of daemonizing')
