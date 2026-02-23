@@ -302,12 +302,14 @@ class ConnectionManager {
     return this.gateways.get(ws)
   }
 
-  registerAgent(ws: WSContext, agentId: string) {
+  registerAgent(ws: WSContext, agentId: string): boolean {
     const gw = this.gateways.get(ws)
     if (gw) {
       gw.agentIds.add(agentId)
       this.agentToGateway.set(agentId, ws)
+      return true
     }
+    return false
   }
 
   unregisterAgent(ws: WSContext, agentId: string) {
@@ -444,6 +446,12 @@ class ConnectionManager {
         return true
       } catch (err) {
         log.warn(`Failed to send to gateway for agent ${agentId}: ${(err as Error).message}`)
+        this.removeGateway(gw.ws)
+        try {
+          gw.ws.close(1011, 'Send failure')
+        } catch {
+          /* ignore close errors */
+        }
         return false
       }
     }
@@ -460,7 +468,18 @@ class ConnectionManager {
     } catch (err) {
       log.warn(`Failed to send to client: ${(err as Error).message}`)
       const client = this.clients.get(ws)
-      if (client) client.slowSendCount++
+      if (client) {
+        client.slowSendCount++
+        if (client.slowSendCount > 5) {
+          log.warn(`Client ${client.userId} exceeded slow send threshold, removing`)
+          this.removeClient(ws)
+          try {
+            ws.close(1011, 'Too many send failures')
+          } catch {
+            /* ignore close errors */
+          }
+        }
+      }
     }
   }
 
@@ -471,12 +490,17 @@ class ConnectionManager {
   }
 
   private localBroadcastToAll(data: string) {
+    const failed: WSContext[] = []
     for (const client of this.clients.values()) {
       try {
         client.ws.send(data)
       } catch (err) {
-        log.warn(`Failed to broadcast to client: ${(err as Error).message}`)
+        log.warn(`Failed to broadcast to client ${client.userId}: ${(err as Error).message}`)
+        failed.push(client.ws)
       }
+    }
+    for (const ws of failed) {
+      this.removeClient(ws)
     }
   }
 

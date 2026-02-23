@@ -22,13 +22,24 @@ function resolveIsDark(mode: ThemeMode): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function applyTheme(isDark: boolean) {
+/** Apply theme immediately without transition (used at initialization). */
+function applyThemeImmediate(isDark: boolean) {
   document.documentElement.classList.toggle('dark', isDark)
+}
+
+/** Apply theme with a smooth CSS transition. */
+function applyTheme(isDark: boolean) {
+  document.documentElement.classList.add('theme-transitioning')
+  document.documentElement.classList.toggle('dark', isDark)
+  // Remove the transition class after the animation completes
+  setTimeout(() => {
+    document.documentElement.classList.remove('theme-transitioning')
+  }, 300)
 }
 
 const initialMode = getInitialMode()
 const initialIsDark = resolveIsDark(initialMode)
-applyTheme(initialIsDark)
+applyThemeImmediate(initialIsDark)
 
 export const useThemeStore = create<ThemeState>((set) => ({
   mode: initialMode,

@@ -52,10 +52,26 @@ export function MessageList({ onImageClick }: MessageListProps) {
     [currentRoomId, streaming],
   )
 
+  const estimateSize = useCallback(
+    (index: number) => {
+      const msg = currentMessages[index]
+      if (!msg) return 100
+      const prev = index > 0 ? currentMessages[index - 1] : null
+      const hasHeader =
+        !prev ||
+        prev.senderId !== msg.senderId ||
+        prev.senderType === 'system' ||
+        msg.senderType === 'system' ||
+        new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
+      return hasHeader ? 120 : 40
+    },
+    [currentMessages],
+  )
+
   const virtualizer = useVirtualizer({
     count: currentMessages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
+    estimateSize,
     overscan: 5,
   })
 

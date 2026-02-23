@@ -492,7 +492,7 @@ export function MessageInput() {
                 {att.mimeType.startsWith('image/') && att.url && (
                   <img
                     src={attachmentAuthUrls[i]}
-                    alt=""
+                    alt={att.filename || 'attachment'}
                     className="w-6 h-6 rounded object-cover"
                   />
                 )}

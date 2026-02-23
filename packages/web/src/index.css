@@ -228,3 +228,12 @@
 .dark .hljs-strong { color: #c9d1d9; font-weight: bold }
 .dark .hljs-addition { color: #aff5b4; background-color: #033a16 }
 .dark .hljs-deletion { color: #ffdcd7; background-color: #67060c }
+
+/* Smooth dark mode transition */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+    box-shadow 0.3s ease !important;
+}

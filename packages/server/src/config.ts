@@ -184,12 +184,15 @@ export function _setSettingsModule(mod: typeof _settingsModule): void {
 /**
  * Read a DB-backed setting synchronously. Falls through to env var / default
  * when the settings module hasn't been injected yet (e.g. during early startup).
+ *
+ * Returns `'' as T` when the settings module is not yet injected. All call sites
+ * use the `|| config.staticDefault` pattern (e.g. `getConfigSync<number>('ws.maxConnectionsPerUser') || config.maxWsConnectionsPerUser`)
+ * so the empty-string falsy fallback always resolves to the static config value.
  */
 export function getConfigSync<T extends string | number | boolean = string>(settingKey: string): T {
   if (_settingsModule) {
     return _settingsModule.getSettingTypedSync<T>(settingKey)
   }
-  // Fallback: return static config value (env var already parsed at module load)
   return '' as T
 }
 

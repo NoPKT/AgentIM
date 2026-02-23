@@ -212,8 +212,17 @@ export function useWebSocket() {
   // On reconnect, re-join all previously subscribed rooms and sync missed messages
   useEffect(() => {
     const unsub = wsClient.onReconnect(() => {
-      const { currentRoomId, joinedRooms, syncMissedMessages, loadRoomMembers, loadRooms } =
-        useChatStore.getState()
+      const {
+        currentRoomId,
+        joinedRooms,
+        syncMissedMessages,
+        loadRoomMembers,
+        loadRooms,
+        clearStreamingState,
+      } = useChatStore.getState()
+
+      // Clear stale streaming state from the previous connection
+      clearStreamingState()
 
       // Server-side subscriptions are reset on reconnect, so re-join
       // ALL rooms that were subscribed (not just the current one) to
@@ -248,7 +257,7 @@ export function useWebSocket() {
   useEffect(() => {
     const timer = setInterval(() => {
       useChatStore.getState().clearExpiredTyping()
-    }, 2000)
+    }, 1000)
     return () => clearInterval(timer)
   }, [])
 

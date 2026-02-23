@@ -48,7 +48,16 @@ const MAX_JSON_DEPTH = 10
 const ROOM_MEMBER_CACHE_TTL = 60 // seconds
 
 // In-memory membership cache fallback when Redis is not available
+const MAX_MEMBERSHIP_CACHE_SIZE = 10_000
 const membershipMemoryCache = new Map<string, { value: string; expiresAt: number }>()
+
+// Periodically clean up expired membership cache entries
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of membershipMemoryCache) {
+    if (now > entry.expiresAt) membershipMemoryCache.delete(key)
+  }
+}, 60_000).unref()
 
 async function getCachedMembership(
   userId: string,
@@ -85,6 +94,20 @@ async function setCachedMembership(
   const key = `rm:${userId}:${roomId}`
 
   if (!isRedisEnabled()) {
+    // Enforce capacity limit — evict expired entries first, then oldest
+    if (
+      membershipMemoryCache.size >= MAX_MEMBERSHIP_CACHE_SIZE &&
+      !membershipMemoryCache.has(key)
+    ) {
+      const now = Date.now()
+      for (const [k, entry] of membershipMemoryCache) {
+        if (now > entry.expiresAt) membershipMemoryCache.delete(k)
+      }
+      if (membershipMemoryCache.size >= MAX_MEMBERSHIP_CACHE_SIZE) {
+        const oldestKey = membershipMemoryCache.keys().next().value
+        if (oldestKey) membershipMemoryCache.delete(oldestKey)
+      }
+    }
     membershipMemoryCache.set(key, {
       value: status,
       expiresAt: Date.now() + ROOM_MEMBER_CACHE_TTL * 1000,
@@ -166,13 +189,32 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
 
 // In-memory fallback counters when Redis is unavailable for WS rate limiting.
 // Process-local: effective limit is (max × number-of-processes) in multi-process deployments.
+const MAX_WS_MEMORY_COUNTERS = 10_000
 const wsMemoryCounters = new Map<string, { count: number; resetAt: number }>()
+
+// Periodically clean up expired WS rate limit counters
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of wsMemoryCounters) {
+    if (now > entry.resetAt) wsMemoryCounters.delete(key)
+  }
+}, 60_000).unref()
 
 function wsMemoryRateLimit(compositeKey: string, window: number, max: number): boolean {
   const now = Date.now()
   const windowMs = window * 1000
   const entry = wsMemoryCounters.get(compositeKey)
   if (!entry || now > entry.resetAt) {
+    // Enforce capacity limit — evict expired entries first
+    if (wsMemoryCounters.size >= MAX_WS_MEMORY_COUNTERS && !wsMemoryCounters.has(compositeKey)) {
+      for (const [k, e] of wsMemoryCounters) {
+        if (now > e.resetAt) wsMemoryCounters.delete(k)
+      }
+      if (wsMemoryCounters.size >= MAX_WS_MEMORY_COUNTERS) {
+        const oldestKey = wsMemoryCounters.keys().next().value
+        if (oldestKey) wsMemoryCounters.delete(oldestKey)
+      }
+    }
     wsMemoryCounters.set(compositeKey, { count: 1, resetAt: now + windowMs })
     return false
   }
@@ -770,7 +812,16 @@ async function routeToAgents(
 }
 
 // In-memory typing debounce when Redis is not available
+const MAX_TYPING_DEBOUNCE_ENTRIES = 10_000
 const typingDebounceMemory = new Map<string, number>()
+
+// Periodically clean up stale typing debounce entries (>5s old)
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, ts] of typingDebounceMemory) {
+    if (now - ts > 5_000) typingDebounceMemory.delete(key)
+  }
+}, 30_000).unref()
 
 async function handleTyping(ws: WSContext, roomId: string) {
   const client = connectionManager.getClient(ws)
@@ -781,6 +832,14 @@ async function handleTyping(ws: WSContext, roomId: string) {
     const debounceKey = `${client.userId}:${roomId}`
     const lastSent = typingDebounceMemory.get(debounceKey) ?? 0
     if (Date.now() - lastSent < 1000) return
+    // Enforce capacity limit before inserting
+    if (
+      typingDebounceMemory.size >= MAX_TYPING_DEBOUNCE_ENTRIES &&
+      !typingDebounceMemory.has(debounceKey)
+    ) {
+      const oldestKey = typingDebounceMemory.keys().next().value
+      if (oldestKey) typingDebounceMemory.delete(oldestKey)
+    }
     typingDebounceMemory.set(debounceKey, Date.now())
   } else {
     try {

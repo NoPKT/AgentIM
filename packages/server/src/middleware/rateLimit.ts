@@ -39,7 +39,16 @@ export function getClientIpFromRequest(c: Context): string {
 // deployment each process maintains its own independent counter, so the
 // effective rate limit per IP is (maxRequests × number-of-processes). Ensure
 // Redis is highly available to avoid relying on this fallback in production.
+const MAX_MEMORY_COUNTERS = 10_000
 const memoryCounters = new Map<string, { count: number; resetAt: number }>()
+
+// Periodically clean up expired rate limit counters
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of memoryCounters) {
+    if (now > entry.resetAt) memoryCounters.delete(key)
+  }
+}, 60_000).unref()
 
 let memoryRateLimitWarned = false
 
@@ -59,6 +68,16 @@ function memoryRateLimit(key: string, windowMs: number, maxRequests: number): bo
     entry.resetAt = now + windowMs
   }
   entry.count++
+  // Enforce capacity limit — evict expired entries first
+  if (memoryCounters.size >= MAX_MEMORY_COUNTERS && !memoryCounters.has(key)) {
+    for (const [k, e] of memoryCounters) {
+      if (now > e.resetAt) memoryCounters.delete(k)
+    }
+    if (memoryCounters.size >= MAX_MEMORY_COUNTERS) {
+      const oldestKey = memoryCounters.keys().next().value
+      if (oldestKey) memoryCounters.delete(oldestKey)
+    }
+  }
   memoryCounters.set(key, entry)
   return entry.count > maxRequests
 }

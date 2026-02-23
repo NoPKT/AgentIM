@@ -59,7 +59,16 @@ function checkDepth(value: unknown, maxDepth: number, current: number): void {
 }
 
 // In-memory agent rate limit counters when Redis is not available
+const MAX_AGENT_RATE_COUNTERS = 10_000
 const agentRateCounters = new Map<string, { count: number; resetAt: number }>()
+
+// Periodically clean up expired agent rate limit counters
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of agentRateCounters) {
+    if (now > entry.resetAt) agentRateCounters.delete(key)
+  }
+}, 60_000).unref()
 
 async function isAgentRateLimited(
   agentId: string,
@@ -75,6 +84,15 @@ async function isAgentRateLimited(
     const windowMs = windowSec * 1000
     const entry = agentRateCounters.get(key)
     if (!entry || now > entry.resetAt) {
+      if (agentRateCounters.size >= MAX_AGENT_RATE_COUNTERS && !agentRateCounters.has(key)) {
+        for (const [k, e] of agentRateCounters) {
+          if (now > e.resetAt) agentRateCounters.delete(k)
+        }
+        if (agentRateCounters.size >= MAX_AGENT_RATE_COUNTERS) {
+          const oldestKey = agentRateCounters.keys().next().value
+          if (oldestKey) agentRateCounters.delete(oldestKey)
+        }
+      }
       agentRateCounters.set(key, { count: 1, resetAt: now + windowMs })
       return false
     }
@@ -95,6 +113,15 @@ async function isAgentRateLimited(
     const windowMs = windowSec * 1000
     const entry = agentRateCounters.get(key)
     if (!entry || now > entry.resetAt) {
+      if (agentRateCounters.size >= MAX_AGENT_RATE_COUNTERS && !agentRateCounters.has(key)) {
+        for (const [k, e] of agentRateCounters) {
+          if (now > e.resetAt) agentRateCounters.delete(k)
+        }
+        if (agentRateCounters.size >= MAX_AGENT_RATE_COUNTERS) {
+          const oldestKey = agentRateCounters.keys().next().value
+          if (oldestKey) agentRateCounters.delete(oldestKey)
+        }
+      }
       agentRateCounters.set(key, { count: 1, resetAt: now + windowMs })
       return false
     }
@@ -410,7 +437,17 @@ async function handleRegisterAgent(
       },
     })
 
-  connectionManager.registerAgent(ws, agent.id)
+  const registered = connectionManager.registerAgent(ws, agent.id)
+  if (!registered) {
+    // Gateway was disconnected between auth and register — revert agent status
+    const now2 = new Date().toISOString()
+    await db
+      .update(agents)
+      .set({ status: 'offline', updatedAt: now2 })
+      .where(eq(agents.id, agent.id))
+    log.warn(`Failed to register agent ${agent.id}: gateway no longer connected`)
+    return
+  }
   await broadcastAgentStatus(agent.id)
 
   // Send room context for all rooms this agent belongs to

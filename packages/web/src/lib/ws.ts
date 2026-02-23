@@ -256,13 +256,19 @@ export class WsClient {
           const freshToken = await this._tokenRefresher()
           if (freshToken) {
             this._token = freshToken
-          } else if (!this._token) {
-            // Token refresh failed and no token available — give up
+          } else {
+            // Token refresh returned null — session is expired, stop reconnecting
+            this._token = null
+            this.shouldReconnect = false
             this.setStatus('disconnected')
             return
           }
         } catch {
-          // Refresh failed — try reconnecting with existing token
+          // Transient network error — retry with existing token if available
+          if (!this._token) {
+            this.setStatus('disconnected')
+            return
+          }
         }
       }
       if (this._token) this.connect(this._token)
