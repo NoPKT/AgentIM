@@ -38,8 +38,10 @@ coverage/
 # Uploads (user data)
 uploads/
 
-# E2E auth state (contains session tokens, must not be committed)
+# E2E / Playwright artifacts
 e2e/.auth/
+test-results/
+playwright-report/
 
 # Sensitive files
 *.pem

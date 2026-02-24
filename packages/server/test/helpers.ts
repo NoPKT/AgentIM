@@ -1,10 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
+import { rmSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import pg from 'pg'
 import WebSocket from 'ws'
 
 let serverProcess: ChildProcess | null = null
 let testDbName: string | null = null
+let testUploadDir: string | null = null
 
 export const TEST_PORT = 3999
 export const BASE_URL = `http://localhost:${TEST_PORT}`
@@ -24,6 +27,9 @@ export async function startServer(): Promise<void> {
 
   const databaseUrl = `${PG_BASE_URL}/${testDbName}`
 
+  // Use a temporary directory for uploads to avoid polluting the project
+  testUploadDir = mkdtempSync(join(tmpdir(), 'agentim-test-uploads-'))
+
   return new Promise((resolve, reject) => {
     serverProcess = spawn('node', ['--import', 'tsx', 'src/index.ts'], {
       cwd: join(import.meta.dirname, '..'),
@@ -38,6 +44,7 @@ export async function startServer(): Promise<void> {
         ADMIN_USERNAME: 'admin',
         ADMIN_PASSWORD: 'AdminPass123',
         AGENT_RATE_LIMIT_MAX: '5',
+        UPLOAD_DIR: testUploadDir,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -95,6 +102,16 @@ export async function stopServer(): Promise<void> {
       // Ignore cleanup errors
     }
     testDbName = null
+  }
+
+  // Clean up test upload directory
+  if (testUploadDir) {
+    try {
+      rmSync(testUploadDir, { recursive: true, force: true })
+    } catch {
+      // Ignore cleanup errors
+    }
+    testUploadDir = null
   }
 
   // Flush test Redis DB

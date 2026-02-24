@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CI: E2E tests now run on daily schedule (UTC 04:00), manual dispatch, and release workflows only — push/PR skip E2E to save Actions minutes
+- Server tests: upload artifacts now use a temp directory and are auto-cleaned after each test run
+- Added Git pre-push hook for local CI validation before pushing
+
 ### Fixed
 
 - Web: WsClient offline handler now proactively closes WebSocket to ensure immediate reconnection on network recovery

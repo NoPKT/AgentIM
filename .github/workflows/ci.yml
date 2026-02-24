@@ -1,9 +1,9 @@
 # CI Pipeline - Build, Lint, Test
 #
 # Triggers:
-#   - Pull requests to main (gate merges)
-#   - Manual dispatch
-#   - Called by release workflow (CD prerequisite)
+#   - Push to main / PRs: Build & Lint + Test (no E2E — saves Actions minutes)
+#   - Daily schedule (UTC 04:00): full suite including E2E (only if new commits)
+#   - Manual dispatch / release workflow: full suite
 
 name: CI
 
@@ -12,6 +12,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Run daily at 04:00 UTC (12:00 CST) — E2E catches regressions overnight
+    - cron: '0 4 * * *'
   workflow_dispatch:
   workflow_call:
 
@@ -134,8 +137,10 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     needs: build
-    # E2E runs on pushes to main, PRs, and manual dispatch to prevent regressions.
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    # E2E runs on daily schedule, manual dispatch, and release workflow only.
+    # Push and PR triggers skip E2E to save Actions minutes — regressions are
+    # caught by the pre-push hook (local) and daily scheduled runs (remote).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
 
     services:
       postgres:
