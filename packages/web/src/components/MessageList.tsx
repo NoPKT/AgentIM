@@ -75,7 +75,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     overscan: 5,
   })
 
-  // 自动滚动到底部(新消息或流式消息更新时), throttled to avoid layout thrashing
+  // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)
   useEffect(() => {
     if (!scrollToBottomRef.current || isScrolledUp) return
