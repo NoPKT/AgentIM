@@ -7,7 +7,7 @@ import { toast } from '../stores/toast.js'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 
 export default function AgentsPage() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const agents = useAgentStore((state) => state.agents)
   const gateways = useAgentStore((state) => state.gateways)
   const isLoading = useAgentStore((state) => state.isLoading)
