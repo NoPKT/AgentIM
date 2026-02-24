@@ -408,7 +408,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
       const collect = wsCollect(gw, 'server:send_to_agent', 1500)
 
       gw.send(
@@ -569,7 +569,7 @@ describe('Message Routing', () => {
 
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
 
-      const gw2 = await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
+      await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
       await api(
         'POST',
         `/api/rooms/${roomId}/members`,
@@ -635,7 +635,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
 
       // Case 1: depth under limit (default maxAgentChainDepth=5) — should route
       const collectOk = wsCollect(gw2, 'server:send_to_agent', 2000)
@@ -752,7 +752,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
 
       // AGENT_RATE_LIMIT_MAX=5 in test env — send 8 messages to exceed it
       const totalMessages = 8
@@ -783,7 +783,7 @@ describe('Message Routing', () => {
     it('agent capabilities stored and returned in API', async () => {
       const user = await registerUser('route_cap1')
 
-      const gw = await setupGatewayAgent(user, 'rt-gw-cap1', 'rt-agent-cap1', 'CapBot', {
+      await setupGatewayAgent(user, 'rt-gw-cap1', 'rt-agent-cap1', 'CapBot', {
         capabilities: ['code', 'review', 'test'],
       })
 
