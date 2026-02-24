@@ -125,6 +125,22 @@ export class GatewayWsClient {
     return 'normal'
   }
 
+  private static readonly CRITICAL_DROP_TYPES = [
+    'gateway:message_complete',
+    'gateway:auth',
+    'gateway:permission_request',
+  ]
+
+  private logDroppedMessage(msg: GatewayMessage): void {
+    const msgType = msg.type ?? 'unknown'
+    log.warn(
+      `WebSocket message queue full (${this.sendQueue.length}), dropping message of type: ${msgType}`,
+    )
+    if (typeof msg.type === 'string' && GatewayWsClient.CRITICAL_DROP_TYPES.includes(msg.type)) {
+      log.error(`Dropped critical message type "${msg.type}" due to queue overflow`)
+    }
+  }
+
   private droppedCount = 0
 
   send(msg: GatewayMessage) {
@@ -147,6 +163,7 @@ export class GatewayWsClient {
           if (idx >= 0) {
             const [dropped] = this.sendQueue.splice(idx, 1)
             this.droppedCount++
+            this.logDroppedMessage(dropped)
             this.onDroppedMessage?.(dropped)
             this.sendQueue.push(msg)
           } else {
@@ -157,6 +174,7 @@ export class GatewayWsClient {
             if (highIdx >= 0) {
               const [dropped] = this.sendQueue.splice(highIdx, 1)
               this.droppedCount++
+              this.logDroppedMessage(dropped)
               this.onDroppedMessage?.(dropped)
               this.sendQueue.push(msg)
             } else {
@@ -169,22 +187,22 @@ export class GatewayWsClient {
           if (idx >= 0) {
             const [dropped] = this.sendQueue.splice(idx, 1)
             this.droppedCount++
+            this.logDroppedMessage(dropped)
             this.onDroppedMessage?.(dropped)
             this.sendQueue.push(msg)
           } else {
-            log.warn(
-              `Send queue full (no normal-priority to drop), dropping high-priority ${msg.type}`,
-            )
             this.droppedCount++
+            this.logDroppedMessage(msg)
             this.onDroppedMessage?.(msg)
           }
         } else {
           // Normal priority — just drop it
           this.droppedCount++
+          this.logDroppedMessage(msg)
           this.onDroppedMessage?.(msg)
         }
 
-        if (this.droppedCount > 0 && this.droppedCount % 50 === 0) {
+        if (this.droppedCount % 50 === 0) {
           log.warn(`Total messages dropped due to full queue: ${this.droppedCount}`)
         }
       }

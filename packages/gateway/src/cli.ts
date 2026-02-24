@@ -228,35 +228,11 @@ program
 // ─── agentim gemini [path] ───
 
 program
-  .command('gemini [path]')
+  .command('gemini')
   .description('Start a Gemini CLI agent (coming soon — SDK not yet published)')
-  .option('-n, --name <name>', 'Agent name')
-  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
-  .option('--foreground', 'Run in foreground instead of daemonizing')
-  .option(
-    '--pass-env <keys>',
-    'Comma-separated env var names to whitelist through the security filter',
-  )
-  .option('--no-security-warning', 'Suppress the security warning banner')
-  .action(async (path, opts) => {
-    printSecurityBanner(!opts.securityWarning)
-    const workDir = path ?? process.cwd()
-    const name = opts.name ?? generateAgentName('gemini', workDir)
-    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-    let agentConfig = loadAgentConfig('gemini')
-    if (!agentConfig) {
-      log.info('No credentials configured for Gemini.')
-      log.info('Running setup wizard...')
-      await runSetupWizard('gemini')
-      agentConfig = loadAgentConfig('gemini')
-    }
-    const env = agentConfig ? agentConfigToEnv('gemini', agentConfig) : {}
-    const passEnv = parsePassEnv(opts.passEnv)
-    if (opts.foreground) {
-      await runWrapper({ type: 'gemini', name, workDir, env, passEnv, permissionLevel })
-    } else {
-      spawnDaemon(name, 'gemini', workDir, env, permissionLevel)
-    }
+  .action(() => {
+    console.log('Gemini CLI integration is coming soon. Stay tuned!')
+    process.exit(0)
   })
 
 // ─── agentim daemon ───
@@ -547,33 +523,46 @@ function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
 }
 
 const LOG_MAX_SIZE = 10 * 1024 * 1024 // 10 MB
-const LOG_MAX_BACKUPS = 3
 
-/** Rotate a log file if it exceeds LOG_MAX_SIZE. Keeps up to LOG_MAX_BACKUPS backups (.1, .2, .3). */
+/** Rotate a log file if it exceeds LOG_MAX_SIZE. Uses O_EXCL file lock to prevent race conditions. */
 function rotateLogIfNeeded(logFile: string) {
   try {
-    const st = statSync(logFile)
-    if (st.size < LOG_MAX_SIZE) return
+    const stats = statSync(logFile)
+    if (stats.size < LOG_MAX_SIZE) return
   } catch {
-    // File doesn't exist yet — nothing to rotate
-    return
+    return // File doesn't exist yet
   }
 
-  // Shift existing backups: .3 → delete, .2 → .3, .1 → .2
-  for (let i = LOG_MAX_BACKUPS; i >= 1; i--) {
-    const src = i === 1 ? logFile : `${logFile}.${i - 1}`
-    const dst = `${logFile}.${i}`
+  const lockFile = logFile + '.lock'
+  let lockFd: number | undefined
+  try {
+    // Atomic lock acquisition using O_EXCL (fails if lock already exists)
+    lockFd = openSync(lockFile, 'wx')
+
+    // Re-check size after acquiring lock (another process may have rotated)
     try {
-      if (i === LOG_MAX_BACKUPS) {
-        try {
-          unlinkSync(dst)
-        } catch {
-          // doesn't exist
-        }
-      }
-      renameSync(src, dst)
+      const stats = statSync(logFile)
+      if (stats.size < LOG_MAX_SIZE) return
     } catch {
-      // source doesn't exist — skip
+      return
+    }
+
+    const rotated = logFile + '.1'
+    renameSync(logFile, rotated)
+  } catch (err) {
+    // EEXIST means another process is rotating — skip
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+      // Unexpected error
+      console.error(`Log rotation failed: ${(err as Error).message}`)
+    }
+  } finally {
+    if (lockFd !== undefined) {
+      closeSync(lockFd)
+      try {
+        unlinkSync(lockFile)
+      } catch {
+        /* already cleaned up */
+      }
     }
   }
 }

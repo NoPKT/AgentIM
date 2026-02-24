@@ -22,34 +22,35 @@ const CustomAdaptersFileSchema = z.record(z.string().min(1), CustomAdapterSchema
 
 export type CustomAdaptersFile = z.infer<typeof CustomAdaptersFileSchema>
 
-let cachedAdapters: CustomAdaptersFile | null = null
+let cachedAdapters: { data: CustomAdaptersFile; expiresAt: number } | null = null
+const ADAPTER_CACHE_TTL = 30_000 // 30 seconds
 
 /**
  * Load custom adapter configurations from ~/.agentim/adapters.json.
  * Results are cached after the first successful load.
  */
 export function loadCustomAdapters(): CustomAdaptersFile {
-  if (cachedAdapters) return cachedAdapters
+  if (cachedAdapters && Date.now() < cachedAdapters.expiresAt) return cachedAdapters.data
 
   if (!existsSync(ADAPTERS_FILE)) {
-    cachedAdapters = {}
-    return cachedAdapters
+    cachedAdapters = { data: {}, expiresAt: Date.now() + ADAPTER_CACHE_TTL }
+    return cachedAdapters.data
   }
 
   try {
     const raw = JSON.parse(readFileSync(ADAPTERS_FILE, 'utf-8'))
     const parsed = CustomAdaptersFileSchema.parse(raw)
-    cachedAdapters = parsed
+    cachedAdapters = { data: parsed, expiresAt: Date.now() + ADAPTER_CACHE_TTL }
     log.debug(`Loaded ${Object.keys(parsed).length} custom adapter(s) from ${ADAPTERS_FILE}`)
-    return cachedAdapters
+    return cachedAdapters.data
   } catch (err) {
     if (err instanceof z.ZodError) {
       log.error(`Invalid adapters.json: ${err.issues.map((i) => i.message).join(', ')}`)
     } else {
       log.error(`Failed to load adapters.json: ${err instanceof Error ? err.message : String(err)}`)
     }
-    cachedAdapters = {}
-    return cachedAdapters
+    cachedAdapters = { data: {}, expiresAt: Date.now() + ADAPTER_CACHE_TTL }
+    return cachedAdapters.data
   }
 }
 
