@@ -236,7 +236,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           })}
         </div>
 
-        {/* 流式消息 */}
+        {/* Streaming messages */}
         {streamingMessages.map((streamMsg) => (
           <StreamingMessage
             key={streamMsg.messageId}
