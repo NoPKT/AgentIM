@@ -311,7 +311,9 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
               <span
                 className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
               />
-              <span className="text-xs text-text-secondary">{isOnline ? 'Online' : 'Offline'}</span>
+              <span className="text-xs text-text-secondary">
+                {isOnline ? t('agent.online') : t('agent.offline')}
+              </span>
             </div>
           </div>
         </div>
