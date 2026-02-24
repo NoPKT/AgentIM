@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@agentim/shared'
+import type { ApiResponse, Message } from '@agentim/shared'
 import { wsClient } from './ws.js'
 
 // Lazy import to avoid circular dependency (auth store imports api)
@@ -107,6 +107,29 @@ function withTimeout(
   return { signal: controller.signal, clear }
 }
 
+/**
+ * Run an async function with automatic 401 → token-refresh → retry.
+ * `fn` receives a `headers` record whose Authorization is always up-to-date.
+ * `isUnauthorized` inspects the result to decide whether a refresh is needed.
+ */
+async function withAuthRetry<T>(
+  headers: Record<string, string>,
+  fn: (hdrs: Record<string, string>) => Promise<T>,
+  isUnauthorized: (result: T) => boolean,
+): Promise<T> {
+  let result = await fn(headers)
+  if (isUnauthorized(result)) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${getToken()}`
+      result = await fn(headers)
+    } else {
+      fireAuthExpired()
+    }
+  }
+  return result
+}
+
 let refreshPromise: Promise<boolean> | null = null
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -163,35 +186,25 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
   const maxAttempts = canRetry ? MAX_RETRIES + 1 : 1
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const t = withTimeout(userSignal, timeout)
     try {
-      let res = await fetch(`${BASE_URL}${path}`, {
-        ...init,
-        headers,
-        signal: t.signal,
-        credentials: 'include',
-      })
-
-      if (res.status === 401) {
-        t.clear()
-        const refreshed = await refreshAccessToken()
-        if (refreshed) {
-          headers['Authorization'] = `Bearer ${getToken()}`
-          const t2 = withTimeout(userSignal, timeout)
-          res = await fetch(`${BASE_URL}${path}`, {
+      const doFetch = async (hdrs: Record<string, string>) => {
+        const t = withTimeout(userSignal, timeout)
+        try {
+          const res = await fetch(`${BASE_URL}${path}`, {
             ...init,
-            headers,
-            signal: t2.signal,
+            headers: hdrs,
+            signal: t.signal,
             credentials: 'include',
           })
-          t2.clear()
-        } else {
-          // Refresh failed — clear stale token, disconnect WS, and reset auth state
-          fireAuthExpired()
+          t.clear()
+          return res
+        } catch (err) {
+          t.clear()
+          throw err
         }
       }
 
-      t.clear()
+      const res = await withAuthRetry(headers, doFetch, (r) => r.status === 401)
 
       if (canRetry && attempt < maxAttempts - 1 && RETRYABLE_STATUSES.has(res.status)) {
         await delay(RETRY_BASE_DELAY * 2 ** attempt)
@@ -200,7 +213,6 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
 
       return await res.json()
     } catch (err) {
-      t.clear()
       if (!canRetry || attempt >= maxAttempts - 1) {
         return { ok: false, error: err instanceof Error ? err.message : 'Request failed' }
       }
@@ -265,57 +277,58 @@ async function uploadFile<T>(
         xhr.send(body)
       })
 
-    const result = await doXhrUpload(headers, formData)
-
-    // Handle 401 → refresh → retry, same as the fetch branch
-    if (result.status === 401) {
-      const refreshed = await refreshAccessToken()
-      if (refreshed) {
-        headers['Authorization'] = `Bearer ${getToken()}`
-        const retryFormData = new FormData()
-        retryFormData.append('file', file)
-        const retryResult = await doXhrUpload(headers, retryFormData)
-        return retryResult.data
-      } else {
-        fireAuthExpired()
-      }
-    }
+    const result = await withAuthRetry(
+      headers,
+      async (hdrs) => {
+        const fd = new FormData()
+        fd.append('file', file)
+        return doXhrUpload(hdrs, fd)
+      },
+      (r) => r.status === 401,
+    )
     return result.data
   }
 
-  const t = withTimeout(userSignal, UPLOAD_TIMEOUT)
-
-  let res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
+  const res = await withAuthRetry(
     headers,
-    body: formData,
-    signal: t.signal,
-    credentials: 'include',
-  })
-  t.clear()
-
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${getToken()}`
-      // Recreate FormData — some browsers don't allow reusing after fetch
-      const retryFormData = new FormData()
-      retryFormData.append('file', file)
-      const t2 = withTimeout(userSignal, UPLOAD_TIMEOUT)
-      res = await fetch(`${BASE_URL}${path}`, {
-        method: 'POST',
-        headers,
-        body: retryFormData,
-        signal: t2.signal,
-        credentials: 'include',
-      })
-      t2.clear()
-    } else {
-      fireAuthExpired()
-    }
-  }
+    async (hdrs) => {
+      // Recreate FormData per attempt — some browsers don't allow reusing after fetch
+      const fd = new FormData()
+      fd.append('file', file)
+      const t = withTimeout(userSignal, UPLOAD_TIMEOUT)
+      try {
+        const r = await fetch(`${BASE_URL}${path}`, {
+          method: 'POST',
+          headers: hdrs,
+          body: fd,
+          signal: t.signal,
+          credentials: 'include',
+        })
+        t.clear()
+        return r
+      } catch (err) {
+        t.clear()
+        throw err
+      }
+    },
+    (r) => r.status === 401,
+  )
 
   return res.json()
+}
+
+export async function getThread(messageId: string): Promise<Message[]> {
+  const res = await request<{ data: Message[] }>(`/messages/${messageId}/thread`)
+  const data = res as unknown as { ok: boolean; data: Message[]; error?: string }
+  if (!data.ok) throw new Error(data.error ?? 'Failed to load thread')
+  return data.data
+}
+
+export async function getReplyCount(messageId: string): Promise<number> {
+  const res = await request<{ data: { count: number } }>(`/messages/${messageId}/replies/count`)
+  const data = res as unknown as { ok: boolean; data: { count: number }; error?: string }
+  if (!data.ok) throw new Error(data.error ?? 'Failed to load reply count')
+  return data.data.count
 }
 
 // Register token refresher so WS reconnections get a fresh token

@@ -8,21 +8,31 @@ import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
 import { Button, Input, Modal, ModalPanel } from './ui.js'
 import { CachedDataBanner } from './CachedDataBanner.js'
 
-function timeAgo(dateStr: string, t: (key: string) => string): string {
+function formatTimeAgo(dateStr: string, locale: string): string {
+  const date = new Date(dateStr)
   const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diff = now - then
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return t('common.justNow')
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  return `${days}d`
+  const diffMs = now - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  if (diffMin < 60) return rtf.format(-diffMin, 'minute')
+  if (diffHour < 24) return rtf.format(-diffHour, 'hour')
+  if (diffDay < 30) return rtf.format(-diffDay, 'day')
+
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date)
 }
 
 export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const {
     rooms,
@@ -240,7 +250,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                           )}
                           {lastMsg && (
                             <span className="text-[10px] text-text-muted">
-                              {timeAgo(lastMsg.createdAt, t)}
+                              {formatTimeAgo(lastMsg.createdAt, i18n.language)}
                             </span>
                           )}
                           {unread > 0 && room.id !== currentRoomId && (

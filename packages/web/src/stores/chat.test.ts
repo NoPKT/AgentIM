@@ -11,6 +11,8 @@ vi.mock('../lib/api.js', () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+  getThread: vi.fn(),
+  getReplyCount: vi.fn(),
 }))
 
 vi.mock('../lib/ws.js', () => ({
@@ -30,6 +32,23 @@ vi.mock('./toast.js', () => ({
     error: vi.fn(),
     success: vi.fn(),
   },
+}))
+
+vi.mock('../lib/message-cache.js', () => ({
+  getCachedMessages: vi.fn().mockResolvedValue([]),
+  setCachedMessages: vi.fn().mockResolvedValue(undefined),
+  addCachedMessage: vi.fn().mockResolvedValue(undefined),
+  updateCachedMessage: vi.fn().mockResolvedValue(undefined),
+  removeCachedMessage: vi.fn().mockResolvedValue(undefined),
+  getCachedRooms: vi.fn().mockResolvedValue([]),
+  setCachedRooms: vi.fn().mockResolvedValue(undefined),
+  getCachedRoomMeta: vi.fn().mockResolvedValue(new Map()),
+  setCachedRoomMeta: vi.fn().mockResolvedValue(undefined),
+  clearRoomCache: vi.fn().mockResolvedValue(undefined),
+  clearCache: vi.fn().mockResolvedValue(undefined),
+  addPendingMessage: vi.fn().mockResolvedValue(undefined),
+  getPendingMessages: vi.fn().mockResolvedValue([]),
+  removePendingMessage: vi.fn().mockResolvedValue(undefined),
 }))
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -390,6 +409,190 @@ describe('useChatStore', () => {
       const msgs = useChatStore.getState().messages.get('room-1')!
       expect(msgs.find((m) => m.id === 'msg-1')).toBeDefined()
       expect(toast.error).toHaveBeenCalled()
+    })
+  })
+
+  // ── Streaming truncation boundary ───────────────────────────────────────
+
+  describe('streaming truncation boundary', () => {
+    it('evicts the oldest chunk when exactly at MAX_CHUNKS_PER_STREAM', () => {
+      const MAX = 2000
+      // Pre-fill with exactly MAX chunks
+      const initial: ParsedChunk[] = Array.from({ length: MAX }, (_, i) => ({
+        type: 'text' as const,
+        content: `chunk-${i}`,
+      }))
+      useChatStore.setState({
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              messageId: 'sm',
+              agentId: 'agent-1',
+              agentName: 'A',
+              chunks: initial,
+              lastChunkAt: Date.now(),
+            },
+          ],
+        ]),
+      })
+
+      // Add one more — oldest should be evicted
+      useChatStore
+        .getState()
+        .addStreamChunk('room-1', 'agent-1', 'A', 'sm', { type: 'text', content: 'overflow' })
+      const stream = useChatStore.getState().streaming.get('room-1:agent-1')!
+      expect(stream.chunks.length).toBe(MAX)
+      // First chunk should now be chunk-1 (chunk-0 evicted)
+      expect(stream.chunks[0].content).toBe('chunk-1')
+      expect(stream.chunks[stream.chunks.length - 1].content).toBe('overflow')
+    })
+
+    it('does not truncate when below MAX_CHUNKS_PER_STREAM', () => {
+      useChatStore
+        .getState()
+        .addStreamChunk('room-1', 'agent-1', 'A', 'sm', { type: 'text', content: 'first' })
+      useChatStore
+        .getState()
+        .addStreamChunk('room-1', 'agent-1', 'A', 'sm', { type: 'text', content: 'second' })
+
+      const stream = useChatStore.getState().streaming.get('room-1:agent-1')!
+      expect(stream.chunks.length).toBe(2)
+      expect(stream.chunks[0].content).toBe('first')
+      expect(stream.chunks[1].content).toBe('second')
+    })
+  })
+
+  // ── loadThread() ────────────────────────────────────────────────────────
+
+  describe('loadThread()', () => {
+    it('populates threadMessages for the given messageId', async () => {
+      const { getThread } = await import('../lib/api.js')
+      const replies: Message[] = [
+        makeMessage({ id: 'reply-1', content: 'Reply 1' }),
+        makeMessage({ id: 'reply-2', content: 'Reply 2' }),
+      ]
+      vi.mocked(getThread).mockResolvedValueOnce(replies)
+
+      await useChatStore.getState().loadThread('msg-parent')
+
+      const thread = useChatStore.getState().threadMessages.get('msg-parent')
+      expect(thread).toHaveLength(2)
+      expect(thread![0].id).toBe('reply-1')
+      expect(thread![1].id).toBe('reply-2')
+    })
+
+    it('handles API error gracefully without crashing', async () => {
+      const { getThread } = await import('../lib/api.js')
+      vi.mocked(getThread).mockRejectedValueOnce(new Error('Network error'))
+
+      // Should not throw
+      await useChatStore.getState().loadThread('msg-fail')
+      // threadMessages should not have the key
+      expect(useChatStore.getState().threadMessages.has('msg-fail')).toBe(false)
+    })
+  })
+
+  // ── evictRoom() ─────────────────────────────────────────────────────────
+
+  describe('evictRoom()', () => {
+    it('removes room from rooms list', () => {
+      useChatStore.setState({
+        rooms: [{ id: 'room-1', name: 'R1' } as any, { id: 'room-2', name: 'R2' } as any],
+      })
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().rooms).toHaveLength(1)
+      expect(useChatStore.getState().rooms[0].id).toBe('room-2')
+    })
+
+    it('clears messages for the evicted room', () => {
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-1', roomId: 'room-1' }))
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-2', roomId: 'room-2' }))
+
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().messages.has('room-1')).toBe(false)
+      expect(useChatStore.getState().messages.get('room-2')).toHaveLength(1)
+    })
+
+    it('resets currentRoomId when evicting the current room', () => {
+      useChatStore.setState({ currentRoomId: 'room-1' })
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().currentRoomId).toBeNull()
+    })
+
+    it('preserves currentRoomId when evicting a different room', () => {
+      useChatStore.setState({ currentRoomId: 'room-2' })
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().currentRoomId).toBe('room-2')
+    })
+
+    it('clears unread counts, last messages, and read receipts for evicted room', () => {
+      useChatStore.setState({
+        unreadCounts: new Map([
+          ['room-1', 5],
+          ['room-2', 3],
+        ]),
+        lastMessages: new Map([
+          ['room-1', { content: 'hi', senderName: 'A', createdAt: '2024-01-01' }],
+          ['room-2', { content: 'bye', senderName: 'B', createdAt: '2024-01-02' }],
+        ]),
+        readReceipts: new Map([
+          ['room-1', [{ userId: 'u1', username: 'User1', lastReadAt: '2024-01-01' }]],
+        ]),
+      })
+
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().unreadCounts.has('room-1')).toBe(false)
+      expect(useChatStore.getState().unreadCounts.get('room-2')).toBe(3)
+      expect(useChatStore.getState().lastMessages.has('room-1')).toBe(false)
+      expect(useChatStore.getState().readReceipts.has('room-1')).toBe(false)
+    })
+
+    it('clears streaming entries for evicted room', () => {
+      useChatStore.setState({
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              messageId: 'sm',
+              agentId: 'agent-1',
+              agentName: 'A',
+              chunks: [{ type: 'text', content: 'x' }],
+              lastChunkAt: Date.now(),
+            },
+          ],
+          [
+            'room-2:agent-2',
+            {
+              messageId: 'sm2',
+              agentId: 'agent-2',
+              agentName: 'B',
+              chunks: [{ type: 'text', content: 'y' }],
+              lastChunkAt: Date.now(),
+            },
+          ],
+        ]),
+      })
+
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().streaming.has('room-1:agent-1')).toBe(false)
+      expect(useChatStore.getState().streaming.has('room-2:agent-2')).toBe(true)
+    })
+
+    it('clears replyTo if it references the evicted room', () => {
+      const msg = makeMessage({ roomId: 'room-1' })
+      useChatStore.setState({ replyTo: msg })
+
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().replyTo).toBeNull()
+    })
+
+    it('preserves replyTo if it references a different room', () => {
+      const msg = makeMessage({ roomId: 'room-2' })
+      useChatStore.setState({ replyTo: msg })
+
+      useChatStore.getState().evictRoom('room-1')
+      expect(useChatStore.getState().replyTo).toEqual(msg)
     })
   })
 })

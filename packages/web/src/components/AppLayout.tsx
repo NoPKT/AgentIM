@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
@@ -31,11 +31,19 @@ export function AppLayout() {
   const currentUser = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false)
   }, [location.pathname])
+
+  // Auto-focus sidebar when it opens on mobile
+  useEffect(() => {
+    if (sidebarOpen && sidebarRef.current) {
+      sidebarRef.current.focus()
+    }
+  }, [sidebarOpen])
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
   const swipe = useSwipeToClose({ onClose: closeSidebar })
@@ -92,6 +100,7 @@ export function AppLayout() {
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
         className={`
           fixed lg:static inset-y-0 left-0 z-sidebar
           w-72 bg-surface border-r border-border shadow-sm
@@ -101,6 +110,7 @@ export function AppLayout() {
         `}
         style={swipe.style}
         {...swipe.handlers}
+        {...(sidebarOpen ? { role: 'dialog' as const, 'aria-modal': true, tabIndex: -1 } : {})}
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">

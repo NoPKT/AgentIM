@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { Room, RoomMember, Message, MessageReaction, ParsedChunk } from '@agentim/shared'
-import { api } from '../lib/api.js'
+import { api, getThread } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
 import { toast } from './toast.js'
@@ -70,6 +70,8 @@ interface ChatState {
   showingCachedMessages: boolean
   /** Pending messages queued while offline */
   pendingMessages: PendingMessage[]
+  /** Thread messages keyed by parent message ID */
+  threadMessages: Map<string, Message[]>
   loadRooms: () => Promise<void>
   setCurrentRoom: (roomId: string) => void
   loadMessages: (roomId: string, cursor?: string) => Promise<void>
@@ -137,6 +139,8 @@ interface ChatState {
   toggleArchive: (roomId: string) => Promise<void>
   // Server-initiated eviction: clean up local state without an API call.
   evictRoom: (roomId: string) => void
+  /** Load thread replies for a message */
+  loadThread: (messageId: string) => Promise<void>
   /** Flush pending messages queued while offline */
   flushPendingMessages: () => Promise<void>
   reset: () => void
@@ -161,6 +165,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   showingCachedRooms: false,
   showingCachedMessages: false,
   pendingMessages: [],
+  threadMessages: new Map(),
 
   setReplyTo: (message) => set({ replyTo: message }),
 
@@ -800,6 +805,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  loadThread: async (messageId) => {
+    try {
+      const replies = await getThread(messageId)
+      set((state) => {
+        const threadMessages = new Map(state.threadMessages)
+        threadMessages.set(messageId, replies)
+        return { threadMessages }
+      })
+    } catch (err) {
+      console.error('Failed to load thread:', err)
+    }
+  },
+
   flushPendingMessages: async () => {
     const pending = await getPendingMessages()
     if (pending.length === 0) return
@@ -889,6 +907,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       showingCachedRooms: false,
       showingCachedMessages: false,
       pendingMessages: [],
+      threadMessages: new Map(),
     })
 
     // Fire-and-forget IndexedDB clear

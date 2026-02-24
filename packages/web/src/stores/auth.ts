@@ -1,9 +1,7 @@
 import { create } from 'zustand'
 import { api, setOnAuthExpired, setOnTokenRefresh } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
-import { useChatStore } from './chat.js'
-import { useAgentStore } from './agents.js'
-import { useRouterStore } from './routers.js'
+import { resetAllStores } from './reset.js'
 import type { UserRole } from '@agentim/shared'
 
 interface AuthUser {
@@ -26,7 +24,7 @@ interface AuthState {
   updateUser: (data: Partial<AuthUser>) => void
 }
 
-let _isLoggingOut = false
+let _logoutPromise: Promise<void> | null = null
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -50,35 +48,35 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    if (_isLoggingOut) return
-    _isLoggingOut = true
-    try {
-      await api.post('/auth/logout').catch(() => {})
-      api.clearTokens()
-      wsClient.disconnect()
-      useChatStore.getState().reset()
-      useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
-      useRouterStore.setState({ routers: [], loading: false })
-      // Clear all draft entries from localStorage
+    if (_logoutPromise) return _logoutPromise
+    _logoutPromise = (async () => {
       try {
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const key = localStorage.key(i)
-          if (key?.startsWith('draft:')) localStorage.removeItem(key)
+        await api.post('/auth/logout').catch(() => {})
+        api.clearTokens()
+        wsClient.disconnect()
+        await resetAllStores()
+        // Clear all draft entries from localStorage
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i)
+            if (key?.startsWith('draft:')) localStorage.removeItem(key)
+          }
+        } catch {
+          // localStorage may be unavailable in strict privacy mode
         }
-      } catch {
-        // localStorage may be unavailable in strict privacy mode
+        set({ user: null })
+        // Signal other tabs to logout via storage event
+        try {
+          localStorage.setItem(LOGOUT_KEY, Date.now().toString())
+          localStorage.removeItem(LOGOUT_KEY)
+        } catch {
+          // localStorage may be unavailable
+        }
+      } finally {
+        _logoutPromise = null
       }
-      set({ user: null })
-      // Signal other tabs to logout via storage event
-      try {
-        localStorage.setItem(LOGOUT_KEY, Date.now().toString())
-        localStorage.removeItem(LOGOUT_KEY)
-      } catch {
-        // localStorage may be unavailable
-      }
-    } finally {
-      _isLoggingOut = false
-    }
+    })()
+    return _logoutPromise
   },
 
   loadUser: async () => {
@@ -127,9 +125,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Register callback so api.ts can reset auth state when token refresh fails
 setOnAuthExpired(() => {
-  useChatStore.getState().reset()
-  useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
-  useRouterStore.setState({ routers: [], loading: false })
+  resetAllStores()
   useAuthStore.setState({ user: null })
 })
 
@@ -149,9 +145,7 @@ if (typeof window !== 'undefined') {
       // Another tab logged out — clear local state without calling the API again
       api.clearTokens()
       wsClient.disconnect()
-      useChatStore.getState().reset()
-      useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
-      useRouterStore.setState({ routers: [], loading: false })
+      resetAllStores()
       useAuthStore.setState({ user: null })
     }
   })

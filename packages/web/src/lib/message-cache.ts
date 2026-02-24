@@ -1,9 +1,27 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import type { Room, Message } from '@agentim/shared'
+import { MAX_MESSAGES_PER_ROOM_CACHE } from '@agentim/shared'
 
 const DB_NAME = 'agentim-cache'
 const DB_VERSION = 2
-const MAX_MESSAGES_PER_ROOM = 200
+
+const IDB_TIMEOUT_MS = 5000
+
+function withIdbTimeout<T>(promise: Promise<T>, ms = IDB_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('IndexedDB operation timed out')), ms)
+    promise.then(
+      (val) => {
+        clearTimeout(timer)
+        resolve(val)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
 
 interface RoomMeta {
   roomId: string
@@ -81,7 +99,7 @@ export async function getCachedMessages(roomId: string): Promise<Message[]> {
   try {
     const db = await getDb()
     const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
-    return await db.getAllFromIndex('messages', 'by-room', range)
+    return await withIdbTimeout(db.getAllFromIndex('messages', 'by-room', range))
   } catch (err) {
     console.warn('[MessageCache] Failed to get cached messages', err)
     return []
@@ -91,25 +109,29 @@ export async function getCachedMessages(roomId: string): Promise<Message[]> {
 export async function setCachedMessages(roomId: string, messages: Message[]): Promise<void> {
   try {
     const db = await getDb()
-    const tx = db.transaction('messages', 'readwrite')
-    const store = tx.objectStore('messages')
+    await withIdbTimeout(
+      (async () => {
+        const tx = db.transaction('messages', 'readwrite')
+        const store = tx.objectStore('messages')
 
-    // Remove existing messages for this room
-    const idx = store.index('by-room')
-    const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
-    let cursor = await idx.openCursor(range)
-    while (cursor) {
-      await cursor.delete()
-      cursor = await cursor.continue()
-    }
+        // Remove existing messages for this room
+        const idx = store.index('by-room')
+        const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
+        let cursor = await idx.openCursor(range)
+        while (cursor) {
+          await cursor.delete()
+          cursor = await cursor.continue()
+        }
 
-    // Keep only the latest N messages
-    const trimmed = messages.slice(-MAX_MESSAGES_PER_ROOM)
-    for (const msg of trimmed) {
-      await store.put(msg)
-    }
+        // Keep only the latest N messages
+        const trimmed = messages.slice(-MAX_MESSAGES_PER_ROOM_CACHE)
+        for (const msg of trimmed) {
+          await store.put(msg)
+        }
 
-    await tx.done
+        await tx.done
+      })(),
+    )
   } catch (err) {
     console.warn('[MessageCache] Failed to set cached messages', err)
   }
@@ -123,12 +145,12 @@ export async function addCachedMessage(message: Message): Promise<void> {
     // Trim if over limit
     const range = IDBKeyRange.bound([message.roomId, ''], [message.roomId, '\uffff'])
     const all = await db.getAllKeysFromIndex('messages', 'by-room', range)
-    if (all.length > MAX_MESSAGES_PER_ROOM) {
+    if (all.length > MAX_MESSAGES_PER_ROOM_CACHE) {
       const tx = db.transaction('messages', 'readwrite')
       const store = tx.objectStore('messages')
       const idx = store.index('by-room')
       let cursor = await idx.openCursor(range)
-      let toDelete = all.length - MAX_MESSAGES_PER_ROOM
+      let toDelete = all.length - MAX_MESSAGES_PER_ROOM_CACHE
       while (cursor && toDelete > 0) {
         await cursor.delete()
         toDelete--

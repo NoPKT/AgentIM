@@ -132,4 +132,51 @@ describe('WsClient', () => {
     // @ts-expect-error — access private
     expect(client.reconnectAttempts).toBeLessThan(5)
   })
+
+  it('drops messages when pending queue is full (MAX_WS_QUEUE_SIZE)', () => {
+    const client = new WsClient()
+    // Do not connect — messages should be queued since WS is not open
+
+    // Fill the queue to MAX_WS_QUEUE_SIZE (500)
+    const MAX = 500
+    for (let i = 0; i < MAX; i++) {
+      client.send({ type: 'client:join_room', roomId: `r${i}` })
+    }
+
+    // @ts-expect-error — access private
+    expect(client.pendingQueue.length).toBe(MAX)
+
+    // Next message should be dropped (queue full)
+    client.send({ type: 'client:join_room', roomId: 'overflow' })
+
+    // Queue size should not exceed MAX
+    // @ts-expect-error — access private
+    expect(client.pendingQueue.length).toBe(MAX)
+  })
+
+  it('dispatches ws:queue_full CustomEvent on overflow', () => {
+    const client = new WsClient()
+    // Do not connect — WS not open, messages go to queue
+
+    // Fill queue
+    const MAX = 500
+    for (let i = 0; i < MAX; i++) {
+      client.send({ type: 'client:join_room', roomId: `r${i}` })
+    }
+
+    const handler = vi.fn()
+    window.addEventListener('ws:queue_full', handler)
+
+    // This should trigger the event
+    client.send({ type: 'client:join_room', roomId: 'overflow' })
+
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: { type: 'client:join_room' },
+      }),
+    )
+
+    window.removeEventListener('ws:queue_full', handler)
+  })
 })

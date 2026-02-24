@@ -23,6 +23,8 @@ import { wsClient } from '../lib/ws.js'
 import { api } from '../lib/api.js'
 import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
+import { SlashCommandMenu } from './SlashCommandMenu.js'
+import { parseSlashCommand, getCommand, getAllCommands } from '../lib/slash-commands.js'
 
 const MAX_UPLOAD_RETRIES = 3
 
@@ -52,6 +54,9 @@ export function MessageInput() {
   const [mentionPosition, setMentionPosition] = useState(0)
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [showSlashMenu, setShowSlashMenu] = useState(false)
+  const [slashFilter, setSlashFilter] = useState('')
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const lastTypingSentRef = useRef(0)
@@ -243,6 +248,15 @@ export function MessageInput() {
     setContent(newContent)
     sendTypingEvent()
 
+    // Slash command detection
+    if (newContent.startsWith('/') && !newContent.includes(' ')) {
+      setShowSlashMenu(true)
+      setSlashFilter(newContent.slice(1))
+      setSlashActiveIndex(0)
+    } else {
+      setShowSlashMenu(false)
+    }
+
     const cursorPos = e.target.selectionStart
     const textBeforeCursor = newContent.slice(0, cursorPos)
     // Find the last '@' that is either at position 0 or preceded by whitespace
@@ -286,7 +300,37 @@ export function MessageInput() {
     }, 0)
   }
 
+  const filteredSlashCommands = getAllCommands().filter((cmd) =>
+    cmd.command.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
+  )
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Slash command menu navigation
+    if (showSlashMenu && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSlashActiveIndex((prev) => (prev < filteredSlashCommands.length - 1 ? prev + 1 : prev))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSlashActiveIndex((prev) => (prev > 0 ? prev - 1 : prev))
+        return
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        const cmd = filteredSlashCommands[slashActiveIndex]
+        setContent('/' + cmd.command.name + ' ')
+        setShowSlashMenu(false)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowSlashMenu(false)
+        return
+      }
+    }
+
     if (showMentionMenu && filteredAgents.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -332,6 +376,18 @@ export function MessageInput() {
   const hasContent = content.trim().length > 0 || readyAttachments.length > 0
 
   const handleSend = () => {
+    // Handle slash commands
+    const parsed = parseSlashCommand(content)
+    if (parsed) {
+      const handler = getCommand(parsed.name)
+      if (handler) {
+        handler.execute(parsed.args)
+        setContent('')
+        setShowSlashMenu(false)
+        return
+      }
+    }
+
     if (!currentRoomId || !hasContent || isUploading) return
     if (content.length > MAX_MESSAGE_LENGTH) {
       toast.error(t('chat.messageTooLong'))
@@ -423,6 +479,19 @@ export function MessageInput() {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
+        {/* Slash command menu */}
+        {showSlashMenu && (
+          <SlashCommandMenu
+            filter={slashFilter}
+            onSelect={(cmd) => {
+              setContent('/' + cmd.command.name + ' ')
+              setShowSlashMenu(false)
+              textareaRef.current?.focus()
+            }}
+            activeIndex={slashActiveIndex}
+          />
+        )}
+
         {/* Mention menu */}
         {showMentionMenu && filteredAgents.length > 0 && (
           <div
@@ -437,6 +506,7 @@ export function MessageInput() {
             {filteredAgents.map((agent, index) => (
               <button
                 key={agent.id}
+                id={`mention-option-${agent.id}`}
                 role="option"
                 aria-selected={index === selectedMentionIndex}
                 onClick={() => insertMention(agent.name)}
@@ -580,7 +650,18 @@ export function MessageInput() {
               aria-haspopup="listbox"
               aria-expanded={showMentionMenu && filteredAgents.length > 0}
               aria-controls={
-                showMentionMenu && filteredAgents.length > 0 ? 'mention-listbox' : undefined
+                showMentionMenu && filteredAgents.length > 0
+                  ? 'mention-listbox'
+                  : showSlashMenu && filteredSlashCommands.length > 0
+                    ? 'slash-cmd-listbox'
+                    : undefined
+              }
+              aria-activedescendant={
+                showMentionMenu && filteredAgents.length > 0 && filteredAgents[selectedMentionIndex]
+                  ? `mention-option-${filteredAgents[selectedMentionIndex].id}`
+                  : showSlashMenu && filteredSlashCommands.length > 0
+                    ? `slash-cmd-${filteredSlashCommands[slashActiveIndex].command.name}`
+                    : undefined
               }
               className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent min-h-12 max-h-[200px]"
               rows={1}

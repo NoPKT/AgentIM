@@ -1,5 +1,5 @@
 import type { ClientMessage, ServerMessage } from '@agentim/shared'
-import { serverMessageSchema } from '@agentim/shared'
+import { serverMessageSchema, MAX_WS_QUEUE_SIZE, MAX_RECONNECT_ATTEMPTS } from '@agentim/shared'
 
 type MessageHandler = (msg: ServerMessage) => void
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting'
@@ -8,8 +8,6 @@ type ReconnectHandler = () => void
 
 const PING_INTERVAL = 30_000
 const PONG_TIMEOUT = 10_000
-const MAX_QUEUE_SIZE = 500
-const MAX_RECONNECT_ATTEMPTS = 50
 
 export class WsClient {
   private ws: WebSocket | null = null
@@ -158,7 +156,7 @@ export class WsClient {
       } catch {
         // Send failed — queue for retry on reconnect
         if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
-          if (this.pendingQueue.length < MAX_QUEUE_SIZE) {
+          if (this.pendingQueue.length < MAX_WS_QUEUE_SIZE) {
             this.pendingQueue.push(msg)
           }
         }
@@ -166,7 +164,7 @@ export class WsClient {
       }
     } else if (msg.type !== 'client:auth' && msg.type !== 'client:ping') {
       // Queue non-auth, non-ping messages for replay on reconnect
-      if (this.pendingQueue.length < MAX_QUEUE_SIZE) {
+      if (this.pendingQueue.length < MAX_WS_QUEUE_SIZE) {
         this.pendingQueue.push(msg)
       } else {
         console.warn('[WS] Send queue full, message may be lost. Please check your connection.')

@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
 import { useAuthStore } from '../stores/auth.js'
 import { showNotification } from '../lib/notifications.js'
+import { toast } from '../stores/toast.js'
 import type { ServerMessage } from '@agentim/shared'
 
 export function useWebSocket() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // Stable ref so the WS subscription effect never needs navigate in its deps.
   // useNavigate() may return a new function reference on every location change
@@ -268,4 +271,13 @@ export function useWebSocket() {
     }, 30_000)
     return () => clearInterval(timer)
   }, [])
+
+  // Notify user when WebSocket send queue overflows
+  useEffect(() => {
+    const handler = () => {
+      toast.error(t('error.wsQueueFull'))
+    }
+    window.addEventListener('ws:queue_full', handler)
+    return () => window.removeEventListener('ws:queue_full', handler)
+  }, [t])
 }
