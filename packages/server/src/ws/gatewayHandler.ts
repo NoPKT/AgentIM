@@ -895,11 +895,22 @@ async function handlePermissionRequest(
     })
   }, timeoutMs)
 
-  addPendingPermission(msg.requestId, {
+  const added = addPendingPermission(msg.requestId, {
     agentId: msg.agentId,
     roomId: msg.roomId,
     timer,
   })
+
+  if (!added) {
+    // Queue full — notify gateway of rejection
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:permission_response',
+      requestId: msg.requestId,
+      agentId: msg.agentId,
+      decision: 'deny',
+    })
+    return
+  }
 
   // Broadcast to room clients
   connectionManager.broadcastToRoom(msg.roomId, {

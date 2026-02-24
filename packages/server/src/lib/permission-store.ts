@@ -12,11 +12,22 @@ interface PendingPermission {
 
 const pending = new Map<string, PendingPermission>()
 
+/** Maximum number of pending permission requests to prevent memory exhaustion. */
+const MAX_PENDING_PERMISSIONS = 1_000
+
 export function addPendingPermission(
   requestId: string,
   opts: { agentId: string; roomId: string; timer: ReturnType<typeof setTimeout> },
-) {
+): boolean {
+  if (pending.size >= MAX_PENDING_PERMISSIONS && !pending.has(requestId)) {
+    log.warn(
+      `Permission queue at capacity (${MAX_PENDING_PERMISSIONS}), rejecting request ${requestId}`,
+    )
+    clearTimeout(opts.timer)
+    return false
+  }
   pending.set(requestId, { ...opts, createdAt: Date.now() })
+  return true
 }
 
 export function getPendingPermission(requestId: string): PendingPermission | undefined {

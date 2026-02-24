@@ -109,7 +109,13 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-terminal-header text-terminal-text text-xs">
         <div className="flex items-center gap-2">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -130,8 +136,15 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
             }}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={t('common.clear')}
+            aria-label={t('common.clear')}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -144,12 +157,14 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
             onClick={() => setCollapsed((c) => !c)}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={collapsed ? t('common.expand') : t('common.collapse')}
+            aria-label={collapsed ? t('common.expand') : t('common.collapse')}
           >
             <svg
               className={`w-3.5 h-3.5 transition-transform ${collapsed ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -163,8 +178,15 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
             onClick={onClose}
             className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
             title={t('common.close')}
+            aria-label={t('common.close')}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

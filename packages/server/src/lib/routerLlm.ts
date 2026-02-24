@@ -42,6 +42,42 @@ function scoreAgent(
   return overlap
 }
 
+/**
+ * Extract the first balanced JSON object from a string.
+ * Handles strings that may contain markdown code fences or prose around the JSON.
+ * Uses bracket-depth counting instead of a greedy regex to avoid matching
+ * across multiple objects (e.g. `{...} some text {...}`).
+ */
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf('{')
+  if (start === -1) return null
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (ch === '\\' && inString) {
+      escape = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return text.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
 export async function selectAgents(
   content: string,
   agents: Array<{ id: string; name: string; type: string; capabilities?: string[] }>,
@@ -141,23 +177,24 @@ export async function selectAgents(
       return null
     }
 
-    // Extract JSON from the response (handle markdown code blocks)
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      log.warn('Router LLM response does not contain JSON object')
-      return null
-    }
-
+    // Extract JSON from the response (handle markdown code blocks).
+    // Use a bracket-balanced scan instead of a greedy regex to avoid
+    // capturing across multiple JSON objects or nested structures.
     let parsed: z.infer<typeof routerResultSchema>
     try {
-      const result = routerResultSchema.safeParse(JSON.parse(jsonMatch[0]))
+      const jsonStr = extractJsonObject(text)
+      if (!jsonStr) {
+        log.warn('Router LLM response does not contain JSON object')
+        return null
+      }
+      const result = routerResultSchema.safeParse(JSON.parse(jsonStr))
       if (!result.success) {
         log.warn(`Router LLM agentIds schema mismatch: ${result.error.message}`)
         return null
       }
       parsed = result.data
     } catch {
-      log.warn(`Router LLM returned invalid JSON in content: ${jsonMatch[0].slice(0, 200)}`)
+      log.warn(`Router LLM returned invalid JSON in content: ${text.slice(0, 200)}`)
       return null
     }
 

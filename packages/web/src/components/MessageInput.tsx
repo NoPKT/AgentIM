@@ -550,7 +550,12 @@ export function MessageInput() {
               >
                 {att.uploading && (
                   <>
-                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <svg
+                      className="w-3 h-3 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
                       <circle
                         className="opacity-25"
                         cx="12"
@@ -676,7 +681,13 @@ export function MessageInput() {
               className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-full hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label={t('common.send')}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
