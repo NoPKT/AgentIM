@@ -16,6 +16,9 @@ import type {
   SenderType,
   AssigneeType,
   NotificationPref,
+  ServiceAgentType,
+  ServiceAgentStatus,
+  SlashCommandName,
 } from './constants.js'
 
 // ─── Core Entities ───
@@ -227,4 +230,26 @@ export interface RoomContext {
   roomName: string
   systemPrompt?: string
   members: RoomContextMember[]
+}
+
+// ─── Service Agents ───
+
+export interface ServiceAgent {
+  id: string
+  name: string
+  type: ServiceAgentType
+  description?: string
+  status: ServiceAgentStatus
+  avatarUrl?: string
+  createdById: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Slash Commands ───
+
+export interface SlashCommand {
+  name: SlashCommandName
+  description: string
+  usage: string
 }

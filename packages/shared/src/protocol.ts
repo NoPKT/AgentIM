@@ -3,6 +3,7 @@ import type {
   Message,
   MessageReaction,
   ParsedChunk,
+  ServiceAgent,
   Task,
   Room,
   RoomMember,
@@ -104,6 +105,14 @@ export interface ServerMessageComplete {
   message: Message
 }
 
+export interface ServerServiceAgentResponse {
+  type: 'server:service_agent_response'
+  roomId: string
+  serviceAgentId: string
+  serviceAgentName: string
+  message: Message
+}
+
 export interface ServerTyping {
   type: 'server:typing'
   roomId: string
@@ -200,6 +209,7 @@ export type ServerMessage =
   | ServerNewMessage
   | ServerMessageChunk
   | ServerMessageComplete
+  | ServerServiceAgentResponse
   | ServerMessageEdited
   | ServerMessageDeleted
   | ServerTyping

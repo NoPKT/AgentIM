@@ -130,5 +130,27 @@ export const WS_ERROR_CODES = {
   PERMISSION_DENIED: 'PERMISSION_DENIED',
   INVALID_TOKEN: 'INVALID_TOKEN',
   GATEWAY_NOT_FOUND: 'GATEWAY_NOT_FOUND',
+  STREAM_TOO_LARGE: 'STREAM_TOO_LARGE',
 } as const
 export type WsErrorCode = (typeof WS_ERROR_CODES)[keyof typeof WS_ERROR_CODES]
+
+// ─── Stream Size Limit ───
+export const MAX_STREAM_TOTAL_SIZE = 10 * 1024 * 1024 // 10 MB cumulative stream limit
+
+// ─── Service Agent Types ───
+export const SERVICE_AGENT_TYPES = ['openai-compatible', 'custom'] as const
+export type ServiceAgentType = (typeof SERVICE_AGENT_TYPES)[number]
+
+export const SERVICE_AGENT_STATUSES = ['active', 'inactive', 'error'] as const
+export type ServiceAgentStatus = (typeof SERVICE_AGENT_STATUSES)[number]
+
+// ─── Slash Commands ───
+export const SLASH_COMMANDS = ['clear', 'help', 'task', 'status'] as const
+export type SlashCommandName = (typeof SLASH_COMMANDS)[number]
+
+// ─── Web Client Constants (migrated from web package) ───
+export const MAX_WS_QUEUE_SIZE = 500
+export const MAX_CACHED_MESSAGES = 1000
+export const MAX_CHUNKS_PER_STREAM = 2000
+export const MAX_MESSAGES_PER_ROOM_CACHE = 200
+export const MAX_RECONNECT_ATTEMPTS = 50

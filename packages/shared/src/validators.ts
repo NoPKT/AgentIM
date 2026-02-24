@@ -30,6 +30,8 @@ import {
   ASSIGNEE_TYPES,
   NOTIFICATION_PREFS,
   PERMISSION_DECISIONS,
+  SERVICE_AGENT_TYPES,
+  SERVICE_AGENT_STATUSES,
 } from './constants.js'
 
 // ─── Shared Tool Input Schema ───
@@ -262,6 +264,73 @@ export const updateTaskSchema = z.object({
 
 export const updateAgentSchema = z.object({
   visibility: z.enum(AGENT_VISIBILITIES).optional(),
+})
+
+// ─── Service Agent ───
+
+export const createServiceAgentSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
+  type: z.enum(SERVICE_AGENT_TYPES).default('openai-compatible'),
+  description: z.string().max(1000).optional(),
+  config: z.object({
+    baseUrl: z
+      .string()
+      .url()
+      .max(500)
+      .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl'),
+    apiKey: z
+      .string()
+      .min(1)
+      .max(500)
+      .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace'),
+    model: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine((s) => s.trim().length > 0, 'validation.modelWhitespace'),
+    systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
+    maxTokens: z.number().int().min(1).max(100000).default(4096),
+  }),
+})
+
+export const updateServiceAgentSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
+    .optional(),
+  type: z.enum(SERVICE_AGENT_TYPES).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  status: z.enum(SERVICE_AGENT_STATUSES).optional(),
+  config: z
+    .object({
+      baseUrl: z
+        .string()
+        .url()
+        .max(500)
+        .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl')
+        .optional(),
+      apiKey: z
+        .string()
+        .min(1)
+        .max(500)
+        .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace')
+        .optional(),
+      model: z
+        .string()
+        .min(1)
+        .max(200)
+        .refine((s) => s.trim().length > 0, 'validation.modelWhitespace')
+        .optional(),
+      systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).nullable().optional(),
+      maxTokens: z.number().int().min(1).max(100000).optional(),
+    })
+    .optional(),
 })
 
 // ─── User ───
@@ -654,6 +723,14 @@ export const serverMessageCompleteSchema = z.object({
   message: messageSchema,
 })
 
+export const serverServiceAgentResponseSchema = z.object({
+  type: z.literal('server:service_agent_response'),
+  roomId: z.string(),
+  serviceAgentId: z.string(),
+  serviceAgentName: z.string(),
+  message: messageSchema,
+})
+
 export const serverTypingSchema = z.object({
   type: z.literal('server:typing'),
   roomId: z.string(),
@@ -755,6 +832,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverNewMessageSchema,
   serverMessageChunkSchema,
   serverMessageCompleteSchema,
+  serverServiceAgentResponseSchema,
   serverMessageEditedSchema,
   serverMessageDeletedSchema,
   serverTypingSchema,
