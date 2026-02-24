@@ -24,12 +24,12 @@ const routerResultSchema = z.object({
 })
 
 /** Tokenize a string into lowercase alpha-numeric words for keyword matching. */
-function tokenize(text: string): Set<string> {
+export function tokenize(text: string): Set<string> {
   return new Set(text.toLowerCase().match(/[a-z0-9\u4e00-\u9fff]+/g) ?? [])
 }
 
 /** Score an agent by keyword overlap between the message and the agent's name/capabilities. */
-function scoreAgent(
+export function scoreAgent(
   messageTokens: Set<string>,
   agent: { name: string; type: string; capabilities?: string[] },
 ): number {
@@ -48,7 +48,7 @@ function scoreAgent(
  * Uses bracket-depth counting instead of a greedy regex to avoid matching
  * across multiple objects (e.g. `{...} some text {...}`).
  */
-function extractJsonObject(text: string): string | null {
+export function extractJsonObject(text: string): string | null {
   const start = text.indexOf('{')
   if (start === -1) return null
   let depth = 0

@@ -41,7 +41,7 @@ const CH_BROADCAST = 'agentim:broadcast'
 const CH_GATEWAY = 'agentim:gateway'
 const CH_CONTROL = 'agentim:control'
 
-class ConnectionManager {
+export class ConnectionManager {
   private clients = new Map<WSContext, ClientConnection>()
   private gateways = new Map<WSContext, GatewayConnection>()
 

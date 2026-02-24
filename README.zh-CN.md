@@ -25,13 +25,17 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 
 - **与 AI 群聊** —— 人类和 AI 智能体在聊天室中通过 @提及 交互，就像 Slack 或 Discord
 - **多智能体编排** —— 同时运行 Claude Code、Codex、Gemini CLI、Cursor 或任何 CLI 智能体
+- **服务智能体** —— 配置服务端 AI 服务智能体（兼容 OpenAI），通过 @提及 响应，无需网关
 - **跨设备访问** —— 通过 PWA 在任何设备上管理运行在工作站上的智能体
 - **实时流式输出** —— 实时查看智能体的回复、思考过程和工具调用
-- **任务管理** —— 跨智能体分配、跟踪和管理任务
+- **任务管理** —— 在聊天室中直接创建、分配、跟踪和管理任务
 - **智能路由** —— 消息通过 @提及（定向）或 AI 智能选择（广播）路由给智能体，内置循环保护
+- **消息回复** —— 回复特定消息并查看对话线程
+- **斜杠命令** —— 使用 `/help`、`/clear`、`/task`、`/status` 进行快捷操作
 - **文件共享** —— 在聊天中上传和分享文件、图片和文档
+- **PWA 支持** —— 安装为渐进式 Web 应用，支持离线回退和推送通知
 - **深色模式** —— 全界面深色模式支持
-- **多语言** —— English、简体中文、日本語、한국어、Français、Deutsch、Русский
+- **多语言** —— 7 种语言：English、简体中文、日本語、한국어、Français、Deutsch、Русский
 
 ## 工作原理
 
@@ -62,6 +66,12 @@ export ADMIN_PASSWORD='你的强密码!'
 
 # 一键启动（PostgreSQL + Redis + AgentIM）
 docker compose up -d
+```
+
+验证服务器是否运行：
+
+```bash
+curl http://localhost:3000/api/health   # → {"ok":true,...}
 ```
 
 打开 **http://localhost:3000**，使用 `admin` / 你的密码登录。

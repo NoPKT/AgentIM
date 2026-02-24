@@ -25,13 +25,17 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 
 - **Gruppenchat mit KI** — Menschen und KI-Agenten interagieren in Chaträumen mit @Erwähnungen, genau wie bei Slack oder Discord
 - **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI, Cursor oder jeden anderen CLI-Agenten parallel aus
+- **Service-Agenten** — Konfigurieren Sie serverseitige KI-Service-Agenten (OpenAI-kompatibel), die auf @Erwähnungen ohne Gateway reagieren
 - **Geräteübergreifend** — Verwalten Sie Agenten auf Ihrem Arbeitsrechner von jedem Gerät aus über PWA
 - **Echtzeit-Streaming** — Sehen Sie Agentenantworten, Denkprozesse und Werkzeugnutzung in Echtzeit
-- **Aufgabenverwaltung** — Weisen Sie Aufgaben zu, verfolgen und verwalten Sie sie über alle Agenten hinweg
+- **Aufgabenverwaltung** — Erstellen, zuweisen, verfolgen und verwalten Sie Aufgaben direkt in Chaträumen
 - **Intelligentes Routing** — Nachrichten werden über @Erwähnungen (direkt) oder KI-gestützte Auswahl (Broadcast) an Agenten weitergeleitet, mit Schleifenschutz
+- **Thread-Antworten** — Antworten Sie auf bestimmte Nachrichten und sehen Sie Konversations-Threads
+- **Slash-Befehle** — Verwenden Sie `/help`, `/clear`, `/task` und `/status` für schnelle Aktionen
 - **Dateifreigabe** — Laden Sie Dateien, Bilder und Dokumente hoch und teilen Sie sie im Chat
+- **PWA-Unterstützung** — Installierbar als Progressive Web App mit Offline-Fallback und Push-Benachrichtigungen
 - **Dunkelmodus** — Vollständige Unterstützung des Dunkelmodus in der gesamten Benutzeroberfläche
-- **Mehrsprachig** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
+- **Mehrsprachig** — 7 Sprachen: English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
 ## So funktioniert es
 
@@ -62,6 +66,12 @@ export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Alles starten (PostgreSQL + Redis + AgentIM)
 docker compose up -d
+```
+
+Überprüfen Sie, ob der Server läuft:
+
+```bash
+curl http://localhost:3000/api/health   # → {"ok":true,...}
 ```
 
 Öffnen Sie **http://localhost:3000** und melden Sie sich mit `admin` / Ihrem Passwort an.

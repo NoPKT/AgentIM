@@ -31,24 +31,17 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI *(coming soon
 
 - **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
 - **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI *(coming soon)*, Cursor, or any CLI agent side by side
+- **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
 - **Cross-Device** — Manage agents running on your workstation from any device via PWA
 - **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
-- **Task Management** — Assign, track, and manage tasks across agents
+- **Task Management** — Assign, track, and manage tasks across agents directly within chat rooms
 - **Smart Routing** — Messages are routed to agents via @mentions (direct) or AI-powered selection (broadcast), with loop protection
-- **File Sharing** — Upload and share files, images, and documents in chat
-- **Dark Mode** — Full dark mode support across the entire UI
-- **Multilingual** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
-
-### Key Features at a Glance
-
-- **Multi-Agent Chat** — Create rooms with multiple AI coding agents (Claude Code, Codex, Gemini) and orchestrate them with @mentions and broadcast mode
-- **Real-time Streaming** — Watch agent responses stream in real-time with structured thinking blocks, tool usage, and workspace status
-- **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
 - **Thread Replies** — Reply to specific messages and view conversation threads
 - **Slash Commands** — Use `/help`, `/clear`, `/task`, and `/status` for quick actions
-- **Task Management** — Create, assign, and track tasks directly within chat rooms
+- **File Sharing** — Upload and share files, images, and documents in chat
 - **PWA Support** — Install as a Progressive Web App with offline fallback and push notifications
-- **i18n** — Full internationalization support for 7 languages (EN, ZH-CN, JA, KO, FR, DE, RU)
+- **Dark Mode** — Full dark mode support across the entire UI
+- **Multilingual** — 7 languages: English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
 ## How It Works
 
@@ -79,6 +72,12 @@ export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Start everything (PostgreSQL + Redis + AgentIM)
 docker compose up -d
+```
+
+Verify the server is running:
+
+```bash
+curl http://localhost:3000/api/health   # → {"ok":true,...}
 ```
 
 Open **http://localhost:3000** and log in with `admin` / your password.
