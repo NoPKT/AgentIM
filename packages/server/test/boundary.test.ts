@@ -8,7 +8,6 @@ import {
   registerUser,
   connectWs,
   wsSendAndWait,
-  wsWaitFor,
   WS_CLIENT_URL,
 } from './helpers.js'
 
