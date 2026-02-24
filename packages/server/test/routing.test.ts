@@ -408,7 +408,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
       const collect = wsCollect(gw, 'server:send_to_agent', 1500)
 
       gw.send(
