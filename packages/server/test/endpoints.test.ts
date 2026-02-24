@@ -12,6 +12,8 @@ import {
   WS_GATEWAY_URL,
 } from './helpers.js'
 
+const WS_OPERATION_DELAY_MS = 200
+
 describe('Endpoint Coverage', () => {
   before(async () => {
     await startServer()
@@ -55,7 +57,7 @@ describe('Endpoint Coverage', () => {
       const ws = await connectWs(WS_CLIENT_URL)
       await wsSendAndWait(ws, { type: 'client:auth', token }, 'server:auth_result')
       ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
-      await new Promise((r) => setTimeout(r, 200))
+      await new Promise((r) => setTimeout(r, WS_OPERATION_DELAY_MS))
 
       ws.send(
         JSON.stringify({
