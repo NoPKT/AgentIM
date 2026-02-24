@@ -7,14 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Service Agents**: Server-side AI service agent framework with OpenAI-compatible API support, CRUD management (admin), @mention trigger, and encrypted config storage
+- **Thread API**: GET `/messages/:messageId/thread` and `/messages/:messageId/replies/count` endpoints for message thread support
+- **Thread UI**: ThreadView component for viewing and navigating message reply chains
+- **Slash Commands**: Built-in `/clear`, `/help`, `/task`, `/status` commands with popup menu in message input
+- **Service Agent Management UI**: Admin page for creating, configuring, and managing service agents
+- **Message Edit History API**: GET `/messages/:messageId/edits` endpoint
+- **Agent Offline Feedback**: System message broadcast when agents are unreachable
+- **PWA Offline Page**: Static offline fallback page for PWA
+- **Database migration**: `0028_add_service_agents.sql` for service_agents table
+
 ### Changed
 
 - CI: E2E tests now run on daily schedule (UTC 04:00), manual dispatch, and release workflows only — push/PR skip E2E to save Actions minutes
 - Server tests: upload artifacts now use a temp directory and are auto-cleaned after each test run
 - Added Git pre-push hook for local CI validation before pushing
+- **Web client constants**: Migrated hardcoded constants (MAX_WS_QUEUE_SIZE, MAX_CACHED_MESSAGES, etc.) to `@agentim/shared`
+- **Date formatting**: Replaced hardcoded `timeAgo()` with `Intl.RelativeTimeFormat` for proper i18n
+- **API auth retry**: Extracted `withAuthRetry()` shared function to deduplicate 401 handling in `request()` and `uploadFile()`
+- **IndexedDB timeout**: Added 5-second timeout wrapper for all IDB operations
+- **WS queue overflow notification**: Dispatches `ws:queue_full` CustomEvent and shows toast notification
+- **i18n**: Added `serviceAgent`, `thread`, `slashCommand`, `ws` namespaces to all 7 language files
+- **Accessibility**: Added ARIA labels, roles, and keyboard navigation to message actions, reaction panel, and mention menu
+- **Test coverage thresholds**: Raised to lines 30%, functions 35%, statements 30%, branches 20%
 
 ### Fixed
 
+- **[CRITICAL] VAPID private key encryption**: `setSetting()` now encrypts sensitive values before DB storage; `getSetting()` and `preloadSettings()` decrypt on read
+- **[CRITICAL] Stream total size limit**: Cumulative 10MB limit on streaming messages prevents memory abuse from infinite chunks
+- **[CRITICAL] Agent command permission feedback**: `routeToAgents()` now returns PERMISSION_DENIED error instead of silent failure
+- **Gateway Gemini command**: Simplified to "coming soon" placeholder, removed dead daemon/wrapper code
+- **Daemon log rotation race condition**: Uses O_EXCL file lock for atomic rotation
+- **Custom adapter cache**: Added 30-second TTL to prevent stale adapter data
+- **WS queue overflow logging**: Every dropped message now logged; critical message types logged at error level
+- **Concurrent logout race**: Replaced boolean flag with shared Promise to prevent duplicate logout calls
+- **Store circular dependency**: Extracted `resetAllStores()` into separate module with dynamic imports
+- **Markdown sanitize regex**: Tightened hljs className pattern from `/^hljs[a-zA-Z0-9_-]*$/` to `/^hljs-[a-z0-9-]{1,30}$/`
 - Web: WsClient offline handler now proactively closes WebSocket to ensure immediate reconnection on network recovery
 - Gateway: Codex adapter `stop()` now resets running state and discards thread to interrupt execution
 - Gateway: `isAgentimProcess` returns false on verification failure (prevents killing recycled PIDs)

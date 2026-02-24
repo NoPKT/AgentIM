@@ -39,10 +39,16 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI *(coming soon
 - **Dark Mode** — Full dark mode support across the entire UI
 - **Multilingual** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
-### Preview
+### Key Features at a Glance
 
-<!-- TODO: Replace with actual screenshots -->
-> Screenshots coming soon. Run `pnpm dev` to see the UI locally.
+- **Multi-Agent Chat** — Create rooms with multiple AI coding agents (Claude Code, Codex, Gemini) and orchestrate them with @mentions and broadcast mode
+- **Real-time Streaming** — Watch agent responses stream in real-time with structured thinking blocks, tool usage, and workspace status
+- **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
+- **Thread Replies** — Reply to specific messages and view conversation threads
+- **Slash Commands** — Use `/help`, `/clear`, `/task`, and `/status` for quick actions
+- **Task Management** — Create, assign, and track tasks directly within chat rooms
+- **PWA Support** — Install as a Progressive Web App with offline fallback and push notifications
+- **i18n** — Full internationalization support for 7 languages (EN, ZH-CN, JA, KO, FR, DE, RU)
 
 ## How It Works
 
