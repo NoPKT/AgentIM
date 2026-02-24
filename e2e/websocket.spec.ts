@@ -161,7 +161,8 @@ test.describe('WebSocket protocol', () => {
     expect(result.error).toBeTruthy()
   })
 
-  test('reconnect after network interruption', { timeout: 60_000 }, async ({ page, context }) => {
+  test('reconnect after network interruption', async ({ page, context }) => {
+    test.setTimeout(60_000)
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
@@ -172,14 +173,14 @@ test.describe('WebSocket protocol', () => {
 
     const authCountBefore = getFramesByType(capture, 'received', 'server:auth_result').length
 
-    // Simulate network interruption — stay offline long enough for
-    // the WebSocket connection to detect the drop (via TCP or close event)
+    // Simulate network interruption — offline handler now proactively closes
+    // the WebSocket, so reconnection triggers immediately when back online.
     await context.setOffline(true)
-    await page.waitForTimeout(3_000)
+    await page.waitForTimeout(2_000)
     await context.setOffline(false)
 
     // Wait for reconnection — a new auth_result should appear.
-    // Generous timeout for CI: covers ping interval (30s) + reconnect backoff + token refresh.
+    // With the proactive close fix, this should resolve within seconds.
     await waitForFrame(
       capture,
       'received',
@@ -191,7 +192,7 @@ test.describe('WebSocket protocol', () => {
         )
         return current.length > authCountBefore
       },
-      45_000,
+      30_000,
     )
 
     const authCountAfter = getFramesByType(capture, 'received', 'server:auth_result').filter(

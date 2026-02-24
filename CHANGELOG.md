@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web: WsClient offline handler now proactively closes WebSocket to ensure immediate reconnection on network recovery
 - Gateway: Codex adapter `stop()` now resets running state and discards thread to interrupt execution
 - Gateway: `isAgentimProcess` returns false on verification failure (prevents killing recycled PIDs)
 - Server: health check endpoint cached for 5 seconds to reduce DB/Redis probe frequency

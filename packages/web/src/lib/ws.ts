@@ -300,6 +300,8 @@ export class WsClient {
     this._boundOffline = () => {
       if (this.connected) {
         this.setStatus('reconnecting')
+        this.stopHeartbeat()
+        this.ws?.close()
       }
     }
     window.addEventListener('online', this._boundOnline)
