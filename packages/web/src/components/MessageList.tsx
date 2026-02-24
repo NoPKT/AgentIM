@@ -160,7 +160,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
         aria-relevant="additions"
         aria-label={t('chat.messages')}
       >
-        {/* 加载更多按钮 */}
+        {/* Load more button */}
         {currentHasMore && (
           <div className="p-4 text-center">
             <button
