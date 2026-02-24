@@ -8,7 +8,6 @@ import {
   connectWs,
   wsSendAndWait,
   wsWaitFor,
-  BASE_URL,
   WS_CLIENT_URL,
   WS_GATEWAY_URL,
 } from './helpers.js'
