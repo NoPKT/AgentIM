@@ -3,7 +3,6 @@ import type {
   Message,
   MessageReaction,
   ParsedChunk,
-  ServiceAgent,
   Task,
   Room,
   RoomMember,

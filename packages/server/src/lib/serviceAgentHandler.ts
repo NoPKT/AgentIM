@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
-import { serviceAgents, messages, messageAttachments } from '../db/schema.js'
+import { serviceAgents, messages } from '../db/schema.js'
 import { decryptSecret } from './crypto.js'
 import { connectionManager } from '../ws/connections.js'
 import { createLogger } from './logger.js'

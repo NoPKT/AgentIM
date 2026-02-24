@@ -19,7 +19,6 @@ import type {
   ServiceAgentType,
   ServiceAgentCategory,
   ServiceAgentStatus,
-  SlashCommandName,
 } from './constants.js'
 
 // ─── Core Entities ───

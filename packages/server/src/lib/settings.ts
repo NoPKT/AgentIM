@@ -373,8 +373,6 @@ const DEFINITION_MAP = new Map(SETTING_DEFINITIONS.map((d) => [d.key, d]))
 
 const CACHE_TTL_MS = 5_000
 const cache = new Map<string, { value: string; expiresAt: number }>()
-let allCacheLoaded = false
-let allCacheExpiresAt = 0
 
 function getCached(key: string): string | undefined {
   const entry = cache.get(key)
@@ -622,8 +620,6 @@ export async function preloadSettings(): Promise<void> {
       }
       setCache(row.key, val)
     }
-    allCacheLoaded = true
-    allCacheExpiresAt = Date.now() + CACHE_TTL_MS
     log.info(`Settings cache preloaded (${rows.length} entries)`)
   } catch (err) {
     log.warn(`Failed to preload settings: ${(err as Error).message}`)
@@ -638,7 +634,6 @@ export function invalidateCache(key?: string): void {
     cache.delete(key)
   } else {
     cache.clear()
-    allCacheLoaded = false
   }
 }
 

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, and, or } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { routers, users } from '../db/schema.js'
 import { createRouterSchema, updateRouterSchema } from '@agentim/shared'

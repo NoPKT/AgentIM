@@ -1,9 +1,8 @@
-import { lt, and, eq, inArray, isNotNull, notInArray } from 'drizzle-orm'
+import { lt, and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { gateways, agents, roomMembers } from '../db/schema.js'
 import { config } from '../config.js'
 import { createLogger } from './logger.js'
-import { connectionManager } from '../ws/connections.js'
 import { broadcastRoomUpdate, sendRoomContextToAllAgents } from '../ws/gatewayHandler.js'
 
 const log = createLogger('GatewayCleanup')

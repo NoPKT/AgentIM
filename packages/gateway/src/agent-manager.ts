@@ -4,19 +4,15 @@ import { GatewayWsClient } from './ws-client.js'
 import { createLogger } from './lib/logger.js'
 import type {
   AgentType,
-  GatewayMessage,
   PermissionLevel,
-  PermissionDecision,
   ServerSendToAgent,
   ServerStopAgent,
   ServerRemoveAgent,
   ServerRoomContext,
   ServerPermissionResponse,
-  ServerGatewayMessage,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
-import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import { getWorkspaceStatus } from './lib/git-utils.js'
 
 const log = createLogger('AgentManager')

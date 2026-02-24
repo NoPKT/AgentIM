@@ -6,7 +6,6 @@ import { createLogger } from './lib/logger.js'
 const log = createLogger('Gateway')
 
 type MessageHandler = (msg: ServerGatewayMessage | ServerSendToAgent) => void
-type TokenRefresher = () => Promise<string>
 
 const PING_INTERVAL = 30_000 // Send ping every 30s
 const PONG_TIMEOUT = 10_000 // Wait 10s for pong before considering connection dead
