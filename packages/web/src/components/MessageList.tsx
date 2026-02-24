@@ -195,7 +195,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           </div>
         )}
 
-        {/* 虚拟化消息列表 */}
+        {/* Virtualized message list */}
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
