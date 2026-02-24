@@ -569,7 +569,7 @@ describe('Message Routing', () => {
 
       const contextPromise = wsWaitFor(gw, 'server:room_context', 5000)
 
-      const gw2 = await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
+      await setupGatewayAgent(user, 'rt-gw-ctx2b', 'rt-agent-ctx2b', 'NewBot')
       await api(
         'POST',
         `/api/rooms/${roomId}/members`,
