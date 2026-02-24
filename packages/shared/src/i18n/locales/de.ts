@@ -382,6 +382,8 @@ export const de = {
     validationGeneric: 'Bitte überprüfe deine Eingabe und versuche es erneut.',
     wsDisconnected: 'Verbindung verloren. Verbindung wird wiederhergestellt...',
     wsReconnected: 'Verbindung wiederhergestellt.',
+    wsQueueFull:
+      'Nachrichtenwarteschlange voll. Einige Nachrichten gehen möglicherweise verloren. Bitte überprüfe deine Verbindung.',
     validation: {
       passwordLowercase: 'Passwort muss einen Kleinbuchstaben enthalten',
       passwordUppercase: 'Passwort muss einen Großbuchstaben enthalten',

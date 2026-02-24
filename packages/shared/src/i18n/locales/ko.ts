@@ -375,6 +375,8 @@ export const ko = {
     validationGeneric: '입력 내용을 확인하고 다시 시도해 주세요.',
     wsDisconnected: '연결이 끊어졌습니다. 재연결 중...',
     wsReconnected: '연결이 복원되었습니다.',
+    wsQueueFull:
+      '메시지 대기열이 가득 찼습니다. 일부 메시지가 손실될 수 있습니다. 연결을 확인해 주세요.',
     validation: {
       passwordLowercase: '비밀번호에 소문자가 포함되어야 합니다',
       passwordUppercase: '비밀번호에 대문자가 포함되어야 합니다',

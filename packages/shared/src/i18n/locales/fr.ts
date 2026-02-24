@@ -382,6 +382,8 @@ export const fr = {
     validationGeneric: 'Veuillez vérifier votre saisie et réessayer.',
     wsDisconnected: 'Connexion perdue. Reconnexion...',
     wsReconnected: 'Connexion rétablie.',
+    wsQueueFull:
+      "La file d'attente des messages est pleine. Certains messages peuvent être perdus. Veuillez vérifier votre connexion.",
     validation: {
       passwordLowercase: 'Le mot de passe doit contenir une lettre minuscule',
       passwordUppercase: 'Le mot de passe doit contenir une lettre majuscule',
