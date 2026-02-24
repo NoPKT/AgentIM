@@ -371,6 +371,55 @@ describe('updateUserSchema', () => {
     assert.equal(result.success, false)
   })
 
+  it('rejects avatarUrl with nested path (subdirectory)', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/subdir/file.jpg',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('rejects avatarUrl with slash in filename', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/a/b.png',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('accepts avatarUrl with dots in filename', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/avatar.thumb.jpg',
+    })
+    assert.equal(result.success, true)
+  })
+
+  it('accepts avatarUrl with hyphens and underscores', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/my_avatar-2024.png',
+    })
+    assert.equal(result.success, true)
+  })
+
+  it('rejects avatarUrl starting with dot', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/.hidden',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('rejects avatarUrl starting with hyphen', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/-badname.jpg',
+    })
+    assert.equal(result.success, false)
+  })
+
+  it('rejects avatarUrl with spaces', () => {
+    const result = updateUserSchema.safeParse({
+      avatarUrl: '/uploads/my file.jpg',
+    })
+    assert.equal(result.success, false)
+  })
+
   it('accepts valid displayName update', () => {
     const result = updateUserSchema.safeParse({
       displayName: 'New Name',

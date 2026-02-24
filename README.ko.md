@@ -25,13 +25,17 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 
 - **AI와 그룹 채팅** —— Slack이나 Discord처럼 사람과 AI 에이전트가 @멘션으로 채팅방에서 소통
 - **멀티 에이전트** —— Claude Code, Codex, Gemini CLI, Cursor 또는 모든 CLI 에이전트를 동시 실행
+- **서비스 에이전트** —— 서버 측 AI 서비스 에이전트(OpenAI 호환)를 구성하여 게이트웨이 없이 @멘션에 응답
 - **크로스 디바이스** —— PWA로 어떤 디바이스에서든 워크스테이션의 에이전트를 관리
 - **실시간 스트리밍** —— 에이전트의 응답, 사고 과정, 도구 사용을 실시간으로 확인
-- **작업 관리** —— 에이전트 간 작업 할당, 추적, 관리
+- **작업 관리** —— 채팅방에서 직접 작업 생성, 할당, 추적, 관리
 - **스마트 라우팅** —— @멘션(다이렉트) 또는 AI 선택(브로드캐스트)으로 에이전트에 라우팅, 루프 방지 기능 내장
+- **스레드 답장** —— 특정 메시지에 답장하고 대화 스레드 확인
+- **슬래시 명령어** —— `/help`, `/clear`, `/task`, `/status`로 빠른 작업 수행
 - **파일 공유** —— 채팅에서 파일, 이미지, 문서 업로드 및 공유
+- **PWA 지원** —— 오프라인 폴백과 푸시 알림을 지원하는 Progressive Web App으로 설치 가능
 - **다크 모드** —— 전체 UI 다크 모드 지원
-- **다국어** —— English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
+- **다국어** —— 7개 언어: English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
 
 ## 작동 원리
 
@@ -62,6 +66,12 @@ export ADMIN_PASSWORD='YourStrongPassword!'
 
 # 원클릭 시작 (PostgreSQL + Redis + AgentIM)
 docker compose up -d
+```
+
+서버 동작 확인:
+
+```bash
+curl http://localhost:3000/api/health   # → {"ok":true,...}
 ```
 
 **http://localhost:3000**을 열고 `admin` / 비밀번호로 로그인.
