@@ -12,6 +12,8 @@ import { interceptWs, waitForFrame, getFramesByType } from './ws-helpers'
 // Each test uses fresh auth — no shared session state
 test.use({ storageState: { cookies: [], origins: [] } })
 
+const WS_OPERATION_TIMEOUT_MS = 10_000
+
 test.describe('WebSocket protocol', () => {
   test('WS connection and auth handshake', async ({ page }) => {
     await loginAsAdmin(page)
@@ -153,7 +155,7 @@ test.describe('WebSocket protocol', () => {
         setTimeout(() => {
           resolve({ ok: false, error: 'Timeout' })
           ws.close()
-        }, 10_000)
+        }, WS_OPERATION_TIMEOUT_MS)
       })
     })
 
