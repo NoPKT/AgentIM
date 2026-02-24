@@ -783,7 +783,7 @@ describe('Message Routing', () => {
     it('agent capabilities stored and returned in API', async () => {
       const user = await registerUser('route_cap1')
 
-      const gw = await setupGatewayAgent(user, 'rt-gw-cap1', 'rt-agent-cap1', 'CapBot', {
+      await setupGatewayAgent(user, 'rt-gw-cap1', 'rt-agent-cap1', 'CapBot', {
         capabilities: ['code', 'review', 'test'],
       })
 
