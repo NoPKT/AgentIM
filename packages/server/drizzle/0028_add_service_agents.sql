@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS "service_agents" (
   "config_encrypted" text NOT NULL,
   "avatar_url" text,
   "created_by_id" text NOT NULL REFERENCES "users"("id"),
-  "created_at" text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL,
-  "updated_at" text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL
+  "created_at" text NOT NULL,
+  "updated_at" text NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS "service_agents_name_idx" ON "service_agents" ("name");
