@@ -8,6 +8,9 @@ import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
 import { Button, Input, Modal, ModalPanel } from './ui.js'
 import { CachedDataBanner } from './CachedDataBanner.js'
 
+const DEFAULT_ROOM_TYPE = 'group'
+const DEFAULT_ROOM_ARCHIVED_STATE = false
+
 function formatTimeAgo(dateStr: string, locale: string): string {
   const date = new Date(dateStr)
   const now = Date.now()
@@ -77,7 +80,11 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
 
     setIsCreating(true)
     try {
-      const room = await createRoom(newRoomName.trim(), 'group', false)
+      const room = await createRoom(
+        newRoomName.trim(),
+        DEFAULT_ROOM_TYPE,
+        DEFAULT_ROOM_ARCHIVED_STATE,
+      )
       setShowNewRoomDialog(false)
       setNewRoomName('')
       handleRoomClick(room.id)
