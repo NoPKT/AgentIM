@@ -752,7 +752,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
 
       // AGENT_RATE_LIMIT_MAX=5 in test env — send 8 messages to exceed it
       const totalMessages = 8
