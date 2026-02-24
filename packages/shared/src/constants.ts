@@ -138,11 +138,33 @@ export type WsErrorCode = (typeof WS_ERROR_CODES)[keyof typeof WS_ERROR_CODES]
 export const MAX_STREAM_TOTAL_SIZE = 10 * 1024 * 1024 // 10 MB cumulative stream limit
 
 // ─── Service Agent Types ───
-export const SERVICE_AGENT_TYPES = ['openai-compatible', 'custom'] as const
+export const SERVICE_AGENT_TYPES = [
+  'openai-chat',
+  'perplexity',
+  'openai-image',
+  'elevenlabs',
+  'runway',
+  'stability-audio',
+  'meshy',
+  'custom',
+] as const
 export type ServiceAgentType = (typeof SERVICE_AGENT_TYPES)[number]
+
+export const SERVICE_AGENT_CATEGORIES = [
+  'chat',
+  'search',
+  'image',
+  'audio',
+  'video',
+  'music',
+  '3d',
+] as const
+export type ServiceAgentCategory = (typeof SERVICE_AGENT_CATEGORIES)[number]
 
 export const SERVICE_AGENT_STATUSES = ['active', 'inactive', 'error'] as const
 export type ServiceAgentStatus = (typeof SERVICE_AGENT_STATUSES)[number]
+
+export const MAX_SERVICE_AGENT_FILE_SIZE = 100 * 1024 * 1024 // 100 MB for media files
 
 // ─── Slash Commands ───
 export const SLASH_COMMANDS = ['clear', 'help', 'task', 'status'] as const

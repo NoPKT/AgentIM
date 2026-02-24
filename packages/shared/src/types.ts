@@ -17,6 +17,7 @@ import type {
   AssigneeType,
   NotificationPref,
   ServiceAgentType,
+  ServiceAgentCategory,
   ServiceAgentStatus,
   SlashCommandName,
 } from './constants.js'
@@ -238,6 +239,7 @@ export interface ServiceAgent {
   id: string
   name: string
   type: ServiceAgentType
+  category: ServiceAgentCategory
   description?: string
   status: ServiceAgentStatus
   avatarUrl?: string

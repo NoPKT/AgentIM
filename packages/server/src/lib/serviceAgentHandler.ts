@@ -1,25 +1,20 @@
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
-import { serviceAgents, messages } from '../db/schema.js'
+import { serviceAgents, messages, messageAttachments } from '../db/schema.js'
 import { decryptSecret } from './crypto.js'
 import { connectionManager } from '../ws/connections.js'
 import { createLogger } from './logger.js'
 import { incCounter } from './metrics.js'
+import { getProvider } from './providers/registry.js'
+import { startAsyncTaskPolling } from './providers/async-poller.js'
+import { downloadAndStoreMedia, createMediaAttachment } from './providers/media-storage.js'
 
 const log = createLogger('ServiceAgentHandler')
 
-interface ServiceAgentConfig {
-  baseUrl: string
-  apiKey: string
-  model: string
-  systemPrompt?: string
-  maxTokens?: number
-}
-
 /**
  * Handle a @mention of a service agent in a room message.
- * Calls the configured OpenAI-compatible API and broadcasts the response.
+ * Dispatches to the appropriate provider based on agent type.
  */
 export async function handleServiceAgentMention(
   serviceAgentId: string,
@@ -38,7 +33,13 @@ export async function handleServiceAgentMention(
     return
   }
 
-  let config: ServiceAgentConfig
+  const provider = getProvider(sa.type)
+  if (!provider) {
+    log.error(`No provider found for service agent type: ${sa.type}`)
+    return
+  }
+
+  let config: Record<string, unknown>
   try {
     const decrypted = decryptSecret(sa.configEncrypted)
     if (!decrypted) {
@@ -52,81 +53,129 @@ export async function handleServiceAgentMention(
   }
 
   try {
-    const apiMessages: Array<{ role: string; content: string }> = []
-    if (config.systemPrompt) {
-      apiMessages.push({ role: 'system', content: config.systemPrompt })
-    }
-    apiMessages.push({ role: 'user', content: `[${senderName}]: ${triggerMessageContent}` })
-
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: apiMessages,
-        max_tokens: config.maxTokens ?? 4096,
-      }),
-      signal: AbortSignal.timeout(60_000), // 60s timeout
+    const result = await provider.invoke(config, {
+      prompt: triggerMessageContent,
+      senderName,
+      systemPrompt: (config.systemPrompt as string) ?? undefined,
     })
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'unknown error')
-      log.error(`Service agent API call failed (${response.status}): ${errorText}`)
-      // Update agent status to error
-      await db
-        .update(serviceAgents)
-        .set({ status: 'error', updatedAt: new Date().toISOString() })
-        .where(eq(serviceAgents.id, serviceAgentId))
-      return
+    switch (result.kind) {
+      case 'text': {
+        if (!result.content) {
+          log.warn(`Service agent ${serviceAgentId} returned empty response`)
+          return
+        }
+
+        const messageId = nanoid()
+        const now = new Date().toISOString()
+        let content = result.content
+
+        // Append citations if present (search providers)
+        if (result.citations?.length) {
+          content +=
+            '\n\n---\n**Sources:**\n' +
+            result.citations.map((url, i) => `${i + 1}. ${url}`).join('\n')
+        }
+
+        await db.insert(messages).values({
+          id: messageId,
+          roomId,
+          senderId: serviceAgentId,
+          senderType: 'agent',
+          senderName: sa.name,
+          type: 'agent_response',
+          content,
+          mentions: [],
+          createdAt: now,
+        })
+
+        incCounter('agentim_messages_total', { type: 'service_agent' })
+
+        connectionManager.broadcastToRoom(roomId, {
+          type: 'server:new_message',
+          message: {
+            id: messageId,
+            roomId,
+            senderId: serviceAgentId,
+            senderType: 'agent' as const,
+            senderName: sa.name,
+            type: 'agent_response' as const,
+            content,
+            mentions: [] as string[],
+            createdAt: now,
+          },
+        })
+        break
+      }
+
+      case 'media': {
+        // Download media to local storage
+        const stored = await downloadAndStoreMedia(result.url, result.filename, result.mimeType)
+
+        const messageId = nanoid()
+        const now = new Date().toISOString()
+        const content = result.caption ?? 'Generation complete'
+
+        await db.insert(messages).values({
+          id: messageId,
+          roomId,
+          senderId: serviceAgentId,
+          senderType: 'agent',
+          senderName: sa.name,
+          type: 'agent_response',
+          content,
+          mentions: [],
+          createdAt: now,
+        })
+
+        // Create attachment record
+        const attachmentId = await createMediaAttachment(
+          messageId,
+          stored,
+          result.filename,
+          result.mimeType,
+        )
+
+        incCounter('agentim_messages_total', { type: 'service_agent' })
+
+        connectionManager.broadcastToRoom(roomId, {
+          type: 'server:new_message',
+          message: {
+            id: messageId,
+            roomId,
+            senderId: serviceAgentId,
+            senderType: 'agent' as const,
+            senderName: sa.name,
+            type: 'agent_response' as const,
+            content,
+            mentions: [] as string[],
+            attachments: [
+              {
+                id: attachmentId,
+                messageId,
+                filename: result.filename,
+                mimeType: result.mimeType,
+                size: stored.size,
+                url: stored.url,
+              },
+            ],
+            createdAt: now,
+          },
+        })
+        break
+      }
+
+      case 'async': {
+        await startAsyncTaskPolling(serviceAgentId, sa.name, roomId, result, config, provider)
+        break
+      }
     }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
-    }
-
-    const content = data.choices?.[0]?.message?.content
-    if (!content) {
-      log.warn(`Service agent ${serviceAgentId} returned empty response`)
-      return
-    }
-
-    // Save the response as a message
-    const messageId = nanoid()
-    const now = new Date().toISOString()
-
-    await db.insert(messages).values({
-      id: messageId,
-      roomId,
-      senderId: serviceAgentId,
-      senderType: 'agent',
-      senderName: sa.name,
-      type: 'agent_response',
-      content,
-      mentions: [],
-      createdAt: now,
-    })
-
-    incCounter('agentim_messages_total', { type: 'service_agent' })
-
-    // Broadcast to room
-    connectionManager.broadcastToRoom(roomId, {
-      type: 'server:new_message',
-      message: {
-        id: messageId,
-        roomId,
-        senderId: serviceAgentId,
-        senderType: 'agent' as const,
-        senderName: sa.name,
-        type: 'agent_response' as const,
-        content,
-        mentions: [] as string[],
-        createdAt: now,
-      },
-    })
   } catch (err) {
-    log.error(`Service agent ${serviceAgentId} API call error: ${(err as Error).message}`)
+    log.error(`Service agent ${serviceAgentId} error: ${(err as Error).message}`)
+    // Update agent status to error
+    await db
+      .update(serviceAgents)
+      .set({ status: 'error', updatedAt: new Date().toISOString() })
+      .where(eq(serviceAgents.id, serviceAgentId))
   }
 }

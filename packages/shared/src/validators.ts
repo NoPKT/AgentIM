@@ -31,6 +31,7 @@ import {
   NOTIFICATION_PREFS,
   PERMISSION_DECISIONS,
   SERVICE_AGENT_TYPES,
+  SERVICE_AGENT_CATEGORIES,
   SERVICE_AGENT_STATUSES,
 } from './constants.js'
 
@@ -274,27 +275,10 @@ export const createServiceAgentSchema = z.object({
     .min(1)
     .max(100)
     .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-  type: z.enum(SERVICE_AGENT_TYPES).default('openai-compatible'),
+  type: z.enum(SERVICE_AGENT_TYPES).default('openai-chat'),
+  category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
   description: z.string().max(1000).optional(),
-  config: z.object({
-    baseUrl: z
-      .string()
-      .url()
-      .max(500)
-      .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl'),
-    apiKey: z
-      .string()
-      .min(1)
-      .max(500)
-      .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace'),
-    model: z
-      .string()
-      .min(1)
-      .max(200)
-      .refine((s) => s.trim().length > 0, 'validation.modelWhitespace'),
-    systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).optional(),
-    maxTokens: z.number().int().min(1).max(100000).default(4096),
-  }),
+  config: z.record(z.string(), z.unknown()),
 })
 
 export const updateServiceAgentSchema = z.object({
@@ -305,32 +289,10 @@ export const updateServiceAgentSchema = z.object({
     .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
     .optional(),
   type: z.enum(SERVICE_AGENT_TYPES).optional(),
+  category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
   description: z.string().max(1000).nullable().optional(),
   status: z.enum(SERVICE_AGENT_STATUSES).optional(),
-  config: z
-    .object({
-      baseUrl: z
-        .string()
-        .url()
-        .max(500)
-        .refine((u) => u.startsWith('https://') || u.startsWith('http://'), 'validation.httpUrl')
-        .optional(),
-      apiKey: z
-        .string()
-        .min(1)
-        .max(500)
-        .refine((s) => s.trim().length > 0, 'validation.apiKeyWhitespace')
-        .optional(),
-      model: z
-        .string()
-        .min(1)
-        .max(200)
-        .refine((s) => s.trim().length > 0, 'validation.modelWhitespace')
-        .optional(),
-      systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_LENGTH).nullable().optional(),
-      maxTokens: z.number().int().min(1).max(100000).optional(),
-    })
-    .optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 // ─── User ───

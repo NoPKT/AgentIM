@@ -7,6 +7,8 @@ import { serviceAgents } from '../db/schema.js'
 import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { encryptSecret, decryptSecret } from '../lib/crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { getProvider, listProviders } from '../lib/providers/registry.js'
+import { zodToJsonSchema } from '../lib/providers/schema-utils.js'
 
 const log = createLogger('ServiceAgents')
 
@@ -15,6 +17,18 @@ const app = new Hono<AuthEnv>()
 // All routes require authentication and admin role
 app.use('*', authMiddleware)
 app.use('*', adminMiddleware)
+
+// GET /api/service-agents/providers - List available provider types
+app.get('/providers', (c) => {
+  const metas = listProviders().map((meta) => ({
+    type: meta.type,
+    displayName: meta.displayName,
+    category: meta.category,
+    description: meta.description,
+    configSchema: zodToJsonSchema(meta.configSchema),
+  }))
+  return c.json({ ok: true, data: metas })
+})
 
 // GET /api/service-agents - List all service agents
 app.get('/', async (c) => {
@@ -66,6 +80,29 @@ app.post('/', async (c) => {
   }
 
   const { config, ...data } = parsed.data
+
+  // Validate config against provider schema
+  const provider = getProvider(data.type)
+  if (provider) {
+    const parseResult = provider.meta.configSchema.safeParse(config)
+    if (!parseResult.success) {
+      return c.json(
+        {
+          ok: false,
+          error: 'Invalid provider config',
+          fields: parseResult.error.issues.map((i) => ({
+            field: `config.${i.path.join('.')}`,
+            message: i.message,
+          })),
+        },
+        400,
+      )
+    }
+  }
+
+  // Derive category from provider if not explicitly provided
+  const category = data.category ?? provider?.meta.category ?? 'chat'
+
   const userId = c.get('userId')
   const id = nanoid()
   const now = new Date().toISOString()
@@ -76,6 +113,7 @@ app.post('/', async (c) => {
     id,
     name: data.name,
     type: data.type,
+    category,
     description: data.description,
     status: 'active',
     configEncrypted,
@@ -118,6 +156,7 @@ app.put('/:id', async (c) => {
   const updateData: Record<string, unknown> = { updatedAt: now }
   if (data.name !== undefined) updateData.name = data.name
   if (data.type !== undefined) updateData.type = data.type
+  if (data.category !== undefined) updateData.category = data.category
   if (data.description !== undefined) updateData.description = data.description
   if (data.status !== undefined) updateData.status = data.status
 
@@ -131,12 +170,27 @@ app.put('/:id', async (c) => {
       /* use empty */
     }
 
-    const mergedConfig = { ...existingConfig }
-    if (config.baseUrl !== undefined) mergedConfig.baseUrl = config.baseUrl
-    if (config.apiKey !== undefined) mergedConfig.apiKey = config.apiKey
-    if (config.model !== undefined) mergedConfig.model = config.model
-    if (config.systemPrompt !== undefined) mergedConfig.systemPrompt = config.systemPrompt
-    if (config.maxTokens !== undefined) mergedConfig.maxTokens = config.maxTokens
+    const mergedConfig = { ...existingConfig, ...config }
+
+    // Validate merged config against provider schema
+    const type = (data.type ?? existing.type) as string
+    const provider = getProvider(type)
+    if (provider) {
+      const parseResult = provider.meta.configSchema.safeParse(mergedConfig)
+      if (!parseResult.success) {
+        return c.json(
+          {
+            ok: false,
+            error: 'Invalid provider config',
+            fields: parseResult.error.issues.map((i) => ({
+              field: `config.${i.path.join('.')}`,
+              message: i.message,
+            })),
+          },
+          400,
+        )
+      }
+    }
 
     updateData.configEncrypted = encryptSecret(JSON.stringify(mergedConfig))
   }
@@ -157,6 +211,29 @@ app.delete('/:id', async (c) => {
 
   await db.delete(serviceAgents).where(eq(serviceAgents.id, id))
   return c.json({ ok: true })
+})
+
+// POST /api/service-agents/:id/validate - Validate provider config
+app.post('/:id/validate', async (c) => {
+  const { id } = c.req.param()
+  const [row] = await db.select().from(serviceAgents).where(eq(serviceAgents.id, id)).limit(1)
+  if (!row) return c.json({ ok: false, error: 'Service agent not found' }, 404)
+
+  const provider = getProvider(row.type)
+  if (!provider?.validateConfig) {
+    return c.json({ ok: true, data: { valid: true, message: 'No validation available' } })
+  }
+
+  let config: Record<string, unknown> = {}
+  try {
+    const decrypted = decryptSecret(row.configEncrypted)
+    if (decrypted) config = JSON.parse(decrypted)
+  } catch {
+    return c.json({ ok: true, data: { valid: false, error: 'Failed to decrypt config' } })
+  }
+
+  const result = await provider.validateConfig(config)
+  return c.json({ ok: true, data: result })
 })
 
 export default app

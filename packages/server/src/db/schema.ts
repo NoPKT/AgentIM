@@ -109,7 +109,8 @@ export const agents = pgTable(
 export const serviceAgents = pgTable('service_agents', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  type: text('type').notNull().default('openai-compatible'),
+  type: text('type').notNull().default('openai-chat'),
+  category: text('category').notNull().default('chat'),
   description: text('description'),
   status: text('status').notNull().default('active'),
   configEncrypted: text('config_encrypted').notNull(),

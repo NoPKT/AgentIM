@@ -5,6 +5,7 @@ import { LazyMarkdown } from './LazyMarkdown.js'
 import { useChatStore } from '../stores/chat.js'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+import { MediaMessage } from './MediaMessage.js'
 import { twMerge } from 'tailwind-merge'
 import { Textarea } from './ui.js'
 import { useMessageActions } from '../hooks/useMessageActions.js'
@@ -23,10 +24,35 @@ import {
   TrashIcon,
 } from './icons.js'
 
+function formatTimeAgo(dateStr: string, locale: string): string {
+  const date = new Date(dateStr)
+  const now = Date.now()
+  const diffMs = now - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  if (diffMin < 60) return rtf.format(-diffMin, 'minute')
+  if (diffHour < 24) return rtf.format(-diffHour, 'hour')
+  if (diffDay < 30) return rtf.format(-diffDay, 'day')
+
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date)
+}
+
 interface MessageItemProps {
   message: Message
   showHeader?: boolean
   onImageClick?: (url: string) => void
+  onViewThread?: (messageId: string) => void
+  replyCount?: number
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
@@ -163,8 +189,9 @@ interface ReactionBarProps {
 }
 
 function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
+  const { t } = useTranslation()
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
+    <div className="mt-1.5 flex flex-wrap gap-1" role="toolbar" aria-label={t('chat.reactions')}>
       {reactions.map((reaction) => {
         const hasReacted = currentUserId && reaction.userIds.includes(currentUserId)
         return (
@@ -172,6 +199,7 @@ function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
             key={reaction.emoji}
             onClick={() => onToggle(reaction.emoji)}
             title={reaction.usernames.join(', ')}
+            aria-label={`${t('chat.react')} ${reaction.emoji}`}
             className={`
               inline-flex items-center gap-1 px-2.5 py-1.5 md:px-2 md:py-0.5 rounded-full text-xs transition-colors
               ${
@@ -360,6 +388,8 @@ export const MessageItem = memo(function MessageItem({
   message,
   showHeader = true,
   onImageClick,
+  onViewThread,
+  replyCount,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
@@ -424,11 +454,16 @@ export const MessageItem = memo(function MessageItem({
             <SmileFaceIcon className="w-4 h-4" />
           </button>
           {actions.showEmojiPicker && (
-            <div className="absolute right-0 top-8 z-dropdown bg-surface border border-border rounded-lg shadow-lg p-1.5 flex gap-0.5">
+            <div
+              className="absolute right-0 top-8 z-dropdown bg-surface border border-border rounded-lg shadow-lg p-1.5 flex gap-0.5"
+              role="toolbar"
+              aria-label={t('chat.reactions')}
+            >
               {REACTION_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => actions.handleReaction(emoji)}
+                  aria-label={`${t('chat.react')} ${emoji}`}
                   className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {emoji}
@@ -566,13 +601,23 @@ export const MessageItem = memo(function MessageItem({
             />
           )}
 
-          {/* Attachments */}
-          {message.attachments && message.attachments.length > 0 && (
-            <AttachmentList
-              attachments={message.attachments}
-              onImageClick={onImageClick ?? (() => {})}
-            />
-          )}
+          {/* Attachments — use rich MediaMessage for agent media, standard list for others */}
+          {message.attachments &&
+            message.attachments.length > 0 &&
+            (isAgent &&
+            message.attachments.some(
+              (a) =>
+                a.mimeType.startsWith('audio/') ||
+                a.mimeType.startsWith('video/') ||
+                a.mimeType.startsWith('model/'),
+            ) ? (
+              <MediaMessage attachments={message.attachments} onImageClick={onImageClick} />
+            ) : (
+              <AttachmentList
+                attachments={message.attachments}
+                onImageClick={onImageClick ?? (() => {})}
+              />
+            ))}
 
           {/* Reactions */}
           {message.reactions && message.reactions.length > 0 && (
@@ -581,6 +626,16 @@ export const MessageItem = memo(function MessageItem({
               currentUserId={actions.currentUser?.id}
               onToggle={actions.handleReaction}
             />
+          )}
+
+          {/* Thread replies indicator */}
+          {(replyCount ?? 0) > 0 && (
+            <button
+              onClick={() => onViewThread?.(message.id)}
+              className="text-xs text-accent hover:text-accent-hover mt-1 font-medium"
+            >
+              {t('thread.viewReplies', { count: replyCount })}
+            </button>
           )}
         </div>
       </div>

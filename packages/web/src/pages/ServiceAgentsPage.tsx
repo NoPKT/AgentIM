@@ -1,9 +1,146 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useServiceAgentsStore } from '../stores/serviceAgents.js'
 import { useAuthStore } from '../stores/auth.js'
 import { Button } from '../components/ui.js'
 import { toast } from '../stores/toast.js'
+import { api } from '../lib/api.js'
+import type { ServiceAgentCategory } from '@agentim/shared'
+
+interface ProviderMeta {
+  type: string
+  displayName: string
+  category: ServiceAgentCategory
+  description?: string
+  configSchema: {
+    type: string
+    properties?: Record<
+      string,
+      {
+        type: string
+        default?: unknown
+        enum?: string[]
+        format?: string
+        minimum?: number
+        maximum?: number
+        minLength?: number
+        maxLength?: number
+      }
+    >
+    required?: string[]
+  }
+}
+
+const CATEGORY_LABELS: Record<ServiceAgentCategory, string> = {
+  chat: 'serviceAgent.category.chat',
+  search: 'serviceAgent.category.search',
+  image: 'serviceAgent.category.image',
+  audio: 'serviceAgent.category.audio',
+  video: 'serviceAgent.category.video',
+  music: 'serviceAgent.category.music',
+  '3d': 'serviceAgent.category.3d',
+}
+
+const CATEGORY_COLORS: Record<ServiceAgentCategory, string> = {
+  chat: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  search: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  image: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
+  audio: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  video: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  music: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+  '3d': 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
+}
+
+function ConfigField({
+  name,
+  schema,
+  value,
+  onChange,
+  required,
+}: {
+  name: string
+  schema: NonNullable<ProviderMeta['configSchema']['properties']>[string]
+  value: unknown
+  onChange: (v: unknown) => void
+  required: boolean
+}) {
+  const { t } = useTranslation()
+  const label = t(`serviceAgent.configField.${name}`, { defaultValue: name })
+  const isSecret = name.toLowerCase().includes('key') || name.toLowerCase().includes('secret')
+
+  if (schema.enum) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-text-secondary mb-1">
+          {label}
+          {required && <span className="text-danger-text ml-0.5">*</span>}
+        </label>
+        <select
+          value={String(value ?? schema.default ?? '')}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+        >
+          {schema.enum.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
+  if (schema.type === 'number' || schema.type === 'integer') {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-text-secondary mb-1">
+          {label}
+          {required && <span className="text-danger-text ml-0.5">*</span>}
+        </label>
+        <input
+          type="number"
+          value={value != null ? String(value) : String(schema.default ?? '')}
+          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+          min={schema.minimum}
+          max={schema.maximum}
+          step={schema.type === 'integer' ? 1 : undefined}
+          className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+        />
+      </div>
+    )
+  }
+
+  if (schema.type === 'boolean') {
+    return (
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={Boolean(value ?? schema.default)}
+          onChange={(e) => onChange(e.target.checked)}
+          className="rounded border-border"
+        />
+        <span className="text-sm text-text-primary">{label}</span>
+      </label>
+    )
+  }
+
+  // String
+  return (
+    <div>
+      <label className="block text-xs font-medium text-text-secondary mb-1">
+        {label}
+        {required && <span className="text-danger-text ml-0.5">*</span>}
+      </label>
+      <input
+        type={isSecret ? 'password' : schema.format === 'url' ? 'url' : 'text'}
+        value={String(value ?? schema.default ?? '')}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={schema.default ? String(schema.default) : undefined}
+        className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent text-sm"
+      />
+    </div>
+  )
+}
 
 export default function ServiceAgentsPage() {
   const { t } = useTranslation()
@@ -11,19 +148,38 @@ export default function ServiceAgentsPage() {
     useServiceAgentsStore()
   const user = useAuthStore((s) => s.user)
   const [showCreate, setShowCreate] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'openai-compatible' as const,
-    description: '',
-    baseUrl: '',
-    apiKey: '',
-    model: '',
-  })
+  const [providers, setProviders] = useState<ProviderMeta[]>([])
+  const [selectedType, setSelectedType] = useState('')
+  const [formName, setFormName] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [configValues, setConfigValues] = useState<Record<string, unknown>>({})
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     fetchServiceAgents()
   }, [fetchServiceAgents])
+
+  const fetchProviders = useCallback(async () => {
+    try {
+      const res = await api.get<ProviderMeta[]>('/service-agents/providers')
+      if (res.ok && res.data) {
+        setProviders(res.data)
+        if (res.data.length > 0 && !selectedType) {
+          setSelectedType(res.data[0].type)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedType])
+
+  useEffect(() => {
+    if (showCreate && providers.length === 0) {
+      fetchProviders()
+    }
+  }, [showCreate, providers.length, fetchProviders])
+
+  const selectedProvider = providers.find((p) => p.type === selectedType)
 
   if (user?.role !== 'admin') {
     return (
@@ -34,27 +190,31 @@ export default function ServiceAgentsPage() {
   }
 
   const handleCreate = async () => {
+    if (!selectedProvider) return
     setCreating(true)
     try {
+      // Build config with defaults
+      const config: Record<string, unknown> = {}
+      const props = selectedProvider.configSchema.properties ?? {}
+      for (const [key, schema] of Object.entries(props)) {
+        const val = configValues[key]
+        if (val !== undefined && val !== '') {
+          config[key] = val
+        } else if (schema.default !== undefined) {
+          config[key] = schema.default
+        }
+      }
+
       await createServiceAgent({
-        name: formData.name,
-        type: formData.type,
-        description: formData.description || undefined,
-        config: {
-          baseUrl: formData.baseUrl,
-          apiKey: formData.apiKey,
-          model: formData.model,
-        },
+        name: formName,
+        type: selectedType,
+        description: formDescription || undefined,
+        config,
       })
       setShowCreate(false)
-      setFormData({
-        name: '',
-        type: 'openai-compatible',
-        description: '',
-        baseUrl: '',
-        apiKey: '',
-        model: '',
-      })
+      setFormName('')
+      setFormDescription('')
+      setConfigValues({})
       toast.success(t('serviceAgent.created'))
     } catch (err) {
       toast.error((err as Error).message)
@@ -73,6 +233,26 @@ export default function ServiceAgentsPage() {
     }
   }
 
+  const isFormValid = () => {
+    if (!formName.trim() || !selectedProvider) return false
+    const required = selectedProvider.configSchema.required ?? []
+    for (const key of required) {
+      const val = configValues[key]
+      if (val === undefined || val === '' || val === null) return false
+    }
+    return true
+  }
+
+  // Group providers by category
+  const categorized = providers.reduce(
+    (acc, p) => {
+      if (!acc[p.category]) acc[p.category] = []
+      acc[p.category].push(p)
+      return acc
+    },
+    {} as Record<string, ProviderMeta[]>,
+  )
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-4xl mx-auto">
@@ -85,60 +265,96 @@ export default function ServiceAgentsPage() {
         </div>
 
         {showCreate && (
-          <div className="mb-6 p-5 bg-surface border border-border rounded-xl space-y-3">
+          <div className="mb-6 p-5 bg-surface border border-border rounded-xl space-y-4">
             <h2 className="font-semibold text-text-primary">{t('serviceAgent.create')}</h2>
-            <input
-              type="text"
-              placeholder={t('serviceAgent.name')}
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="text"
-              placeholder={t('serviceAgent.descriptionPlaceholder')}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="url"
-              placeholder={t('serviceAgent.baseUrl')}
-              value={formData.baseUrl}
-              onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="password"
-              placeholder={t('serviceAgent.apiKey')}
-              value={formData.apiKey}
-              onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="text"
-              placeholder={t('serviceAgent.model')}
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <div className="flex gap-2 pt-1">
-              <Button
-                onClick={handleCreate}
-                disabled={
-                  creating ||
-                  !formData.name ||
-                  !formData.baseUrl ||
-                  !formData.apiKey ||
-                  !formData.model
-                }
-              >
-                {creating ? t('common.creating') : t('common.save')}
-              </Button>
-              <Button variant="secondary" onClick={() => setShowCreate(false)}>
-                {t('common.cancel')}
-              </Button>
+
+            {/* Provider type selector */}
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-2">
+                {t('serviceAgent.providerType')}
+              </label>
+              <div className="space-y-2">
+                {Object.entries(categorized).map(([cat, catProviders]) => (
+                  <div key={cat}>
+                    <span
+                      className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mb-1 ${CATEGORY_COLORS[cat as ServiceAgentCategory] ?? 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {t(CATEGORY_LABELS[cat as ServiceAgentCategory] ?? cat)}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {catProviders.map((p) => (
+                        <button
+                          key={p.type}
+                          onClick={() => {
+                            setSelectedType(p.type)
+                            setConfigValues({})
+                          }}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            selectedType === p.type
+                              ? 'border-accent bg-accent/10 text-accent font-medium'
+                              : 'border-border text-text-secondary hover:bg-surface-hover'
+                          }`}
+                        >
+                          {p.displayName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {selectedProvider && (
+              <>
+                {selectedProvider.description && (
+                  <p className="text-xs text-text-secondary">{selectedProvider.description}</p>
+                )}
+
+                {/* Name and description */}
+                <input
+                  type="text"
+                  placeholder={t('serviceAgent.name')}
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <input
+                  type="text"
+                  placeholder={t('serviceAgent.descriptionPlaceholder')}
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+
+                {/* Dynamic config fields */}
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-sm font-medium text-text-primary">
+                    {t('serviceAgent.configureApi')}
+                  </h3>
+                  {Object.entries(selectedProvider.configSchema.properties ?? {}).map(
+                    ([key, schema]) => (
+                      <ConfigField
+                        key={key}
+                        name={key}
+                        schema={schema}
+                        value={configValues[key]}
+                        onChange={(v) => setConfigValues((prev) => ({ ...prev, [key]: v }))}
+                        required={(selectedProvider.configSchema.required ?? []).includes(key)}
+                      />
+                    ),
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button onClick={handleCreate} disabled={creating || !isFormValid()}>
+                    {creating ? t('common.creating') : t('common.save')}
+                  </Button>
+                  <Button variant="secondary" onClick={() => setShowCreate(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -177,8 +393,13 @@ export default function ServiceAgentsPage() {
                     <div className="text-sm text-text-secondary mt-1">{sa.description}</div>
                   )}
                   <div className="flex items-center gap-2 mt-2">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[sa.category] ?? 'bg-gray-100 text-gray-700'}`}
+                    >
+                      {t(CATEGORY_LABELS[sa.category] ?? sa.category)}
+                    </span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-surface-hover text-text-secondary font-medium">
-                      {sa.type}
+                      {t(`serviceAgent.providers.${sa.type}`, { defaultValue: sa.type })}
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full font-medium ${
