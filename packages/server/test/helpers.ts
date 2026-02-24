@@ -110,6 +110,23 @@ export async function stopServer(): Promise<void> {
   }
 }
 
+/** Retry-aware fetch for CI resilience (server may be briefly unresponsive under load) */
+export async function fetchRetry(
+  url: string,
+  init?: RequestInit,
+  retries = 2,
+): Promise<Response> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fetch(url, init)
+    } catch (err) {
+      if (attempt === retries - 1) throw err
+      await new Promise((r) => setTimeout(r, 500))
+    }
+  }
+  throw new Error('unreachable')
+}
+
 /** Simple HTTP helper */
 export async function api(
   method: string,
@@ -121,7 +138,7 @@ export async function api(
   if (body) headers['Content-Type'] = 'application/json'
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetchRetry(`${BASE_URL}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

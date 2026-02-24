@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { startServer, stopServer, BASE_URL, registerUser } from './helpers.js'
+import { startServer, stopServer, BASE_URL, registerUser, fetchRetry } from './helpers.js'
 
 /** Upload helper: sends a multipart form with a File */
 async function upload(
@@ -11,7 +11,7 @@ async function upload(
   const form = new FormData()
   form.append('file', file)
 
-  const res = await fetch(`${BASE_URL}/api/upload${path}`, {
+  const res = await fetchRetry(`${BASE_URL}/api/upload${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: form,
@@ -177,7 +177,7 @@ describe('File Upload', () => {
 
     it('rejects request without a file', async () => {
       const form = new FormData()
-      const res = await fetch(`${BASE_URL}/api/upload`, {
+      const res = await fetchRetry(`${BASE_URL}/api/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${user.accessToken}` },
         body: form,
@@ -211,7 +211,7 @@ describe('File Upload', () => {
       const form = new FormData()
       form.append('file', file)
 
-      const res = await fetch(`${BASE_URL}/api/upload`, {
+      const res = await fetchRetry(`${BASE_URL}/api/upload`, {
         method: 'POST',
         body: form,
       })
@@ -224,7 +224,7 @@ describe('File Upload', () => {
       assert.equal(uploadRes.status, 200)
 
       const fileUrl = uploadRes.data.data.url
-      const fetchRes = await fetch(`${BASE_URL}${fileUrl}`, {
+      const fetchRes = await fetchRetry(`${BASE_URL}${fileUrl}`, {
         headers: { Authorization: `Bearer ${user.accessToken}` },
       })
       assert.equal(fetchRes.status, 200)
@@ -272,7 +272,7 @@ describe('File Upload', () => {
       const form = new FormData()
       form.append('file', file)
 
-      const res = await fetch(`${BASE_URL}/api/upload/avatar`, {
+      const res = await fetchRetry(`${BASE_URL}/api/upload/avatar`, {
         method: 'POST',
         body: form,
       })
