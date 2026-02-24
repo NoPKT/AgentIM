@@ -4,8 +4,6 @@ import {
   getAllSettings,
   setSetting,
   getSettingDefinition,
-} from '../lib/settings.js'
-import { reinitSentry } from '../lib/sentry.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { createLogger } from '../lib/logger.js'
 
