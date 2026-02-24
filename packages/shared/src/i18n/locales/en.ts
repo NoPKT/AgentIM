@@ -373,6 +373,7 @@ export const en = {
     validationGeneric: 'Please check your input and try again.',
     wsDisconnected: 'Connection lost. Reconnecting...',
     wsReconnected: 'Connection restored.',
+    wsQueueFull: 'Message queue full. Some messages may be lost. Please check your connection.',
     validation: {
       passwordLowercase: 'Password must contain a lowercase letter',
       passwordUppercase: 'Password must contain an uppercase letter',
@@ -479,6 +480,30 @@ export const en = {
     sourceDb: 'Database',
     sourceEnv: 'Environment Variable',
     sourceDefault: 'Default',
+  },
+  thread: {
+    title: 'Thread',
+    noReplies: 'No replies yet',
+    viewReplies: '{{count}} replies',
+    viewReplies_one: '{{count}} reply',
+  },
+  slashCommand: {
+    menu: 'Slash commands',
+  },
+  serviceAgent: {
+    title: 'Service Agents',
+    description: 'Manage server-side AI service agents',
+    create: 'Create Service Agent',
+    name: 'Name',
+    descriptionPlaceholder: 'Description (optional)',
+    baseUrl: 'Base URL (e.g. https://api.openai.com/v1)',
+    apiKey: 'API Key',
+    model: 'Model (e.g. gpt-4o)',
+    empty: 'No service agents',
+    emptyDesc: 'Create a service agent to enable server-side AI capabilities',
+    created: 'Service agent created',
+    deleted: 'Service agent deleted',
+    confirmDelete: 'Are you sure you want to delete this service agent?',
   },
   adminDashboard: {
     title: 'Dashboard',

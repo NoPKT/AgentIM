@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   LogoutIcon,
   DashboardIcon,
+  ServiceAgentsIcon,
 } from './icons.js'
 import { useSwipeToClose } from '../hooks/useSwipeToClose.js'
 
@@ -54,6 +55,11 @@ export function AppLayout() {
           },
           { path: '/users', label: t('settings.userManagement'), Icon: UsersIcon },
           { path: '/admin/settings', label: t('adminSettings.title'), Icon: SettingsIcon },
+          {
+            path: '/service-agents',
+            label: t('serviceAgent.title'),
+            Icon: ServiceAgentsIcon,
+          },
         ]
       : []),
     { path: '/agents', label: t('agent.agents'), Icon: AgentsIcon },

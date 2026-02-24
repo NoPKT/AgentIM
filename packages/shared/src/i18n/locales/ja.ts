@@ -372,6 +372,8 @@ export const ja = {
     validationGeneric: '入力内容を確認して再試行してください。',
     wsDisconnected: '接続が切断されました。再接続中...',
     wsReconnected: '接続が復元されました。',
+    wsQueueFull:
+      'メッセージキューが満杯です。一部のメッセージが失われる可能性があります。接続を確認してください。',
     validation: {
       passwordLowercase: 'パスワードには小文字を含める必要があります',
       passwordUppercase: 'パスワードには大文字を含める必要があります',
@@ -394,6 +396,30 @@ export const ja = {
   pwa: {
     updateAvailable: '新しいバージョンが利用可能です。',
     reload: '再読み込み',
+  },
+  thread: {
+    title: 'スレッド',
+    noReplies: 'まだ返信がありません',
+    viewReplies: '{{count}} 件の返信',
+    viewReplies_one: '{{count}} 件の返信',
+  },
+  slashCommand: {
+    menu: 'スラッシュコマンド',
+  },
+  serviceAgent: {
+    title: 'サービスエージェント',
+    description: 'サーバーサイドAIサービスエージェントを管理',
+    create: 'サービスエージェントを作成',
+    name: '名前',
+    descriptionPlaceholder: '説明（任意）',
+    baseUrl: 'ベースURL（例: https://api.openai.com/v1）',
+    apiKey: 'APIキー',
+    model: 'モデル（例: gpt-4o）',
+    empty: 'サービスエージェントがありません',
+    emptyDesc: 'サーバーサイドAI機能を有効にするためにサービスエージェントを作成してください',
+    created: 'サービスエージェントが作成されました',
+    deleted: 'サービスエージェントが削除されました',
+    confirmDelete: 'このサービスエージェントを削除してもよろしいですか？',
   },
   adminSettings: {
     title: 'システム設定',

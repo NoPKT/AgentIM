@@ -401,6 +401,30 @@ export const fr = {
     updateAvailable: 'Une nouvelle version est disponible.',
     reload: 'Recharger',
   },
+  thread: {
+    title: 'Fil de discussion',
+    noReplies: 'Pas encore de réponses',
+    viewReplies: '{{count}} réponses',
+    viewReplies_one: '{{count}} réponse',
+  },
+  slashCommand: {
+    menu: 'Commandes slash',
+  },
+  serviceAgent: {
+    title: 'Agents de service',
+    description: 'Gérer les agents de service IA côté serveur',
+    create: 'Créer un agent de service',
+    name: 'Nom',
+    descriptionPlaceholder: 'Description (optionnel)',
+    baseUrl: 'URL de base (ex. https://api.openai.com/v1)',
+    apiKey: 'Clé API',
+    model: 'Modèle (ex. gpt-4o)',
+    empty: 'Aucun agent de service',
+    emptyDesc: 'Créez un agent de service pour activer les capacités IA côté serveur',
+    created: 'Agent de service créé',
+    deleted: 'Agent de service supprimé',
+    confirmDelete: 'Êtes-vous sûr de vouloir supprimer cet agent de service ?',
+  },
   adminSettings: {
     title: 'Paramètres système',
     description:

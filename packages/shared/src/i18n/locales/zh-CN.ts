@@ -369,6 +369,7 @@ export const zhCN = {
     validationGeneric: '请检查输入后重试。',
     wsDisconnected: '连接已断开，正在重连...',
     wsReconnected: '连接已恢复。',
+    wsQueueFull: '消息队列已满，部分消息可能丢失。请检查网络连接。',
     validation: {
       passwordLowercase: '密码必须包含小写字母',
       passwordUppercase: '密码必须包含大写字母',
@@ -391,6 +392,30 @@ export const zhCN = {
   pwa: {
     updateAvailable: '新版本已就绪。',
     reload: '立即刷新',
+  },
+  thread: {
+    title: '话题',
+    noReplies: '暂无回复',
+    viewReplies: '{{count}} 条回复',
+    viewReplies_one: '{{count}} 条回复',
+  },
+  slashCommand: {
+    menu: '斜杠命令',
+  },
+  serviceAgent: {
+    title: '服务智能体',
+    description: '管理服务器端 AI 服务智能体',
+    create: '创建服务智能体',
+    name: '名称',
+    descriptionPlaceholder: '描述（可选）',
+    baseUrl: '基础 URL（例如 https://api.openai.com/v1）',
+    apiKey: 'API 密钥',
+    model: '模型（例如 gpt-4o）',
+    empty: '暂无服务智能体',
+    emptyDesc: '创建服务智能体以启用服务器端 AI 功能',
+    created: '服务智能体已创建',
+    deleted: '服务智能体已删除',
+    confirmDelete: '确定要删除此服务智能体吗？',
   },
   adminSettings: {
     title: '系统设置',
