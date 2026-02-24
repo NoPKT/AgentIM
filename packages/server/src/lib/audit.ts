@@ -38,15 +38,27 @@ interface AuditOptions {
   ipAddress?: string
 }
 
+const MAX_METADATA_SIZE = 4096 // 4KB limit for metadata JSON
+
 export async function logAudit(opts: AuditOptions): Promise<void> {
   try {
+    // Truncate oversized metadata to prevent DB row bloat
+    let metadata = opts.metadata ?? null
+    if (metadata) {
+      const json = JSON.stringify(metadata)
+      if (json.length > MAX_METADATA_SIZE) {
+        metadata = { _truncated: true, _originalSize: json.length }
+        log.warn(`Audit metadata truncated for action=${opts.action} (${json.length} bytes)`)
+      }
+    }
+
     await db.insert(auditLogs).values({
       id: nanoid(),
       userId: opts.userId ?? null,
       action: opts.action,
       targetId: opts.targetId,
       targetType: opts.targetType,
-      metadata: opts.metadata ?? null,
+      metadata,
       ipAddress: opts.ipAddress,
       createdAt: new Date().toISOString(),
     })

@@ -245,11 +245,20 @@ export function MessageInput() {
 
     const cursorPos = e.target.selectionStart
     const textBeforeCursor = newContent.slice(0, cursorPos)
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    // Find the last '@' that is either at position 0 or preceded by whitespace
+    // to avoid matching email addresses or other non-mention patterns
+    let lastAtIndex = -1
+    for (let i = textBeforeCursor.length - 1; i >= 0; i--) {
+      if (textBeforeCursor[i] === '@' && (i === 0 || /\s/.test(textBeforeCursor[i - 1]))) {
+        lastAtIndex = i
+        break
+      }
+    }
 
     if (lastAtIndex !== -1) {
       const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
-      if (!textAfterAt.includes(' ')) {
+      // Only show mention menu if no space appears after '@' (user is still typing the name)
+      if (textAfterAt.length === 0 || /^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/.test(textAfterAt)) {
         setMentionSearch(textAfterAt)
         setMentionPosition(lastAtIndex)
         setShowMentionMenu(true)

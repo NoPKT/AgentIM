@@ -1,5 +1,8 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { createAdapter, BaseAgentAdapter } from '../src/adapters/index.js'
 import type { MessageContext } from '../src/adapters/base.js'
 import { wsUrlToHttpUrl } from '../src/config.js'
@@ -308,5 +311,99 @@ describe('BaseAgentAdapter.buildPrompt', () => {
       roomContext: { roomId: 'r1', roomName: 'Room', members: [] },
     })
     assert.equal(result, '[From: Bob]\n\nHello')
+  })
+})
+
+// ─── Codex Adapter stop/dispose ───
+
+describe('CodexAdapter stop and dispose', () => {
+  it('stop resets isRunning flag', () => {
+    const adapter = createAdapter('codex', { agentId: 'cx-1', agentName: 'CodStop' })
+    adapter.stop()
+    assert.equal(adapter.running, false, 'running should be false after stop')
+    adapter.dispose()
+  })
+
+  it('dispose cleans up adapter state', () => {
+    const adapter = createAdapter('codex', { agentId: 'cx-2', agentName: 'CodDispose' })
+    adapter.dispose()
+    assert.equal(adapter.running, false, 'running should be false after dispose')
+  })
+
+  it('stop followed by dispose does not throw', () => {
+    const adapter = createAdapter('codex', { agentId: 'cx-3', agentName: 'CodBoth' })
+    adapter.stop()
+    adapter.dispose()
+    assert.equal(adapter.running, false)
+  })
+})
+
+// ─── Adapter edge cases ───
+
+describe('Adapter common behaviour', () => {
+  it('all adapter types start with running=false', () => {
+    for (const type of ['claude-code', 'codex', 'gemini', 'generic'] as const) {
+      const adapter = createAdapter(type, { agentId: `edge-${type}`, agentName: `E${type}` })
+      assert.equal(adapter.running, false, `${type} adapter should start not running`)
+      adapter.dispose()
+    }
+  })
+
+  it('adapter exposes agentId and agentName', () => {
+    const adapter = createAdapter('claude-code', { agentId: 'edge-id', agentName: 'EdgeName' })
+    assert.equal(adapter.agentId, 'edge-id')
+    assert.equal(adapter.agentName, 'EdgeName')
+    adapter.dispose()
+  })
+
+  it('double dispose does not throw', () => {
+    const adapter = createAdapter('claude-code', {
+      agentId: 'edge-dd',
+      agentName: 'DoubleDispose',
+    })
+    adapter.dispose()
+    adapter.dispose() // should not throw
+  })
+})
+
+// ─── AgentManager extended tests ───
+
+describe('AgentManager extended', () => {
+  let sentMessages: unknown[]
+  let manager: AgentManager
+
+  beforeEach(() => {
+    sentMessages = []
+    const mockWsClient = { send(msg: unknown) { sentMessages.push(msg) } }
+    manager = new AgentManager(mockWsClient as any)
+  })
+
+  it('removeAgent for same id twice is idempotent', () => {
+    const id = manager.addAgent({ type: 'claude-code', name: 'Idem' })
+    manager.removeAgent(id)
+    sentMessages.length = 0
+    manager.removeAgent(id) // should not send message
+    assert.equal(sentMessages.length, 0)
+  })
+
+  it('addAgent multiple agents and list all', () => {
+    const id1 = manager.addAgent({ type: 'claude-code', name: 'Multi1' })
+    const id2 = manager.addAgent({ type: 'codex', name: 'Multi2' })
+    const id3 = manager.addAgent({ type: 'generic', name: 'Multi3' })
+
+    const list = manager.listAgents()
+    assert.equal(list.length, 3)
+    const ids = list.map((a) => a.id)
+    assert.ok(ids.includes(id1))
+    assert.ok(ids.includes(id2))
+    assert.ok(ids.includes(id3))
+  })
+
+  it('handleServerMessage remove_agent cleans up agent', () => {
+    const id = manager.addAgent({ type: 'claude-code', name: 'RemTest' })
+    sentMessages.length = 0
+
+    manager.handleServerMessage({ type: 'server:remove_agent', agentId: id })
+    assert.equal(manager.listAgents().length, 0)
   })
 })

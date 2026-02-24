@@ -21,6 +21,7 @@ const SENSITIVE_KEYS = new Set([
   'secretkey',
   'secret_key',
   'p256dh',
+  'auth',
 ])
 
 function redactSensitive(obj: Record<string, unknown>): Record<string, unknown> {

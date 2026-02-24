@@ -1,4 +1,8 @@
+// Mention names: start with letter/underscore, followed by alphanumeric/underscore/hyphen
 const MENTION_REGEX = /@([a-zA-Z0-9_][a-zA-Z0-9_-]*)/g
+
+// Character class that can follow a valid mention name
+const MENTION_BOUNDARY = '[^a-zA-Z0-9_-]'
 
 export function parseMentions(content: string): string[] {
   const seen = new Set<string>()
@@ -15,7 +19,9 @@ export function parseMentions(content: string): string[] {
 }
 
 export function hasMention(content: string, name: string): boolean {
-  return new RegExp(`@${escapeRegex(name)}\\b`).test(content)
+  // Use the same character set as parseMentions: the name must be followed
+  // by a non-name character or end-of-string (consistent with MENTION_REGEX).
+  return new RegExp(`@${escapeRegex(name)}(?=${MENTION_BOUNDARY}|$)`).test(content)
 }
 
 function escapeRegex(s: string): string {

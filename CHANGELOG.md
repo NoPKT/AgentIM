@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Gateway: Codex adapter `stop()` now resets running state and discards thread to interrupt execution
+- Gateway: `isAgentimProcess` returns false on verification failure (prevents killing recycled PIDs)
+- Server: health check endpoint cached for 5 seconds to reduce DB/Redis probe frequency
+- Server: error handler status code restricted to valid 400–599 range (prevents leaking internal codes)
+- Server: audit log metadata truncated at 4KB to prevent DB row bloat
+- Server: added `auth` to logger sensitive key redaction list (Web Push auth tokens)
+- Web: fixed @mention menu not closing after space — now validates mention pattern before showing
+- Web: offline message dedup now compares mentions, attachments, and replyTo in addition to content
+- Shared: unified `hasMention` boundary matching to be consistent with `parseMentions` regex
+- Server: added unit tests for crypto (round-trip, wrong key), sanitize (XSS patterns), and token revocation
+- Gateway: added tests for Codex stop/dispose, adapter edge cases, and AgentManager extended scenarios
 - Replace hardcoded enums with constants in validators (ASSIGNEE_TYPES, NOTIFICATION_PREFS, MEMBER_TYPES)
 - Add missing User and Gateway validation schemas
 - Redis rate limiter fail-open with in-memory fallback instead of 503

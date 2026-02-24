@@ -61,8 +61,9 @@ function isAgentimProcess(pid: number): boolean {
     }).trim()
     return output.includes('agentim')
   } catch {
-    // If we cannot verify, assume it's valid to avoid false negatives
-    return true
+    // If we cannot verify, assume NOT an agentim process to avoid killing
+    // an unrelated process that recycled this PID.
+    return false
   }
 }
 

@@ -379,7 +379,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (wsClient.status !== 'connected') {
       // Dedup: skip if an identical pending message already exists for this room
       const existingPending = get().pendingMessages
-      const isDuplicate = existingPending.some((p) => p.roomId === roomId && p.content === content)
+      const mentionKey = mentions?.slice().sort().join(',') ?? ''
+      const attachKey = attachmentIds?.slice().sort().join(',') ?? ''
+      const isDuplicate = existingPending.some(
+        (p) =>
+          p.roomId === roomId &&
+          p.content === content &&
+          (p.mentions?.slice().sort().join(',') ?? '') === mentionKey &&
+          (p.attachmentIds?.slice().sort().join(',') ?? '') === attachKey &&
+          (p.replyToId ?? '') === (replyTo?.id ?? ''),
+      )
       if (!isDuplicate) {
         const pending: PendingMessage = {
           id: nanoid(),

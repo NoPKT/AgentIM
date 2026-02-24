@@ -229,7 +229,9 @@ app.onError((err, c) => {
   log.error(
     `Unhandled error [${errorId}]: ${err.message}${(err as Error).stack ? `\n${(err as Error).stack}` : ''}`,
   )
-  const status = 'status' in err && typeof err.status === 'number' ? err.status : 500
+  const rawStatus = 'status' in err && typeof err.status === 'number' ? err.status : 500
+  // Only allow valid HTTP client/server error codes; default to 500 for anything else
+  const status = rawStatus >= 400 && rawStatus < 600 ? rawStatus : 500
   return c.json(
     {
       ok: false,
@@ -241,7 +243,17 @@ app.onError((err, c) => {
 })
 
 // Health check (verifies DB + Redis + filesystem connectivity)
+// Cached for 5 seconds to avoid excessive DB/Redis probes under frequent polling
+let healthCache: { result: Record<string, unknown>; healthy: boolean; expiresAt: number } | null =
+  null
+const HEALTH_CACHE_TTL_MS = 5_000
+
 app.get('/api/health', async (c) => {
+  const now = Date.now()
+  if (healthCache && now < healthCache.expiresAt) {
+    return c.json(healthCache.result, healthCache.healthy ? 200 : 503)
+  }
+
   const checks: Record<string, boolean> = {}
 
   try {
@@ -274,19 +286,19 @@ app.get('/api/health', async (c) => {
 
   const healthy = Object.values(checks).every(Boolean)
   const mem = process.memoryUsage()
-  return c.json(
-    {
-      ok: healthy,
-      timestamp: new Date().toISOString(),
-      checks,
-      system: {
-        memoryMB: Math.round(mem.rss / 1024 / 1024),
-        heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
-        uptimeSeconds: Math.round(process.uptime()),
-      },
+  const result = {
+    ok: healthy,
+    timestamp: new Date().toISOString(),
+    checks,
+    system: {
+      memoryMB: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+      uptimeSeconds: Math.round(process.uptime()),
     },
-    healthy ? 200 : 503,
-  )
+  }
+
+  healthCache = { result, healthy, expiresAt: now + HEALTH_CACHE_TTL_MS }
+  return c.json(result, healthy ? 200 : 503)
 })
 
 // Register active rooms getter for Prometheus metrics

@@ -172,9 +172,15 @@ export class CodexAdapter extends BaseAgentAdapter {
 
   stop() {
     log.info('Codex stop requested')
+    this.isRunning = false
+    // Codex SDK doesn't expose a cancellation API on the Thread object,
+    // so we discard the current thread to prevent further event processing.
+    // A new thread will be created on the next sendMessage() call.
+    this.thread = undefined
   }
 
   dispose() {
+    this.isRunning = false
     this.thread = undefined
     this.threadId = undefined
     this.codex = undefined
