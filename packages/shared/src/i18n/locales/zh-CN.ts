@@ -382,6 +382,7 @@ export const zhCN = {
       avatarUrlTraversal: '头像 URL 不能包含路径遍历',
       avatarUrlInvalid: '头像 URL 包含无效字符',
       toolInputTooManyKeys: '工具输入键数过多',
+      toolInputKeyTooLong: '工具输入键名过长',
     },
   },
   a11y: {

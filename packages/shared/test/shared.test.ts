@@ -18,12 +18,19 @@ import {
   updateUserSchema,
   clientMessageSchema,
   gatewayMessageSchema,
+  createRouterSchema,
+  updateRouterSchema,
+  gatewayPermissionRequestSchema,
+  serverPermissionRequestSchema,
+  toolInputSchema,
   AGENT_TYPES,
   AGENT_STATUSES,
   ROOM_TYPES,
   ROUTING_MODES,
   AGENT_CONNECTION_TYPES,
   MAX_MESSAGE_LENGTH,
+  MAX_TOOL_INPUT_KEYS,
+  MAX_TOOL_INPUT_KEY_LENGTH,
   WS_CLIENT_MESSAGE_SIZE_LIMIT,
   WS_GATEWAY_MESSAGE_SIZE_LIMIT,
 } from '../src/index.js'
@@ -625,4 +632,106 @@ describe('i18n translation completeness', () => {
       assert.deepEqual(collectKeys(locale).sort(), enKeys)
     })
   }
+})
+
+// ─── createRouterSchema / updateRouterSchema superRefine ─────────────────────
+
+describe('createRouterSchema superRefine', () => {
+  const baseRouter = {
+    name: 'test-router',
+    llmBaseUrl: 'https://api.example.com',
+    llmApiKey: 'sk-test',
+    llmModel: 'gpt-4',
+  }
+
+  it('rejects visibility=whitelist with empty visibilityList', () => {
+    const result = createRouterSchema.safeParse({
+      ...baseRouter,
+      visibility: 'whitelist',
+      visibilityList: [],
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts visibility=whitelist with non-empty visibilityList', () => {
+    const result = createRouterSchema.safeParse({
+      ...baseRouter,
+      visibility: 'whitelist',
+      visibilityList: ['room1'],
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('updateRouterSchema superRefine', () => {
+  it('rejects visibility=blacklist with empty visibilityList', () => {
+    const result = updateRouterSchema.safeParse({
+      visibility: 'blacklist',
+      visibilityList: [],
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts visibility=all with empty visibilityList', () => {
+    const result = updateRouterSchema.safeParse({
+      visibility: 'all',
+      visibilityList: [],
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── toolInput schema boundary tests ─────────────────────────────────────────
+
+describe('toolInputSchema', () => {
+  it('rejects when key count exceeds MAX_TOOL_INPUT_KEYS', () => {
+    const obj: Record<string, unknown> = {}
+    for (let i = 0; i <= MAX_TOOL_INPUT_KEYS; i++) {
+      obj[`key${i}`] = 'value'
+    }
+    const result = toolInputSchema.safeParse(obj)
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects when a single key exceeds MAX_TOOL_INPUT_KEY_LENGTH', () => {
+    const longKey = 'k'.repeat(MAX_TOOL_INPUT_KEY_LENGTH + 1)
+    const result = toolInputSchema.safeParse({ [longKey]: 'value' })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts valid toolInput data', () => {
+    const result = toolInputSchema.safeParse({ foo: 'bar', baz: 42 })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('behaves identically in gatewayPermissionRequestSchema and serverPermissionRequestSchema', () => {
+    const tooManyKeys: Record<string, unknown> = {}
+    for (let i = 0; i <= MAX_TOOL_INPUT_KEYS; i++) {
+      tooManyKeys[`key${i}`] = 'v'
+    }
+
+    const gatewayResult = gatewayPermissionRequestSchema.safeParse({
+      type: 'gateway:permission_request',
+      requestId: 'req-1',
+      agentId: 'agent-1',
+      roomId: 'room-1',
+      toolName: 'test-tool',
+      toolInput: tooManyKeys,
+      timeoutMs: 5000,
+    })
+
+    const serverResult = serverPermissionRequestSchema.safeParse({
+      type: 'server:permission_request',
+      requestId: 'req-1',
+      agentId: 'agent-1',
+      agentName: 'Agent',
+      roomId: 'room-1',
+      toolName: 'test-tool',
+      toolInput: tooManyKeys,
+      expiresAt: new Date().toISOString(),
+    })
+
+    assert.strictEqual(gatewayResult.success, false)
+    assert.strictEqual(serverResult.success, false)
+  })
 })

@@ -323,4 +323,78 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().terminalBuffers.has('agent-1')).toBe(false)
     })
   })
+
+  // ── editMessage() optimistic update ─────────────────────────────────────────
+
+  describe('editMessage()', () => {
+    it('optimistically updates message content on success', async () => {
+      const { api } = await import('../lib/api.js')
+      const msg = makeMessage({ id: 'msg-1', roomId: 'room-1', content: 'original' })
+      useChatStore.getState().addMessage(msg)
+
+      vi.mocked(api.put).mockResolvedValueOnce({
+        ok: true,
+        data: { ...msg, content: 'edited' },
+        status: 200,
+      })
+
+      await useChatStore.getState().editMessage('msg-1', 'edited')
+      const msgs = useChatStore.getState().messages.get('room-1')!
+      expect(msgs[0].content).toBe('edited')
+    })
+
+    it('reverts and shows toast on API failure', async () => {
+      const { api } = await import('../lib/api.js')
+      const { toast } = await import('./toast.js')
+      const msg = makeMessage({ id: 'msg-1', roomId: 'room-1', content: 'original' })
+      useChatStore.getState().addMessage(msg)
+
+      vi.mocked(api.put).mockResolvedValueOnce({
+        ok: false,
+        data: null,
+        error: 'Server error',
+        status: 500,
+      })
+
+      await useChatStore.getState().editMessage('msg-1', 'edited')
+      const msgs = useChatStore.getState().messages.get('room-1')!
+      expect(msgs[0].content).toBe('original')
+      expect(toast.error).toHaveBeenCalled()
+    })
+  })
+
+  // ── deleteMessage() optimistic update ───────────────────────────────────────
+
+  describe('deleteMessage()', () => {
+    it('optimistically removes message on success', async () => {
+      const { api } = await import('../lib/api.js')
+      const msg = makeMessage({ id: 'msg-1', roomId: 'room-1' })
+      useChatStore.getState().addMessage(msg)
+
+      vi.mocked(api.delete).mockResolvedValueOnce({ ok: true, data: null, status: 200 })
+
+      await useChatStore.getState().deleteMessage('msg-1')
+      const msgs = useChatStore.getState().messages.get('room-1')!
+      expect(msgs.find((m) => m.id === 'msg-1')).toBeUndefined()
+    })
+
+    it('restores message and shows toast on API failure', async () => {
+      const { api } = await import('../lib/api.js')
+      const { toast } = await import('./toast.js')
+      const msg = makeMessage({ id: 'msg-1', roomId: 'room-1' })
+      useChatStore.getState().addMessage(msg)
+
+      vi.mocked(api.delete).mockResolvedValueOnce({
+        ok: false,
+        data: null,
+        error: 'Server error',
+        status: 500,
+      })
+
+      await useChatStore.getState().deleteMessage('msg-1')
+      const msgs = useChatStore.getState().messages.get('room-1')!
+      expect(msgs.find((m) => m.id === 'msg-1')).toBeDefined()
+      expect(toast.error).toHaveBeenCalled()
+    })
+  })
 })

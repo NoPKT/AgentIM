@@ -8,7 +8,7 @@ type ReconnectHandler = () => void
 
 const PING_INTERVAL = 30_000
 const PONG_TIMEOUT = 10_000
-const MAX_QUEUE_SIZE = 100
+const MAX_QUEUE_SIZE = 500
 const MAX_RECONNECT_ATTEMPTS = 50
 
 export class WsClient {

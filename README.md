@@ -15,6 +15,12 @@
   </p>
 </p>
 
+<p align="center">
+  <a href="https://github.com/NoPKT/AgentIM/actions/workflows/ci.yml"><img src="https://github.com/NoPKT/AgentIM/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/NoPKT/AgentIM/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NoPKT/AgentIM" alt="License"></a>
+  <a href="https://www.npmjs.com/package/agentim"><img src="https://img.shields.io/npm/v/agentim" alt="npm version"></a>
+</p>
+
 ---
 
 ## What is AgentIM?
@@ -32,6 +38,11 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI *(coming soon
 - **File Sharing** — Upload and share files, images, and documents in chat
 - **Dark Mode** — Full dark mode support across the entire UI
 - **Multilingual** — English, 简体中文, 日本語, 한국어, Français, Deutsch, Русский
+
+### Preview
+
+<!-- TODO: Replace with actual screenshots -->
+> Screenshots coming soon. Run `pnpm dev` to see the UI locally.
 
 ## How It Works
 

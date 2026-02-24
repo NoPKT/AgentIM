@@ -18,6 +18,7 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 - **Errors**: Return proper HTTP status codes, never throw unhandled
 - **WebSocket**: All messages use the protocol types from `@agentim/shared`
 - **i18n**: All user-facing strings must use i18next keys, support EN + ZH-CN + JA + KO + FR + DE + RU
+- **Versioning**: SemVer (0.x.y); CHANGELOG `[Unreleased]` always on top; never auto-create git tags or bump versions without explicit user request
 
 ## Commands
 

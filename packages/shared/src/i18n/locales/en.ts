@@ -386,6 +386,7 @@ export const en = {
       avatarUrlTraversal: 'Avatar URL must not contain path traversal',
       avatarUrlInvalid: 'Avatar URL contains invalid characters',
       toolInputTooManyKeys: 'Tool input has too many keys',
+      toolInputKeyTooLong: 'Tool input key is too long',
     },
   },
   a11y: {

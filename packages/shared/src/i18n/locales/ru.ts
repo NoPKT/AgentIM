@@ -389,6 +389,7 @@ export const ru = {
       avatarUrlTraversal: 'URL аватара не должен содержать обход пути',
       avatarUrlInvalid: 'URL аватара содержит недопустимые символы',
       toolInputTooManyKeys: 'Слишком много ключей во входных данных инструмента',
+      toolInputKeyTooLong: 'Ключ входных данных инструмента слишком длинный',
     },
   },
   a11y: {

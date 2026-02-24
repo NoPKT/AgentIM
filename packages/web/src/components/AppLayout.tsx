@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/auth.js'
 import { RoomList } from './RoomList.js'
+import { ErrorBoundary } from './ErrorBoundary.js'
 import {
   CloseIcon,
   MenuIcon,
@@ -109,7 +110,18 @@ export function AppLayout() {
 
         {/* Room List */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          <RoomList onRoomSelect={closeSidebar} />
+          <ErrorBoundary
+            fallback={(_err, retry) => (
+              <div className="p-4 text-center text-text-secondary">
+                <p className="mb-2">{t('error.generic')}</p>
+                <button className="text-sm text-accent hover:underline" onClick={retry}>
+                  {t('common.retry')}
+                </button>
+              </div>
+            )}
+          >
+            <RoomList onRoomSelect={closeSidebar} />
+          </ErrorBoundary>
         </div>
 
         {/* Bottom Navigation */}

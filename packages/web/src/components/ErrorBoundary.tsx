@@ -13,6 +13,7 @@ export function setErrorReporter(reporter: ErrorReporter) {
 
 interface Props {
   children: ReactNode
+  fallback?: (error: Error | undefined, retry: () => void) => ReactNode
 }
 
 interface State {
@@ -115,6 +116,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback(this.state.error, () =>
+          this.setState({ hasError: false, error: undefined }),
+        )
+      }
       return (
         <ErrorFallback
           error={this.state.error}

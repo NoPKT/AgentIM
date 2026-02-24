@@ -600,15 +600,73 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   editMessage: async (messageId, content) => {
-    const res = await api.put<Message>(`/messages/${messageId}`, { content })
-    if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to edit message')
-    // The WS broadcast will handle UI update via updateMessage
+    // Optimistic update: find message and update content immediately
+    let prevMessage: Message | undefined
+    let roomId: string | undefined
+    const prevMessages = get().messages
+    for (const [rid, msgs] of prevMessages) {
+      const found = msgs.find((m) => m.id === messageId)
+      if (found) {
+        prevMessage = found
+        roomId = rid
+        break
+      }
+    }
+    if (prevMessage && roomId) {
+      const optimistic = new Map(prevMessages)
+      optimistic.set(
+        roomId,
+        optimistic.get(roomId)!.map((m) => (m.id === messageId ? { ...m, content } : m)),
+      )
+      set({ messages: optimistic })
+    }
+    try {
+      const res = await api.put<Message>(`/messages/${messageId}`, { content })
+      if (!res.ok || !res.data) {
+        // Revert on failure
+        if (prevMessage) set({ messages: prevMessages })
+        toast.error(res.error ?? 'Failed to edit message')
+      }
+    } catch {
+      // Revert on error
+      if (prevMessage) set({ messages: prevMessages })
+      toast.error('Failed to edit message')
+    }
   },
 
   deleteMessage: async (messageId) => {
-    const res = await api.delete(`/messages/${messageId}`)
-    if (!res.ok) throw new Error(res.error ?? 'Failed to delete message')
-    // The WS broadcast will handle UI update via removeMessage
+    // Optimistic update: find and remove message immediately
+    let prevMessage: Message | undefined
+    let roomId: string | undefined
+    const prevMessages = get().messages
+    for (const [rid, msgs] of prevMessages) {
+      const found = msgs.find((m) => m.id === messageId)
+      if (found) {
+        prevMessage = found
+        roomId = rid
+        break
+      }
+    }
+    if (prevMessage && roomId) {
+      const optimistic = new Map(prevMessages)
+      optimistic.set(
+        roomId,
+        optimistic.get(roomId)!.filter((m) => m.id !== messageId),
+      )
+      set({ messages: optimistic })
+    }
+    try {
+      const res = await api.delete(`/messages/${messageId}`)
+      if (!res.ok) {
+        // Revert on failure
+        if (prevMessage) set({ messages: prevMessages })
+        toast.error(res.error ?? 'Failed to delete message')
+      }
+    } catch {
+      // Revert on error
+      if (prevMessage) set({ messages: prevMessages })
+      toast.error('Failed to delete message')
+    }
   },
 
   toggleReaction: async (messageId, emoji) => {

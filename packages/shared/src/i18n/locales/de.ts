@@ -391,6 +391,7 @@ export const de = {
       avatarUrlTraversal: 'Avatar-URL darf keine Pfadtraversierung enthalten',
       avatarUrlInvalid: 'Avatar-URL enthält ungültige Zeichen',
       toolInputTooManyKeys: 'Tool-Eingabe hat zu viele Schlüssel',
+      toolInputKeyTooLong: 'Tool-Eingabeschlüssel ist zu lang',
     },
   },
   a11y: {

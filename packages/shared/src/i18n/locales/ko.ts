@@ -384,6 +384,7 @@ export const ko = {
       avatarUrlTraversal: '아바타 URL에 경로 순회가 포함될 수 없습니다',
       avatarUrlInvalid: '아바타 URL에 잘못된 문자가 포함되어 있습니다',
       toolInputTooManyKeys: '도구 입력 키가 너무 많습니다',
+      toolInputKeyTooLong: '도구 입력 키가 너무 깁니다',
     },
   },
   a11y: {

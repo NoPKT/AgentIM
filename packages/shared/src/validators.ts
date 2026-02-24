@@ -32,6 +32,19 @@ import {
   PERMISSION_DECISIONS,
 } from './constants.js'
 
+// ─── Shared Tool Input Schema ───
+
+export const toolInputSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (obj) => Object.keys(obj).length <= MAX_TOOL_INPUT_KEYS,
+    'validation.toolInputTooManyKeys',
+  )
+  .refine(
+    (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
+    'validation.toolInputKeyTooLong',
+  )
+
 // ─── Password Complexity ───
 
 const passwordSchema = z
@@ -448,16 +461,7 @@ export const gatewayPermissionRequestSchema = z.object({
   agentId: z.string().min(1),
   roomId: z.string().min(1),
   toolName: z.string().min(1).max(200),
-  toolInput: z
-    .record(z.string(), z.unknown())
-    .refine(
-      (obj) => Object.keys(obj).length <= MAX_TOOL_INPUT_KEYS,
-      'validation.toolInputTooManyKeys',
-    )
-    .refine(
-      (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
-      'validation.toolInputKeyTooLong',
-    ),
+  toolInput: toolInputSchema,
   timeoutMs: z.number().int().min(1000).max(600_000),
 })
 
@@ -721,16 +725,7 @@ export const serverPermissionRequestSchema = z.object({
   agentName: z.string(),
   roomId: z.string(),
   toolName: z.string(),
-  toolInput: z
-    .record(z.string(), z.unknown())
-    .refine(
-      (obj) => Object.keys(obj).length <= MAX_TOOL_INPUT_KEYS,
-      'validation.toolInputTooManyKeys',
-    )
-    .refine(
-      (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
-      'validation.toolInputKeyTooLong',
-    ),
+  toolInput: toolInputSchema,
   expiresAt: z.string(),
 })
 

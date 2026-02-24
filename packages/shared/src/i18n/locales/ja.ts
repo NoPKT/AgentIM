@@ -385,6 +385,7 @@ export const ja = {
       avatarUrlTraversal: 'アバターURLにパストラバーサルを含めることはできません',
       avatarUrlInvalid: 'アバターURLに無効な文字が含まれています',
       toolInputTooManyKeys: 'ツール入力のキーが多すぎます',
+      toolInputKeyTooLong: 'ツール入力キーが長すぎます',
     },
   },
   a11y: {
