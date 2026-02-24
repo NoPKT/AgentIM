@@ -41,7 +41,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // 获取当前房间的流式消息
+  // Get streaming messages for current room
   const streamingMessages = useMemo(
     () =>
       currentRoomId
