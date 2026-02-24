@@ -33,6 +33,7 @@ import { refreshTokens } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
 import { startGatewayCleanup, stopGatewayCleanup } from './lib/gatewayCleanup.js'
 import { routerRoutes } from './routes/routers.js'
+import serviceAgentsRoutes from './routes/serviceAgents.js'
 import { docsRoutes } from './routes/docs.js'
 import { settingsRoutes } from './routes/settings.js'
 import { connectionManager } from './ws/connections.js'
@@ -402,6 +403,7 @@ app.route('/api/agents', agentRoutes)
 app.route('/api/tasks', taskRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/routers', routerRoutes)
+app.route('/api/service-agents', serviceAgentsRoutes)
 app.route('/api/docs', docsRoutes)
 app.route('/api/admin/settings', settingsRoutes)
 app.route('/api/push', pushRoutes)

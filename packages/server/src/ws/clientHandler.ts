@@ -17,7 +17,15 @@ import { createLogger } from '../lib/logger.js'
 import { captureException } from '../lib/sentry.js'
 import { config, getConfigSync } from '../config.js'
 import { db } from '../db/index.js'
-import { messages, rooms, roomMembers, agents, messageAttachments, users } from '../db/schema.js'
+import {
+  messages,
+  rooms,
+  roomMembers,
+  agents,
+  messageAttachments,
+  users,
+  serviceAgents,
+} from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { getRedis, isRedisEnabled } from '../lib/redis.js'
 import { selectAgents } from '../lib/routerLlm.js'
@@ -26,6 +34,7 @@ import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 import { getRoomMemberRole } from '../lib/roomAccess.js'
 import { incCounter } from '../lib/metrics.js'
+import { handleServiceAgentMention } from '../lib/serviceAgentHandler.js'
 
 const log = createLogger('ClientHandler')
 
@@ -750,6 +759,20 @@ async function routeToAgents(
     }
   }
 
+  // Check for service agent mentions
+  const allServiceAgents = await db.select().from(serviceAgents)
+  for (const mention of serverMentions) {
+    const sa = allServiceAgents.find(
+      (s) => s.name.toLowerCase() === mention.toLowerCase() && s.status === 'active',
+    )
+    if (sa) {
+      // Handle asynchronously — don't block the message flow
+      handleServiceAgentMention(sa.id, roomId, message.content, message.senderName).catch((err) =>
+        log.error(`Service agent handler error: ${(err as Error).message}`),
+      )
+    }
+  }
+
   // Two-mode routing decision matrix:
   // has @mention (any room)            → direct: only mentioned agents receive
   // broadcast + no mention + AI Router → broadcast: AI Router selects agents
@@ -816,7 +839,24 @@ async function routeToAgents(
       conversationId,
       depth: 0,
     }
-    connectionManager.sendToGateway(agent.id, sendMsg)
+    const sent = connectionManager.sendToGateway(agent.id, sendMsg)
+    if (!sent) {
+      // Notify room that agent is offline
+      connectionManager.broadcastToRoom(roomId, {
+        type: 'server:new_message',
+        message: {
+          id: nanoid(),
+          roomId,
+          senderId: 'system',
+          senderType: 'system' as const,
+          senderName: 'System',
+          type: 'system' as const,
+          content: `Agent @${agent.name} is currently offline and cannot receive messages.`,
+          mentions: [],
+          createdAt: new Date().toISOString(),
+        },
+      })
+    }
   }
 }
 

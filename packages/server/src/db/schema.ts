@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   pgTable,
   text,
@@ -102,6 +103,27 @@ export const agents = pgTable(
     index('agents_last_seen_idx').on(table.lastSeenAt),
   ],
 )
+
+// ─── Service Agents ───
+
+export const serviceAgents = pgTable('service_agents', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull().default('openai-compatible'),
+  description: text('description'),
+  status: text('status').notNull().default('active'),
+  configEncrypted: text('config_encrypted').notNull(),
+  avatarUrl: text('avatar_url'),
+  createdById: text('created_by_id')
+    .notNull()
+    .references(() => users.id),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`now()`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`now()`),
+})
 
 // ─── Routers ───
 

@@ -731,3 +731,71 @@ messageRoutes.post('/batch-delete', async (c) => {
 
   return c.json({ ok: true, data: { deleted: deletableIds.length } })
 })
+
+// Get thread (replies to a message)
+messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
+  const { messageId } = c.req.param()
+
+  const replies = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.replyToId, messageId))
+    .orderBy(messages.createdAt)
+
+  // Fetch attachments for all replies
+  const replyIds = replies.map((r) => r.id)
+  const attachments =
+    replyIds.length > 0
+      ? await db
+          .select()
+          .from(messageAttachments)
+          .where(inArray(messageAttachments.messageId, replyIds))
+      : []
+
+  const attachmentMap = new Map<string, (typeof attachments)[number][]>()
+  for (const att of attachments) {
+    const list = attachmentMap.get(att.messageId!) ?? []
+    list.push(att)
+    attachmentMap.set(att.messageId!, list)
+  }
+
+  const result = replies.map((r) => ({
+    ...r,
+    attachments:
+      attachmentMap.get(r.id)?.map((a) => ({
+        id: a.id,
+        messageId: a.messageId,
+        filename: a.filename,
+        mimeType: a.mimeType,
+        size: a.size,
+        url: a.url,
+      })) ?? [],
+  }))
+
+  return c.json({ ok: true, data: result })
+})
+
+// Get reply count for a message
+messageRoutes.get('/:messageId/replies/count', authMiddleware, async (c) => {
+  const { messageId } = c.req.param()
+
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(messages)
+    .where(eq(messages.replyToId, messageId))
+
+  return c.json({ ok: true, data: { count: Number(result[0]?.count ?? 0) } })
+})
+
+// Get message edit history
+messageRoutes.get('/:messageId/edits', authMiddleware, async (c) => {
+  const { messageId } = c.req.param()
+
+  const edits = await db
+    .select()
+    .from(messageEdits)
+    .where(eq(messageEdits.messageId, messageId))
+    .orderBy(messageEdits.editedAt)
+
+  return c.json({ ok: true, data: edits })
+})
