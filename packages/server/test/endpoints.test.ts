@@ -27,7 +27,6 @@ describe('Endpoint Coverage', () => {
     it('marks all rooms as read', async () => {
       const user = await registerUser('markall_user')
       const room = await api('POST', '/api/rooms', { name: 'MarkAll Room' }, user.accessToken)
-      const roomId = room.data.data.id
 
       const res = await api('POST', '/api/messages/mark-all-read', undefined, user.accessToken)
       assert.equal(res.status, 200)
