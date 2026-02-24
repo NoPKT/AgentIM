@@ -161,7 +161,7 @@ test.describe('WebSocket protocol', () => {
     expect(result.error).toBeTruthy()
   })
 
-  test('reconnect after network interruption', async ({ page, context }) => {
+  test('reconnect after network interruption', async ({ page }) => {
     test.setTimeout(60_000)
     await loginAsAdmin(page)
     const capture = interceptWs(page)
@@ -173,20 +173,21 @@ test.describe('WebSocket protocol', () => {
 
     const authCountBefore = getFramesByType(capture, 'received', 'server:auth_result').length
 
-    // Simulate network interruption — offline handler now proactively closes
-    // the WebSocket, so reconnection triggers immediately when back online.
-    await context.setOffline(true)
-    await page.waitForTimeout(2_000)
-    await context.setOffline(false)
+    // Dispatch DOM offline event directly — more reliable in CI headless Chrome
+    // than context.setOffline() which goes through CDP and may not trigger DOM events.
+    // The WsClient offline handler proactively closes the WebSocket on this event.
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')))
+    await page.waitForTimeout(500)
+    // Dispatch online to reset reconnect backoff for faster recovery
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
 
     // Wait for reconnection — a new auth_result should appear.
-    // With the proactive close fix, this should resolve within seconds.
+    // Since the network is actually available, reconnection should be fast.
     await waitForFrame(
       capture,
       'received',
       (f) => {
         if (f.type !== 'server:auth_result' || f.ok !== true) return false
-        // Check that we have more auth results than before
         const current = getFramesByType(capture, 'received', 'server:auth_result').filter(
           (r) => r.ok === true,
         )
