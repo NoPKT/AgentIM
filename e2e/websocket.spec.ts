@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, getAccessToken } from './helpers'
+import { loginAsAdmin } from './helpers'
 import { interceptWs, waitForFrame, getFramesByType } from './ws-helpers'
 
 /**
