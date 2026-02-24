@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createAdapter, BaseAgentAdapter } from '../src/adapters/index.js'
 import type { MessageContext } from '../src/adapters/base.js'
