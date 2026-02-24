@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, ne, and, sql, inArray } from 'drizzle-orm'
+import { eq, and, sql, inArray } from 'drizzle-orm'
 import { hash, verify } from 'argon2'
 import { db } from '../db/index.js'
 import {
@@ -32,7 +32,6 @@ import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
-import { config } from '../config.js'
 import { cacheDel, userCacheKey } from '../lib/cache.js'
 import { getStorage } from '../storage/index.js'
 

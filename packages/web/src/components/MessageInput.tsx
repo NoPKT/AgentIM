@@ -14,7 +14,7 @@ import {
   MAX_MESSAGE_LENGTH,
   ALLOWED_MIME_TYPES,
 } from '@agentim/shared'
-import type { MessageAttachment } from '@agentim/shared'
+
 import { toast } from '../stores/toast.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'

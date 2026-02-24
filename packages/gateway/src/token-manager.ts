@@ -1,4 +1,4 @@
-import { loadConfig, saveConfig, type GatewayConfig } from './config.js'
+import { saveConfig, type GatewayConfig } from './config.js'
 import { createLogger } from './lib/logger.js'
 
 const log = createLogger('TokenManager')

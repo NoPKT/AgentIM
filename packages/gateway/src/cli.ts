@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { program } from 'commander'
 import { nanoid } from 'nanoid'
-import { loadConfig, saveConfig, getConfigPath, clearConfig, wsUrlToHttpUrl } from './config.js'
+import { loadConfig, saveConfig, getConfigPath, clearConfig } from './config.js'
 import { getDeviceInfo } from './device.js'
 
 const require = createRequire(import.meta.url)

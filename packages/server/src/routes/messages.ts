@@ -328,7 +328,6 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
 messageRoutes.post('/:id/reactions', async (c) => {
   const messageId = c.req.param('id')
   const userId = c.get('userId')
-  const username = c.get('username')
   const body = await parseJsonBody(c)
   if (body instanceof Response) return body
   const emoji = (body as Record<string, unknown>)?.emoji

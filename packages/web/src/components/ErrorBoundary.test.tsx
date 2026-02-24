@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { ErrorBoundary } from './ErrorBoundary.js'
 
 const consoleError = console.error
@@ -23,28 +23,6 @@ function NormalChild() {
 
 function ThrowingChild(): ReactNode {
   throw new Error('Test render error')
-}
-
-/**
- * A wrapper that lets us toggle whether the child throws from outside.
- * This avoids the re-throw problem when clicking "retry" while the
- * original throwing child is still in the tree.
- */
-function ToggleWrapper() {
-  const [throwing, setThrowing] = useState(true)
-  return (
-    <ErrorBoundary>
-      {throwing ? (
-        <div>
-          <ThrowingChild />
-          {/* This won't render but keeps TypeScript happy */}
-          <button onClick={() => setThrowing(false)}>stop</button>
-        </div>
-      ) : (
-        <NormalChild />
-      )}
-    </ErrorBoundary>
-  )
 }
 
 describe('ErrorBoundary', () => {

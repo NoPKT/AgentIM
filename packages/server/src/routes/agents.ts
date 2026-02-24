@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, ne, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agents, gateways, roomMembers, rooms, users } from '../db/schema.js'
+import { agents, gateways, roomMembers, users } from '../db/schema.js'
 import { updateAgentSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import {
