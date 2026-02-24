@@ -251,7 +251,7 @@ export interface ServiceAgent {
 // ─── Slash Commands ───
 
 export interface SlashCommand {
-  name: SlashCommandName
+  name: string
   description: string
   usage: string
 }
