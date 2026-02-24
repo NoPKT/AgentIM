@@ -221,7 +221,7 @@ pnpm test             # Запустить все тесты
 
 ## Лицензия
 
-Copyright (c) 2025 NoPKT LLC. Все права защищены.
+Copyright (c) 2023-2026 NoPKT LLC. Все права защищены.
 
 Этот проект лицензирован под **GNU Affero General Public License v3.0 (AGPL-3.0)** — подробности см. в файле [LICENSE](LICENSE).
 

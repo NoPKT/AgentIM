@@ -221,7 +221,7 @@ pnpm test             # 运行所有测试
 
 ## 许可证
 
-Copyright (c) 2025 NoPKT LLC. 保留所有权利。
+Copyright (c) 2023-2026 NoPKT LLC. 保留所有权利。
 
 本项目采用 **GNU Affero 通用公共许可证 v3.0 (AGPL-3.0)** 授权 —— 详见 [LICENSE](LICENSE) 文件。
 

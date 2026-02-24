@@ -221,7 +221,7 @@ pnpm test             # すべてのテストを実行
 
 ## ライセンス
 
-Copyright (c) 2025 NoPKT LLC. All rights reserved.
+Copyright (c) 2023-2026 NoPKT LLC. All rights reserved.
 
 本プロジェクトは **GNU Affero General Public License v3.0 (AGPL-3.0)** の下でライセンスされています —— 詳細は [LICENSE](LICENSE) ファイルをご覧ください。
 
