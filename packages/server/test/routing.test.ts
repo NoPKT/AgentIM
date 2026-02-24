@@ -693,7 +693,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
       const convId = 'visited-test-conv'
 
       // Step 1: A mentions B → B should receive
