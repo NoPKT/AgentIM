@@ -23,6 +23,7 @@ describe('Message Routing', () => {
     await stopServer()
   })
 
+  const AGENT_REGISTRATION_DELAY_MS = 300
   const openSockets: WebSocket[] = []
   afterEach(() => {
     for (const ws of openSockets) {
@@ -67,7 +68,7 @@ describe('Message Routing', () => {
         },
       }),
     )
-    await new Promise((r) => setTimeout(r, 300))
+    await new Promise((r) => setTimeout(r, AGENT_REGISTRATION_DELAY_MS))
     return gw
   }
 
