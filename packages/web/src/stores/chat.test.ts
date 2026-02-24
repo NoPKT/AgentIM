@@ -335,7 +335,6 @@ describe('useChatStore', () => {
       vi.mocked(api.put).mockResolvedValueOnce({
         ok: true,
         data: { ...msg, content: 'edited' },
-        status: 200,
       })
 
       await useChatStore.getState().editMessage('msg-1', 'edited')
@@ -351,9 +350,7 @@ describe('useChatStore', () => {
 
       vi.mocked(api.put).mockResolvedValueOnce({
         ok: false,
-        data: null,
         error: 'Server error',
-        status: 500,
       })
 
       await useChatStore.getState().editMessage('msg-1', 'edited')
@@ -371,7 +368,7 @@ describe('useChatStore', () => {
       const msg = makeMessage({ id: 'msg-1', roomId: 'room-1' })
       useChatStore.getState().addMessage(msg)
 
-      vi.mocked(api.delete).mockResolvedValueOnce({ ok: true, data: null, status: 200 })
+      vi.mocked(api.delete).mockResolvedValueOnce({ ok: true, data: null })
 
       await useChatStore.getState().deleteMessage('msg-1')
       const msgs = useChatStore.getState().messages.get('room-1')!
@@ -386,9 +383,7 @@ describe('useChatStore', () => {
 
       vi.mocked(api.delete).mockResolvedValueOnce({
         ok: false,
-        data: null,
         error: 'Server error',
-        status: 500,
       })
 
       await useChatStore.getState().deleteMessage('msg-1')
