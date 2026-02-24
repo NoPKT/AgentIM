@@ -55,6 +55,8 @@ class ConnectionManager {
 
   // Agent IDs deleted while their gateway was offline.
   // Prevents resurrection via reRegisterAll() on reconnect.
+  // Capped to prevent unbounded growth in long-lived processes.
+  private static MAX_DELETED_AGENT_IDS = 10_000
   private deletedAgentIds = new Set<string>()
 
   // User ID → count of active connections (a user may have multiple tabs)
@@ -353,6 +355,11 @@ class ConnectionManager {
    * cannot resurrect it via reRegisterAll().
    */
   markAgentDeleted(agentId: string) {
+    // Evict oldest entries if at capacity
+    if (this.deletedAgentIds.size >= ConnectionManager.MAX_DELETED_AGENT_IDS) {
+      const first = this.deletedAgentIds.values().next().value
+      if (first) this.deletedAgentIds.delete(first)
+    }
     this.deletedAgentIds.add(agentId)
   }
 
