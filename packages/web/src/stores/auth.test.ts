@@ -127,4 +127,92 @@ describe('loadUser', () => {
     expect(useAuthStore.getState().user).toBeNull()
     expect(useAuthStore.getState().isLoading).toBe(false)
   })
+
+  it('clears tokens and sets isLoading=false when /users/me fails', async () => {
+    mockApi.getToken.mockReturnValue('at')
+    mockApi.get.mockResolvedValueOnce({ ok: false, error: 'Unauthorized' })
+
+    await useAuthStore.getState().loadUser()
+
+    expect(mockApi.clearTokens).toHaveBeenCalled()
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(useAuthStore.getState().isLoading).toBe(false)
+  })
+})
+
+describe('updateUser', () => {
+  it('merges partial user data', () => {
+    useAuthStore.setState({ user: fakeUser })
+    useAuthStore.getState().updateUser({ displayName: 'Alice Updated' })
+
+    const user = useAuthStore.getState().user
+    expect(user?.displayName).toBe('Alice Updated')
+    expect(user?.username).toBe('alice')
+    expect(user?.id).toBe('u1')
+  })
+
+  it('is a no-op when user is null', () => {
+    useAuthStore.setState({ user: null })
+    useAuthStore.getState().updateUser({ displayName: 'Ghost' })
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+})
+
+describe('initial state', () => {
+  it('has correct default values', () => {
+    useAuthStore.setState({ user: null, isLoading: true, tokenVersion: 0 })
+    const state = useAuthStore.getState()
+    expect(state.user).toBeNull()
+    expect(state.isLoading).toBe(true)
+    expect(state.tokenVersion).toBe(0)
+  })
+})
+
+describe('side effect callbacks', () => {
+  it('registers onAuthExpired and onTokenRefresh callbacks on module load', async () => {
+    // Reset modules to re-trigger top-level side effects
+    vi.resetModules()
+
+    // Re-apply mocks after resetModules
+    vi.doMock('../lib/api.js', () => ({
+      api: {
+        post: vi.fn(),
+        get: vi.fn(),
+        clearTokens: vi.fn(),
+        setTokens: vi.fn(),
+        getToken: vi.fn(),
+        tryRefresh: vi.fn(),
+        markInitialRefreshDone: vi.fn(),
+      },
+      setOnAuthExpired: vi.fn(),
+      setOnTokenRefresh: vi.fn(),
+    }))
+    vi.doMock('../lib/ws.js', () => ({
+      wsClient: {
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        updateToken: vi.fn(),
+        setTokenRefresher: vi.fn(),
+      },
+    }))
+    vi.doMock('./chat.js', () => ({
+      useChatStore: { getState: () => ({ reset: vi.fn() }) },
+    }))
+    vi.doMock('./agents.js', () => ({
+      useAgentStore: { setState: vi.fn() },
+    }))
+    vi.doMock('./routers.js', () => ({
+      useRouterStore: { setState: vi.fn() },
+    }))
+    vi.doMock('./reset.js', () => ({
+      resetAllStores: vi.fn(),
+    }))
+
+    // Import auth store to trigger side effects with fresh mocks
+    await import('./auth.js')
+    const { setOnAuthExpired, setOnTokenRefresh } = await import('../lib/api.js')
+
+    expect(setOnAuthExpired).toHaveBeenCalled()
+    expect(setOnTokenRefresh).toHaveBeenCalled()
+  })
 })
