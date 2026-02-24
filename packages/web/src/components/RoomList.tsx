@@ -111,7 +111,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
     (e: React.KeyboardEvent) => {
       if (!sortedRooms.length) return
       const currentIndex = sortedRooms.findIndex((r) => r.id === currentRoomId)
-      let nextIndex: number | null = null
+      let nextIndex: number
 
       switch (e.key) {
         case 'ArrowDown':
@@ -134,10 +134,8 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
           return
       }
 
-      if (nextIndex !== null) {
-        const room = sortedRooms[nextIndex]
-        handleRoomClick(room.id)
-      }
+      const room = sortedRooms[nextIndex]
+      handleRoomClick(room.id)
     },
     [sortedRooms, currentRoomId, handleRoomClick],
   )

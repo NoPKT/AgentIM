@@ -246,30 +246,31 @@ export function MessageList({ onImageClick }: MessageListProps) {
         ))}
 
         {/* 已读回执 */}
-        {currentRoomId &&
-          (() => {
-            const receipts = (readReceipts.get(currentRoomId) ?? []).filter(
-              (r) => r.userId !== currentUser?.id,
-            )
-            if (receipts.length === 0) return null
-            return (
-              <div className="flex items-center gap-1 px-6 py-1.5 justify-end">
-                <span className="text-xs text-text-muted mr-1">{t('chat.readBy')}</span>
-                {receipts.slice(0, 5).map((r) => (
-                  <span
-                    key={r.userId}
-                    title={r.username}
-                    className="w-5 h-5 rounded-full bg-text-muted flex items-center justify-center text-[9px] font-medium text-white"
-                  >
-                    {r.username.charAt(0).toUpperCase()}
-                  </span>
-                ))}
-                {receipts.length > 5 && (
-                  <span className="text-xs text-text-muted">+{receipts.length - 5}</span>
-                )}
-              </div>
-            )
-          })()}
+        {(() => {
+          const receipts = (currentRoomId ? (readReceipts.get(currentRoomId) ?? []) : []).filter(
+            (r) => r.userId !== currentUser?.id,
+          )
+
+          if (receipts.length === 0) return null
+
+          return (
+            <div className="flex items-center gap-1 px-6 py-1.5 justify-end">
+              <span className="text-xs text-text-muted mr-1">{t('chat.readBy')}</span>
+              {receipts.slice(0, 5).map((r) => (
+                <span
+                  key={r.userId}
+                  title={r.username}
+                  className="w-5 h-5 rounded-full bg-text-muted flex items-center justify-center text-[9px] font-medium text-white"
+                >
+                  {r.username.charAt(0).toUpperCase()}
+                </span>
+              ))}
+              {receipts.length > 5 && (
+                <span className="text-xs text-text-muted">+{receipts.length - 5}</span>
+              )}
+            </div>
+          )
+        })()}
 
         {/* 自动滚动锚点 */}
         <div ref={scrollToBottomRef} />

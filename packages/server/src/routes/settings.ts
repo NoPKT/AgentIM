@@ -1,12 +1,6 @@
 import { Hono } from 'hono'
 import { authMiddleware, adminMiddleware, type AuthEnv } from '../middleware/auth.js'
-import {
-  getAllSettings,
-  setSetting,
-  getSettingDefinition,
-  invalidateCache,
-  SETTING_DEFINITIONS,
-} from '../lib/settings.js'
+import { getAllSettings, setSetting, getSettingDefinition } from '../lib/settings.js'
 import { reinitSentry } from '../lib/sentry.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { createLogger } from '../lib/logger.js'
