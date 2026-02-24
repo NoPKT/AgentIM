@@ -155,6 +155,8 @@ describe('Endpoint Coverage', () => {
     let roomId: string
     let messageId: string
 
+    const EDIT_DELAY_MS = 100
+
     before(async () => {
       const user = await registerUser('history_user')
       token = user.accessToken
@@ -180,9 +182,9 @@ describe('Endpoint Coverage', () => {
       ws.close()
 
       await api('PUT', `/api/messages/${messageId}`, { content: 'First edit' }, token)
-      await new Promise((r) => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, EDIT_DELAY_MS))
       await api('PUT', `/api/messages/${messageId}`, { content: 'Second edit' }, token)
-      await new Promise((r) => setTimeout(r, 100))
+      await new Promise((r) => setTimeout(r, EDIT_DELAY_MS))
     })
 
     it('returns edit history', async () => {
