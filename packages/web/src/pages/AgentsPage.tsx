@@ -121,7 +121,7 @@ export default function AgentsPage() {
           <div className="mt-10">
             <h2 className="text-xl font-bold text-text-primary mb-1">{t('agent.gateways')}</h2>
             <p className="text-sm text-text-secondary mb-4">
-              {t('agent.agentsConnected', { count: gateways.length })}
+              {t('agent.gatewaysConnected', { count: gateways.length })}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {gateways.map((gw) => (
@@ -311,7 +311,9 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
               <span
                 className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
               />
-              <span className="text-xs text-text-secondary">{isOnline ? 'Online' : 'Offline'}</span>
+              <span className="text-xs text-text-secondary">
+                {isOnline ? t('common.online') : t('common.offline')}
+              </span>
             </div>
           </div>
         </div>

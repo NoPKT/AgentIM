@@ -219,6 +219,8 @@ export const en = {
     noGateways: 'No gateways connected',
     agentsConnected: '{{count}} agents connected',
     agentsConnected_one: '{{count}} agent connected',
+    gatewaysConnected: '{{count}} gateways connected',
+    gatewaysConnected_one: '{{count}} gateway connected',
     capabilities: 'Capabilities',
     visibility: 'Visibility',
     visibilityPrivate: 'Private',
