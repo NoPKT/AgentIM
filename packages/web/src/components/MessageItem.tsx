@@ -24,29 +24,6 @@ import {
   TrashIcon,
 } from './icons.js'
 
-interface MessageItemProps {
-  message: Message
-  showHeader?: boolean
-  onImageClick?: (url: string) => void
-  onViewThread?: (messageId: string) => void
-  replyCount?: number
-}
-
-const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
-
-// ─── Sub-components ───
-
-function FileTypeIcon({ mimeType }: { mimeType: string }) {
-  if (mimeType.startsWith('video/')) {
-    return <VideoIcon className="w-5 h-5 text-file-video flex-shrink-0" />
-  }
-  if (mimeType.startsWith('audio/')) {
-    return <MusicNoteIcon className="w-5 h-5 text-file-audio flex-shrink-0" />
-  }
-  if (mimeType === 'application/pdf') {
-    return <DocumentIcon className="w-5 h-5 text-danger-text flex-shrink-0" />
-  }
-  if (
     mimeType.includes('zip') ||
     mimeType.includes('tar') ||
     mimeType.includes('compress') ||
