@@ -635,7 +635,7 @@ describe('Message Routing', () => {
         user.accessToken,
       )
 
-      const client = await setupClient(user, roomId)
+      await setupClient(user, roomId)
 
       // Case 1: depth under limit (default maxAgentChainDepth=5) — should route
       const collectOk = wsCollect(gw2, 'server:send_to_agent', 2000)
