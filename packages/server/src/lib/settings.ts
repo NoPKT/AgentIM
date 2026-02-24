@@ -400,8 +400,15 @@ export async function getSetting(key: string): Promise<string> {
   try {
     const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1)
     if (row) {
-      setCache(key, row.value)
-      return row.value
+      let val = row.value
+      const def = DEFINITION_MAP.get(key)
+      if (def?.sensitive && val.startsWith('enc:')) {
+        const { decryptSecret } = await import('./crypto.js')
+        const decrypted = decryptSecret(val)
+        if (decrypted !== null) val = decrypted
+      }
+      setCache(key, val)
+      return val
     }
   } catch (err) {
     log.warn(`Failed to read setting "${key}" from DB: ${(err as Error).message}`)
@@ -463,16 +470,23 @@ export async function setSetting(
   const error = validateSetting(def, value)
   if (error) return { ok: false, error }
 
+  // Encrypt sensitive values before storing
+  let storeValue = value
+  if (def.sensitive) {
+    const { encryptSecret } = await import('./crypto.js')
+    storeValue = encryptSecret(value)
+  }
+
   const now = new Date().toISOString()
 
   try {
     // Upsert: INSERT ON CONFLICT UPDATE
     await db
       .insert(settings)
-      .values({ key, value, updatedAt: now, updatedBy: userId ?? null })
+      .values({ key, value: storeValue, updatedAt: now, updatedBy: userId ?? null })
       .onConflictDoUpdate({
         target: settings.key,
-        set: { value, updatedAt: now, updatedBy: userId ?? null },
+        set: { value: storeValue, updatedAt: now, updatedBy: userId ?? null },
       })
     setCache(key, value)
     return { ok: true }
@@ -503,9 +517,19 @@ export async function getAllSettings(): Promise<
     }>
   >
 > {
-  // Load all DB settings
+  // Load all DB settings and decrypt sensitive values
   const dbRows = await db.select().from(settings)
-  const dbMap = new Map(dbRows.map((r) => [r.key, r.value]))
+  const dbMap = new Map<string, string>()
+  for (const r of dbRows) {
+    let val = r.value
+    const def = DEFINITION_MAP.get(r.key)
+    if (def?.sensitive && val.startsWith('enc:')) {
+      const { decryptSecret } = await import('./crypto.js')
+      const decrypted = decryptSecret(val)
+      if (decrypted !== null) val = decrypted
+    }
+    dbMap.set(r.key, val)
+  }
 
   const groups: Record<string, Array<ReturnType<typeof mapDef>>> = {}
 
@@ -589,7 +613,14 @@ export async function preloadSettings(): Promise<void> {
   try {
     const rows = await db.select().from(settings)
     for (const row of rows) {
-      setCache(row.key, row.value)
+      let val = row.value
+      const def = DEFINITION_MAP.get(row.key)
+      if (def?.sensitive && val.startsWith('enc:')) {
+        const { decryptSecret } = await import('./crypto.js')
+        const decrypted = decryptSecret(val)
+        if (decrypted !== null) val = decrypted
+      }
+      setCache(row.key, val)
     }
     allCacheLoaded = true
     allCacheExpiresAt = Date.now() + CACHE_TTL_MS

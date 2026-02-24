@@ -690,10 +690,11 @@ async function handleSendMessage(
   }
 
   // Route to agents based on server-parsed mentions and broadcast mode
-  await routeToAgents(txResult.room, message, serverParsedMentions, client.userId)
+  await routeToAgents(ws, txResult.room, message, serverParsedMentions, client.userId)
 }
 
 async function routeToAgents(
+  ws: WSContext,
   room: {
     id: string
     broadcastMode: boolean
@@ -712,7 +713,14 @@ async function routeToAgents(
     const requiredLevel = ROLE_HIERARCHY[room.agentCommandRole] ?? 0
     const senderRole = await getRoomMemberRole(senderId, roomId)
     const senderLevel = senderRole ? (ROLE_HIERARCHY[senderRole] ?? 0) : 0
-    if (senderLevel < requiredLevel) return
+    if (senderLevel < requiredLevel) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:error',
+        code: WS_ERROR_CODES.PERMISSION_DENIED,
+        message: 'Insufficient permissions to command agents in this room',
+      })
+      return
+    }
   }
 
   // Get agent members in this room

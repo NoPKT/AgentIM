@@ -9,6 +9,7 @@ import {
   PERMISSION_TIMEOUT_MS,
   MAX_FULL_CONTENT_SIZE,
   MAX_JSON_DEPTH,
+  MAX_STREAM_TOTAL_SIZE,
 } from '@agentim/shared'
 import type {
   ServerSendToAgent,
@@ -34,6 +35,25 @@ import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 const log = createLogger('GatewayHandler')
 
 const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
+
+/** Track cumulative size of streaming messages. Key = messageId, Value = total bytes so far */
+const streamSizeTracker = new Map<string, number>()
+const MAX_STREAM_TRACKER_SIZE = 10_000
+
+// Clean up expired stream size tracker entries every 60 seconds
+setInterval(() => {
+  // Simple eviction: if tracker is over 80% capacity, clear oldest entries
+  if (streamSizeTracker.size > MAX_STREAM_TRACKER_SIZE * 0.8) {
+    const entriesToRemove = streamSizeTracker.size - Math.floor(MAX_STREAM_TRACKER_SIZE * 0.5)
+    let removed = 0
+    for (const key of streamSizeTracker.keys()) {
+      if (removed >= entriesToRemove) break
+      streamSizeTracker.delete(key)
+      removed++
+    }
+    log.debug(`Evicted ${removed} stream size tracker entries`)
+  }
+}, 60_000).unref()
 
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
 function safeJsonParse(raw: string, maxDepth: number): unknown {
@@ -521,6 +541,28 @@ async function handleMessageChunk(
     return
   }
 
+  // Track cumulative stream size
+  const currentTotal = streamSizeTracker.get(msg.messageId) ?? 0
+  const newTotal = currentTotal + msg.chunk.content.length
+  if (newTotal > MAX_STREAM_TOTAL_SIZE) {
+    log.warn(
+      `Agent ${msg.agentId} exceeded stream total size limit (${newTotal} bytes) for message ${msg.messageId}`,
+    )
+    streamSizeTracker.delete(msg.messageId)
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:error' as const,
+      code: 'STREAM_TOO_LARGE',
+      message: `Stream total size exceeds maximum (${MAX_STREAM_TOTAL_SIZE} bytes)`,
+    })
+    return
+  }
+  // Enforce tracker capacity
+  if (streamSizeTracker.size >= MAX_STREAM_TRACKER_SIZE && !streamSizeTracker.has(msg.messageId)) {
+    const oldestKey = streamSizeTracker.keys().next().value
+    if (oldestKey) streamSizeTracker.delete(oldestKey)
+  }
+  streamSizeTracker.set(msg.messageId, newTotal)
+
   const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
 
@@ -597,6 +639,9 @@ async function handleMessageComplete(
   const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'
   const now = new Date().toISOString()
+
+  // Clean up stream size tracker
+  streamSizeTracker.delete(msg.messageId)
 
   // Enforce a size cap on chunks to prevent oversized DB writes.
   // Chunks are a structured representation of the response (text, thinking, tool_use, etc.)
