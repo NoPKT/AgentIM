@@ -33,7 +33,7 @@ interface AuditOptions {
   userId?: string | null
   action: AuditAction
   targetId?: string
-  targetType?: 'user' | 'router' | 'room' | 'file' | 'member' | 'message'
+  targetType?: 'user' | 'router' | 'room' | 'file' | 'member' | 'message' | 'setting'
   metadata?: Record<string, unknown>
   ipAddress?: string
 }

@@ -221,6 +221,8 @@ export const de = {
     noGateways: 'Keine Gateways verbunden',
     agentsConnected: '{{count}} Agenten verbunden',
     agentsConnected_one: '{{count}} Agent verbunden',
+    gatewaysConnected: '{{count}} Gateways verbunden',
+    gatewaysConnected_one: '{{count}} Gateway verbunden',
     capabilities: 'Fähigkeiten',
     visibility: 'Sichtbarkeit',
     visibilityPrivate: 'Privat',

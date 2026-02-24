@@ -41,7 +41,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // 获取当前房间的流式消息
+  // Get streaming messages for current room
   const streamingMessages = useMemo(
     () =>
       currentRoomId
@@ -75,7 +75,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
     overscan: 5,
   })
 
-  // 自动滚动到底部(新消息或流式消息更新时), throttled to avoid layout thrashing
+  // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)
   useEffect(() => {
     if (!scrollToBottomRef.current || isScrolledUp) return
@@ -160,7 +160,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
         aria-relevant="additions"
         aria-label={t('chat.messages')}
       >
-        {/* 加载更多按钮 */}
+        {/* Load more button */}
         {currentHasMore && (
           <div className="p-4 text-center">
             <button
@@ -195,7 +195,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           </div>
         )}
 
-        {/* 虚拟化消息列表 */}
+        {/* Virtualized message list */}
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -236,7 +236,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           })}
         </div>
 
-        {/* 流式消息 */}
+        {/* Streaming messages */}
         {streamingMessages.map((streamMsg) => (
           <StreamingMessage
             key={streamMsg.messageId}
@@ -245,7 +245,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           />
         ))}
 
-        {/* 已读回执 */}
+        {/* Read receipts */}
         {(() => {
           const receipts = (currentRoomId ? (readReceipts.get(currentRoomId) ?? []) : []).filter(
             (r) => r.userId !== currentUser?.id,
@@ -272,7 +272,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
           )
         })()}
 
-        {/* 自动滚动锚点 */}
+        {/* Auto-scroll anchor */}
         <div ref={scrollToBottomRef} />
       </div>
 

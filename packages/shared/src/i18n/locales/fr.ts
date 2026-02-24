@@ -221,6 +221,8 @@ export const fr = {
     noGateways: 'Aucune passerelle connectée',
     agentsConnected: '{{count}} agents connectés',
     agentsConnected_one: '{{count}} agent connecté',
+    gatewaysConnected: '{{count}} passerelles connectées',
+    gatewaysConnected_one: '{{count}} passerelle connectée',
     capabilities: 'Capacités',
     visibility: 'Visibilité',
     visibilityPrivate: 'Privé',

@@ -56,7 +56,7 @@ settingsRoutes.put('/', async (c) => {
     logAudit({
       userId,
       action: 'setting_update',
-      targetType: 'user',
+      targetType: 'setting',
       metadata: { keys: updated },
       ipAddress: getClientIp(c),
     })

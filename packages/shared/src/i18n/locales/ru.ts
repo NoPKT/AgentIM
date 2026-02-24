@@ -219,6 +219,8 @@ export const ru = {
     noGateways: 'Нет подключённых шлюзов',
     agentsConnected: '{{count}} агентов подключено',
     agentsConnected_one: '{{count}} агент подключён',
+    gatewaysConnected: '{{count}} шлюзов подключено',
+    gatewaysConnected_one: '{{count}} шлюз подключён',
     capabilities: 'Возможности',
     visibility: 'Видимость',
     visibilityPrivate: 'Личный',
