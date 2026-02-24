@@ -2,7 +2,6 @@ import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 
 // We test the custom-adapters module by pointing ADAPTERS_FILE to a temp dir.
 // Since the module uses homedir(), we override it via module-level mocking.
