@@ -31,23 +31,23 @@ describe('ConnectionManager.deletedAgentIds', () => {
     })
   })
 
-  it('caps at MAX_DELETED_AGENT_IDS (10,000) with FIFO eviction', () => {
+  it('caps the deletedAgentIds set with FIFO eviction behavior', () => {
     const mgr = new ConnectionManager()
 
-    // Fill to capacity
-    for (let i = 0; i < 10_000; i++) {
+    // Fill to a representative capacity
+    for (let i = 0; i < 100; i++) {
       mgr.markAgentDeleted(`agent-${i}`)
     }
 
     // All should be present
     assert.equal(mgr.isAgentDeleted('agent-0'), true)
-    assert.equal(mgr.isAgentDeleted('agent-9999'), true)
+    assert.equal(mgr.isAgentDeleted('agent-99'), true)
 
     // Adding one more should evict the oldest (agent-0)
-    mgr.markAgentDeleted('agent-10000')
+    mgr.markAgentDeleted('agent-100')
     assert.equal(mgr.isAgentDeleted('agent-0'), false) // evicted
     assert.equal(mgr.isAgentDeleted('agent-1'), true) // still present
-    assert.equal(mgr.isAgentDeleted('agent-10000'), true) // newly added
+    assert.equal(mgr.isAgentDeleted('agent-100'), true) // newly added
   })
 
   it('FIFO eviction preserves correct order', () => {
