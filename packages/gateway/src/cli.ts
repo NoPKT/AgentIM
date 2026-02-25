@@ -152,6 +152,7 @@ program
       agentType = await promptSelect('Select agent type:', [
         { label: 'Claude Code', value: 'claude-code' },
         { label: 'Codex', value: 'codex' },
+        { label: 'OpenCode', value: 'opencode' },
         { label: 'Gemini (Coming Soon)', value: 'gemini' },
       ])
     }
@@ -223,6 +224,40 @@ program
       await runWrapper({ type: 'codex', name, workDir, env, passEnv, permissionLevel })
     } else {
       spawnDaemon(name, 'codex', workDir, env, permissionLevel)
+    }
+  })
+
+// ─── agentim opencode [path] ───
+
+program
+  .command('opencode [path]')
+  .description('Start an OpenCode agent (background daemon)')
+  .option('-n, --name <name>', 'Agent name')
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
+  .option('--foreground', 'Run in foreground instead of daemonizing')
+  .option(
+    '--pass-env <keys>',
+    'Comma-separated env var names to whitelist through the security filter',
+  )
+  .option('--no-security-warning', 'Suppress the security warning banner')
+  .action(async (path, opts) => {
+    printSecurityBanner(!opts.securityWarning)
+    const workDir = path ?? process.cwd()
+    const name = opts.name ?? generateAgentName('opencode', workDir)
+    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
+    let agentConfig = loadAgentConfig('opencode')
+    if (!agentConfig) {
+      log.info('No credentials configured for OpenCode.')
+      log.info('Running setup wizard...')
+      await runSetupWizard('opencode')
+      agentConfig = loadAgentConfig('opencode')
+    }
+    const env = agentConfig ? agentConfigToEnv('opencode', agentConfig) : {}
+    const passEnv = parsePassEnv(opts.passEnv)
+    if (opts.foreground) {
+      await runWrapper({ type: 'opencode', name, workDir, env, passEnv, permissionLevel })
+    } else {
+      spawnDaemon(name, 'opencode', workDir, env, permissionLevel)
     }
   })
 

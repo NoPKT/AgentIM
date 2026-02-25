@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial scaffolding of AgentIM
 - Hub server with PostgreSQL + Redis, built on Hono and Drizzle ORM
 - React 19 PWA web client with dark mode support
-- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI *(coming soon)*, generic)
+- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI *(coming soon)*, OpenCode, generic)
+- OpenCode adapter with auto-managed server lifecycle, SSE streaming, session persistence, and delta-based text tracking
 - Real-time streaming with thinking/tool-use visualization
 - Smart routing: broadcast and direct mode with @mention-based targeting
 - Agent-to-agent communication with loop protection (depth limit, visited dedup, rate limit)

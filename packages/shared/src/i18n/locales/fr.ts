@@ -238,6 +238,7 @@ export const fr = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
+    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: 'Générique',
     deleteGateway: 'Supprimer la passerelle',

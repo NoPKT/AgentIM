@@ -54,6 +54,9 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.104.0
         version: 0.104.0
+      '@opencode-ai/sdk':
+        specifier: ^1.2.12
+        version: 1.2.12
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -1399,6 +1402,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@opencode-ai/sdk@1.2.12':
+    resolution: {integrity: sha512-j5yVFoGvT3FVWJrZPWHgUcoDl38bB8gZF5NJ30PeqDPoS6kEfFIS4LzJmibNxD/rRM79C5KKgnQAQNet8JB8CQ==}
 
   '@phc/format@1.0.0':
     resolution: {integrity: sha512-m7X9U6BG2+J+R1lSOdCiITLLrxm+cWlNI3HUFA92oLO77ObGNzaKdh8pMLqdZcshtkKuV84olNNXDfMc4FezBQ==}
@@ -6245,6 +6251,8 @@ snapshots:
 
   '@openai/codex@0.104.0-win32-x64':
     optional: true
+
+  '@opencode-ai/sdk@1.2.12': {}
 
   '@phc/format@1.0.0': {}
 

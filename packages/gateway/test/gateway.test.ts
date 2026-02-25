@@ -335,11 +335,53 @@ describe('CodexAdapter stop and dispose', () => {
   })
 })
 
+// ─── OpenCode Adapter ───
+
+describe('OpenCodeAdapter creation', () => {
+  it('creates opencode adapter', () => {
+    const adapter = createAdapter('opencode', { agentId: 'oc-1', agentName: 'opencode-test' })
+    assert.equal(adapter.type, 'opencode')
+    assert.equal(adapter.agentId, 'oc-1')
+    assert.equal(adapter.agentName, 'opencode-test')
+    assert.equal(adapter.running, false)
+    adapter.dispose()
+  })
+})
+
+describe('OpenCodeAdapter stop and dispose', () => {
+  it('stop resets isRunning flag', () => {
+    const adapter = createAdapter('opencode', { agentId: 'oc-2', agentName: 'OcStop' })
+    adapter.stop()
+    assert.equal(adapter.running, false, 'running should be false after stop')
+    adapter.dispose()
+  })
+
+  it('dispose cleans up adapter state', () => {
+    const adapter = createAdapter('opencode', { agentId: 'oc-3', agentName: 'OcDispose' })
+    adapter.dispose()
+    assert.equal(adapter.running, false, 'running should be false after dispose')
+  })
+
+  it('stop followed by dispose does not throw', () => {
+    const adapter = createAdapter('opencode', { agentId: 'oc-4', agentName: 'OcBoth' })
+    adapter.stop()
+    adapter.dispose()
+    assert.equal(adapter.running, false)
+  })
+
+  it('double dispose does not throw', () => {
+    const adapter = createAdapter('opencode', { agentId: 'oc-5', agentName: 'OcDouble' })
+    adapter.dispose()
+    adapter.dispose()
+    assert.equal(adapter.running, false)
+  })
+})
+
 // ─── Adapter edge cases ───
 
 describe('Adapter common behaviour', () => {
   it('all adapter types start with running=false', () => {
-    for (const type of ['claude-code', 'codex', 'gemini', 'generic'] as const) {
+    for (const type of ['claude-code', 'codex', 'gemini', 'opencode', 'generic'] as const) {
       const adapter = createAdapter(type, { agentId: `edge-${type}`, agentName: `E${type}` })
       assert.equal(adapter.running, false, `${type} adapter should start not running`)
       adapter.dispose()
