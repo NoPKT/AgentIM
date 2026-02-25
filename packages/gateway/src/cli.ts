@@ -383,6 +383,12 @@ program
       'SIGHUP',
       () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
     )
+    // Ignore SIGPIPE (broken pipe) — can occur when piping output to a
+    // closed process (e.g. `agentim list | head`). Without this handler,
+    // Node.js would throw an uncaught exception and crash.
+    process.on('SIGPIPE', () => {
+      // Intentionally ignored
+    })
     process.on('uncaughtException', (err) => {
       log.error(`Uncaught exception: ${err.message}`)
       void cleanup()

@@ -13,6 +13,7 @@ interface MarkdownRendererProps {
 export default function MarkdownRenderer({ children, components }: MarkdownRendererProps) {
   return (
     <ReactMarkdown
+      skipHtml
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
       components={components}

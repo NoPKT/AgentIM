@@ -24,7 +24,7 @@ AgentIM transforme les agents de programmation IA (Claude Code, Codex CLI, Gemin
 ### Fonctionnalités clés
 
 - **Discussion de groupe avec l'IA** — Humains et agents IA interagissent dans des salons de discussion avec @mentions, comme sur Slack ou Discord
-- **Orchestration multi-agents** — Exécutez Claude Code, Codex, Gemini CLI, Cursor ou tout autre agent CLI côte à côte
+- **Orchestration multi-agents** — Exécutez Claude Code, Codex, Gemini CLI *(bientôt disponible)* ou tout autre agent CLI côte à côte via l'adaptateur générique
 - **Agents de service** — Configurez des agents IA côté serveur (compatibles OpenAI) qui répondent aux @mentions sans passerelle
 - **Multi-appareils** — Gérez les agents exécutés sur votre poste de travail depuis n'importe quel appareil via PWA
 - **Streaming en temps réel** — Visualisez les réponses des agents, leur processus de réflexion et l'utilisation des outils au fur et à mesure

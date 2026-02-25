@@ -68,14 +68,20 @@ function memoryRateLimit(key: string, windowMs: number, maxRequests: number): bo
     entry.resetAt = now + windowMs
   }
   entry.count++
-  // Enforce capacity limit — evict expired entries first
+  // Enforce capacity limit — evict expired entries first, then batch-evict oldest
   if (memoryCounters.size >= MAX_MEMORY_COUNTERS && !memoryCounters.has(key)) {
     for (const [k, e] of memoryCounters) {
       if (now > e.resetAt) memoryCounters.delete(k)
     }
     if (memoryCounters.size >= MAX_MEMORY_COUNTERS) {
-      const oldestKey = memoryCounters.keys().next().value
-      if (oldestKey) memoryCounters.delete(oldestKey)
+      // Batch-evict oldest 10% to avoid repeated single-entry evictions
+      const evictCount = Math.max(1, Math.floor(MAX_MEMORY_COUNTERS * 0.1))
+      let removed = 0
+      for (const k of memoryCounters.keys()) {
+        if (removed >= evictCount) break
+        memoryCounters.delete(k)
+        removed++
+      }
     }
   }
   memoryCounters.set(key, entry)

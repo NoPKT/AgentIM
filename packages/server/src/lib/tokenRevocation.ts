@@ -82,7 +82,9 @@ export async function revokeUserTokens(userId: string): Promise<void> {
   if (!isRedisEnabled()) {
     log.warn(
       `Token revocation for user ${userId} stored in memory only (Redis not configured). ` +
-        `Revocation will be lost on server restart, but tokens expire within ${config.jwtAccessExpiry}.`,
+        `Revocation will be lost on server restart, but tokens expire within ${config.jwtAccessExpiry}. ` +
+        `WARNING: In multi-process deployments, revocations will NOT propagate across processes. ` +
+        `Enable Redis for production use.`,
     )
     return
   }

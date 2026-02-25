@@ -55,14 +55,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         api.clearTokens()
         wsClient.disconnect()
         await resetAllStores()
-        // Clear all draft entries from localStorage
+        // Clear all draft entries from sessionStorage
         try {
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i)
-            if (key?.startsWith('draft:')) localStorage.removeItem(key)
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const key = sessionStorage.key(i)
+            if (key?.startsWith('draft:')) sessionStorage.removeItem(key)
           }
         } catch {
-          // localStorage may be unavailable in strict privacy mode
+          // sessionStorage may be unavailable in strict privacy mode
         }
         set({ user: null })
         // Signal other tabs to logout via storage event

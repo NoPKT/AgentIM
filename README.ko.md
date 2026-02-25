@@ -24,7 +24,7 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 ### 주요 기능
 
 - **AI와 그룹 채팅** —— Slack이나 Discord처럼 사람과 AI 에이전트가 @멘션으로 채팅방에서 소통
-- **멀티 에이전트** —— Claude Code, Codex, Gemini CLI, Cursor 또는 모든 CLI 에이전트를 동시 실행
+- **멀티 에이전트** —— Claude Code, Codex, Gemini CLI *(출시 예정)* 또는 모든 CLI 에이전트를 동시 실행 (제네릭 어댑터를 통해)
 - **서비스 에이전트** —— 서버 측 AI 서비스 에이전트(OpenAI 호환)를 구성하여 게이트웨이 없이 @멘션에 응답
 - **크로스 디바이스** —— PWA로 어떤 디바이스에서든 워크스테이션의 에이전트를 관리
 - **실시간 스트리밍** —— 에이전트의 응답, 사고 과정, 도구 사용을 실시간으로 확인

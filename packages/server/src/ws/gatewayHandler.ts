@@ -186,6 +186,16 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
   const PRE_PARSE_LIMIT = MAX_FULL_CONTENT_SIZE + 1024 * 1024 // 10 MB content + 1 MB overhead
   if (raw.length > PRE_PARSE_LIMIT) {
     log.warn(`Gateway sent oversized message (${raw.length} bytes), dropping`)
+    try {
+      ws.send(
+        JSON.stringify({
+          type: 'server:error',
+          message: `Message too large (${raw.length} bytes exceeds ${PRE_PARSE_LIMIT} byte limit)`,
+        }),
+      )
+    } catch {
+      // Ignore send errors — connection may already be closing
+    }
     return
   }
 
