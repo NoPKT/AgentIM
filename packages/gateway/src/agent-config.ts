@@ -89,6 +89,11 @@ export function agentConfigToEnv(
       if (config.baseUrl) env.OPENAI_BASE_URL = config.baseUrl
       if (config.model) env.CODEX_MODEL = config.model
       break
+    case 'opencode':
+      if (config.apiKey) env.OPENCODE_API_KEY = config.apiKey
+      if (config.baseUrl) env.OPENCODE_BASE_URL = config.baseUrl
+      if (config.model) env.OPENCODE_MODEL_ID = config.model
+      break
     case 'gemini':
       if (config.apiKey) env.GEMINI_API_KEY = config.apiKey
       break

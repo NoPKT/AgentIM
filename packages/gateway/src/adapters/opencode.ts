@@ -155,7 +155,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
             this.isRunning = false
             this.streamAbort = undefined
             const errMsg =
-              props.error?.data?.message ?? JSON.stringify(props.error) ?? 'Unknown OpenCode error'
+              props.error?.data?.message || JSON.stringify(props.error) || 'Unknown OpenCode error'
             onError(errMsg)
             break
           }
@@ -229,7 +229,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       timeoutMs: PERMISSION_TIMEOUT_MS,
     })
 
-    const response = result.behavior === 'allow' ? 'always' : 'reject'
+    const response = result.behavior === 'allow' ? 'once' : 'reject'
     await client.postSessionIdPermissionsPermissionId({
       path: { id: sessionId, permissionID: perm.id },
       body: { response },
@@ -301,7 +301,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
         return [
           {
             type: 'tool_result',
-            content: state.output,
+            content: typeof state.output === 'string' ? state.output : JSON.stringify(state.output),
             metadata: { toolName: tool, toolId: callID },
           },
         ]
@@ -334,7 +334,6 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
         log.warn(`Failed to abort OpenCode session: ${(err as Error).message}`)
       })
     }
-    this.sessionId = undefined
   }
 
   dispose() {
