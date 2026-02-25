@@ -184,6 +184,7 @@ export function renderPrometheusMetrics(): string {
   const counterMeta: Record<string, string> = {
     agentim_messages_total: 'Total messages processed',
     agentim_ws_messages_total: 'Total WebSocket messages',
+    agentim_api_errors_total: 'Total 5xx API errors',
   }
 
   for (const [name, entries] of countersByName) {

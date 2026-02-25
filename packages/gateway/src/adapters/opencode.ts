@@ -127,61 +127,66 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
           if (!completed) throw err
         })
 
-      // Process SSE events for streaming
-      for await (const event of sseResult.stream) {
-        if (!this.isRunning) break
+      // Process SSE events for streaming; try/finally ensures abort on all exits
+      try {
+        for await (const event of sseResult.stream) {
+          if (!this.isRunning) break
 
-        const ev = event as Event
+          const ev = event as Event
 
-        if (ev.type === 'message.part.updated') {
-          const props = ev.properties as { part: Part; delta?: string }
-          const part = props.part
-          if (!('sessionID' in part) || part.sessionID !== sessionId) continue
+          if (ev.type === 'message.part.updated') {
+            const props = ev.properties as { part: Part; delta?: string }
+            const part = props.part
+            if (!('sessionID' in part) || part.sessionID !== sessionId) continue
 
-          const chunks = this.mapPartToChunks(part, props.delta)
-          for (const chunk of chunks) {
-            if (chunk.type === 'text') fullContent += chunk.content
-            onChunk(chunk)
+            const chunks = this.mapPartToChunks(part, props.delta)
+            for (const chunk of chunks) {
+              if (chunk.type === 'text') fullContent += chunk.content
+              onChunk(chunk)
+            }
+          }
+
+          if (ev.type === 'session.error') {
+            const props = ev.properties as {
+              sessionID?: string
+              error?: { data?: { message?: string } }
+            }
+            if (props.sessionID === sessionId) {
+              completed = true
+              this.isRunning = false
+              const errMsg =
+                props.error?.data?.message ||
+                JSON.stringify(props.error) ||
+                'Unknown OpenCode error'
+              onError(errMsg)
+              break
+            }
+          }
+
+          if (ev.type === 'session.idle') {
+            const props = ev.properties as { sessionID?: string }
+            if (props.sessionID === sessionId) {
+              break
+            }
+          }
+
+          if (ev.type === 'permission.updated') {
+            const perm = ev.properties as {
+              id: string
+              sessionID: string
+              title: string
+              metadata: Record<string, unknown>
+            }
+            if (perm.sessionID === sessionId && this.onPermissionRequest) {
+              this.handlePermission(client, sessionId, perm).catch((err: unknown) => {
+                log.warn(`Permission handling failed: ${(err as Error).message}`)
+              })
+            }
           }
         }
-
-        if (ev.type === 'session.error') {
-          const props = ev.properties as {
-            sessionID?: string
-            error?: { data?: { message?: string } }
-          }
-          if (props.sessionID === sessionId) {
-            completed = true
-            this.isRunning = false
-            this.streamAbort = undefined
-            const errMsg =
-              props.error?.data?.message || JSON.stringify(props.error) || 'Unknown OpenCode error'
-            onError(errMsg)
-            break
-          }
-        }
-
-        if (ev.type === 'session.idle') {
-          const props = ev.properties as { sessionID?: string }
-          if (props.sessionID === sessionId) {
-            break
-          }
-        }
-
-        if (ev.type === 'permission.updated') {
-          const perm = ev.properties as {
-            id: string
-            sessionID: string
-            title: string
-            metadata: Record<string, unknown>
-          }
-          if (perm.sessionID === sessionId && this.onPermissionRequest) {
-            // Relay permission request through AgentIM's permission flow
-            this.handlePermission(client, sessionId, perm).catch((err: unknown) => {
-              log.warn(`Permission handling failed: ${(err as Error).message}`)
-            })
-          }
-        }
+      } finally {
+        abortController.abort()
+        this.streamAbort = undefined
       }
 
       // Ensure the prompt request completes
@@ -194,12 +199,14 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       if (!completed) {
         completed = true
         this.isRunning = false
-        this.streamAbort = undefined
         onComplete(fullContent)
       }
     } catch (err: unknown) {
       this.isRunning = false
-      this.streamAbort = undefined
+      if (this.streamAbort) {
+        this.streamAbort.abort()
+        this.streamAbort = undefined
+      }
       if (completed) return
 
       if ((err as Error).name === 'AbortError') {

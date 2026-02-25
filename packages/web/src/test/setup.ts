@@ -1,3 +1,5 @@
+// Polyfill IndexedDB for happy-dom (eliminates IDBKeyRange errors in tests)
+import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 

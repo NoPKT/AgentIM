@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
 } from 'drizzle-orm/pg-core'
+import { nanoid } from 'nanoid'
 
 /** Shorthand for a timestamptz column that returns/accepts ISO strings. */
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
@@ -408,5 +409,25 @@ export const auditLogs = pgTable(
     index('audit_logs_action_idx').on(table.action),
     index('audit_logs_created_at_idx').on(table.createdAt),
     index('audit_logs_target_idx').on(table.targetId, table.targetType),
+  ],
+)
+
+// ─── Revoked Tokens ───
+
+export const revokedTokens = pgTable(
+  'revoked_tokens',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    userId: text('user_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index('revoked_tokens_user_id_idx').on(table.userId),
+    index('revoked_tokens_expires_at_idx').on(table.expiresAt),
+    index('revoked_tokens_token_hash_idx').on(table.tokenHash),
   ],
 )

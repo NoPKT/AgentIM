@@ -61,7 +61,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
           </div>
 
           {/* Chunk groups - height-capped scrollable container */}
-          <div ref={contentRef} className="max-h-[60vh] overflow-y-auto">
+          <div ref={contentRef} className="max-h-[60vh] overflow-y-auto" aria-live="polite">
             <ChunkGroupRenderer groups={groups} isStreaming />
           </div>
 

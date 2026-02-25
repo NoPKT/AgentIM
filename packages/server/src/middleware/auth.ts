@@ -38,8 +38,8 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
 
 // ─── Admin Role Cache ───
 // Short-lived in-process cache to avoid querying DB on every admin request.
-// Entries expire after 60 seconds, so role changes take effect within 1 minute.
-const ADMIN_CACHE_TTL_MS = 60_000
+// Entries expire after 15 seconds for tighter consistency on role changes.
+const ADMIN_CACHE_TTL_MS = 15_000
 const ADMIN_CACHE_MAX_SIZE = 500
 const adminRoleCache = new Map<string, { role: string; expiresAt: number }>()
 

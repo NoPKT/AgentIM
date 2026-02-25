@@ -5,12 +5,9 @@ cd "$(dirname "$0")"
 
 ENV_FILE=".env"
 
-# Generate a random password with uppercase, lowercase, and digits
+# Generate a random password (URL-safe, 24 characters)
 generate_password() {
-  # Base64 output contains upper/lower/digits; append '1aA' to guarantee complexity
-  local raw
-  raw=$(openssl rand -base64 18)
-  echo "${raw}1aA"
+  openssl rand -base64 24 | tr '+/' '-_' | head -c 24
 }
 
 if [ -f "$ENV_FILE" ]; then

@@ -9,6 +9,9 @@ import type {
   MessageContext,
 } from './base.js'
 import { MAX_BUFFER_SIZE } from '@agentim/shared'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('GenericAdapter')
 
 const ABSOLUTE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes — cannot be reset by data chunks
 const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -161,8 +164,21 @@ export class GenericAdapter extends SpawnAgentAdapter {
 
     // Write prompt via stdin to avoid shell injection and argument length limits
     if (useStdin && proc.stdin) {
-      proc.stdin.write(prompt)
-      proc.stdin.end()
+      try {
+        if (proc.stdin.writable) {
+          proc.stdin.write(prompt)
+          proc.stdin.end()
+        } else {
+          log.warn('stdin is not writable, skipping prompt delivery via stdin')
+        }
+      } catch (err) {
+        log.warn(`Failed to write prompt to stdin: ${(err as Error).message}`)
+        try {
+          proc.stdin.end()
+        } catch {
+          // stdin may already be closed
+        }
+      }
     }
 
     proc.stdout?.on('data', (data: Buffer) => {

@@ -26,6 +26,9 @@ RUN pnpm build
 
 # ── Production stage ──
 FROM node:20-alpine AS production
+LABEL org.opencontainers.image.source="https://github.com/nopkt/agentim"
+LABEL org.opencontainers.image.description="AgentIM - AI Agent Management Platform"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 RUN npm install -g pnpm@10.29.3
 WORKDIR /app
 
@@ -62,6 +65,6 @@ USER app
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health | grep -q '"ok":true' || exit 1
+  CMD wget -qO- --timeout=3 http://127.0.0.1:3000/api/health | grep -q '"ok":true' || exit 1
 
 CMD ["node", "packages/server/dist/index.js"]

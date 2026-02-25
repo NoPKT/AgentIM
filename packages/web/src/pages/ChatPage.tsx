@@ -69,10 +69,16 @@ export default function ChatPage() {
     }
   }, [routeRoomId, currentRoomId, setCurrentRoom])
 
-  // Load members on room change
+  // Load members on room change; stale-check prevents updating state for a
+  // room that is no longer current after a rapid room switch.
   useEffect(() => {
-    if (currentRoomId) {
-      loadRoomMembers(currentRoomId)
+    if (!currentRoomId) return
+    let stale = false
+    loadRoomMembers(currentRoomId).catch(() => {
+      if (!stale) console.warn('Failed to load room members')
+    })
+    return () => {
+      stale = true
     }
   }, [currentRoomId, loadRoomMembers])
 

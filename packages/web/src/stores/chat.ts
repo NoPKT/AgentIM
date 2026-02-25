@@ -207,7 +207,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const res = await api.get<Room[]>('/rooms')
       if (res.ok && res.data) {
         set({ rooms: res.data, showingCachedRooms: false })
-        setCachedRooms(res.data)
+        setCachedRooms(res.data).catch((err) => {
+          console.warn('[IDB] setCachedRooms failed', err)
+        })
       }
       // Load last message + server-side unread counts for each room
       const recentRes =
@@ -233,6 +235,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               createdAt: info.createdAt,
             },
             unread: info.unread,
+          }).catch((err) => {
+            console.warn('[IDB] setCachedRoomMeta failed', err)
           })
         }
         set({ lastMessages, unreadCounts })
@@ -324,7 +328,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Write back to IndexedDB (first page only)
         if (!cursor) {
-          setCachedMessages(roomId, combined)
+          setCachedMessages(roomId, combined).catch((err) => {
+            const tag =
+              err instanceof DOMException && err.name === 'QuotaExceededError'
+                ? '[IDB QuotaExceeded]'
+                : '[IDB]'
+            console.warn(tag, 'setCachedMessages failed', err)
+          })
         }
       }
     } catch {
@@ -414,8 +424,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ messages: msgs, lastMessages, unreadCounts })
 
-    // Fire-and-forget IndexedDB write
-    addCachedMessage(message)
+    addCachedMessage(message).catch((err) => {
+      const tag =
+        err instanceof DOMException && err.name === 'QuotaExceededError'
+          ? '[IDB QuotaExceeded]'
+          : '[IDB]'
+      console.warn(tag, 'addCachedMessage failed', err)
+    })
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
@@ -549,8 +564,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       replyTo,
     })
 
-    // Fire-and-forget IndexedDB cleanup
-    clearRoomCache(roomId)
+    clearRoomCache(roomId).catch((err) => {
+      console.warn('[IDB] clearRoomCache failed', err)
+    })
   },
 
   editMessage: async (messageId, content) => {
@@ -656,8 +672,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ messages: msgs })
     }
 
-    // Fire-and-forget IndexedDB write
-    updateCachedMessage(message)
+    updateCachedMessage(message).catch((err) => {
+      console.warn('[IDB] updateCachedMessage failed', err)
+    })
   },
 
   removeMessage: (roomId, messageId) => {
@@ -671,8 +688,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ messages: msgs })
     }
 
-    // Fire-and-forget IndexedDB delete
-    removeCachedMessage(roomId, messageId)
+    removeCachedMessage(roomId, messageId).catch((err) => {
+      console.warn('[IDB] removeCachedMessage failed', err)
+    })
   },
 
   updateNotificationPref: async (roomId, pref) => {
@@ -761,17 +779,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
   flushPendingMessages: async () => {
     const pending = await getPendingMessages()
     if (pending.length === 0) return
+    const currentMessages = get().messages
     for (const msg of pending) {
-      wsClient.send({
-        type: 'client:send_message',
-        roomId: msg.roomId,
-        content: msg.content,
-        mentions: msg.mentions,
-        ...(msg.replyToId ? { replyToId: msg.replyToId } : {}),
-        ...(msg.attachmentIds && msg.attachmentIds.length > 0
-          ? { attachmentIds: msg.attachmentIds }
-          : {}),
-      })
+      // Dedup: skip if a message with matching content and close timestamp
+      // was already delivered (use pending id as idempotency key).
+      const roomMsgs = currentMessages.get(msg.roomId) ?? []
+      const alreadyDelivered = roomMsgs.some(
+        (m) =>
+          m.content === msg.content &&
+          m.senderType !== 'system' &&
+          Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000,
+      )
+      if (!alreadyDelivered) {
+        wsClient.send({
+          type: 'client:send_message',
+          roomId: msg.roomId,
+          content: msg.content,
+          mentions: msg.mentions,
+          ...(msg.replyToId ? { replyToId: msg.replyToId } : {}),
+          ...(msg.attachmentIds && msg.attachmentIds.length > 0
+            ? { attachmentIds: msg.attachmentIds }
+            : {}),
+        })
+      }
       await removePendingMessage(msg.id)
     }
     set({ pendingMessages: [] })
@@ -823,8 +853,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       replyTo,
     })
 
-    // Fire-and-forget IndexedDB cleanup
-    clearRoomCache(roomId)
+    clearRoomCache(roomId).catch((err) => {
+      console.warn('[IDB] clearRoomCache failed', err)
+    })
   },
 
   reset: () => {
@@ -850,8 +881,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       threadMessages: new Map(),
     })
 
-    // Fire-and-forget IndexedDB clear
-    clearCache()
+    clearCache().catch((err) => {
+      console.warn('[IDB] clearCache failed', err)
+    })
   },
 
   toggleArchive: async (roomId) => {

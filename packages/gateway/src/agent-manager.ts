@@ -104,6 +104,20 @@ export class AgentManager {
                     log.warn(
                       `Permission request ${requestId} timed out after ${timeoutMs}ms (tool=${toolName}), auto-denying`,
                     )
+                    if (roomId) {
+                      this.wsClient.send({
+                        type: 'gateway:message_chunk',
+                        roomId,
+                        agentId,
+                        messageId: requestId,
+                        chunk: {
+                          type: 'text',
+                          content:
+                            '[Permission request timed out - automatically denied]' +
+                            ` (tool=${toolName})`,
+                        },
+                      })
+                    }
                     resolve({ behavior: 'deny' })
                   }, timeoutMs)
                   this.pendingPermissions.set(requestId, { resolve, reject, timer })
@@ -154,6 +168,14 @@ export class AgentManager {
       this.roomContextLastUsed.set(key, Date.now())
     }
     return ctx
+  }
+
+  /** Refresh room context TTL when actively processing data for a room. */
+  private touchRoomContext(agentId: string, roomId: string) {
+    const key = `${agentId}:${roomId}`
+    if (this.roomContexts.has(key)) {
+      this.roomContextLastUsed.set(key, Date.now())
+    }
   }
 
   removeAgent(agentId: string) {
@@ -247,6 +269,7 @@ export class AgentManager {
 
     // Track which room this agent is responding to
     this.agentCurrentRoom.set(msg.agentId, msg.roomId)
+    this.touchRoomContext(msg.agentId, msg.roomId)
 
     const messageId = msg.messageId
     const allChunks: ParsedChunk[] = []
@@ -264,6 +287,7 @@ export class AgentManager {
         msg.content,
         (chunk) => {
           allChunks.push(chunk)
+          this.touchRoomContext(msg.agentId, msg.roomId)
           this.wsClient.send({
             type: 'gateway:message_chunk',
             roomId: msg.roomId,

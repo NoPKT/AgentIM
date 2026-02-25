@@ -232,6 +232,13 @@
       "when": 1772500000000,
       "tag": "0032_add_service_agents_created_by_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1772600000000,
+      "tag": "0033_add_revoked_tokens",
+      "breakpoints": true
     }
   ]
 }

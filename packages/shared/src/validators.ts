@@ -131,7 +131,7 @@ export const createRouterSchema = z
       .min(1)
       .max(MAX_ROUTER_NAME_LENGTH)
       .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-    description: z.string().max(MAX_ROUTER_DESCRIPTION_LENGTH).optional(),
+    description: z.string().max(MAX_ROUTER_DESCRIPTION_LENGTH).nullable().optional(),
     scope: z.enum(ROUTER_SCOPES).default('personal'),
     llmBaseUrl: z
       .string()
@@ -240,16 +240,26 @@ export const messageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
-export const searchMessagesSchema = z.object({
-  q: z.string().min(2).max(500),
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  roomId: z.string().max(100).optional(),
-  senderId: z.string().max(100).optional(),
-  senderType: z.enum(SENDER_TYPES).optional(),
-  dateFrom: z.string().datetime({ offset: true }).optional(),
-  dateTo: z.string().datetime({ offset: true }).optional(),
-})
+export const searchMessagesSchema = z
+  .object({
+    q: z.string().min(2).max(500),
+    cursor: z.string().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    roomId: z.string().max(100).optional(),
+    senderId: z.string().max(100).optional(),
+    senderType: z.enum(SENDER_TYPES).optional(),
+    dateFrom: z.string().datetime({ offset: true }).optional(),
+    dateTo: z.string().datetime({ offset: true }).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.dateFrom && data.dateTo && new Date(data.dateFrom) >= new Date(data.dateTo)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'validation.dateFromBeforeDateTo',
+        path: ['dateFrom'],
+      })
+    }
+  })
 
 export const batchDeleteMessagesSchema = z.object({
   messageIds: z.array(z.string().min(1).max(100)).min(1).max(50),

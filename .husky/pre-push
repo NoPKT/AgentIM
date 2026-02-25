@@ -37,4 +37,8 @@ else
   echo "[pre-push] Start Docker services for full local validation"
 fi
 
+# 7. Dependency audit (informational only)
+echo "[pre-push] Auditing dependencies..."
+pnpm audit --audit-level=high || true
+
 echo "[pre-push] All checks passed!"

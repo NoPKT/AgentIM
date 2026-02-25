@@ -10,6 +10,38 @@
 | Redis            | 7               | Cache and real-time messaging                       |
 | Docker + Compose | Latest stable   | Docker deployment only                              |
 
+## Redis Requirements
+
+Redis is **optional for single-process deployments** but **required for multi-process/multi-container deployments**.
+
+### Single-process deployment (no Redis)
+
+When Redis is not configured, the server uses in-memory fallbacks:
+
+- **Token revocation**: Persisted to the `revoked_tokens` database table. In-memory cache provides fast lookups; DB is the source of truth. Survives server restarts.
+- **Rate limiting**: In-memory counters with automatically halved limits (to partially compensate for the lack of shared state).
+- **Admin role cache**: 15-second in-memory TTL cache. Role changes take up to 15 seconds to propagate.
+- **Room membership cache**: In-memory only; cleared on restart.
+
+This mode is suitable for personal use, development, and small teams running a single server instance.
+
+### Multi-process / multi-container deployment (Redis required)
+
+When running multiple server processes (e.g., PM2 cluster mode, Kubernetes replicas, or multiple Docker containers), Redis is **required** for:
+
+- **Token revocation sync**: Without Redis, a token revoked on one process remains valid on others until it expires (default: 15 minutes).
+- **Rate limiting accuracy**: Without Redis, each process maintains independent counters, effectively multiplying the limit by the number of processes.
+- **Cache consistency**: Room membership and admin role caches are process-local without Redis.
+- **Pub/Sub**: Real-time event propagation across processes.
+
+Set `REDIS_URL` in your environment to enable Redis:
+
+```bash
+REDIS_URL=redis://localhost:6379
+# Or with authentication:
+REDIS_URL=redis://:your-password@redis-host:6379
+```
+
 ## Docker Deployment (Recommended)
 
 ### 1. Clone and configure
