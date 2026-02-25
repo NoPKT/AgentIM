@@ -182,6 +182,7 @@ agentim logout    # ログイン資格情報をクリア
 | ------------- | ----------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI           |
 | `codex`       | OpenAI Codex CLI                    |
+| `opencode`    | OpenCode AI CLI                     |
 | `gemini`      | Google Gemini CLI *（近日対応予定）* |
 | `generic`     | 任意のCLIツール（カスタムコマンド） |
 

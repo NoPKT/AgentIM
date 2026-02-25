@@ -182,6 +182,7 @@ agentim logout    # 清除登录凭证
 | ------------- | --------------------------- |
 | `claude-code` | Anthropic Claude Code CLI   |
 | `codex`       | OpenAI Codex CLI            |
+| `opencode`    | OpenCode AI CLI             |
 | `gemini`      | Google Gemini CLI *（即将支持）* |
 | `generic`     | 任何 CLI 工具（自定义命令） |
 

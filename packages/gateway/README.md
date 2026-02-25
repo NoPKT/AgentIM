@@ -35,6 +35,7 @@ aim daemon
 | ------------- | ------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI      |
 | `codex`       | OpenAI Codex CLI               |
+| `opencode`    | OpenCode AI CLI                |
 | `gemini`      | Google Gemini CLI *(coming soon)* |
 | `generic`     | Any CLI tool (custom commands) |
 | Custom        | User-defined via `~/.agentim/adapters.json` |
@@ -46,6 +47,7 @@ aim daemon
 - `aim setup [agent-type]` -- Interactive setup wizard for agent credentials
 - `aim claude [path]` -- Start a Claude Code agent (default: current directory)
 - `aim codex [path]` -- Start a Codex agent
+- `aim opencode [path]` -- Start an OpenCode agent
 - `aim gemini [path]` -- Start a Gemini CLI agent
 - `aim daemon` -- Start daemon mode (server-managed agents)
 - `aim list` -- List running agent daemons
