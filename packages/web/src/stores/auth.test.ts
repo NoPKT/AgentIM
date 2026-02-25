@@ -200,10 +200,9 @@ describe('cross-tab logout', () => {
     useAuthStore.setState({ user: fakeUser })
 
     // Simulate another tab logging out via storage event
-    const event = new StorageEvent('storage', {
-      key: 'agentim:logout',
-      newValue: Date.now().toString(),
-    })
+    const event = new StorageEvent('storage')
+    event.key = 'agentim:logout'
+    event.newValue = Date.now().toString()
     window.dispatchEvent(event)
 
     expect(mockApi.clearTokens).toHaveBeenCalled()
@@ -214,10 +213,9 @@ describe('cross-tab logout', () => {
   it('ignores storage events with null newValue', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
-      key: 'agentim:logout',
-      newValue: null,
-    })
+    const event = new StorageEvent('storage')
+    event.key = 'agentim:logout'
+    event.newValue = null
     window.dispatchEvent(event)
 
     // User should NOT be cleared
@@ -227,10 +225,9 @@ describe('cross-tab logout', () => {
   it('ignores storage events with unrelated keys', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
-      key: 'some-other-key',
-      newValue: Date.now().toString(),
-    })
+    const event = new StorageEvent('storage')
+    event.key = 'some-other-key'
+    event.newValue = Date.now().toString()
     window.dispatchEvent(event)
 
     expect(useAuthStore.getState().user).toEqual(fakeUser)
