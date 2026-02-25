@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, count } from 'drizzle-orm'
 import { basename } from 'node:path'
 import { db } from '../db/index.js'
 import {
@@ -587,10 +587,20 @@ roomRoutes.get('/:id/members', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
-  const members = await db
-    .select()
-    .from(roomMembers)
-    .where(eq(roomMembers.roomId, roomId))
-    .limit(500)
-  return c.json({ ok: true, data: members })
+  // Parse and clamp pagination parameters
+  const rawLimit = parseInt(c.req.query('limit') ?? '', 10)
+  const rawOffset = parseInt(c.req.query('offset') ?? '', 10)
+  const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 100 : rawLimit, 1), 500)
+  const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0)
+
+  const [members, [{ total }]] = await Promise.all([
+    db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId)).limit(limit).offset(offset),
+    db.select({ total: count() }).from(roomMembers).where(eq(roomMembers.roomId, roomId)),
+  ])
+
+  return c.json({
+    ok: true,
+    data: members,
+    pagination: { limit, offset, total },
+  })
 })

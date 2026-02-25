@@ -73,7 +73,11 @@ export class GatewayWsClient {
       this.connecting = false
       this.reconnectInterval = 3000
       this.reconnectAttempts = 0
-      this.droppedCount = 0
+      if (this.droppedCount > 0) {
+        log.info(
+          `Reconnected. Messages dropped during previous connection(s): ${this.droppedCount}`,
+        )
+      }
       this.startHeartbeat()
       this.onConnected()
     })

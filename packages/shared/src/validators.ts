@@ -332,6 +332,25 @@ export const createServiceAgentSchema = z
         path: ['config', 'apiKey'],
       })
     }
+    // Validate provider-specific required config fields
+    if (data.type === 'openai-chat' || data.type === 'openai-image') {
+      if (!data.config.model) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'config.model is required for OpenAI-based service agents',
+          path: ['config', 'model'],
+        })
+      }
+    }
+    if (data.type === 'elevenlabs') {
+      if (!data.config.voiceId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'config.voiceId is required for ElevenLabs service agents',
+          path: ['config', 'voiceId'],
+        })
+      }
+    }
   })
 
 export const updateServiceAgentSchema = z.object({
@@ -363,7 +382,7 @@ export const updateUserSchema = z.object({
     .max(500)
     .refine((s) => !s.includes('..'), 'validation.avatarUrlTraversal')
     .refine(
-      (s) => /^\/uploads\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(s),
+      (s) => /^\/uploads\/[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(s),
       'validation.avatarUrlInvalid',
     )
     .optional(),
