@@ -63,14 +63,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database migration `0028_add_service_agents.sql` for service_agents table
 - Rollback scripts for migrations 0024-0026
 - Added publishConfig to gateway package.json for npm publishing
+- **GitHub Issue/PR Templates**: Bug report (YAML form), feature request (YAML form), and PR template with checklists
+- **Room Members Pagination**: GET `/api/rooms/:id/members` now supports `limit`/`offset` query parameters with total count
 
 #### Tests
 
 - Server: unit tests for crypto (round-trip, wrong key), sanitize (XSS patterns), and token revocation
 - Gateway: tests for Codex stop/dispose, adapter edge cases, AgentManager extended scenarios, custom adapters, and daemon manager
 - Web: message-cache, slash-commands, ws queue overflow, chat thread/streaming tests
+- Web: WsClient unit tests (47 tests, 95%+ coverage on ws.ts)
 - Shared: i18n translation completeness test
 - Web test suite now included in root CI pipeline and turbo task graph
+- Web coverage thresholds raised to 20%/16%/20%/10% (from 15%/15%/15%/9%)
 
 ### Changed
 
@@ -109,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Codex adapter `stop()` now resets running state and discards thread to interrupt execution
 - `isAgentimProcess` returns false on verification failure (prevents killing recycled PIDs)
 - Gemini command now indicates "coming soon -- SDK not yet published" in help text
+- WS client now accumulates dropped message count across reconnections instead of resetting to zero
 
 #### Shared
 
@@ -118,6 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Increased displayName max length from 50 to 100 characters (independent from username limit)
 - Replace hardcoded enums with constants in validators (ASSIGNEE_TYPES, NOTIFICATION_PREFS, MEMBER_TYPES)
 - Add missing User and Gateway validation schemas
+- `I18N_NAMESPACES` now includes all actual namespaces (a11y, ws, pwa, thread, slashCommand, etc.)
+- `createServiceAgentSchema` now validates provider-specific required fields (model for OpenAI, voiceId for ElevenLabs)
 
 #### CI & Docs
 
@@ -127,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added sensitive file patterns to .gitignore (*.pem, *.key, *.p12)
 - Corrected misleading JSDoc on revokeUserTokens explaining the intentional fail-open/fail-closed asymmetry
 - Added explanatory comment on SHA-256 key derivation in crypto.ts (high-entropy key, no KDF needed)
+- Enhanced custom adapter documentation in ADAPTER_GUIDE.md with practical examples (Ollama, Aider, Python script), architecture explanation, and security notes
 
 ### Fixed
 
@@ -136,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[CRITICAL] routerLlm.ts JSON extraction**: Replaced greedy regex with bracket-balanced parser to prevent matching across multiple JSON objects
 - **Permission queue overflow**: Added 1,000-entry cap to pending permission queue with rejection and gateway notification
 - **Avatar URL path traversal**: Tightened regex to disallow nested paths in upload filenames
+- **Upload filename safety**: Use safe nanoid alphabet (no leading `-`) for stored filenames to match avatarUrl validation regex
 - **deletedAgentIds unbounded growth**: Added 10,000-entry FIFO cap to prevent memory leak
 - CSP `connectSrc` restricted to `'self'` only (removed overly broad `wss:` wildcard)
 - CI pipeline now triggers on direct pushes to `main` in addition to pull requests
@@ -167,6 +176,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Web draft messages moved from localStorage to sessionStorage (prevents draft leakage on shared devices)
 - Web draft auto-save debounce reduced from 1000ms to 500ms for better responsiveness
 - Web MarkdownRenderer now sets `skipHtml` to prevent raw HTML passthrough as defense-in-depth
+- Gateway `git-utils.ts`: Fixed diff field always being `undefined` in workspace status output
+- Gateway `agent-manager.ts`: Fixed unsafe Map mutation during iteration when cleaning room contexts
+- **Server test hanging**: Exported cleanup functions for all `setInterval` timers (stream tracker, rate limit, cache, permissions, client/gateway handlers) and call them in shutdown
+- **Web accessibility**: ToastContainer now has `role="region"`, `aria-live="polite"`, keyboard-accessible close buttons; ProtectedRoute loading state has `role="status"`; AppLayout nav links have `aria-current="page"`
 
 ### Security
 

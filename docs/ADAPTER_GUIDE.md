@@ -291,6 +291,62 @@ Configuration fields:
 
 Custom adapters use the `GenericAdapter` under the hood. List all adapters with `aim adapters`.
 
+### Examples
+
+#### Ollama (local LLM)
+
+```json
+{
+  "ollama": {
+    "command": "ollama",
+    "args": ["run", "codellama"],
+    "promptVia": "stdin",
+    "description": "Local Ollama codellama model"
+  }
+}
+```
+
+#### Aider (AI pair programming)
+
+```json
+{
+  "aider": {
+    "command": "aider",
+    "args": ["--no-auto-commits", "--message"],
+    "promptVia": "arg",
+    "env": { "OPENAI_API_KEY": "sk-..." },
+    "description": "Aider AI pair programming tool"
+  }
+}
+```
+
+#### Custom Python script
+
+```json
+{
+  "my-agent": {
+    "command": "python3",
+    "args": ["/path/to/my_agent.py"],
+    "promptVia": "stdin",
+    "description": "Custom Python-based AI agent"
+  }
+}
+```
+
+### How It Works
+
+1. AgentIM reads `~/.agentim/adapters.json` on startup (cached for 30 seconds)
+2. Each entry becomes a new agent type you can use with `agentim daemon --agent name:my-type:/path`
+3. The `GenericAdapter` spawns the configured command, passing the user's message either as a CLI argument (`promptVia: "arg"`) or via stdin (`promptVia: "stdin"`)
+4. Stdout is captured as plain text chunks and streamed to the chat room in real-time
+5. When the process exits, the response is marked as complete
+
+### Security Notes
+
+- Environment variables specified in `env` are merged with a **sanitized** copy of the parent environment (sensitive keys like `DATABASE_URL`, `JWT_SECRET` are automatically filtered out)
+- The `command` field is validated to prevent shell injection (no shell metacharacters, no path traversal)
+- Commands are spawned directly via `child_process.spawn()` without a shell
+
 ## Existing Adapters Reference
 
 | Adapter       | CLI          | SDK / Process | Structured Output                      |
