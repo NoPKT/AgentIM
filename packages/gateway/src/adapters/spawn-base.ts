@@ -78,15 +78,39 @@ const SENSITIVE_ENV_PREFIXES = [
 ]
 
 /**
+ * Server infrastructure secrets that must NEVER be passed to child agent processes,
+ * regardless of any user-configured passEnv whitelist.
+ */
+const NEVER_PASSABLE_KEYS = new Set([
+  'JWT_SECRET',
+  'DATABASE_URL',
+  'REDIS_URL',
+  'ADMIN_PASSWORD',
+  'ENCRYPTION_KEY',
+  'SENTRY_DSN',
+  'SESSION_SECRET',
+])
+
+/**
  * Return a copy of process.env with sensitive variables removed.
  * @param passEnv - Optional whitelist of env var names to pass through despite being sensitive.
+ *                  Keys in NEVER_PASSABLE_KEYS are always stripped and cannot be overridden.
  */
 export function getSafeEnv(passEnv?: Set<string>): Record<string, string | undefined> {
+  // Warn about any never-passable keys the user tried to whitelist
+  if (passEnv) {
+    for (const key of passEnv) {
+      if (NEVER_PASSABLE_KEYS.has(key)) {
+        envLog.warn(`passEnv contains never-passable key "${key}" — it will be stripped regardless`)
+      }
+    }
+  }
+
   const env = { ...process.env }
   const filtered: string[] = []
   for (const key of Object.keys(env)) {
     if (SENSITIVE_ENV_KEYS.has(key) || SENSITIVE_ENV_PREFIXES.some((p) => key.startsWith(p))) {
-      if (passEnv?.has(key)) continue
+      if (passEnv?.has(key) && !NEVER_PASSABLE_KEYS.has(key)) continue
       delete env[key]
       filtered.push(key)
     }
@@ -122,7 +146,9 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
           if (!proc.killed && proc.exitCode === null) {
             proc.kill('SIGKILL')
           }
-        } catch {}
+        } catch {
+          // Process may have already exited
+        }
       }, 5000)
       escalate.unref()
     }, PROCESS_TIMEOUT_MS)
@@ -151,7 +177,9 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
         if (!proc.killed && proc.exitCode === null) {
           proc.kill('SIGKILL')
         }
-      } catch {}
+      } catch {
+        // Process may have already exited
+      }
       this.killTimer = null
     }, 5000)
     this.killTimer.unref()
