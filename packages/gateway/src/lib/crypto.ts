@@ -13,17 +13,25 @@ const PBKDF2_SALT = Buffer.from('AgentIM-machine-key-v1-2024', 'utf8')
 // the ~200ms overhead is acceptable for security compliance.
 const PBKDF2_ITERATIONS = 600_000
 
+// Module-level cache for the expensive PBKDF2 key derivation.
+let _cachedMachineKey: Buffer | null = null
+
 /**
  * Derive a machine-scoped 256-bit key using PBKDF2 from stable host identifiers.
  * This key is NOT secret but binds the stored tokens to this specific machine/user.
  *
  * Uses PBKDF2 with a fixed application-specific salt to make brute-force
  * enumeration of machine identifiers computationally expensive.
+ *
+ * The result is cached after the first call since the inputs (hostname, username,
+ * homedir) are stable for the lifetime of a process.
  */
 export function getMachineKey(): Buffer {
+  if (_cachedMachineKey) return _cachedMachineKey
   const info = userInfo()
   const material = `${hostname()}:${info.username}:${homedir()}`
-  return pbkdf2Sync(material, PBKDF2_SALT, PBKDF2_ITERATIONS, 32, 'sha256')
+  _cachedMachineKey = pbkdf2Sync(material, PBKDF2_SALT, PBKDF2_ITERATIONS, 32, 'sha256')
+  return _cachedMachineKey
 }
 
 /**

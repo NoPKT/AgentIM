@@ -80,12 +80,16 @@ function isAgentimProcess(pid: number): boolean {
   }
 }
 
-/** Write daemon info to a PID file. */
-export function writeDaemonInfo(info: DaemonInfo): void {
+/** Write daemon info to a PID file.
+ * @param exclusive - If true, uses 'wx' flag (exclusive create) to fail if file already exists.
+ *                    Used for reservation writes to prevent TOCTOU races.
+ */
+export function writeDaemonInfo(info: DaemonInfo, exclusive = false): void {
   ensureDir()
   writeFileSync(pidFilePath(info.name), JSON.stringify(info, null, 2), {
     encoding: 'utf-8',
     mode: 0o600,
+    flag: exclusive ? 'wx' : 'w',
   })
 }
 

@@ -25,7 +25,6 @@ export class GatewayWsClient {
   private onMessage: MessageHandler
   private onConnected: () => void
   private onDisconnected: () => void
-  private onAuthFailed: (() => Promise<void>) | null = null
   private onDroppedMessage: ((msg: GatewayMessage) => void) | null = null
   private shouldReconnect = true
   private connecting = false // Prevent concurrent connect attempts
@@ -38,14 +37,12 @@ export class GatewayWsClient {
     onMessage: MessageHandler
     onConnected: () => void
     onDisconnected: () => void
-    onAuthFailed?: () => Promise<void>
     onDroppedMessage?: (msg: GatewayMessage) => void
   }) {
     this.url = opts.url
     this.onMessage = opts.onMessage
     this.onConnected = opts.onConnected
     this.onDisconnected = opts.onDisconnected
-    this.onAuthFailed = opts.onAuthFailed ?? null
     this.onDroppedMessage = opts.onDroppedMessage ?? null
   }
 
@@ -85,15 +82,15 @@ export class GatewayWsClient {
     this.ws.on('message', (data) => {
       try {
         const raw = JSON.parse(data.toString())
-        if (raw.type === 'server:pong') {
-          this.clearPongTimeout()
-          return
-        }
         const parsed = serverGatewayMessageSchema.safeParse(raw)
         if (!parsed.success) {
           log.warn(
             `Invalid server message (type=${raw?.type}), skipping: ${parsed.error.issues.map((i: { message: string }) => i.message).join(', ')}`,
           )
+          return
+        }
+        if (parsed.data.type === 'server:pong') {
+          this.clearPongTimeout()
           return
         }
         this.onMessage(parsed.data)
@@ -286,6 +283,7 @@ export class GatewayWsClient {
           this.onDisconnected()
           this.scheduleReconnect()
         }, PONG_TIMEOUT)
+        this.pongTimer.unref()
       }
     }, PING_INTERVAL)
     // Allow process to exit even if heartbeat is still running
