@@ -13,7 +13,7 @@ import { createLogger } from './logger.js'
 
 const log = createLogger('DaemonManager')
 
-const DAEMONS_DIR = join(homedir(), '.agentim', 'daemons')
+const DAEMONS_DIR = process.env.AGENTIM_DAEMONS_DIR || join(homedir(), '.agentim', 'daemons')
 
 export interface DaemonInfo {
   pid: number

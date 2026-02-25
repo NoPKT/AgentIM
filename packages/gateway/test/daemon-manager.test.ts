@@ -1,6 +1,12 @@
-import { describe, it, afterEach } from 'node:test'
+import { describe, it, afterEach, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+
+// Use an isolated temp directory instead of ~/.agentim/daemons
+const testDir = mkdtempSync(join(tmpdir(), 'agentim-daemon-test-'))
+process.env.AGENTIM_DAEMONS_DIR = testDir
 
 import {
   writeDaemonInfo,
@@ -11,8 +17,7 @@ import {
   type DaemonInfo,
 } from '../src/lib/daemon-manager.js'
 
-// NOTE: These tests use the real ~/.agentim/daemons directory.
-// We use a unique daemon name prefix to avoid collision with real daemons.
+// NOTE: These tests use an isolated temp directory for test isolation.
 const TEST_PREFIX = `__test_${Date.now()}_`
 
 function makeTestDaemonInfo(suffix: string): DaemonInfo {
@@ -39,6 +44,16 @@ describe('DaemonManager', () => {
       }
     }
     testNames.length = 0
+  })
+
+  after(() => {
+    // Clean up temp directory when tests complete
+    try {
+      rmSync(testDir, { recursive: true, force: true })
+    } catch {
+      // Best effort cleanup
+    }
+    delete process.env.AGENTIM_DAEMONS_DIR
   })
 
   describe('writeDaemonInfo / readDaemonInfo', () => {

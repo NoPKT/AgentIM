@@ -135,6 +135,8 @@ export class GatewayWsClient {
   private static readonly RETRY_ON_DROP_TYPES = new Set([
     'gateway:auth',
     'gateway:permission_request',
+    'gateway:message_complete',
+    'gateway:agent_status',
   ])
 
   private logDroppedMessage(msg: GatewayMessage): void {

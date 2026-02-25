@@ -430,6 +430,12 @@ function rotateLogIfNeeded(logFile: string) {
     }
 
     const rotated = logFile + '.1'
+    // Remove previous rotated file to prevent unbounded disk growth
+    try {
+      unlinkSync(rotated)
+    } catch {
+      // Previous rotated file may not exist
+    }
     renameSync(logFile, rotated)
   } catch (err) {
     // EEXIST means another process is rotating — skip

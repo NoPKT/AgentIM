@@ -99,6 +99,12 @@ export class AgentManager {
                   return { behavior: 'deny' as const }
                 }
                 return new Promise<{ behavior: 'allow' | 'deny' }>((resolve, reject) => {
+                  let settled = false
+                  const safeResolve = (decision: { behavior: 'allow' | 'deny' }) => {
+                    if (settled) return
+                    settled = true
+                    resolve(decision)
+                  }
                   const timer = setTimeout(() => {
                     this.pendingPermissions.delete(requestId)
                     log.warn(
@@ -118,9 +124,9 @@ export class AgentManager {
                         },
                       })
                     }
-                    resolve({ behavior: 'deny' })
+                    safeResolve({ behavior: 'deny' })
                   }, timeoutMs)
-                  this.pendingPermissions.set(requestId, { resolve, reject, timer })
+                  this.pendingPermissions.set(requestId, { resolve: safeResolve, reject, timer })
                   this.wsClient.send({
                     type: 'gateway:permission_request',
                     requestId,
@@ -355,6 +361,17 @@ export class AgentManager {
               })
               .catch((err) => {
                 log.warn(`Workspace status collection failed: ${(err as Error).message}`)
+                // Notify the client that workspace status was unavailable
+                this.wsClient.send({
+                  type: 'gateway:message_chunk',
+                  roomId: msg.roomId,
+                  agentId: msg.agentId,
+                  messageId,
+                  chunk: {
+                    type: 'text',
+                    content: `[Workspace status unavailable: ${(err as Error).message}]`,
+                  },
+                })
                 sendComplete()
               })
           } else {
