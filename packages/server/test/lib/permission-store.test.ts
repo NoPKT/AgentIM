@@ -1,4 +1,4 @@
-import { describe, it, afterEach } from 'node:test'
+import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   addPendingPermission,
@@ -8,16 +8,10 @@ import {
   stopPermissionCleanup,
 } from '../../src/lib/permission-store.js'
 
-// Stop the background cleanup timer so it doesn't keep the test process alive
-afterEach(() => {
-  // Clean up all pending permissions after each test
-  // getPendingPermission doesn't provide iteration, so we track IDs ourselves
-})
-
 describe('permission-store', () => {
-  // Stop the periodic cleanup at the end
-  afterEach(() => {
-    // No-op: individual tests clean up after themselves
+  // Stop the background cleanup interval so it doesn't keep the test process alive
+  after(() => {
+    stopPermissionCleanup()
   })
 
   describe('addPendingPermission', () => {
