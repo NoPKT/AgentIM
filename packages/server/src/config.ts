@@ -59,6 +59,9 @@ export const config = {
   tokenCleanupInterval: Math.max(60000, intEnv('TOKEN_CLEANUP_INTERVAL', 3600000)),
   gatewayCleanupInterval: Math.max(60000, intEnv('GATEWAY_CLEANUP_INTERVAL', 86400000)), // 24h
   gatewayMaxOfflineDays: Math.max(1, intEnv('GATEWAY_MAX_OFFLINE_DAYS', 30)),
+  // Audit log retention (days). Logs older than this are periodically purged.
+  auditLogRetentionDays: Math.max(1, intEnv('AUDIT_LOG_RETENTION_DAYS', 90)),
+  auditLogCleanupInterval: Math.max(60000, intEnv('AUDIT_LOG_CLEANUP_INTERVAL', 86400000)), // 24h
   // Client WebSocket rate limiting
   clientRateLimitWindow: Math.max(1, Math.min(300, intEnv('CLIENT_RATE_LIMIT_WINDOW', 10))),
   clientRateLimitMax: Math.max(1, Math.min(1000, intEnv('CLIENT_RATE_LIMIT_MAX', 30))),

@@ -344,7 +344,7 @@ export const createServiceAgentSchema = z
       })
     }
     // Validate provider-specific required config fields
-    if (data.type === 'openai-chat' || data.type === 'openai-image') {
+    if (data.type === 'openai-chat' || data.type === 'openai-image' || data.type === 'perplexity') {
       if (!data.config.model) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

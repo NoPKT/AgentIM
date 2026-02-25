@@ -18,19 +18,26 @@ export function parseMentions(content: string): string[] {
   return mentions
 }
 
-// Cache compiled mention regexes to avoid repeated compilation per call
+// LRU cache for compiled mention regexes to avoid repeated compilation per call.
+// Re-inserting a key moves it to the end (most recently used); eviction removes
+// the least recently used entry from the front.
+const MENTION_CACHE_MAX = 500
 const mentionRegexCache = new Map<string, RegExp>()
 
 export function hasMention(content: string, name: string): boolean {
   // Use the same character set as parseMentions: the name must be followed
   // by a non-name character or end-of-string (consistent with MENTION_REGEX).
   let regex = mentionRegexCache.get(name)
-  if (!regex) {
+  if (regex) {
+    // LRU touch: delete + re-insert moves the entry to the end
+    mentionRegexCache.delete(name)
+    mentionRegexCache.set(name, regex)
+  } else {
     regex = new RegExp(`@${escapeRegex(name)}(?=${MENTION_BOUNDARY}|$)`)
-    // Cap cache size to prevent unbounded growth
-    if (mentionRegexCache.size >= 500) {
-      const firstKey = mentionRegexCache.keys().next().value!
-      mentionRegexCache.delete(firstKey)
+    // Evict LRU (first entry) when cache is full
+    if (mentionRegexCache.size >= MENTION_CACHE_MAX) {
+      const lruKey = mentionRegexCache.keys().next().value!
+      mentionRegexCache.delete(lruKey)
     }
     mentionRegexCache.set(name, regex)
   }

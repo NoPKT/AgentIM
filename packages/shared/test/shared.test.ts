@@ -87,6 +87,14 @@ describe('hasMention', () => {
   it('handles special regex characters in name', () => {
     assert.equal(hasMention('Hello @test.bot', 'test.bot'), true)
   })
+
+  it('returns consistent results when called repeatedly (LRU cache)', () => {
+    // Exercise the cache: call hasMention many times with the same name
+    assert.equal(hasMention('Hello @cached_user', 'cached_user'), true)
+    assert.equal(hasMention('Hi there', 'cached_user'), false)
+    // Second call should use the cached regex
+    assert.equal(hasMention('cc @cached_user done', 'cached_user'), true)
+  })
 })
 
 describe('insertMention', () => {
@@ -881,6 +889,24 @@ describe('createServiceAgentSchema provider validation', () => {
       name: 'My Voice',
       type: 'elevenlabs',
       config: { apiKey: 'el-test', voiceId: 'voice-1' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects perplexity type without model', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Perplexity',
+      type: 'perplexity',
+      config: { apiKey: 'pplx-test' },
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts perplexity type with apiKey and model', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Perplexity',
+      type: 'perplexity',
+      config: { apiKey: 'pplx-test', model: 'sonar-pro' },
     })
     assert.strictEqual(result.success, true)
   })
