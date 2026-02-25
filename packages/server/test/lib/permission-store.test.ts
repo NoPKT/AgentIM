@@ -62,10 +62,7 @@ describe('permission-store', () => {
     })
 
     it('clears old timer when overwriting duplicate requestId', () => {
-      let timer1Fired = false
-      const timer1 = setTimeout(() => {
-        timer1Fired = true
-      }, 50)
+      const timer1 = setTimeout(() => {}, 100)
       timer1.unref()
       addPendingPermission('test-req-dup', {
         agentId: 'agent-1',
@@ -82,14 +79,13 @@ describe('permission-store', () => {
         timer: timer2,
       })
 
-      // Verify the old timer was cleared (should not fire)
-      return new Promise<void>((resolve) => {
-        setTimeout(() => {
-          assert.equal(timer1Fired, false, 'Old timer should have been cleared')
-          clearPendingPermission('test-req-dup')
-          resolve()
-        }, 100).unref()
-      })
+      // Verify the old timer was destroyed synchronously by clearTimeout
+      assert.equal(
+        (timer1 as unknown as { _destroyed: boolean })._destroyed,
+        true,
+        'Old timer should have been cleared by addPendingPermission',
+      )
+      clearPendingPermission('test-req-dup')
     })
 
     it('records createdAt timestamp', () => {
