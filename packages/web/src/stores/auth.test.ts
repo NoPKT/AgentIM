@@ -200,7 +200,8 @@ describe('cross-tab logout', () => {
     useAuthStore.setState({ user: fakeUser })
 
     // Simulate another tab logging out via storage event
-    const event = new StorageEvent('storage', {
+    const event = new Event('storage') as StorageEvent
+    Object.assign(event, {
       key: 'agentim:logout',
       newValue: Date.now().toString(),
     })
@@ -214,7 +215,8 @@ describe('cross-tab logout', () => {
   it('ignores storage events with null newValue', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
+    const event = new Event('storage') as StorageEvent
+    Object.assign(event, {
       key: 'agentim:logout',
       newValue: null,
     })
@@ -227,7 +229,8 @@ describe('cross-tab logout', () => {
   it('ignores storage events with unrelated keys', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
+    const event = new Event('storage') as StorageEvent
+    Object.assign(event, {
       key: 'some-other-key',
       newValue: Date.now().toString(),
     })
