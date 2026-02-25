@@ -41,6 +41,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
   const [query, setQuery] = useState('')
   const [sender, setSender] = useState('')
+  const [senderType, setSenderType] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [results, setResults] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -62,45 +65,107 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     } else {
       setQuery('')
       setSender('')
+      setSenderType('')
+      setDateFrom('')
+      setDateTo('')
       setResults([])
       setSearched(false)
       setShowFilters(false)
     }
   }, [isOpen])
 
-  const doSearch = useCallback(async (q: string, senderFilter?: string) => {
-    if (q.trim().length < 2) {
-      setResults([])
-      setSearched(false)
-      return
-    }
-    setLoading(true)
-    setSearched(true)
-    try {
-      const params = new URLSearchParams({ q: q.trim(), limit: '30' })
-      if (senderFilter?.trim()) params.set('chat.sender', senderFilter.trim())
-      const res = await api.get<Message[]>(`/messages/search?${params}`)
-      if (res.ok && res.data) {
-        setResults(res.data)
+  const doSearch = useCallback(
+    async (
+      q: string,
+      filters: {
+        sender?: string
+        senderType?: string
+        dateFrom?: string
+        dateTo?: string
+      } = {},
+    ) => {
+      if (q.trim().length < 2) {
+        setResults([])
+        setSearched(false)
+        return
       }
-    } catch {
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      setLoading(true)
+      setSearched(true)
+      try {
+        const params = new URLSearchParams({ q: q.trim(), limit: '30' })
+        if (filters.sender?.trim()) params.set('sender', filters.sender.trim())
+        if (filters.senderType) params.set('senderType', filters.senderType)
+        if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
+        if (filters.dateTo) params.set('dateTo', filters.dateTo)
+        const res = await api.get<Message[]>(`/messages/search?${params}`)
+        if (res.ok && res.data) {
+          setResults(res.data)
+        }
+      } catch {
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [],
+  )
+
+  // Helper to trigger a debounced search with current filter state
+  const triggerSearch = useCallback(
+    (
+      q: string,
+      overrides: {
+        sender?: string
+        senderType?: string
+        dateFrom?: string
+        dateTo?: string
+      } = {},
+    ) => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(
+        () =>
+          doSearch(q, {
+            sender: overrides.sender ?? sender,
+            senderType: overrides.senderType ?? senderType,
+            dateFrom: overrides.dateFrom ?? dateFrom,
+            dateTo: overrides.dateTo ?? dateTo,
+          }),
+        400,
+      )
+    },
+    [doSearch, sender, senderType, dateFrom, dateTo],
+  )
 
   const handleInputChange = (value: string) => {
     setQuery(value)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => doSearch(value, sender), 400)
+    triggerSearch(value)
   }
 
   const handleSenderChange = (value: string) => {
     setSender(value)
     if (query.trim().length >= 2) {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => doSearch(query, value), 400)
+      triggerSearch(query, { sender: value })
+    }
+  }
+
+  const handleSenderTypeChange = (value: string) => {
+    setSenderType(value)
+    if (query.trim().length >= 2) {
+      triggerSearch(query, { senderType: value })
+    }
+  }
+
+  const handleDateFromChange = (value: string) => {
+    setDateFrom(value)
+    if (query.trim().length >= 2) {
+      triggerSearch(query, { dateFrom: value })
+    }
+  }
+
+  const handleDateToChange = (value: string) => {
+    setDateTo(value)
+    if (query.trim().length >= 2) {
+      triggerSearch(query, { dateTo: value })
     }
   }
 
@@ -166,12 +231,12 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${showFilters ? 'bg-info-muted text-info-text' : 'text-text-muted hover:bg-surface-hover'}`}
             >
-              {t('chat.filters')}
+              {t('search.filters')}
             </button>
             {sender && (
               <span className="text-xs bg-surface-hover text-text-secondary px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -181,9 +246,36 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                 </button>
               </span>
             )}
+            {senderType && (
+              <span className="text-xs bg-surface-hover text-text-secondary px-2 py-0.5 rounded-md flex items-center gap-1">
+                {t('search.senderType')}: {senderType}
+                <button
+                  onClick={() => handleSenderTypeChange('')}
+                  className="hover:text-danger-text"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {dateFrom && (
+              <span className="text-xs bg-surface-hover text-text-secondary px-2 py-0.5 rounded-md flex items-center gap-1">
+                {t('search.dateFrom')}: {dateFrom}
+                <button onClick={() => handleDateFromChange('')} className="hover:text-danger-text">
+                  ×
+                </button>
+              </span>
+            )}
+            {dateTo && (
+              <span className="text-xs bg-surface-hover text-text-secondary px-2 py-0.5 rounded-md flex items-center gap-1">
+                {t('search.dateTo')}: {dateTo}
+                <button onClick={() => handleDateToChange('')} className="hover:text-danger-text">
+                  ×
+                </button>
+              </span>
+            )}
           </div>
           {showFilters && (
-            <div className="mt-2">
+            <div className="mt-2 flex flex-col gap-2">
               <input
                 type="text"
                 value={sender}
@@ -191,6 +283,40 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                 placeholder={t('chat.filterBySender')}
                 className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-surface text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
+              <select
+                value={senderType}
+                onChange={(e) => handleSenderTypeChange(e.target.value)}
+                className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">{t('search.allTypes')}</option>
+                <option value="user">User</option>
+                <option value="agent">Agent</option>
+                <option value="system">System</option>
+              </select>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] text-text-muted mb-0.5 block">
+                    {t('search.dateFrom')}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => handleDateFromChange(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-text-muted mb-0.5 block">
+                    {t('search.dateTo')}
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => handleDateToChange(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
