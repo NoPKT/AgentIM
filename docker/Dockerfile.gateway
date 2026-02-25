@@ -1,6 +1,6 @@
 # Gateway Dockerfile
 # ── Build stage ──
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 RUN npm install -g pnpm@10.29.3
 
 WORKDIR /app
@@ -22,7 +22,7 @@ COPY packages/gateway/ packages/gateway/
 RUN pnpm --filter @agentim/shared build && pnpm --filter agentim build
 
 # ── Production stage ──
-FROM node:20-alpine AS production
+FROM node:25-alpine AS production
 RUN npm install -g pnpm@10.29.3
 
 WORKDIR /app
