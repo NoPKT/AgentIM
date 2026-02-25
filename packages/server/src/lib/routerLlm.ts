@@ -144,7 +144,7 @@ export async function selectAgents(
       })
     } catch (fetchErr) {
       clearTimeout(timeout)
-      const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'AbortError'
+      const isTimeout = (fetchErr as any)?.name === 'AbortError'
       log.warn(
         `Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
       )
