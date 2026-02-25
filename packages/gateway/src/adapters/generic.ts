@@ -26,7 +26,7 @@ const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/
 /** Check whether a path is absolute on either POSIX or Windows.
  * Covers `/usr/bin/cmd`, `C:\cmd.exe`, and `\\server\share` (UNC). */
 function isAbsolutePath(p: string): boolean {
-  return /^(?:[/\\]|[A-Za-z]:[/\\])/.test(p)
+  return /^(?:[/\\]{1,2}|[A-Za-z]:[/\\])/.test(p)
 }
 
 export interface GenericAdapterOptions extends AdapterOptions {

@@ -73,7 +73,7 @@ export function MessageInput() {
   // Restore draft when room changes
   useEffect(() => {
     if (!currentRoomId) return
-    const saved = localStorage.getItem(`draft:${currentRoomId}`)
+    const saved = sessionStorage.getItem(`draft:${currentRoomId}`)
     setContent(saved ?? '')
   }, [currentRoomId])
 
@@ -83,11 +83,11 @@ export function MessageInput() {
     clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
       if (content) {
-        localStorage.setItem(`draft:${currentRoomId}`, content)
+        sessionStorage.setItem(`draft:${currentRoomId}`, content)
       } else {
-        localStorage.removeItem(`draft:${currentRoomId}`)
+        sessionStorage.removeItem(`draft:${currentRoomId}`)
       }
-    }, 1000)
+    }, 500)
     return () => clearTimeout(draftTimerRef.current)
   }, [content, currentRoomId])
 
@@ -404,7 +404,7 @@ export function MessageInput() {
     )
     setContent('')
     setPendingAttachments([])
-    localStorage.removeItem(`draft:${currentRoomId}`)
+    sessionStorage.removeItem(`draft:${currentRoomId}`)
   }
 
   const handleDrop = useCallback(

@@ -24,7 +24,7 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 ### Hauptfunktionen
 
 - **Gruppenchat mit KI** — Menschen und KI-Agenten interagieren in Chaträumen mit @Erwähnungen, genau wie bei Slack oder Discord
-- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI, Cursor oder jeden anderen CLI-Agenten parallel aus
+- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI *(demnächst verfügbar)* oder jeden anderen CLI-Agenten parallel über den generischen Adapter aus
 - **Service-Agenten** — Konfigurieren Sie serverseitige KI-Service-Agenten (OpenAI-kompatibel), die auf @Erwähnungen ohne Gateway reagieren
 - **Geräteübergreifend** — Verwalten Sie Agenten auf Ihrem Arbeitsrechner von jedem Gerät aus über PWA
 - **Echtzeit-Streaming** — Sehen Sie Agentenantworten, Denkprozesse und Werkzeugnutzung in Echtzeit

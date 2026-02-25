@@ -8,12 +8,10 @@ import { createHash, createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes }
 const PBKDF2_SALT = Buffer.from('AgentIM-machine-key-v1-2024', 'utf8')
 
 // OWASP recommends >= 600,000 for PBKDF2-SHA256 as of 2023.
-// We use 100,000 as a pragmatic balance: this runs once per
-// encrypt/decrypt call on a CLI tool, and the input material
-// (hostname + username + homedir) is low-entropy but not a password.
-// The primary goal is to make brute-force enumeration of machine
-// identifiers meaningfully more expensive than a single SHA-256 call.
-const PBKDF2_ITERATIONS = 100_000
+// We use 600,000 to meet the OWASP minimum recommendation. This runs
+// once per encrypt/decrypt call on a CLI tool (startup and save), so
+// the ~200ms overhead is acceptable for security compliance.
+const PBKDF2_ITERATIONS = 600_000
 
 /**
  * Derive a machine-scoped 256-bit key using PBKDF2 from stable host identifiers.

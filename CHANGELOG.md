@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial scaffolding of AgentIM
 - Hub server with PostgreSQL + Redis, built on Hono and Drizzle ORM
 - React 19 PWA web client with dark mode support
-- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI, Cursor, generic)
+- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI *(coming soon)*, generic)
 - Real-time streaming with thinking/tool-use visualization
 - Smart routing: broadcast and direct mode with @mention-based targeting
 - Agent-to-agent communication with loop protection (depth limit, visited dedup, rate limit)
@@ -155,6 +155,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebP magic byte validation now also checks VP8 chunk identifier (VP8/VP8L/VP8X)
 - Fixed `MAX_MESSAGES_PER_ROOM_CACHE_CACHE` typo in message-cache import
 - Enhanced ENCRYPTION_KEY validation (32+ chars required in production)
+
+- Removed inaccurate Cursor references from documentation and GitHub repo description (Cursor adapter was removed; use generic adapter instead)
+- Token revocation warning now explicitly calls out multi-process risk when Redis is unavailable
+- Rate limiter memory eviction upgraded from single-entry FIFO to batch 10% eviction for efficiency
+- Gateway oversized message handling now sends error response back to gateway instead of silently dropping
+- Gateway `promptPassword` terminal state now always restored via centralized cleanup (prevents stuck raw mode on interrupt)
+- Gateway PBKDF2 iterations increased from 100,000 to 600,000 to meet OWASP minimum recommendation
+- Gateway `GenericAdapter` `isAbsolutePath` now correctly detects UNC paths (`\\server\share`)
+- Gateway CLI now handles SIGPIPE signal to prevent crash when output is piped to a closed process
+- Web draft messages moved from localStorage to sessionStorage (prevents draft leakage on shared devices)
+- Web draft auto-save debounce reduced from 1000ms to 500ms for better responsiveness
+- Web MarkdownRenderer now sets `skipHtml` to prevent raw HTML passthrough as defense-in-depth
 
 ### Security
 

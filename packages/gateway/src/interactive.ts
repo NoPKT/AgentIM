@@ -63,7 +63,7 @@ export function promptPassword(question: string): Promise<string> {
     process.stdout.write(question)
 
     const stdin = process.stdin
-    const wasRaw = stdin.isRaw
+    const wasRaw = stdin.isRaw ?? false
     if (stdin.isTTY) {
       stdin.setRawMode(true)
     }
@@ -72,25 +72,28 @@ export function promptPassword(question: string): Promise<string> {
 
     let password = ''
 
+    // Ensure terminal state is always restored, even on unexpected errors
+    const restoreTerminal = () => {
+      try {
+        if (stdin.isTTY) stdin.setRawMode(wasRaw)
+        stdin.pause()
+        stdin.removeListener('data', onData)
+      } catch {
+        // Ignore errors during cleanup (e.g. stdin already destroyed)
+      }
+    }
+
     const onData = (ch: string) => {
       const c = ch.toString()
 
       if (c === '\n' || c === '\r' || c === '\u0004') {
         // Enter or Ctrl+D
-        if (stdin.isTTY) {
-          stdin.setRawMode(wasRaw ?? false)
-        }
-        stdin.pause()
-        stdin.removeListener('data', onData)
+        restoreTerminal()
         process.stdout.write('\n')
         resolve(password)
       } else if (c === '\u0003') {
         // Ctrl+C
-        if (stdin.isTTY) {
-          stdin.setRawMode(wasRaw ?? false)
-        }
-        stdin.pause()
-        stdin.removeListener('data', onData)
+        restoreTerminal()
         process.stdout.write('\n')
         reject(new Error('interrupted'))
       } else if (c === '\u007F' || c === '\b') {

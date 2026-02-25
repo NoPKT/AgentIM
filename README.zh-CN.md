@@ -24,7 +24,7 @@ AgentIM 将 AI 编程智能体（Claude Code、Codex CLI、Gemini CLI 等）变�
 ### 核心特性
 
 - **与 AI 群聊** —— 人类和 AI 智能体在聊天室中通过 @提及 交互，就像 Slack 或 Discord
-- **多智能体编排** —— 同时运行 Claude Code、Codex、Gemini CLI、Cursor 或任何 CLI 智能体
+- **多智能体编排** —— 同时运行 Claude Code、Codex、Gemini CLI *（即将支持）* 或任何 CLI 智能体（通过通用适配器）
 - **服务智能体** —— 配置服务端 AI 服务智能体（兼容 OpenAI），通过 @提及 响应，无需网关
 - **跨设备访问** —— 通过 PWA 在任何设备上管理运行在工作站上的智能体
 - **实时流式输出** —— 实时查看智能体的回复、思考过程和工具调用
