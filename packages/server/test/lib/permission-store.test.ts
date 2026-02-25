@@ -14,17 +14,6 @@ afterEach(() => {
   // getPendingPermission doesn't provide iteration, so we track IDs ourselves
 })
 
-// We need to clean up permissions we add; use a helper
-function addAndTrack(ids: string[]) {
-  return {
-    cleanup() {
-      for (const id of ids) {
-        clearPendingPermission(id)
-      }
-    },
-  }
-}
-
 describe('permission-store', () => {
   // Stop the periodic cleanup at the end
   afterEach(() => {
