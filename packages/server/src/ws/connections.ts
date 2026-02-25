@@ -70,6 +70,23 @@ export class ConnectionManager {
 
   // ─── Client connections ───
 
+  /**
+   * Register or update a client WebSocket connection for a given user.
+   *
+   * Connection limits are enforced before any internal counters are mutated.
+   *
+   * @param ws - The WebSocket context associated with the client.
+   * @param userId - The authenticated user ID for this connection.
+   * @param username - The human-readable username for logging/diagnostics.
+   * @param userMaxConnections - Optional per-call override for the maximum number
+   *   of concurrent connections allowed for this user. When provided as a number
+   *   (including 0), this value takes precedence over configuration. When
+   *   `undefined` or `null`, the limit is resolved from
+   *   `getConfigSync<number>('ws.maxConnectionsPerUser')` and, if that is not
+   *   set, from `config.maxWsConnectionsPerUser`.
+   * @returns An object with `{ ok: true }` on success, or `{ ok: false, error }`
+   *   if the connection is rejected due to per-user or global connection limits.
+   */
   addClient(
     ws: WSContext,
     userId: string,
