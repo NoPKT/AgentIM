@@ -159,6 +159,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
         aria-live="polite"
         aria-relevant="additions"
         aria-label={t('chat.messages')}
+        aria-busy={isLoading}
       >
         {/* Load more button */}
         {currentHasMore && (

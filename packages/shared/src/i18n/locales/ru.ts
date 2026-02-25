@@ -151,6 +151,7 @@ export const ru = {
     messageTooLong: 'Сообщение слишком длинное',
     fileTypeNotAllowed: 'Тип файла не разрешён',
     removeAttachment: 'Удалить вложение',
+    dropFiles: 'Перетащите файлы сюда',
     downloadFile: 'Скачать',
     openOriginal: 'Открыть оригинал',
     addReaction: 'Добавить реакцию',

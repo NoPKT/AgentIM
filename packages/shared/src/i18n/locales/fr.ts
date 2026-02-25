@@ -153,6 +153,7 @@ export const fr = {
     messageTooLong: 'Le message est trop long',
     fileTypeNotAllowed: 'Type de fichier non autorisé',
     removeAttachment: 'Supprimer la pièce jointe',
+    dropFiles: 'Déposez les fichiers ici',
     downloadFile: 'Télécharger',
     openOriginal: "Ouvrir l'original",
     addReaction: 'Ajouter une réaction',

@@ -147,6 +147,7 @@ export const zhCN = {
     messageTooLong: '消息过长',
     fileTypeNotAllowed: '不支持的文件类型',
     removeAttachment: '移除附件',
+    dropFiles: '拖放文件到此处',
     downloadFile: '下载',
     openOriginal: '查看原图',
     addReaction: '添加表情',

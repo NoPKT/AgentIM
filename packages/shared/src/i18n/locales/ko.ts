@@ -148,6 +148,7 @@ export const ko = {
     messageTooLong: '메시지가 너무 깁니다',
     fileTypeNotAllowed: '허용되지 않는 파일 형식',
     removeAttachment: '첨부 삭제',
+    dropFiles: '여기에 파일을 놓으세요',
     downloadFile: '다운로드',
     openOriginal: '원본 보기',
     addReaction: '반응 추가',

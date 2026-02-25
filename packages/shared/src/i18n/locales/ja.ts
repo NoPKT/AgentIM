@@ -148,6 +148,7 @@ export const ja = {
     messageTooLong: 'メッセージが長すぎます',
     fileTypeNotAllowed: 'このファイル形式は許可されていません',
     removeAttachment: '添付を削除',
+    dropFiles: 'ここにファイルをドロップ',
     downloadFile: 'ダウンロード',
     openOriginal: '元画像を開く',
     addReaction: 'リアクション追加',
