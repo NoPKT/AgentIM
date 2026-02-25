@@ -191,9 +191,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gateway `agent-manager.ts`: Fixed unsafe Map mutation during iteration when cleaning room contexts
 - **Server test hanging**: Exported cleanup functions for all `setInterval` timers (stream tracker, rate limit, cache, permissions, client/gateway handlers) and call them in shutdown
 - **Web accessibility**: ToastContainer now has `role="region"`, `aria-live="polite"`, keyboard-accessible close buttons; ProtectedRoute loading state has `role="status"`; AppLayout nav links have `aria-current="page"`
+- **Gateway permission-store timer leak**: Clear old timer when overwriting duplicate `requestId` entries to prevent orphaned timers
+- **Gateway permission-store test hanging**: Reduced test timer durations from 10s/100s to 100ms with `.unref()` to prevent event loop blocking
+- **Gateway agent-manager timer leak**: Workspace status `Promise.race` timeout timer now cleaned up on completion with `.unref()`
+- **Gateway custom-adapters shadowing**: Added validation to prevent custom adapter names from conflicting with built-in adapter types (claude-code, codex, gemini, opencode, generic)
+- **Gateway OpenCode permission delivery**: Added retry logic (2 attempts, 500ms backoff) for permission response POST requests
+- **Web IndexedDB write resilience**: Added `withIdbRetry()` wrapper with 2 retries and exponential backoff for cache write operations
+- **Server missing audit action**: Added `message_edit` audit trail for message edit operations
+- **Server migration verification**: Added `verifyMigrations()` check at startup when `RUN_MIGRATIONS=false` to warn about pending migrations
+- **Shared validator i18n**: Replaced hardcoded English error messages in Zod `superRefine` with i18n keys across all 7 locales
+- **Shared mentions performance**: Added regex compilation cache (500-entry cap) to `hasMention()` to avoid repeated `RegExp` construction
+- **Web chat store refactor**: Extracted streaming and presence logic from monolithic `chat.ts` (974 lines) into `chat-streaming.ts` and `chat-presence.ts` helper modules
 
 ### Security
 
 - Added ANTHROPIC_API_KEY and CLAUDE_API_KEY to sensitive env var filter
 - Enhanced password environment variable cleanup in gateway CLI
 - Refresh token endpoint now validates Origin header (Cookie path only) in production for CSRF defence-in-depth
+- Trivy Docker image vulnerability scanning in release workflow with SARIF upload to GitHub CodeQL

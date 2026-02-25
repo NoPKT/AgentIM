@@ -230,10 +230,28 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     })
 
     const response = result.behavior === 'allow' ? 'once' : 'reject'
-    await client.postSessionIdPermissionsPermissionId({
-      path: { id: sessionId, permissionID: perm.id },
-      body: { response },
-    })
+
+    // Retry permission response delivery with backoff (network may be flaky)
+    const MAX_RETRIES = 2
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await client.postSessionIdPermissionsPermissionId({
+          path: { id: sessionId, permissionID: perm.id },
+          body: { response },
+        })
+        return
+      } catch (err: unknown) {
+        if (attempt < MAX_RETRIES) {
+          const delay = 500 * (attempt + 1)
+          log.warn(
+            `Permission response delivery failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${delay}ms`,
+          )
+          await new Promise((r) => setTimeout(r, delay))
+        } else {
+          throw err
+        }
+      }
+    }
   }
 
   /**

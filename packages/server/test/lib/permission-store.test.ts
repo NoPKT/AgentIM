@@ -16,7 +16,8 @@ describe('permission-store', () => {
 
   describe('addPendingPermission', () => {
     it('adds a permission to the queue and returns true', () => {
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       const result = addPendingPermission('test-req-1', {
         agentId: 'agent-1',
         roomId: 'room-1',
@@ -34,7 +35,8 @@ describe('permission-store', () => {
     })
 
     it('updates existing requestId without incrementing count', () => {
-      const timer1 = setTimeout(() => {}, 10_000)
+      const timer1 = setTimeout(() => {}, 100)
+      timer1.unref()
       addPendingPermission('test-req-2', {
         agentId: 'agent-1',
         roomId: 'room-1',
@@ -42,7 +44,8 @@ describe('permission-store', () => {
       })
       const countBefore = getPendingCount()
 
-      const timer2 = setTimeout(() => {}, 10_000)
+      const timer2 = setTimeout(() => {}, 100)
+      timer2.unref()
       const result = addPendingPermission('test-req-2', {
         agentId: 'agent-2',
         roomId: 'room-2',
@@ -58,9 +61,37 @@ describe('permission-store', () => {
       clearPendingPermission('test-req-2')
     })
 
+    it('clears old timer when overwriting duplicate requestId', () => {
+      const timer1 = setTimeout(() => {}, 100)
+      timer1.unref()
+      addPendingPermission('test-req-dup', {
+        agentId: 'agent-1',
+        roomId: 'room-1',
+        timer: timer1,
+      })
+
+      // Overwrite with a new entry — old timer should be cleared
+      const timer2 = setTimeout(() => {}, 100)
+      timer2.unref()
+      addPendingPermission('test-req-dup', {
+        agentId: 'agent-2',
+        roomId: 'room-2',
+        timer: timer2,
+      })
+
+      // Verify the old timer was destroyed synchronously by clearTimeout
+      assert.equal(
+        (timer1 as unknown as { _destroyed: boolean })._destroyed,
+        true,
+        'Old timer should have been cleared by addPendingPermission',
+      )
+      clearPendingPermission('test-req-dup')
+    })
+
     it('records createdAt timestamp', () => {
       const before = Date.now()
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       addPendingPermission('test-req-ts', {
         agentId: 'a',
         roomId: 'r',
@@ -80,11 +111,12 @@ describe('permission-store', () => {
   describe('addPendingPermission capacity limit', () => {
     it('rejects new requests when queue is at capacity (1000)', () => {
       const ids: string[] = []
-      // Fill to capacity
+      // Fill to capacity — use short timers with .unref() to avoid blocking
       for (let i = 0; i < 1000; i++) {
         const id = `cap-test-${i}`
         ids.push(id)
-        const timer = setTimeout(() => {}, 100_000)
+        const timer = setTimeout(() => {}, 100)
+        timer.unref()
         const ok = addPendingPermission(id, {
           agentId: 'a',
           roomId: 'r',
@@ -96,7 +128,8 @@ describe('permission-store', () => {
       assert.equal(getPendingCount(), 1000)
 
       // New request should be rejected
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       const result = addPendingPermission('cap-test-overflow', {
         agentId: 'a',
         roomId: 'r',
@@ -116,12 +149,14 @@ describe('permission-store', () => {
       for (let i = 0; i < 1000; i++) {
         const id = `cap-reuse-${i}`
         ids.push(id)
-        const timer = setTimeout(() => {}, 100_000)
+        const timer = setTimeout(() => {}, 100)
+        timer.unref()
         addPendingPermission(id, { agentId: 'a', roomId: 'r', timer })
       }
 
       // Re-adding an existing ID should succeed
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       const result = addPendingPermission('cap-reuse-0', {
         agentId: 'updated',
         roomId: 'r',
@@ -142,7 +177,8 @@ describe('permission-store', () => {
 
   describe('clearPendingPermission', () => {
     it('removes an existing permission', () => {
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       addPendingPermission('clear-test-1', {
         agentId: 'a',
         roomId: 'r',
@@ -161,7 +197,8 @@ describe('permission-store', () => {
     })
 
     it('double-clear does not throw', () => {
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       addPendingPermission('double-clear', {
         agentId: 'a',
         roomId: 'r',
@@ -185,7 +222,8 @@ describe('permission-store', () => {
       // Note: this test relies on no other test leaving stale entries
       // If it fails, previous tests may have leaked entries
       const startCount = getPendingCount()
-      const timer = setTimeout(() => {}, 10_000)
+      const timer = setTimeout(() => {}, 100)
+      timer.unref()
       addPendingPermission('count-test', { agentId: 'a', roomId: 'r', timer })
       assert.equal(getPendingCount(), startCount + 1)
       clearPendingPermission('count-test')

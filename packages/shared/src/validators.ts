@@ -161,7 +161,7 @@ export const createRouterSchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `visibilityList must not be empty when visibility is '${data.visibility}'`,
+        message: 'validation.visibilityListRequired',
         path: ['visibilityList'],
       })
     }
@@ -209,7 +209,7 @@ export const updateRouterSchema = z
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `visibilityList must not be empty when visibility is '${data.visibility}'`,
+        message: 'validation.visibilityListRequired',
         path: ['visibilityList'],
       })
     }
@@ -329,7 +329,7 @@ export const createServiceAgentSchema = z
     if (data.type !== 'custom' && !data.config.apiKey) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'config.apiKey is required for non-custom service agent types',
+        message: 'validation.serviceAgentApiKeyRequired',
         path: ['config', 'apiKey'],
       })
     }
@@ -338,7 +338,7 @@ export const createServiceAgentSchema = z
       if (!data.config.model) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'config.model is required for OpenAI-based service agents',
+          message: 'validation.serviceAgentModelRequired',
           path: ['config', 'model'],
         })
       }
@@ -347,7 +347,7 @@ export const createServiceAgentSchema = z
       if (!data.config.voiceId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'config.voiceId is required for ElevenLabs service agents',
+          message: 'validation.serviceAgentVoiceIdRequired',
           path: ['config', 'voiceId'],
         })
       }

@@ -23,32 +23,27 @@ import {
   removePendingMessage,
   type PendingMessage,
 } from '../lib/message-cache.js'
-
-interface StreamingMessage {
-  messageId: string
-  agentId: string
-  agentName: string
-  chunks: ParsedChunk[]
-  lastChunkAt: number
-}
+import {
+  addStreamChunkAction,
+  completeStreamAction,
+  addTerminalDataAction,
+  cleanupStaleStreamsAction,
+  type StreamingMessage,
+  type TerminalBuffer,
+} from './chat-streaming.js'
+import {
+  addTypingUserAction,
+  clearExpiredTypingAction,
+  setUserOnlineAction,
+  updateReadReceiptAction,
+  selectTypingNamesFromState,
+  type ReadReceipt,
+} from './chat-presence.js'
 
 interface LastMessageInfo {
   content: string
   senderName: string
   createdAt: string
-}
-
-interface TerminalBuffer {
-  agentName: string
-  lines: string[]
-  /** Monotonic counter — total lines ever pushed (survives slice truncation). */
-  totalPushed: number
-}
-
-interface ReadReceipt {
-  userId: string
-  username: string
-  lastReadAt: string
 }
 
 interface ChatState {
@@ -171,54 +166,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setReplyTo: (message) => set({ replyTo: message }),
 
   setUserOnline: (userId, online) => {
-    const onlineUsers = new Set(get().onlineUsers)
-    if (online) onlineUsers.add(userId)
-    else onlineUsers.delete(userId)
-    set({ onlineUsers })
+    set({ onlineUsers: setUserOnlineAction(get().onlineUsers, userId, online) })
   },
 
   updateReadReceipt: (roomId, userId, username, lastReadAt) => {
-    const MAX_RECEIPTS_PER_ROOM = 100
-    const readReceipts = new Map(get().readReceipts)
-    // Use a Map keyed by userId for O(1) upsert instead of O(n) filter+push
-    const existing = readReceipts.get(roomId) ?? []
-    const byUser = new Map(existing.map((r) => [r.userId, r]))
-    byUser.set(userId, { userId, username, lastReadAt })
-    // Cap per-room receipts to prevent unbounded growth
-    let receipts = [...byUser.values()]
-    if (receipts.length > MAX_RECEIPTS_PER_ROOM) {
-      receipts = receipts.slice(-MAX_RECEIPTS_PER_ROOM)
-    }
-    readReceipts.set(roomId, receipts)
-    set({ readReceipts })
+    set({
+      readReceipts: updateReadReceiptAction(
+        get().readReceipts,
+        roomId,
+        userId,
+        username,
+        lastReadAt,
+      ),
+    })
   },
 
   addTypingUser: (roomId, userId, username) => {
-    const MAX_TYPING_ENTRIES = 500
-    const key = `${roomId}:${userId}`
-    const typingUsers = new Map(get().typingUsers)
-    typingUsers.set(key, { username, expiresAt: Date.now() + 4000 })
-    // Safety cap — clearExpiredTyping handles normal cleanup
-    if (typingUsers.size > MAX_TYPING_ENTRIES) {
-      const entries = [...typingUsers.entries()].sort((a, b) => a[1].expiresAt - b[1].expiresAt)
-      const toKeep = entries.slice(-MAX_TYPING_ENTRIES)
-      set({ typingUsers: new Map(toKeep) })
-    } else {
-      set({ typingUsers })
-    }
+    set({ typingUsers: addTypingUserAction(get().typingUsers, roomId, userId, username) })
   },
 
   clearExpiredTyping: () => {
-    const now = Date.now()
-    const typingUsers = new Map(get().typingUsers)
-    let changed = false
-    for (const [key, value] of typingUsers) {
-      if (value.expiresAt < now) {
-        typingUsers.delete(key)
-        changed = true
-      }
-    }
-    if (changed) set({ typingUsers })
+    const result = clearExpiredTypingAction(get().typingUsers)
+    if (result) set({ typingUsers: result })
   },
 
   loadRooms: async () => {
@@ -450,49 +419,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
-    const MAX_CHUNKS_PER_STREAM = 2000
-    const streaming = new Map(get().streaming)
-    const key = `${roomId}:${agentId}`
-    const existing = streaming.get(key)
-    const now = Date.now()
-    if (existing) {
-      const chunks =
-        existing.chunks.length >= MAX_CHUNKS_PER_STREAM
-          ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
-          : [...existing.chunks, chunk]
-      streaming.set(key, { ...existing, chunks, lastChunkAt: now })
-    } else {
-      streaming.set(key, { messageId, agentId, agentName, chunks: [chunk], lastChunkAt: now })
-    }
-    set({ streaming })
+    set({
+      streaming: addStreamChunkAction(
+        get().streaming,
+        roomId,
+        agentId,
+        agentName,
+        messageId,
+        chunk,
+      ),
+    })
   },
 
   completeStream: (message) => {
     // Add message first, then clean up streaming state
-    // This ensures message is visible even if addMessage triggers re-renders
     get().addMessage(message)
-
-    const streaming = new Map(get().streaming)
-    const key = `${message.roomId}:${message.senderId}`
-    streaming.delete(key)
-    set({ streaming })
+    set({ streaming: completeStreamAction(get().streaming, message) })
   },
 
   addTerminalData: (agentId, agentName, data) => {
-    const MAX_TERMINAL_LINES = 500
-    const terminalBuffers = new Map(get().terminalBuffers)
-    const existing = terminalBuffers.get(agentId)
-    if (existing) {
-      const lines = [...existing.lines, data]
-      terminalBuffers.set(agentId, {
-        agentName,
-        lines: lines.length > MAX_TERMINAL_LINES ? lines.slice(-MAX_TERMINAL_LINES) : lines,
-        totalPushed: existing.totalPushed + 1,
-      })
-    } else {
-      terminalBuffers.set(agentId, { agentName, lines: [data], totalPushed: 1 })
-    }
-    set({ terminalBuffers })
+    set({
+      terminalBuffers: addTerminalDataAction(get().terminalBuffers, agentId, agentName, data),
+    })
   },
 
   clearTerminalBuffer: (agentId) => {
@@ -506,17 +454,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   cleanupStaleStreams: () => {
-    const STALE_TIMEOUT = 120_000 // 2 minutes
-    const now = Date.now()
-    const streaming = new Map(get().streaming)
-    let changed = false
-    for (const [key, stream] of streaming) {
-      if (now - stream.lastChunkAt > STALE_TIMEOUT) {
-        streaming.delete(key)
-        changed = true
-      }
-    }
-    if (changed) set({ streaming })
+    const result = cleanupStaleStreamsAction(get().streaming)
+    if (result) set({ streaming: result })
   },
 
   createRoom: async (name, type, broadcastMode, systemPrompt?, routerId?) => {
@@ -982,17 +921,8 @@ export function selectTypingNames(
   roomId: string | null,
   excludeUserId: string | undefined,
 ): string[] {
-  if (!roomId) return EMPTY_NAMES
-  const names: string[] = []
-  const now = Date.now()
-  for (const [key, value] of state.typingUsers) {
-    if (key.startsWith(`${roomId}:`) && value.expiresAt > now) {
-      if (!excludeUserId || !key.endsWith(`:${excludeUserId}`)) {
-        names.push(value.username)
-      }
-    }
-  }
-  return names.length === 0 ? EMPTY_NAMES : names
+  return selectTypingNamesFromState(state.typingUsers, roomId, excludeUserId)
 }
 
-const EMPTY_NAMES: string[] = []
+// Re-export types so existing consumers don't need to update imports
+export type { StreamingMessage, TerminalBuffer, ReadReceipt }

@@ -402,6 +402,12 @@ export const ru = {
       toolInputKeyTooLong: 'Ключ входных данных инструмента слишком длинный',
       toolInputDangerousKey: 'Ввод инструмента содержит опасное имя ключа',
       configDangerousKey: 'Конфигурация содержит опасное имя ключа',
+      visibilityListRequired:
+        'Список видимости не может быть пустым для выбранного режима видимости',
+      serviceAgentApiKeyRequired:
+        'API-ключ обязателен для не-пользовательских типов сервисных агентов',
+      serviceAgentModelRequired: 'Модель обязательна для сервисных агентов на основе OpenAI',
+      serviceAgentVoiceIdRequired: 'ID голоса обязателен для сервисных агентов ElevenLabs',
     },
   },
   a11y: {
