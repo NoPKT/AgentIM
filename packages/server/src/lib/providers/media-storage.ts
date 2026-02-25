@@ -7,6 +7,39 @@ import { createLogger } from '../logger.js'
 
 const log = createLogger('MediaStorage')
 
+/** Check if a URL points to a private/internal IP range (SSRF prevention). */
+export function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr)
+    const hostname = parsed.hostname
+    // Block private IP ranges, localhost, and link-local addresses
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return true
+    }
+    // IPv4 private ranges
+    const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number)
+      if (a === 10) return true // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true // 172.16.0.0/12
+      if (a === 192 && b === 168) return true // 192.168.0.0/16
+      if (a === 169 && b === 254) return true // 169.254.0.0/16 (link-local)
+      if (a === 100 && b >= 64 && b <= 127) return true // 100.64.0.0/10 (CGNAT)
+      if (a >= 224) return true // multicast + reserved
+    }
+    return false
+  } catch {
+    return true // Invalid URL → block
+  }
+}
+
 export interface StoredMedia {
   url: string
   size: number
@@ -32,7 +65,12 @@ export async function downloadAndStoreMedia(
     }
     buffer = Buffer.from(base64Match[1], 'base64')
   } else {
-    // Fetch external URL
+    // SSRF prevention: block requests to private/internal networks
+    if (isPrivateUrl(url)) {
+      throw new Error('URL points to a private/internal network (blocked for security)')
+    }
+
+    // Fetch external URL with streaming size enforcement
     const response = await fetch(url, {
       signal: AbortSignal.timeout(120_000),
     })
@@ -41,14 +79,29 @@ export async function downloadAndStoreMedia(
       throw new Error(`Failed to download media (${response.status})`)
     }
 
-    const arrayBuffer = await response.arrayBuffer()
-    buffer = Buffer.from(arrayBuffer)
-  }
-
-  if (buffer.length > MAX_SERVICE_AGENT_FILE_SIZE) {
-    throw new Error(
-      `Media file too large: ${(buffer.length / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_SERVICE_AGENT_FILE_SIZE / 1024 / 1024}MB limit`,
-    )
+    // Stream response body with size enforcement to prevent memory exhaustion
+    const chunks: Buffer[] = []
+    let totalSize = 0
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        totalSize += value.byteLength
+        if (totalSize > MAX_SERVICE_AGENT_FILE_SIZE) {
+          throw new Error(
+            `Media file too large: exceeds ${MAX_SERVICE_AGENT_FILE_SIZE / 1024 / 1024}MB limit (download aborted)`,
+          )
+        }
+        chunks.push(Buffer.from(value))
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    buffer = Buffer.concat(chunks)
   }
 
   // Store using the storage adapter

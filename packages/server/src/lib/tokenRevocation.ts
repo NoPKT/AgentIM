@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { getRedis, isRedisEnabled } from './redis.js'
 import Redis from 'ioredis'
-import { eq, lt } from 'drizzle-orm'
+import { eq, lt, desc } from 'drizzle-orm'
 import { createLogger } from './logger.js'
 import { config } from '../config.js'
 import { db } from '../db/index.js'
@@ -127,7 +127,7 @@ async function checkRevocationInDb(userId: string): Promise<number | null> {
       .select({ revokedAt: revokedTokens.revokedAt })
       .from(revokedTokens)
       .where(eq(revokedTokens.userId, userId))
-      .orderBy(revokedTokens.revokedAt)
+      .orderBy(desc(revokedTokens.revokedAt))
       .limit(1)
     if (rows.length === 0) return null
     return new Date(rows[0].revokedAt).getTime()

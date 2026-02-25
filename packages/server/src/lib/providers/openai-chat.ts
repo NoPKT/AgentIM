@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ServiceAgentProvider, ProviderRequest, ProviderResult } from './types.js'
+import { isPrivateUrl } from './media-storage.js'
 
 const configSchema = z.object({
   baseUrl: z.string().url(),
@@ -31,6 +32,11 @@ export const openaiChatProvider: ServiceAgentProvider = {
       })
     }
     apiMessages.push({ role: 'user', content: `[${request.senderName}]: ${request.prompt}` })
+
+    // SSRF prevention: block requests to private/internal networks
+    if (isPrivateUrl(config.baseUrl)) {
+      throw new Error('Base URL points to a private network (SSRF blocked)')
+    }
 
     const response = await fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
@@ -70,6 +76,10 @@ export const openaiChatProvider: ServiceAgentProvider = {
   async validateConfig(rawConfig: unknown) {
     try {
       const config = configSchema.parse(rawConfig) as Config
+      // SSRF prevention: block requests to private/internal networks
+      if (isPrivateUrl(config.baseUrl)) {
+        return { valid: false, error: 'Base URL points to a private network (SSRF blocked)' }
+      }
       const response = await fetch(`${config.baseUrl}/models`, {
         headers: { Authorization: `Bearer ${config.apiKey}` },
         signal: AbortSignal.timeout(10_000),

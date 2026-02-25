@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ServiceAgentProvider, ProviderRequest, ProviderResult } from './types.js'
+import { isPrivateUrl } from './media-storage.js'
 
 const configSchema = z.object({
   baseUrl: z.string().url().default('https://api.openai.com/v1'),
@@ -22,6 +23,11 @@ export const openaiImageProvider: ServiceAgentProvider = {
 
   async invoke(rawConfig: unknown, request: ProviderRequest): Promise<ProviderResult> {
     const config = configSchema.parse(rawConfig) as Config
+
+    // SSRF prevention: block requests to private/internal networks
+    if (isPrivateUrl(config.baseUrl)) {
+      throw new Error('Base URL points to a private network (SSRF blocked)')
+    }
 
     const response = await fetch(`${config.baseUrl}/images/generations`, {
       method: 'POST',

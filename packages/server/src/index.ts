@@ -445,7 +445,12 @@ app.use('/uploads/*', async (c, next) => {
   }
 
   try {
-    await verifyToken(token)
+    const payload = await verifyToken(token)
+    // Also check if the token has been revoked (e.g. user logged out)
+    const { isTokenRevoked } = await import('./lib/tokenRevocation.js')
+    if (await isTokenRevoked(payload.sub, (payload.iat ?? 0) * 1000)) {
+      return c.json({ ok: false, error: 'Token has been revoked' }, 401)
+    }
   } catch {
     return c.json({ ok: false, error: 'Invalid or expired token' }, 401)
   }
