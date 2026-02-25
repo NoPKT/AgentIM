@@ -1,4 +1,4 @@
-// Mention names: start with letter/underscore, followed by alphanumeric/underscore/hyphen
+// Mention names: start with alphanumeric/underscore, followed by alphanumeric/underscore/hyphen
 const MENTION_REGEX = /@([a-zA-Z0-9_][a-zA-Z0-9_-]*)/g
 
 // Character class that can follow a valid mention name

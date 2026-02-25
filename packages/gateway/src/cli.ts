@@ -4,16 +4,13 @@ import { closeSync, mkdirSync, openSync, renameSync, statSync, unlinkSync } from
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
-import { program } from 'commander'
+import { Command, program } from 'commander'
 import { nanoid } from 'nanoid'
 import { loadConfig, saveConfig, getConfigPath, clearConfig } from './config.js'
-import { getDeviceInfo } from './device.js'
 
 const require = createRequire(import.meta.url)
 const { version } = require('../package.json')
 import { getSafeEnv } from './adapters/spawn-base.js'
-import { GatewayWsClient } from './ws-client.js'
-import { AgentManager } from './agent-manager.js'
 import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
 import { prompt, promptPassword, promptSelect } from './interactive.js'
@@ -23,6 +20,7 @@ import { runSetupWizard } from './setup-wizard.js'
 import { createLogger } from './lib/logger.js'
 import { printSecurityBanner } from './lib/security-banner.js'
 import { listCustomAdapters, getCustomAdaptersPath } from './custom-adapters.js'
+import { createGatewaySession } from './gateway-session.js'
 import {
   listDaemons,
   stopDaemon,
@@ -32,15 +30,7 @@ import {
   readDaemonInfo,
   removeDaemonInfo,
 } from './lib/daemon-manager.js'
-import type {
-  PermissionLevel,
-  ServerSendToAgent,
-  ServerStopAgent,
-  ServerRemoveAgent,
-  ServerRoomContext,
-  ServerPermissionResponse,
-} from '@agentim/shared'
-import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
+import type { PermissionLevel } from '@agentim/shared'
 
 const log = createLogger('Gateway')
 
@@ -159,107 +149,67 @@ program
     await runSetupWizard(agentType)
   })
 
-// ─── agentim claude [path] ───
+// ─── Agent commands (claude, codex, opencode) ───
 
-program
-  .command('claude [path]')
-  .description('Start a Claude Code agent (background daemon)')
-  .option('-n, --name <name>', 'Agent name')
-  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
-  .option('--foreground', 'Run in foreground instead of daemonizing')
-  .option(
-    '--pass-env <keys>',
-    'Comma-separated env var names to whitelist through the security filter',
-  )
-  .option('--no-security-warning', 'Suppress the security warning banner')
-  .action(async (path, opts) => {
-    printSecurityBanner(!opts.securityWarning)
-    const workDir = path ?? process.cwd()
-    const name = opts.name ?? generateAgentName('claude-code', workDir)
-    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-    let agentConfig = loadAgentConfig('claude-code')
-    if (!agentConfig) {
-      log.info('No credentials configured for Claude Code.')
-      log.info('Running setup wizard...')
-      await runSetupWizard('claude-code')
-      agentConfig = loadAgentConfig('claude-code')
-    }
-    const env = agentConfig ? agentConfigToEnv('claude-code', agentConfig) : {}
-    const passEnv = parsePassEnv(opts.passEnv)
-    if (opts.foreground) {
-      await runWrapper({ type: 'claude-code', name, workDir, env, passEnv, permissionLevel })
-    } else {
-      spawnDaemon(name, 'claude-code', workDir, env, permissionLevel)
-    }
-  })
+/** Map agent type to a display name for CLI descriptions and log messages. */
+const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+}
 
-// ─── agentim codex [path] ───
+/**
+ * Register a CLI command for a specific agent type.
+ * All agent commands share the same option set and action logic.
+ */
+function registerAgentCommand(
+  parentProgram: Command,
+  commandName: string,
+  agentType: string,
+  description: string,
+) {
+  parentProgram
+    .command(`${commandName} [path]`)
+    .description(description)
+    .option('-n, --name <name>', 'Agent name')
+    .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
+    .option('--foreground', 'Run in foreground instead of daemonizing')
+    .option(
+      '--pass-env <keys>',
+      'Comma-separated env var names to whitelist through the security filter',
+    )
+    .option('--no-security-warning', 'Suppress the security warning banner')
+    .action(async (path, opts) => {
+      printSecurityBanner(!opts.securityWarning)
+      const workDir = path ?? process.cwd()
+      const name = opts.name ?? generateAgentName(agentType, workDir)
+      const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
+      const displayName = AGENT_DISPLAY_NAMES[agentType] ?? agentType
+      let agentConfig = loadAgentConfig(agentType)
+      if (!agentConfig) {
+        log.info(`No credentials configured for ${displayName}.`)
+        log.info('Running setup wizard...')
+        await runSetupWizard(agentType)
+        agentConfig = loadAgentConfig(agentType)
+      }
+      const env = agentConfig ? agentConfigToEnv(agentType, agentConfig) : {}
+      const passEnv = parsePassEnv(opts.passEnv)
+      if (opts.foreground) {
+        await runWrapper({ type: agentType, name, workDir, env, passEnv, permissionLevel })
+      } else {
+        spawnDaemon({ name, type: agentType, workDir, env, permissionLevel, passEnv })
+      }
+    })
+}
 
-program
-  .command('codex [path]')
-  .description('Start a Codex agent (background daemon)')
-  .option('-n, --name <name>', 'Agent name')
-  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
-  .option('--foreground', 'Run in foreground instead of daemonizing')
-  .option(
-    '--pass-env <keys>',
-    'Comma-separated env var names to whitelist through the security filter',
-  )
-  .option('--no-security-warning', 'Suppress the security warning banner')
-  .action(async (path, opts) => {
-    printSecurityBanner(!opts.securityWarning)
-    const workDir = path ?? process.cwd()
-    const name = opts.name ?? generateAgentName('codex', workDir)
-    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-    let agentConfig = loadAgentConfig('codex')
-    if (!agentConfig) {
-      log.info('No credentials configured for Codex.')
-      log.info('Running setup wizard...')
-      await runSetupWizard('codex')
-      agentConfig = loadAgentConfig('codex')
-    }
-    const env = agentConfig ? agentConfigToEnv('codex', agentConfig) : {}
-    const passEnv = parsePassEnv(opts.passEnv)
-    if (opts.foreground) {
-      await runWrapper({ type: 'codex', name, workDir, env, passEnv, permissionLevel })
-    } else {
-      spawnDaemon(name, 'codex', workDir, env, permissionLevel)
-    }
-  })
-
-// ─── agentim opencode [path] ───
-
-program
-  .command('opencode [path]')
-  .description('Start an OpenCode agent (background daemon)')
-  .option('-n, --name <name>', 'Agent name')
-  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
-  .option('--foreground', 'Run in foreground instead of daemonizing')
-  .option(
-    '--pass-env <keys>',
-    'Comma-separated env var names to whitelist through the security filter',
-  )
-  .option('--no-security-warning', 'Suppress the security warning banner')
-  .action(async (path, opts) => {
-    printSecurityBanner(!opts.securityWarning)
-    const workDir = path ?? process.cwd()
-    const name = opts.name ?? generateAgentName('opencode', workDir)
-    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-    let agentConfig = loadAgentConfig('opencode')
-    if (!agentConfig) {
-      log.info('No credentials configured for OpenCode.')
-      log.info('Running setup wizard...')
-      await runSetupWizard('opencode')
-      agentConfig = loadAgentConfig('opencode')
-    }
-    const env = agentConfig ? agentConfigToEnv('opencode', agentConfig) : {}
-    const passEnv = parsePassEnv(opts.passEnv)
-    if (opts.foreground) {
-      await runWrapper({ type: 'opencode', name, workDir, env, passEnv, permissionLevel })
-    } else {
-      spawnDaemon(name, 'opencode', workDir, env, permissionLevel)
-    }
-  })
+registerAgentCommand(
+  program,
+  'claude',
+  'claude-code',
+  'Start a Claude Code agent (background daemon)',
+)
+registerAgentCommand(program, 'codex', 'codex', 'Start a Codex agent (background daemon)')
+registerAgentCommand(program, 'opencode', 'opencode', 'Start an OpenCode agent (background daemon)')
 
 // ─── agentim gemini [path] ───
 
@@ -285,156 +235,19 @@ program
   .action(async (opts) => {
     printSecurityBanner(!opts.securityWarning)
     const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-    const config = loadConfig()
-    if (!config) {
-      log.error('Not logged in. Run `agentim login` first.')
-      process.exit(1)
-    }
 
-    const tokenManager = new TokenManager(config)
-    const deviceInfo = getDeviceInfo()
-    // AgentManager is initialized after wsClient is created (circular dependency)
-    // eslint-disable-next-line prefer-const
-    let agentManager: AgentManager
-    let refreshingToken: Promise<void> | null = null
-    // Track whether we already performed one token refresh this connection.
-    // If auth fails *after* a successful refresh it is a permanent error
-    // (e.g. gateway ID conflict, connection-limit) — not an expired-token issue.
-    let hasRefreshed = false
-    // Unique ID for the current connection; prevents stale refresh callbacks
-    // from affecting a newer connection.
-    let connectionId = 0
-
-    const authenticate = (wsClient: GatewayWsClient) => {
-      wsClient.send({
-        type: 'gateway:auth',
-        token: tokenManager.accessToken,
-        gatewayId: config.gatewayId,
-        protocolVersion: CURRENT_PROTOCOL_VERSION,
-        deviceInfo,
-      })
-    }
-
-    const wsClient = new GatewayWsClient({
-      url: config.serverUrl,
-      onConnected: () => {
-        // Reset per-connection refresh state on every new connection.
-        connectionId++
-        refreshingToken = null
-        hasRefreshed = false
-        authenticate(wsClient)
-      },
-      onMessage: async (msg) => {
-        if (msg.type === 'server:gateway_auth_result') {
-          if (msg.ok) {
-            log.info('Authenticated successfully')
-            refreshingToken = null
-            // On reconnect, re-register existing agents instead of creating new ones
-            if (agentManager.listAgents().length > 0) {
-              agentManager.reRegisterAll()
-            } else {
-              registerAgents(agentManager, opts.agent ?? [])
-            }
-            wsClient.flushQueue()
-          } else {
-            // First failure: try a token refresh (guarded by lock + one-shot flag).
-            // Second failure after a successful refresh: permanent error — exit.
-            if (!refreshingToken && config.refreshToken && !hasRefreshed) {
-              const refreshConnId = connectionId
-              log.info('Auth failed, refreshing token...')
-              refreshingToken = tokenManager.refresh().then(
-                () => {
-                  // Only act if this is still the same connection
-                  if (refreshConnId !== connectionId) return
-                  hasRefreshed = true
-                  refreshingToken = null
-                  authenticate(wsClient)
-                },
-                (err: unknown) => {
-                  if (refreshConnId !== connectionId) return
-                  log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
-                  log.error('Please re-login: agentim login')
-                  process.exit(1)
-                },
-              )
-            } else {
-              // No refresh token, refresh already attempted, or concurrent refresh
-              // in flight — treat as a permanent auth failure.
-              log.error(`Auth failed: ${msg.error}`)
-              log.error('Please re-login: agentim login')
-              process.exit(1)
-            }
-          }
-        } else if (msg.type === 'server:error') {
-          log.warn(`Server error: [${msg.code}] ${msg.message}`)
-        } else if (
-          msg.type === 'server:send_to_agent' ||
-          msg.type === 'server:stop_agent' ||
-          msg.type === 'server:remove_agent' ||
-          msg.type === 'server:room_context' ||
-          msg.type === 'server:permission_response'
-        ) {
-          agentManager.handleServerMessage(
-            msg as
-              | ServerSendToAgent
-              | ServerStopAgent
-              | ServerRemoveAgent
-              | ServerRoomContext
-              | ServerPermissionResponse,
-          )
+    const { start } = createGatewaySession({
+      permissionLevel,
+      onAuthenticated: (agentManager, isReconnect) => {
+        if (isReconnect) {
+          agentManager.reRegisterAll()
+        } else {
+          registerAgents(agentManager, opts.agent ?? [])
         }
       },
-      onDisconnected: () => {
-        log.warn('Connection lost, will reconnect...')
-      },
     })
 
-    agentManager = new AgentManager(wsClient, permissionLevel)
-
-    wsClient.connect()
-
-    // Graceful shutdown
-    let shuttingDown = false
-    const cleanup = async () => {
-      if (shuttingDown) return
-      shuttingDown = true
-      log.info('Shutting down...')
-      try {
-        await agentManager.disposeAll()
-      } catch (err) {
-        log.error(`Error during dispose: ${(err as Error).message}`)
-      }
-      wsClient.close()
-      // Allow time for WS close frame to be sent before exiting
-      setTimeout(() => process.exit(0), 2000).unref()
-    }
-
-    process.on(
-      'SIGINT',
-      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
-    )
-    process.on(
-      'SIGTERM',
-      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
-    )
-    process.on(
-      'SIGHUP',
-      () => void cleanup().catch((e) => log.error(`Cleanup error: ${(e as Error).message}`)),
-    )
-    // Ignore SIGPIPE (broken pipe) — can occur when piping output to a
-    // closed process (e.g. `agentim list | head`). Without this handler,
-    // Node.js would throw an uncaught exception and crash.
-    process.on('SIGPIPE', () => {
-      // Intentionally ignored
-    })
-    process.on('uncaughtException', (err) => {
-      log.error(`Uncaught exception: ${err.message}`)
-      void cleanup()
-    })
-    process.on('unhandledRejection', (reason) => {
-      log.error(`Unhandled rejection: ${reason}`)
-      void cleanup()
-    })
+    start()
   })
 
 // ─── agentim list ───
@@ -452,12 +265,16 @@ program
     }
 
     /* eslint-disable no-console -- CLI table output */
-    console.log('\n  Name\t\t\tType\t\tPID\tAlive\tStarted')
-    console.log('  ' + '─'.repeat(72))
+    console.log(
+      `\n  ${'Name'.padEnd(40)}${'Type'.padEnd(14)}${'PID'.padEnd(8)}${'Alive'.padEnd(8)}Started`,
+    )
+    console.log('  ' + '─'.repeat(86))
     for (const d of daemons) {
       const started = new Date(d.startedAt).toLocaleString()
-      const alive = d.alive ? 'yes' : 'no'
-      console.log(`  ${d.name}\t${d.type}\t\t${d.pid}\t${alive}\t${started}`)
+      const alive = d.alive ? 'Yes' : 'No'
+      console.log(
+        `  ${d.name.padEnd(40)}${(d.type || '?').padEnd(14)}${String(d.pid).padEnd(8)}${alive.padEnd(8)}${started}`,
+      )
     }
     console.log()
     /* eslint-enable no-console */
@@ -533,7 +350,10 @@ program
     /* eslint-enable no-console */
   })
 
-function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {
+function registerAgents(
+  agentManager: import('./agent-manager.js').AgentManager,
+  agentSpecs: string[],
+) {
   let invalidCount = 0
   for (const spec of agentSpecs) {
     // Split only first two colons to preserve Windows paths like C:\repo
@@ -633,13 +453,15 @@ function rotateLogIfNeeded(logFile: string) {
  * Spawn a detached daemon process for a single agent.
  * The parent (CLI) exits immediately after spawning.
  */
-function spawnDaemon(
-  name: string,
-  type: string,
-  workDir: string,
-  agentEnv?: Record<string, string>,
-  permissionLevel?: PermissionLevel,
-) {
+function spawnDaemon(opts: {
+  name: string
+  type: string
+  workDir: string
+  env?: Record<string, string>
+  permissionLevel?: PermissionLevel
+  passEnv?: string[]
+}) {
+  const { name, type, workDir, env: agentEnv, permissionLevel, passEnv } = opts
   const config = loadConfig()
   if (!config) {
     log.error('Not logged in. Run `agentim login` first.')
@@ -661,9 +483,8 @@ function spawnDaemon(
   }
 
   // Atomically reserve the daemon name before spawning to prevent TOCTOU races.
-  // writeDaemonInfo uses mode 0o600 which prevents parallel spawners from
-  // silently overwriting the file, and readDaemonInfo + kill(pid, 0) above
-  // catches live duplicates.
+  // Uses exclusive create ('wx' flag) so a parallel spawner with the same name
+  // will fail with EEXIST rather than silently overwriting.
   const reservationInfo = {
     pid: process.pid, // placeholder — updated after spawn
     name,
@@ -672,7 +493,17 @@ function spawnDaemon(
     startedAt: new Date().toISOString(),
     gatewayId: config.gatewayId,
   }
-  writeDaemonInfo(reservationInfo)
+  try {
+    writeDaemonInfo(reservationInfo, true)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+      log.error(
+        `Agent "${name}" is already being started by another process. Use a different name or wait.`,
+      )
+      process.exit(1)
+    }
+    throw err
+  }
 
   // Create log directory and open log file for daemon output
   const logDir = join(homedir(), '.agentim', 'logs')
@@ -686,11 +517,13 @@ function spawnDaemon(
   if (permissionLevel === 'bypass') {
     daemonArgs.push('--yes')
   }
+  // Build safe env, applying passEnv whitelist if provided
+  const passEnvSet = passEnv?.length ? new Set(passEnv) : undefined
   const child = cpSpawn(process.execPath, daemonArgs, {
     detached: true,
     stdio: ['ignore', logFd, logFd],
     cwd: workDir,
-    env: { ...getSafeEnv(), ...agentEnv },
+    env: { ...getSafeEnv(passEnvSet), ...agentEnv },
   })
 
   child.unref()

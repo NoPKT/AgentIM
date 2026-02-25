@@ -1,15 +1,19 @@
 /**
- * Reset all stores on logout. Uses dynamic imports to avoid circular dependencies
- * between auth store and other stores.
+ * Registration-based store reset.
+ * Each store registers its own reset function at creation time,
+ * avoiding circular dependency issues with dynamic imports.
  */
-export async function resetAllStores(): Promise<void> {
-  const [{ useChatStore }, { useAgentStore }, { useRouterStore }] = await Promise.all([
-    import('./chat.js'),
-    import('./agents.js'),
-    import('./routers.js'),
-  ])
+type ResetFn = () => void
+const resetFns: ResetFn[] = []
 
-  useChatStore.getState().reset()
-  useAgentStore.setState({ agents: [], sharedAgents: [], isLoading: false, loadError: false })
-  useRouterStore.setState({ routers: [], loading: false })
+/** Called by each store at module init to register a cleanup function. */
+export function registerStoreReset(fn: ResetFn): void {
+  resetFns.push(fn)
+}
+
+/** Reset all registered stores (called on logout / auth expiry). */
+export function resetAllStores(): void {
+  for (const fn of resetFns) {
+    fn()
+  }
 }

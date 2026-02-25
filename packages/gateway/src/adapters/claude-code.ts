@@ -92,10 +92,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         options.resume = this.sessionId
       }
 
-      if (context?.roomContext?.systemPrompt) {
-        options.systemPrompt = context.roomContext.systemPrompt
-      }
-
+      // systemPrompt is included by buildPrompt() via [System: ...] prefix,
+      // so we do NOT set options.systemPrompt to avoid double injection.
       const prompt = this.buildPrompt(content, context)
 
       const response = query({ prompt, options })

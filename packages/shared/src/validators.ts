@@ -247,8 +247,8 @@ export const searchMessagesSchema = z.object({
   roomId: z.string().max(100).optional(),
   senderId: z.string().max(100).optional(),
   senderType: z.enum(SENDER_TYPES).optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+  dateFrom: z.string().datetime({ offset: true }).optional(),
+  dateTo: z.string().datetime({ offset: true }).optional(),
 })
 
 export const batchDeleteMessagesSchema = z.object({
@@ -559,7 +559,7 @@ export const gatewayTaskUpdateSchema = z.object({
   type: z.literal('gateway:task_update'),
   taskId: z.string().min(1),
   status: z.enum(TASK_STATUSES),
-  result: z.string().optional(),
+  result: z.string().max(100000).optional(),
 })
 
 export const gatewayPermissionRequestSchema = z.object({

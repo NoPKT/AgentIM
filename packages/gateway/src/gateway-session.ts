@@ -1,0 +1,191 @@
+import { loadConfig } from './config.js'
+import { getDeviceInfo } from './device.js'
+import { GatewayWsClient } from './ws-client.js'
+import { AgentManager } from './agent-manager.js'
+import { TokenManager } from './token-manager.js'
+import { createLogger } from './lib/logger.js'
+import type {
+  PermissionLevel,
+  ServerSendToAgent,
+  ServerStopAgent,
+  ServerRemoveAgent,
+  ServerRoomContext,
+  ServerPermissionResponse,
+} from '@agentim/shared'
+import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
+
+const log = createLogger('GatewaySession')
+
+export interface GatewaySessionOptions {
+  permissionLevel: PermissionLevel
+  /** Called after successful authentication. Return value indicates whether agents were already registered. */
+  onAuthenticated: (agentManager: AgentManager, isReconnect: boolean) => void
+}
+
+/**
+ * Shared gateway session logic used by both the daemon command and wrapper mode.
+ *
+ * Encapsulates:
+ * - Token refresh with connectionId protection against stale callbacks
+ * - Authentication message handling (gateway:auth → server:gateway_auth_result)
+ * - Message dispatch to AgentManager
+ * - Graceful shutdown with signal handlers
+ */
+export function createGatewaySession(opts: GatewaySessionOptions): {
+  wsClient: GatewayWsClient
+  agentManager: AgentManager
+  start: () => void
+} {
+  const config = loadConfig()
+  if (!config) {
+    console.error('Not logged in. Run `agentim login` first.')
+    process.exit(1)
+  }
+
+  const tokenManager = new TokenManager(config)
+  const deviceInfo = getDeviceInfo()
+  // AgentManager is initialized after wsClient is created (circular dependency)
+  // eslint-disable-next-line prefer-const
+  let agentManager: AgentManager
+  let refreshingToken: Promise<void> | null = null
+  // Track whether we already performed one token refresh this connection.
+  // If auth fails *after* a successful refresh it is a permanent error
+  // (e.g. gateway ID conflict, connection-limit) — not an expired-token issue.
+  let hasRefreshed = false
+  // Unique ID for the current connection; prevents stale refresh callbacks
+  // from affecting a newer connection.
+  let connectionId = 0
+
+  const authenticate = (wsClient: GatewayWsClient) => {
+    wsClient.send({
+      type: 'gateway:auth',
+      token: tokenManager.accessToken,
+      gatewayId: config.gatewayId,
+      protocolVersion: CURRENT_PROTOCOL_VERSION,
+      deviceInfo,
+    })
+  }
+
+  const wsClient = new GatewayWsClient({
+    url: config.serverUrl,
+    onConnected: () => {
+      // Reset per-connection refresh state on every new connection.
+      connectionId++
+      refreshingToken = null
+      hasRefreshed = false
+      authenticate(wsClient)
+    },
+    onMessage: async (msg) => {
+      if (msg.type === 'server:gateway_auth_result') {
+        if (msg.ok) {
+          log.info('Authenticated successfully')
+          refreshingToken = null
+
+          const isReconnect = agentManager.listAgents().length > 0
+          opts.onAuthenticated(agentManager, isReconnect)
+
+          wsClient.flushQueue()
+        } else {
+          // First failure: try a token refresh (guarded by lock + one-shot flag).
+          // Second failure after a successful refresh: permanent error — exit.
+          if (!refreshingToken && config.refreshToken && !hasRefreshed) {
+            const refreshConnId = connectionId
+            log.info('Auth failed, refreshing token...')
+            refreshingToken = tokenManager.refresh().then(
+              () => {
+                // Only act if this is still the same connection
+                if (refreshConnId !== connectionId) return
+                hasRefreshed = true
+                refreshingToken = null
+                authenticate(wsClient)
+              },
+              (err: unknown) => {
+                if (refreshConnId !== connectionId) return
+                log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
+                log.error('Please re-login: agentim login')
+                process.exit(1)
+              },
+            )
+          } else {
+            // No refresh token, refresh already attempted, or concurrent refresh
+            // in flight — treat as a permanent auth failure.
+            log.error(`Auth failed: ${msg.error}`)
+            log.error('Please re-login: agentim login')
+            process.exit(1)
+          }
+        }
+      } else if (msg.type === 'server:error') {
+        log.warn(`Server error: [${msg.code}] ${msg.message}`)
+      } else if (
+        msg.type === 'server:send_to_agent' ||
+        msg.type === 'server:stop_agent' ||
+        msg.type === 'server:remove_agent' ||
+        msg.type === 'server:room_context' ||
+        msg.type === 'server:permission_response'
+      ) {
+        agentManager.handleServerMessage(
+          msg as
+            | ServerSendToAgent
+            | ServerStopAgent
+            | ServerRemoveAgent
+            | ServerRoomContext
+            | ServerPermissionResponse,
+        )
+      }
+    },
+    onDisconnected: () => {
+      log.warn('Connection lost, will reconnect...')
+    },
+  })
+
+  agentManager = new AgentManager(wsClient, opts.permissionLevel)
+
+  // Graceful shutdown
+  let shuttingDown = false
+  const cleanup = async () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    log.info('Shutting down...')
+    try {
+      await agentManager.disposeAll()
+    } catch (err) {
+      log.warn(`Error during agent disposal: ${err instanceof Error ? err.message : err}`)
+    }
+    wsClient.close()
+    // Wait briefly for WS close frame to be sent before exiting
+    setTimeout(() => process.exit(0), 2000).unref()
+  }
+
+  const start = () => {
+    wsClient.connect()
+
+    process.on(
+      'SIGINT',
+      () => void cleanup().catch((e) => log.warn(`Cleanup error: ${(e as Error).message}`)),
+    )
+    process.on(
+      'SIGTERM',
+      () => void cleanup().catch((e) => log.warn(`Cleanup error: ${(e as Error).message}`)),
+    )
+    process.on(
+      'SIGHUP',
+      () => void cleanup().catch((e) => log.warn(`Cleanup error: ${(e as Error).message}`)),
+    )
+    // Ignore SIGPIPE (broken pipe) — can occur when piping output to a
+    // closed process (e.g. `agentim list | head`). Without this handler,
+    // Node.js would throw an uncaught exception and crash.
+    process.on('SIGPIPE', () => {
+      // Intentionally ignored
+    })
+    process.on('uncaughtException', (err) => {
+      log.error(`Uncaught exception: ${err.message}`)
+      void cleanup()
+    })
+    process.on('unhandledRejection', (reason) => {
+      log.error(`Unhandled rejection: ${reason}`)
+      void cleanup()
+    })
+  }
+
+  return { wsClient, agentManager, start }
+}

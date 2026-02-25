@@ -88,7 +88,7 @@ function Sparkline({
     .join(' ')
 
   return (
-    <svg width={width} height={height} className="inline-block">
+    <svg width={width} height={height} className="inline-block" aria-hidden="true">
       <polyline fill="none" stroke={color} strokeWidth="1.5" points={points} />
     </svg>
   )
@@ -484,10 +484,11 @@ export default function AdminDashboardPage() {
                 used={metrics.process.heapUsedBytes}
                 total={metrics.process.rssBytes}
               />
-              <MemoryBar
+              <MetricCard
                 label={t('adminDashboard.rss')}
-                used={metrics.process.rssBytes}
-                total={metrics.process.rssBytes * 1.5}
+                value={formatBytes(metrics.process.rssBytes)}
+                history={h.rss}
+                color="#ef4444"
               />
               <MetricCard
                 label={t('adminDashboard.uptime')}

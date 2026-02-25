@@ -65,38 +65,7 @@ export default function CreateRoomDialog({ isOpen, onClose }: CreateRoomDialogPr
     if (isOpen) loadRouters()
   }, [isOpen, loadRouters])
 
-  // Focus trap
-  useEffect(() => {
-    if (!isOpen) return
-    const dialog = dialogRef.current
-    if (!dialog) return
-
-    const focusableSelectors =
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    const focusable = dialog.querySelectorAll<HTMLElement>(focusableSelectors)
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
-
-    dialog.addEventListener('keydown', handleTab)
-    return () => dialog.removeEventListener('keydown', handleTab)
-  }, [isOpen])
-
-  // Body scroll lock
+  // Body scroll lock (focus trap is handled by the Modal component)
   useEffect(() => {
     if (!isOpen) return
     document.body.style.overflow = 'hidden'

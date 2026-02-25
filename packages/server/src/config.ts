@@ -22,6 +22,7 @@ export const config = {
   port: Math.max(1, Math.min(65535, intEnv('PORT', 3000))),
   host: env('HOST', '0.0.0.0'),
   databaseUrl: env('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/agentim'),
+  dbPoolSize: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : undefined,
   redisUrl: process.env.REDIS_URL || '',
   redisEnabled: !!process.env.REDIS_URL,
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),

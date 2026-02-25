@@ -402,6 +402,8 @@ export const de = {
       avatarUrlInvalid: 'Avatar-URL enthält ungültige Zeichen',
       toolInputTooManyKeys: 'Tool-Eingabe hat zu viele Schlüssel',
       toolInputKeyTooLong: 'Tool-Eingabeschlüssel ist zu lang',
+      toolInputDangerousKey: 'Tool-Eingabe enthält einen gefährlichen Schlüsselnamen',
+      configDangerousKey: 'Konfiguration enthält einen gefährlichen Schlüsselnamen',
     },
   },
   a11y: {

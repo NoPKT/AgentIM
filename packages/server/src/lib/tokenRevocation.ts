@@ -34,6 +34,8 @@ function parseDurationToSeconds(duration: string): number {
 }
 
 const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
+const MAX_MEMORY_REVOCATIONS = 10_000
+const MEMORY_REVOCATION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 /**
  * Compute an HMAC-SHA256 signature over the message body using JWT_SECRET.
@@ -66,6 +68,20 @@ function verifySignature(body: string, sig: string): boolean {
 // multi-process setups, Redis is strongly recommended.
 const memoryRevocations = new Map<string, number>()
 
+// Periodically clean up expired in-memory revocations
+const memoryRevocationCleanupTimer = setInterval(
+  () => {
+    const now = Date.now()
+    for (const [userId, revokedAt] of memoryRevocations) {
+      if (now - revokedAt > MEMORY_REVOCATION_TTL_MS) {
+        memoryRevocations.delete(userId)
+      }
+    }
+  },
+  60 * 60 * 1000,
+) // Clean up every hour
+memoryRevocationCleanupTimer.unref()
+
 /**
  * Mark all access tokens issued before now as revoked for a user.
  * Called on logout or password change.
@@ -78,6 +94,16 @@ const memoryRevocations = new Map<string, number>()
 export async function revokeUserTokens(userId: string): Promise<void> {
   // Always store in memory (dual-layer when Redis is available)
   memoryRevocations.set(userId, Date.now())
+  // Enforce size limit: evict oldest entries if over capacity
+  if (memoryRevocations.size > MAX_MEMORY_REVOCATIONS) {
+    const entriesToRemove = memoryRevocations.size - MAX_MEMORY_REVOCATIONS
+    let removed = 0
+    for (const key of memoryRevocations.keys()) {
+      if (removed >= entriesToRemove) break
+      memoryRevocations.delete(key)
+      removed++
+    }
+  }
 
   if (!isRedisEnabled()) {
     log.warn(
@@ -181,5 +207,14 @@ export async function initTokenRevocationSubscriber(): Promise<void> {
     log.info('Token revocation subscriber initialized')
   } catch (err) {
     log.warn(`Failed to init token revocation subscriber: ${(err as Error).message}`)
+  }
+}
+
+/** Clean up timers and subscriber connection. Call on graceful shutdown. */
+export async function stopTokenRevocation(): Promise<void> {
+  clearInterval(memoryRevocationCleanupTimer)
+  if (subscriber) {
+    await subscriber.quit()
+    subscriber = null
   }
 }

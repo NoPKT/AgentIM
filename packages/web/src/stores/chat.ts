@@ -5,6 +5,7 @@ import { api, getThread } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
 import { toast } from './toast.js'
+import { registerStoreReset } from './reset.js'
 import {
   getCachedMessages,
   setCachedMessages,
@@ -969,6 +970,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 }))
+
+registerStoreReset(() => useChatStore.getState().reset())
 
 /**
  * Derive typing user names for a room, excluding the current user.

@@ -154,6 +154,7 @@ export default function ServiceAgentsPage() {
   const [formDescription, setFormDescription] = useState('')
   const [configValues, setConfigValues] = useState<Record<string, unknown>>({})
   const [creating, setCreating] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchServiceAgents()
@@ -223,15 +224,23 @@ export default function ServiceAgentsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('serviceAgent.confirmDelete'))) return
+  const handleDelete = (id: string) => {
+    setConfirmDeleteId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return
     try {
-      await deleteServiceAgent(id)
+      await deleteServiceAgent(confirmDeleteId)
       toast.success(t('serviceAgent.deleted'))
     } catch (err) {
       toast.error((err as Error).message)
+    } finally {
+      setConfirmDeleteId(null)
     }
   }
+
+  const cancelDelete = () => setConfirmDeleteId(null)
 
   const isFormValid = () => {
     if (!formName.trim() || !selectedProvider) return false
@@ -410,16 +419,34 @@ export default function ServiceAgentsPage() {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                       }`}
                     >
-                      {sa.status}
+                      {t(`serviceAgent.${sa.status}`)}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDelete(sa.id)}
-                  className="ml-4 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                >
-                  {t('common.delete')}
-                </button>
+                {confirmDeleteId === sa.id ? (
+                  <div className="flex items-center gap-2 ml-4">
+                    <span className="text-xs text-red-500">{t('serviceAgent.confirmDelete')}</span>
+                    <button
+                      onClick={confirmDelete}
+                      className="text-xs text-red-600 dark:text-red-400 font-medium hover:underline"
+                    >
+                      {t('common.confirm')}
+                    </button>
+                    <button
+                      onClick={cancelDelete}
+                      className="text-xs text-text-secondary hover:underline"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleDelete(sa.id)}
+                    className="ml-4 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                  >
+                    {t('common.delete')}
+                  </button>
+                )}
               </div>
             ))}
           </div>

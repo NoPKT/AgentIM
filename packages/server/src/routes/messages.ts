@@ -227,6 +227,11 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
     return c.json({ ok: false, error: 'Room not found' }, 404)
   }
 
+  // User is not a member of any room — return empty results
+  if (!roomId && userRoomIds.size === 0) {
+    return c.json({ ok: true, data: { items: [], hasMore: false } })
+  }
+
   // Escape LIKE special characters so user input is treated literally
   const escapeLike = (s: string) => s.replace(/[%_\\]/g, (ch) => `\\${ch}`)
   const searchPattern = `%${escapeLike(q.trim())}%`

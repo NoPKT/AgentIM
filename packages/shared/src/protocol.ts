@@ -1,5 +1,6 @@
 import type {
   Agent,
+  DeviceInfo,
   Message,
   MessageReaction,
   ParsedChunk,
@@ -232,13 +233,7 @@ export interface GatewayAuth {
   token: string
   gatewayId: string
   protocolVersion?: string
-  deviceInfo: {
-    hostname: string
-    platform: string
-    arch: string
-    nodeVersion: string
-    agentimVersion?: string
-  }
+  deviceInfo: DeviceInfo
 }
 
 export interface GatewayRegisterAgent {

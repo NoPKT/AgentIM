@@ -396,6 +396,8 @@ export const ja = {
       avatarUrlInvalid: 'アバターURLに無効な文字が含まれています',
       toolInputTooManyKeys: 'ツール入力のキーが多すぎます',
       toolInputKeyTooLong: 'ツール入力キーが長すぎます',
+      toolInputDangerousKey: 'ツール入力に危険なキー名が含まれています',
+      configDangerousKey: '設定に危険なキー名が含まれています',
     },
   },
   a11y: {
