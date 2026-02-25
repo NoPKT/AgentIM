@@ -31,8 +31,19 @@ function evictExpiredMemoryEntries() {
 }
 
 // Periodic cleanup every 60s
-const cleanupTimer = setInterval(evictExpiredMemoryEntries, 60_000)
-cleanupTimer.unref()
+let cacheCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(
+  evictExpiredMemoryEntries,
+  60_000,
+)
+cacheCleanupTimer.unref()
+
+/** Stop the periodic cache cleanup (for graceful shutdown / tests). */
+export function stopCacheCleanup() {
+  if (cacheCleanupTimer) {
+    clearInterval(cacheCleanupTimer)
+    cacheCleanupTimer = null
+  }
+}
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
   if (!isRedisEnabled()) {

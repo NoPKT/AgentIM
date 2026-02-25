@@ -122,11 +122,10 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
-      // Clean up room contexts for this agent
-      for (const key of this.roomContexts.keys()) {
-        if (key.startsWith(`${agentId}:`)) {
-          this.roomContexts.delete(key)
-        }
+      // Clean up room contexts for this agent (collect keys first to avoid mutating during iteration)
+      const keysToDelete = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
+      for (const key of keysToDelete) {
+        this.roomContexts.delete(key)
       }
       this.wsClient.send({
         type: 'gateway:unregister_agent',
@@ -338,10 +337,9 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
-      for (const key of this.roomContexts.keys()) {
-        if (key.startsWith(`${agentId}:`)) {
-          this.roomContexts.delete(key)
-        }
+      const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
+      for (const key of keysToRemove) {
+        this.roomContexts.delete(key)
       }
       log.info(`Agent ${agentId} removed by server`)
     }

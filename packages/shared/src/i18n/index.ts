@@ -28,4 +28,13 @@ export const I18N_NAMESPACES = [
   'settings',
   'error',
   'router',
+  'a11y',
+  'ws',
+  'pwa',
+  'thread',
+  'slashCommand',
+  'serviceAgent',
+  'adminSettings',
+  'adminDashboard',
+  'search',
 ] as const

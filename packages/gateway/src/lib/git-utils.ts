@@ -76,7 +76,7 @@ export async function getWorkspaceStatus(
           status,
           additions,
           deletions,
-          diff: isSensitivePath(path) ? undefined : undefined, // Will be populated below
+          // diff is populated after parsing per-file diffs below
         })
       }
     }

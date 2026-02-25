@@ -19,7 +19,7 @@ const log = createLogger('Server')
 
 // Initialize Sentry (if SENTRY_DSN is set)
 await initSentry()
-import { apiRateLimit, wsUpgradeRateLimit } from './middleware/rateLimit.js'
+import { apiRateLimit, wsUpgradeRateLimit, stopRateLimitCleanup } from './middleware/rateLimit.js'
 import { migrate, closeDb, db } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt } from 'drizzle-orm'
@@ -37,10 +37,22 @@ import serviceAgentsRoutes from './routes/serviceAgents.js'
 import { docsRoutes } from './routes/docs.js'
 import { settingsRoutes } from './routes/settings.js'
 import { connectionManager } from './ws/connections.js'
-import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
-import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
+import {
+  handleClientMessage,
+  handleClientDisconnect,
+  stopClientHandlerCleanup,
+} from './ws/clientHandler.js'
+import {
+  handleGatewayMessage,
+  handleGatewayDisconnect,
+  stopStreamTrackerCleanup,
+  stopAgentRateCleanup,
+  stopVisitedFallbackCleanup,
+} from './ws/gatewayHandler.js'
 import { bookmarkRoutes } from './routes/bookmarks.js'
 import { pushRoutes } from './routes/push.js'
+import { stopPermissionCleanup } from './lib/permission-store.js'
+import { stopCacheCleanup } from './lib/cache.js'
 import { initWebPush } from './lib/webPush.js'
 import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
 import {
@@ -650,6 +662,14 @@ async function shutdown(signal: string) {
   stopOrphanCleanup()
   stopGatewayCleanup()
   stopTokenCleanup()
+  // Stop all module-level interval timers to allow clean process exit
+  stopStreamTrackerCleanup()
+  stopAgentRateCleanup()
+  stopVisitedFallbackCleanup()
+  stopClientHandlerCleanup()
+  stopRateLimitCleanup()
+  stopPermissionCleanup()
+  stopCacheCleanup()
   // Notify connected WS clients about the shutdown
   connectionManager.broadcastToAll({
     type: 'server:error',

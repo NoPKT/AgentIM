@@ -43,12 +43,21 @@ const MAX_MEMORY_COUNTERS = 10_000
 const memoryCounters = new Map<string, { count: number; resetAt: number }>()
 
 // Periodically clean up expired rate limit counters
-setInterval(() => {
+let rateLimitCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of memoryCounters) {
     if (now > entry.resetAt) memoryCounters.delete(key)
   }
-}, 60_000).unref()
+}, 60_000)
+rateLimitCleanupTimer.unref()
+
+/** Stop the periodic rate limit counter cleanup (for graceful shutdown / tests). */
+export function stopRateLimitCleanup() {
+  if (rateLimitCleanupTimer) {
+    clearInterval(rateLimitCleanupTimer)
+    rateLimitCleanupTimer = null
+  }
+}
 
 let memoryRateLimitWarned = false
 

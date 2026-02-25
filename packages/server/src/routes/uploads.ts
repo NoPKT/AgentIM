@@ -1,5 +1,12 @@
 import { Hono } from 'hono'
-import { nanoid } from 'nanoid'
+import { nanoid, customAlphabet } from 'nanoid'
+
+// Safe alphabet for filenames: excludes '-' at start to avoid CLI tool issues
+// and to satisfy avatar URL validation regex
+const safeNanoid = customAlphabet(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_',
+  21,
+)
 import { eq, isNull, lt, and } from 'drizzle-orm'
 import { extname } from 'node:path'
 import { db } from '../db/index.js'
@@ -120,7 +127,8 @@ uploadRoutes.post('/', async (c) => {
 
   const id = nanoid()
   const ext = MIME_TO_EXT[file.type] || ''
-  const storedFilename = `${id}${ext}`
+  // Use safe alphabet for filenames to ensure they always match avatarUrl validation regex
+  const storedFilename = `${safeNanoid()}${ext}`
   await getStorage().write(storedFilename, buffer, file.type)
 
   const url = `/uploads/${storedFilename}`
