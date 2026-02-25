@@ -100,6 +100,7 @@ taskRoutes.post('/rooms/:roomId', async (c) => {
     roomId,
     title: sanitizeText(parsed.data.title),
     description: sanitizeContent(parsed.data.description ?? ''),
+    dueDate: parsed.data.dueDate,
     assigneeId: parsed.data.assigneeId,
     assigneeType: parsed.data.assigneeId
       ? (parsed.data.assigneeType ?? 'user')
@@ -152,6 +153,8 @@ taskRoutes.put('/:id', async (c) => {
     const hasNonStatusFields =
       parsed.data.title !== undefined ||
       parsed.data.description !== undefined ||
+      parsed.data.result !== undefined ||
+      parsed.data.dueDate !== undefined ||
       parsed.data.assigneeId !== undefined ||
       parsed.data.assigneeType !== undefined
 
@@ -238,6 +241,8 @@ taskRoutes.put('/:id', async (c) => {
     if (parsed.data.description !== undefined)
       updateData.description = sanitizeContent(parsed.data.description)
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status
+    if (parsed.data.result !== undefined) updateData.result = parsed.data.result
+    if (parsed.data.dueDate !== undefined) updateData.dueDate = parsed.data.dueDate
     if (parsed.data.assigneeId !== undefined) updateData.assigneeId = parsed.data.assigneeId
     if (parsed.data.assigneeType !== undefined) updateData.assigneeType = parsed.data.assigneeType
     // Auto-repair legacy data: backfill missing assigneeType when assigneeId is present

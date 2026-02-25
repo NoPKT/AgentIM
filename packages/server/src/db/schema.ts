@@ -312,6 +312,8 @@ export const tasks = pgTable(
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').notNull().default('pending'),
+    result: text('result'),
+    dueDate: ts('due_date'),
     assigneeId: text('assignee_id'),
     assigneeType: text('assignee_type'),
     createdById: text('created_by_id')

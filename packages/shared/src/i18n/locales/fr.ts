@@ -617,4 +617,11 @@ export const fr = {
     redisWarning:
       "Redis n'est pas connecté — la révocation des jetons, la limitation de débit globale et la synchronisation multi-nœuds sont indisponibles. Recommandé pour la production.",
   },
+  search: {
+    filters: 'Filtres',
+    dateFrom: 'Du',
+    dateTo: 'Au',
+    senderType: "Type d'expéditeur",
+    allTypes: 'Tous les types',
+  },
 }

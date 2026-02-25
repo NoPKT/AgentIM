@@ -273,6 +273,7 @@ export const createTaskSchema = z.object({
     .max(200)
     .refine((s) => s.trim().length > 0, 'validation.titleWhitespace'),
   description: z.string().max(10000).default(''),
+  dueDate: z.string().datetime().optional(),
   assigneeId: z.string().max(100).optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
 })
@@ -286,6 +287,8 @@ export const updateTaskSchema = z.object({
     .optional(),
   description: z.string().max(10000).optional(),
   status: z.enum(TASK_STATUSES).optional(),
+  result: z.string().max(100000).nullable().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
   assigneeId: z.string().max(100).nullable().optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).nullable().optional(),
 })

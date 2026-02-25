@@ -598,4 +598,11 @@ export const ko = {
     redisWarning:
       'Redis가 연결되지 않았습니다 — 토큰 폐기, 글로벌 속도 제한, 멀티 노드 동기화를 사용할 수 없습니다. 프로덕션 환경에서는 사용을 권장합니다.',
   },
+  search: {
+    filters: '필터',
+    dateFrom: '시작일',
+    dateTo: '종료일',
+    senderType: '발신자 유형',
+    allTypes: '모든 유형',
+  },
 }

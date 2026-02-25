@@ -591,4 +591,11 @@ export const zhCN = {
     avgDuration: '平均耗时',
     redisWarning: 'Redis 未连接 — 令牌撤销、全局速率限制和多节点同步不可用。建议在生产环境中启用。',
   },
+  search: {
+    filters: '筛选',
+    dateFrom: '起始日期',
+    dateTo: '截止日期',
+    senderType: '发送者类型',
+    allTypes: '全部类型',
+  },
 }

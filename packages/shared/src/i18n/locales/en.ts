@@ -601,4 +601,11 @@ export const en = {
     redisWarning:
       'Redis is not connected — token revocation, global rate limiting, and multi-node sync are unavailable. Recommended for production use.',
   },
+  search: {
+    filters: 'Filters',
+    dateFrom: 'From',
+    dateTo: 'To',
+    senderType: 'Sender Type',
+    allTypes: 'All Types',
+  },
 }

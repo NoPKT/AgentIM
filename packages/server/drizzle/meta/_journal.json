@@ -218,6 +218,13 @@
       "when": 1772300000000,
       "tag": "0030_add_bookmarks",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1772400000000,
+      "tag": "0031_add_task_result_duedate",
+      "breakpoints": true
     }
   ]
 }

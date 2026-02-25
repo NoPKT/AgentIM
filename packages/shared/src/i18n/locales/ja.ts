@@ -600,4 +600,11 @@ export const ja = {
     redisWarning:
       'Redisが接続されていません — トークン失効、グローバルレート制限、マルチノード同期が利用できません。本番環境での使用を推奨します。',
   },
+  search: {
+    filters: 'フィルター',
+    dateFrom: '開始日',
+    dateTo: '終了日',
+    senderType: '送信者タイプ',
+    allTypes: 'すべてのタイプ',
+  },
 }
