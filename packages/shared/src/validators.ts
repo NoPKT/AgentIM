@@ -25,6 +25,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_TOOL_INPUT_KEYS,
   MAX_TOOL_INPUT_KEY_LENGTH,
+  DANGEROUS_KEY_NAMES,
   MEMBER_TYPES,
   SENDER_TYPES,
   ASSIGNEE_TYPES,
@@ -46,6 +47,10 @@ export const toolInputSchema = z
   .refine(
     (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
     'validation.toolInputKeyTooLong',
+  )
+  .refine(
+    (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
+    'validation.toolInputDangerousKey',
   )
 
 // ─── Password Complexity ───
@@ -293,17 +298,35 @@ export const updateAgentSchema = z.object({
 
 // ─── Service Agent ───
 
-export const createServiceAgentSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(100)
-    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-  type: z.enum(SERVICE_AGENT_TYPES).default('openai-chat'),
-  category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
-  description: z.string().max(1000).optional(),
-  config: z.record(z.string(), z.unknown()),
-})
+export const serviceAgentConfigSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
+    'validation.configDangerousKey',
+  )
+
+export const createServiceAgentSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
+    type: z.enum(SERVICE_AGENT_TYPES).default('openai-chat'),
+    category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
+    description: z.string().max(1000).optional(),
+    config: serviceAgentConfigSchema,
+  })
+  .superRefine((data, ctx) => {
+    // For non-custom types, apiKey is required in config
+    if (data.type !== 'custom' && !data.config.apiKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'config.apiKey is required for non-custom service agent types',
+        path: ['config', 'apiKey'],
+      })
+    }
+  })
 
 export const updateServiceAgentSchema = z.object({
   name: z
@@ -606,6 +629,8 @@ const taskSchema = z.object({
   title: z.string(),
   description: z.string(),
   status: z.enum(TASK_STATUSES),
+  result: z.string().optional(),
+  dueDate: z.string().optional(),
   assigneeId: z.string().optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
   createdById: z.string(),

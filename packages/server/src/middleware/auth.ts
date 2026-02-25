@@ -54,10 +54,17 @@ function getCachedAdminRole(userId: string): string | null {
 }
 
 function setCachedAdminRole(userId: string, role: string) {
-  // Evict oldest entries if cache is full
+  // Evict oldest entry (by expiresAt) if cache is full
   if (adminRoleCache.size >= ADMIN_CACHE_MAX_SIZE) {
-    const firstKey = adminRoleCache.keys().next().value
-    if (firstKey !== undefined) adminRoleCache.delete(firstKey)
+    let oldestKey: string | undefined
+    let oldestExpiry = Infinity
+    for (const [key, entry] of adminRoleCache) {
+      if (entry.expiresAt < oldestExpiry) {
+        oldestExpiry = entry.expiresAt
+        oldestKey = key
+      }
+    }
+    if (oldestKey !== undefined) adminRoleCache.delete(oldestKey)
   }
   adminRoleCache.set(userId, { role, expiresAt: Date.now() + ADMIN_CACHE_TTL_MS })
 }

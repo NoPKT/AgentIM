@@ -152,6 +152,8 @@ export interface Task {
   title: string
   description: string
   status: TaskStatus
+  result?: string
+  dueDate?: string
   assigneeId?: string
   assigneeType?: AssigneeType
   createdById: string

@@ -79,8 +79,13 @@ export const MAX_ROUTER_NAME_LENGTH = 100
 export const MAX_ROUTER_DESCRIPTION_LENGTH = 1000
 export const MAX_MENTIONS_PER_MESSAGE = 50
 export const MAX_ATTACHMENTS_PER_MESSAGE = 20
+export const MAX_ROOM_MEMBERS = 200
+export const MAX_REACTIONS_PER_MESSAGE = 50
 export const MAX_TOOL_INPUT_KEYS = 100
 export const MAX_TOOL_INPUT_KEY_LENGTH = 200
+
+/** Dangerous key names that could cause prototype pollution if passed through to objects */
+export const DANGEROUS_KEY_NAMES = ['__proto__', 'constructor', 'prototype'] as const
 
 export const MEMBER_TYPES = ['user', 'agent'] as const
 export type MemberType = (typeof MEMBER_TYPES)[number]
