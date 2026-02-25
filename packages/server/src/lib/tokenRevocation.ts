@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { getRedis, isRedisEnabled } from './redis.js'
 import Redis from 'ioredis'
 import { createLogger } from './logger.js'
@@ -33,6 +34,26 @@ function parseDurationToSeconds(duration: string): number {
 }
 
 const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
+
+/**
+ * Compute an HMAC-SHA256 signature over the message body using JWT_SECRET.
+ * This prevents forged token-revocation pub/sub messages from an attacker
+ * who gains Redis write access but not the application secret.
+ */
+function signMessage(body: string): string {
+  return createHmac('sha256', config.jwtSecret).update(body).digest('hex')
+}
+
+function verifySignature(body: string, sig: string): boolean {
+  const expected = signMessage(body)
+  // Constant-time comparison to prevent timing attacks
+  if (expected.length !== sig.length) return false
+  let diff = 0
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i)
+  }
+  return diff === 0
+}
 
 // In-memory revocation map: userId → revokedAtMs
 // Serves as both a fast-path cache (checked before Redis) and a fallback when
@@ -71,8 +92,11 @@ export async function revokeUserTokens(userId: string): Promise<void> {
     const key = `revoked:${userId}`
     const now = String(Date.now())
     await redis.set(key, now, 'EX', ACCESS_TOKEN_TTL)
-    // Broadcast to other processes so they update their in-memory maps
-    await redis.publish(TOKEN_REVOCATION_CHANNEL, JSON.stringify({ userId, revokedAt: now }))
+    // Broadcast to other processes so they update their in-memory maps.
+    // Messages are HMAC-signed to prevent forged revocations from Redis-level attacks.
+    const body = JSON.stringify({ userId, revokedAt: now })
+    const sig = signMessage(body)
+    await redis.publish(TOKEN_REVOCATION_CHANNEL, JSON.stringify({ body, sig }))
   } catch (err) {
     log.error(`Failed to set token revocation for user ${userId}: ${(err as Error).message}`)
     throw err
@@ -122,13 +146,32 @@ export async function initTokenRevocationSubscriber(): Promise<void> {
     // Create a dedicated connection for subscribing (ioredis requirement)
     subscriber = getRedis().duplicate()
     await subscriber.subscribe(TOKEN_REVOCATION_CHANNEL)
-    subscriber.on('message', (_channel: string, message: string) => {
+    subscriber.on('message', (_channel: string, raw: string) => {
       try {
-        const { userId, revokedAt } = JSON.parse(message) as {
-          userId: string
-          revokedAt: string
+        const envelope = JSON.parse(raw) as { body?: string; sig?: string }
+
+        // Support both signed (new) and unsigned (legacy) message formats
+        if (envelope.body && envelope.sig) {
+          if (!verifySignature(envelope.body, envelope.sig)) {
+            log.warn('Rejected token revocation message with invalid HMAC signature')
+            return
+          }
+          const { userId, revokedAt } = JSON.parse(envelope.body) as {
+            userId: string
+            revokedAt: string
+          }
+          memoryRevocations.set(userId, Number(revokedAt))
+        } else {
+          // Legacy unsigned format — accept but log warning
+          const { userId, revokedAt } = envelope as unknown as {
+            userId: string
+            revokedAt: string
+          }
+          if (userId && revokedAt) {
+            log.warn('Accepted unsigned token revocation message (legacy format)')
+            memoryRevocations.set(userId, Number(revokedAt))
+          }
         }
-        memoryRevocations.set(userId, Number(revokedAt))
       } catch (err) {
         log.warn(`Failed to parse token revocation message: ${(err as Error).message}`)
       }

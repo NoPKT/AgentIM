@@ -131,7 +131,9 @@ async function seedAdmin() {
       })
       log.info(`Admin user created: ${config.adminUsername}`)
     } catch (err: unknown) {
-      if (((err as any)?.code ?? (err as any)?.cause?.code) === '23505') {
+      const pgCode =
+        (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code
+      if (pgCode === '23505') {
         // UNIQUE constraint violation — another instance already created the admin
         log.info(`Admin user already exists (concurrent seed): ${config.adminUsername}`)
       } else {
@@ -509,7 +511,9 @@ app.get(
           if (!client) {
             try {
               ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout')
-            } catch {}
+            } catch {
+              // Connection may already be closed
+            }
           }
         }, WS_AUTH_TIMEOUT_MS),
       )
@@ -546,7 +550,9 @@ app.get(
           if (!gw) {
             try {
               ws.close(WS_CLOSE_AUTH_TIMEOUT, 'Authentication timeout')
-            } catch {}
+            } catch {
+              // Connection may already be closed
+            }
           }
         }, WS_AUTH_TIMEOUT_MS),
       )

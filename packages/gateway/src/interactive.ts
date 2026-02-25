@@ -8,10 +8,12 @@ export async function promptSelect(
   question: string,
   options: { label: string; value: string }[],
 ): Promise<string> {
+  /* eslint-disable no-console -- interactive CLI output */
   console.log(question)
   for (let i = 0; i < options.length; i++) {
     console.log(`  ${i + 1}) ${options[i].label}`)
   }
+  /* eslint-enable no-console */
 
   const rl = createInterface({
     input: process.stdin,
@@ -26,6 +28,7 @@ export async function promptSelect(
           rl.close()
           resolve(options[idx].value)
         } else {
+          // eslint-disable-next-line no-console -- interactive CLI output
           console.log(`Invalid choice. Please enter a number between 1 and ${options.length}.`)
           ask()
         }

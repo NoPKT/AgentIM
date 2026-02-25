@@ -12,13 +12,14 @@ Unified IM-style platform for managing and orchestrating multiple AI coding agen
 ## Conventions
 
 - **Language**: TypeScript (strict mode), ESM only
-- **Style**: Prettier (no semi, single quotes, trailing commas)
+- **Style**: Prettier (no semi, single quotes, trailing commas) + ESLint
 - **Imports**: Use `@agentim/shared` for cross-package types
 - **IDs**: Use `nanoid` for generating IDs
 - **Errors**: Return proper HTTP status codes, never throw unhandled
 - **WebSocket**: All messages use the protocol types from `@agentim/shared`
 - **i18n**: All user-facing strings must use i18next keys, support EN + ZH-CN + JA + KO + FR + DE + RU
 - **Versioning**: SemVer (0.x.y); CHANGELOG `[Unreleased]` always on top; never auto-create git tags or bump versions without explicit user request
+- **Language Policy**: Code comments MUST be in English only. GitHub operations (PRs, commits, issues) MUST be in English. Other languages are only allowed in documentation files and i18n translation resources.
 
 ## Commands
 

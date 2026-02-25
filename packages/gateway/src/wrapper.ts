@@ -40,6 +40,8 @@ export async function runWrapper(opts: {
 
   const tokenManager = new TokenManager(config)
   const deviceInfo = getDeviceInfo()
+  // AgentManager is initialized after wsClient is created (circular dependency)
+  // eslint-disable-next-line prefer-const
   let agentManager: AgentManager
   let refreshingToken: Promise<void> | null = null
   // Track whether we already performed one token refresh this connection.

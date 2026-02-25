@@ -16,7 +16,7 @@
     "db:backup": "tsx src/scripts/backup.ts",
     "db:rollback": "echo 'See packages/server/MIGRATION_ROLLBACK.md for rollback instructions. Apply the relevant drizzle/rollback/*.sql file manually with: psql $DATABASE_URL -f packages/server/drizzle/rollback/<N>_rollback.sql'",
     "clean": "rm -rf dist .turbo",
-    "lint": "tsc --noEmit"
+    "lint": "eslint src/ && tsc --noEmit"
   },
   "dependencies": {
     "@agentim/shared": "workspace:*",

@@ -1,11 +1,39 @@
 import { homedir, hostname, userInfo } from 'node:os'
-import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
+import { createHash, createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from 'node:crypto'
+
+// Application-specific fixed salt for PBKDF2 key derivation.
+// This is NOT a secret; it prevents rainbow-table attacks and ensures
+// AgentIM key derivation is domain-separated from other applications
+// that might hash the same machine identifiers.
+const PBKDF2_SALT = Buffer.from('AgentIM-machine-key-v1-2024', 'utf8')
+
+// OWASP recommends >= 600,000 for PBKDF2-SHA256 as of 2023.
+// We use 100,000 as a pragmatic balance: this runs once per
+// encrypt/decrypt call on a CLI tool, and the input material
+// (hostname + username + homedir) is low-entropy but not a password.
+// The primary goal is to make brute-force enumeration of machine
+// identifiers meaningfully more expensive than a single SHA-256 call.
+const PBKDF2_ITERATIONS = 100_000
 
 /**
- * Derive a machine-scoped 256-bit key from stable host identifiers.
+ * Derive a machine-scoped 256-bit key using PBKDF2 from stable host identifiers.
  * This key is NOT secret but binds the stored tokens to this specific machine/user.
+ *
+ * Uses PBKDF2 with a fixed application-specific salt to make brute-force
+ * enumeration of machine identifiers computationally expensive.
  */
 export function getMachineKey(): Buffer {
+  const info = userInfo()
+  const material = `${hostname()}:${info.username}:${homedir()}`
+  return pbkdf2Sync(material, PBKDF2_SALT, PBKDF2_ITERATIONS, 32, 'sha256')
+}
+
+/**
+ * Derive the legacy machine key using plain SHA-256.
+ * Used only for backward-compatible decryption of tokens encrypted
+ * before the PBKDF2 migration.
+ */
+function getLegacyMachineKey(): Buffer {
   const info = userInfo()
   const material = `${hostname()}:${info.username}:${homedir()}`
   return createHash('sha256').update(material).digest()
@@ -14,6 +42,8 @@ export function getMachineKey(): Buffer {
 /**
  * Encrypt a plaintext token with AES-256-GCM.
  * Output format: base64(iv[12] || authTag[16] || ciphertext)
+ *
+ * Always uses the PBKDF2-derived key for new encryptions.
  */
 export function encryptToken(plaintext: string): string {
   const key = getMachineKey()
@@ -25,20 +55,42 @@ export function encryptToken(plaintext: string): string {
 }
 
 /**
+ * Attempt AES-256-GCM decryption with the given key.
+ * Returns the plaintext on success, or null if decryption fails.
+ */
+function tryDecrypt(encoded: Buffer, key: Buffer): string | null {
+  try {
+    const iv = encoded.subarray(0, 12)
+    const tag = encoded.subarray(12, 28)
+    const ciphertext = encoded.subarray(28)
+    const decipher = createDecipheriv('aes-256-gcm', key, iv)
+    decipher.setAuthTag(tag)
+    return decipher.update(ciphertext) + decipher.final('utf8')
+  } catch {
+    return null
+  }
+}
+
+/**
  * Decrypt a token encrypted by encryptToken.
  * Returns null if decryption fails (wrong machine key, corrupted data, etc.)
+ *
+ * For backward compatibility, if decryption with the current PBKDF2-derived
+ * key fails, falls back to the legacy SHA-256 key. This allows existing
+ * configs encrypted with the old key to still be read. They will be
+ * re-encrypted with the new key on the next save cycle.
  */
 export function decryptToken(encoded: string): string | null {
   try {
     const buf = Buffer.from(encoded, 'base64')
     if (buf.length < 28) return null // iv(12) + tag(16) minimum
-    const iv = buf.subarray(0, 12)
-    const tag = buf.subarray(12, 28)
-    const ciphertext = buf.subarray(28)
-    const key = getMachineKey()
-    const decipher = createDecipheriv('aes-256-gcm', key, iv)
-    decipher.setAuthTag(tag)
-    return decipher.update(ciphertext) + decipher.final('utf8')
+
+    // Try PBKDF2-derived key first (current)
+    const result = tryDecrypt(buf, getMachineKey())
+    if (result !== null) return result
+
+    // Fall back to legacy SHA-256 key for backward compatibility
+    return tryDecrypt(buf, getLegacyMachineKey())
   } catch {
     return null
   }

@@ -61,7 +61,6 @@ const defaultLevel: LogLevel = isProduction ? 'info' : 'debug'
 const minLevel = (() => {
   if (!envLevel) return LEVELS[defaultLevel]
   if (envLevel in LEVELS) return LEVELS[envLevel]
-  // eslint-disable-next-line no-console
   console.warn(
     `[Logger] Invalid LOG_LEVEL "${envLevel}", expected one of: ${Object.keys(LEVELS).join(', ')}. Falling back to "${defaultLevel}".`,
   )

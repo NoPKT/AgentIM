@@ -177,6 +177,7 @@ export class WsClient {
     if (this.pendingQueue.length === 0) return
     const count = this.pendingQueue.length
     const queue = this.pendingQueue.splice(0)
+    // eslint-disable-next-line no-console -- useful reconnect diagnostic
     console.info(`[WS] Flushing ${count} pending message(s) after reconnect`)
     for (const msg of queue) {
       this.send(msg)

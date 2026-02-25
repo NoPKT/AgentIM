@@ -17,6 +17,18 @@ const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
  * and legitimate paths such as C:\Program Files (x86)\... contain them. */
 const UNSAFE_COMMAND_PATTERN = /[;&|`${}[\]<>!#~*?\n\r]/
 
+/** Detects path traversal: commands that are purely relative paths walking upward via `..`.
+ * Matches paths like `../foo`, `../../bin/sh`, `foo/../../etc/passwd`.
+ * Does NOT reject absolute paths that happen to contain `..` segments — those are
+ * resolved by the OS and are less exploitable when passed directly to spawn(). */
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/
+
+/** Check whether a path is absolute on either POSIX or Windows.
+ * Covers `/usr/bin/cmd`, `C:\cmd.exe`, and `\\server\share` (UNC). */
+function isAbsolutePath(p: string): boolean {
+  return /^(?:[/\\]|[A-Za-z]:[/\\])/.test(p)
+}
+
 export interface GenericAdapterOptions extends AdapterOptions {
   command: string
   args?: string[]
@@ -36,8 +48,35 @@ export class GenericAdapter extends SpawnAgentAdapter {
     // Validate command path to prevent injection
     const cmd = opts.command.trim()
     if (!cmd) throw new Error('GenericAdapter: command must not be empty')
+
+    // Null bytes can truncate strings at the C level, leading to path confusion
+    if (cmd.includes('\0')) {
+      throw new Error('GenericAdapter: command must not contain null bytes')
+    }
+
+    // A leading dash could be interpreted as an option by the OS or parent process
+    if (cmd.startsWith('-')) {
+      throw new Error(
+        'GenericAdapter: command must not start with a dash (possible option injection)',
+      )
+    }
+
+    // Explicit newline check — also caught by UNSAFE_COMMAND_PATTERN, but kept
+    // separate for a clearer error message and defense-in-depth
+    if (/[\n\r]/.test(cmd)) {
+      throw new Error('GenericAdapter: command must not contain newline characters')
+    }
+
     if (UNSAFE_COMMAND_PATTERN.test(cmd)) {
       throw new Error(`GenericAdapter: command contains unsafe characters: "${cmd}"`)
+    }
+
+    // Reject relative paths that traverse upward (e.g. `../../bin/sh`).
+    // Absolute paths with `..` segments are resolved by the OS and are less risky.
+    if (!isAbsolutePath(cmd) && PATH_TRAVERSAL_PATTERN.test(cmd)) {
+      throw new Error(
+        'GenericAdapter: relative command path must not contain ".." traversal segments',
+      )
     }
 
     this.command = cmd
@@ -49,6 +88,14 @@ export class GenericAdapter extends SpawnAgentAdapter {
     return 'generic' as const
   }
 
+  // NOTE: sendMessage intentionally duplicates the spawn-and-stream logic from
+  // SpawnAgentAdapter.spawnAndStream() rather than calling it. This is because
+  // GenericAdapter supports delivering the prompt via stdin (`promptVia: 'stdin'`),
+  // which requires `stdio[0]` to be 'pipe' instead of 'ignore' and an extra
+  // write-then-close step after spawn. The base helper always sets stdin to
+  // 'ignore', so reusing it would require either an awkward post-hoc stdin
+  // override or adding stdin plumbing to the shared helper — both of which would
+  // complicate the common case for other adapters that never need stdin.
   sendMessage(
     content: string,
     onChunk: ChunkCallback,
