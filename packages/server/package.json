@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@agentim/shared": "workspace:*",
-    "@aws-sdk/client-s3": "^3.996.0",
+    "@aws-sdk/client-s3": "^3.997.0",
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.0",
     "argon2": "^0.44.0",
