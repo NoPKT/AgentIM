@@ -29,6 +29,7 @@ let _logoutPromise: Promise<void> | null = null
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
+  // Force re-render counter: bumped on each token refresh so upload URL hooks re-derive
   tokenVersion: 0,
 
   login: async (username, password) => {

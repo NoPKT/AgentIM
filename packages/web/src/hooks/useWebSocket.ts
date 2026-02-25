@@ -22,8 +22,10 @@ export function useWebSocket() {
     navigateRef.current = navigate
   })
 
-  // Single stable subscription — access store actions via getState() to avoid
-  // depending on 13+ selector references that would cause frequent re-subscriptions.
+  // Single stable subscription — handler accesses stores via getState() and
+  // navigate via navigateRef, so the closure has zero reactive deps.  Empty []
+  // is intentional: the wsClient.handlers Set persists across reconnects, so
+  // the subscription never goes stale and there is no message-loss window.
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
       const chat = useChatStore.getState()

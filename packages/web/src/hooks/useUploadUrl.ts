@@ -5,6 +5,10 @@ import { api } from '../lib/api.js'
  * Returns an auth-gated URL for /uploads/* paths by appending the current
  * access token as a ?token= query parameter.
  *
+ * Security trade-off: token is passed in the URL because {@literal <img src>}
+ * and other HTML resource attributes cannot send Authorization headers.
+ * The server validates and expires these tokens to limit exposure.
+ *
  * Re-evaluates whenever the token rotates (tokenVersion changes), so browser
  * image requests always carry a valid credential.
  *

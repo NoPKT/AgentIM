@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useShallow } from 'zustand/shallow'
 import { useChatStore } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
 import { MessageItem } from './MessageItem.js'
@@ -13,8 +14,19 @@ interface MessageListProps {
 
 export function MessageList({ onImageClick }: MessageListProps) {
   const { t } = useTranslation()
-  const { currentRoomId, messages, streaming, hasMore, loadMessages } = useChatStore()
+  const { currentRoomId, messages, hasMore, loadMessages } = useChatStore()
   const readReceipts = useChatStore((s) => s.readReceipts)
+  // Derive streaming entries for the current room via a shallow-compared
+  // selector so the Map reference churn does not defeat useMemo.
+  const streamingMessages = useChatStore(
+    useShallow((s) => {
+      if (!s.currentRoomId) return []
+      const prefix = `${s.currentRoomId}:`
+      return Array.from(s.streaming.entries())
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([, value]) => value)
+    }),
+  )
   const currentUser = useAuthStore((s) => s.user)
   const parentRef = useRef<HTMLDivElement>(null)
   const scrollToBottomRef = useRef<HTMLDivElement>(null)
@@ -41,17 +53,6 @@ export function MessageList({ onImageClick }: MessageListProps) {
     scrollToBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // Get streaming messages for current room
-  const streamingMessages = useMemo(
-    () =>
-      currentRoomId
-        ? Array.from(streaming.entries())
-            .filter(([key]) => key.startsWith(`${currentRoomId}:`))
-            .map(([, value]) => value)
-        : [],
-    [currentRoomId, streaming],
-  )
-
   const estimateSize = useCallback(
     (index: number) => {
       const msg = currentMessages[index]
@@ -63,7 +64,11 @@ export function MessageList({ onImageClick }: MessageListProps) {
         prev.senderType === 'system' ||
         msg.senderType === 'system' ||
         new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
-      return hasHeader ? 120 : 40
+      const baseHeight = hasHeader ? 80 : 24
+      const contentLength = msg.content?.length ?? 0
+      const lineEstimate = Math.ceil(contentLength / 80)
+      const contentHeight = Math.max(20, lineEstimate * 22)
+      return baseHeight + contentHeight
     },
     [currentMessages],
   )
