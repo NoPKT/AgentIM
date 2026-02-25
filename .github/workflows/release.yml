@@ -25,6 +25,13 @@ jobs:
     needs: ci
     steps:
       - uses: actions/checkout@v6
+      - name: Validate CHANGELOG contains release version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "## \[${TAG_VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md does not contain a section for version ${TAG_VERSION}. Move [Unreleased] content to [${TAG_VERSION}] before tagging."
+            exit 1
+          fi
       - name: Verify version consistency
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
@@ -64,7 +71,7 @@ jobs:
           image-ref: ghcr.io/${{ github.repository }}:latest
           format: 'sarif'
           output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM'
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()

@@ -40,7 +40,7 @@ COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/gateway/dist packages/gateway/dist
 
 # Create non-root user
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup --system app && adduser --system --ingroup app app
 USER app
 
 ENV NODE_ENV=production
