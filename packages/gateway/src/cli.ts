@@ -551,6 +551,7 @@ function rotateLogIfNeeded(logFile: string) {
   try {
     const lockStats = statSync(lockFile)
     if (Date.now() - lockStats.mtimeMs > 60_000) {
+      log.warn(`Removing stale lock file: ${lockFile}`)
       unlinkSync(lockFile)
     }
   } catch {

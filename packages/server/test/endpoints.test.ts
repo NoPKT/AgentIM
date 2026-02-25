@@ -452,6 +452,135 @@ describe('Endpoint Coverage', () => {
     })
   })
 
+  // ─── Bookmarks ───
+
+  describe('Bookmarks CRUD', () => {
+    let token: string
+    let otherToken: string
+    let roomId: string
+    let messageId: string
+
+    before(async () => {
+      const user = await registerUser('bookmark_user')
+      token = user.accessToken
+
+      const other = await registerUser('bookmark_other')
+      otherToken = other.accessToken
+
+      const room = await api('POST', '/api/rooms', { name: 'Bookmark Room' }, token)
+      roomId = room.data.data.id
+
+      // Send a message to bookmark
+      const ws = await connectWs(WS_CLIENT_URL)
+      await wsSendAndWait(ws, { type: 'client:auth', token }, 'server:auth_result')
+      ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
+      await new Promise((r) => setTimeout(r, 200))
+
+      ws.send(
+        JSON.stringify({
+          type: 'client:send_message',
+          roomId,
+          content: 'Bookmark this message',
+          mentions: [],
+        }),
+      )
+      const msg = await wsWaitFor(ws, 'server:new_message')
+      messageId = msg.message.id
+      ws.close()
+      await new Promise((r) => setTimeout(r, 200))
+    })
+
+    it('creates a bookmark', async () => {
+      const res = await api('POST', '/api/bookmarks', { messageId, note: 'Important' }, token)
+      assert.equal(res.status, 201)
+      assert.equal(res.data.ok, true)
+      assert.equal(res.data.data.messageId, messageId)
+      assert.equal(res.data.data.note, 'Important')
+      assert.ok(res.data.data.id)
+    })
+
+    it('rejects duplicate bookmark', async () => {
+      const res = await api('POST', '/api/bookmarks', { messageId }, token)
+      assert.equal(res.status, 409)
+    })
+
+    it('rejects bookmark for non-existent message', async () => {
+      const res = await api('POST', '/api/bookmarks', { messageId: 'nonexistent' }, token)
+      assert.equal(res.status, 404)
+    })
+
+    it('rejects invalid body', async () => {
+      const res = await api('POST', '/api/bookmarks', {}, token)
+      assert.equal(res.status, 400)
+    })
+
+    it('lists bookmarks with joined message data', async () => {
+      const res = await api('GET', '/api/bookmarks', undefined, token)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+      assert.ok(Array.isArray(res.data.data.items))
+      assert.ok(res.data.data.items.length >= 1)
+
+      const item = res.data.data.items[0]
+      assert.equal(item.messageId, messageId)
+      assert.ok(item.message)
+      assert.equal(item.message.roomId, roomId)
+      assert.equal(item.message.content, 'Bookmark this message')
+    })
+
+    it('supports limit parameter', async () => {
+      const res = await api('GET', '/api/bookmarks?limit=1', undefined, token)
+      assert.equal(res.status, 200)
+      assert.ok(res.data.data.items.length <= 1)
+    })
+
+    it('returns empty list for other user', async () => {
+      const res = await api('GET', '/api/bookmarks', undefined, otherToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.data.items.length, 0)
+    })
+
+    it('deletes a bookmark and returns its id', async () => {
+      // Get bookmark id first
+      const listRes = await api('GET', '/api/bookmarks', undefined, token)
+      const bookmarkId = listRes.data.data.items[0].id
+
+      const res = await api('DELETE', `/api/bookmarks/${bookmarkId}`, undefined, token)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+      assert.equal(res.data.data.id, bookmarkId)
+
+      // Verify it's gone
+      const afterRes = await api('GET', '/api/bookmarks', undefined, token)
+      assert.equal(afterRes.data.data.items.length, 0)
+    })
+
+    it('returns 404 when deleting non-existent bookmark', async () => {
+      const res = await api('DELETE', '/api/bookmarks/nonexistent', undefined, token)
+      assert.equal(res.status, 404)
+    })
+
+    it('returns 404 when deleting another user bookmark', async () => {
+      // Create a bookmark as user, try to delete as otherUser
+      const createRes = await api('POST', '/api/bookmarks', { messageId }, token)
+      const bookmarkId = createRes.data.data.id
+
+      const res = await api('DELETE', `/api/bookmarks/${bookmarkId}`, undefined, otherToken)
+      assert.equal(res.status, 404)
+    })
+
+    it('rejects unauthenticated requests', async () => {
+      const res = await api('GET', '/api/bookmarks')
+      assert.equal(res.status, 401)
+
+      const res2 = await api('POST', '/api/bookmarks', { messageId: 'test' })
+      assert.equal(res2.status, 401)
+
+      const res3 = await api('DELETE', '/api/bookmarks/someid')
+      assert.equal(res3.status, 401)
+    })
+  })
+
   // ─── Messages: recent ───
 
   describe('GET /api/messages/recent', () => {

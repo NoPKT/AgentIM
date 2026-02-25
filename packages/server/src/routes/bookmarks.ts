@@ -150,5 +150,5 @@ bookmarkRoutes.delete('/:id', async (c) => {
 
   await db.delete(bookmarks).where(eq(bookmarks.id, bookmarkId))
 
-  return c.json({ ok: true })
+  return c.json({ ok: true, data: { id: bookmarkId } })
 })

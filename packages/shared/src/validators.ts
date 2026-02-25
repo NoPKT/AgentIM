@@ -48,6 +48,9 @@ export const toolInputSchema = z
     (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
     'validation.toolInputKeyTooLong',
   )
+  // Intentionally shallow: only checks top-level keys. Nested objects are
+  // not validated here because tool_input values are opaque JSON passed to
+  // agent tooling and never used as property accessors on the server side.
   .refine(
     (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
     'validation.toolInputDangerousKey',
