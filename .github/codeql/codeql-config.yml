@@ -1,0 +1,7 @@
+name: "AgentIM CodeQL Config"
+
+# Exclude queries that produce false positives on standard DOM APIs
+# (e.g., StorageEvent constructor with StorageEventInit dictionary)
+query-filters:
+  - exclude:
+      id: js/superfluous-trailing-arguments
