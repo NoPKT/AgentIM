@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ServiceAgent } from '@agentim/shared'
 import { api } from '../lib/api.js'
+import { registerStoreReset } from './reset.js'
 
 interface ServiceAgentsState {
   serviceAgents: ServiceAgent[]
@@ -56,3 +57,5 @@ export const useServiceAgentsStore = create<ServiceAgentsState>((set, get) => ({
 
   reset: () => set({ serviceAgents: [], loading: false, error: null }),
 }))
+
+registerStoreReset(() => useServiceAgentsStore.getState().reset())

@@ -42,20 +42,24 @@ export function AddAgentDialog({
     }
   }, [isOpen, loadSharedAgents])
 
-  const filterAgents = (list: Agent[]) =>
-    list.filter((agent) => {
-      if (existingMemberIds.has(agent.id)) return false
-      if (onlineOnly && agent.status !== 'online') return false
-      if (search && !agent.name.toLowerCase().includes(search.toLowerCase())) return false
-      return true
-    })
-
   const availableMyAgents = useMemo(
-    () => filterAgents(agents),
+    () =>
+      agents.filter((a) => {
+        if (existingMemberIds.has(a.id)) return false
+        if (onlineOnly && a.status !== 'online') return false
+        if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false
+        return true
+      }),
     [agents, existingMemberIds, onlineOnly, search],
   )
   const availableSharedAgents = useMemo(
-    () => filterAgents(sharedAgents),
+    () =>
+      sharedAgents.filter((a) => {
+        if (existingMemberIds.has(a.id)) return false
+        if (onlineOnly && a.status !== 'online') return false
+        if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false
+        return true
+      }),
     [sharedAgents, existingMemberIds, onlineOnly, search],
   )
 

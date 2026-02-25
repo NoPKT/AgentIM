@@ -4,6 +4,7 @@ import type { z } from 'zod'
 import type { updateRouterSchema } from '@agentim/shared'
 import { api } from '../lib/api.js'
 import { toast } from './toast.js'
+import { registerStoreReset } from './reset.js'
 
 type UpdateRouterData = z.infer<typeof updateRouterSchema>
 
@@ -65,3 +66,5 @@ export const useRouterStore = create<RoutersState>((set, get) => ({
     return res.data.success
   },
 }))
+
+registerStoreReset(() => useRouterStore.setState({ routers: [], loading: false }))

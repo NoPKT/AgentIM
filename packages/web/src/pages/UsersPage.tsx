@@ -30,6 +30,8 @@ export default function UsersPage() {
   const [newRole, setNewRole] = useState<UserRole>('user')
   const [isCreating, setIsCreating] = useState(false)
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
   const isAdmin = currentUser?.role === 'admin'
 
   const loadUsers = async () => {
@@ -77,16 +79,23 @@ export default function UsersPage() {
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm(t('settings.confirmDeleteUser'))) return
-    const res = await api.delete(`/users/${userId}`)
+  const handleDeleteUser = (userId: string) => {
+    setConfirmDeleteId(userId)
+  }
+
+  const confirmDeleteUser = async () => {
+    if (!confirmDeleteId) return
+    const res = await api.delete(`/users/${confirmDeleteId}`)
     if (res.ok) {
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
+      setUsers((prev) => prev.filter((u) => u.id !== confirmDeleteId))
       toast.success(t('settings.userDeleted'))
     } else {
       toast.error(res.error || t('common.error'))
     }
+    setConfirmDeleteId(null)
   }
+
+  const cancelDeleteUser = () => setConfirmDeleteId(null)
 
   if (!isAdmin) {
     return (
@@ -261,14 +270,33 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {u.id !== currentUser?.id && (
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="text-danger-text hover:text-danger-hover text-sm font-medium transition-colors"
-                      >
-                        {t('common.delete')}
-                      </button>
-                    )}
+                    {u.id !== currentUser?.id &&
+                      (confirmDeleteId === u.id ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-red-500">
+                            {t('settings.confirmDeleteUser')}
+                          </span>
+                          <button
+                            onClick={confirmDeleteUser}
+                            className="text-xs text-red-600 dark:text-red-400 font-medium hover:underline"
+                          >
+                            {t('common.confirm')}
+                          </button>
+                          <button
+                            onClick={cancelDeleteUser}
+                            className="text-xs text-text-secondary hover:underline"
+                          >
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleDeleteUser(u.id)}
+                          className="text-danger-text hover:text-danger-hover text-sm font-medium transition-colors"
+                        >
+                          {t('common.delete')}
+                        </button>
+                      ))}
                   </td>
                 </tr>
               ))}

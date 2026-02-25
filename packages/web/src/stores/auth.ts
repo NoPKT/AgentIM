@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         await api.post('/auth/logout').catch(() => {})
         api.clearTokens()
         wsClient.disconnect()
-        await resetAllStores()
+        resetAllStores()
         // Clear all draft entries from sessionStorage
         try {
           for (let i = sessionStorage.length - 1; i >= 0; i--) {

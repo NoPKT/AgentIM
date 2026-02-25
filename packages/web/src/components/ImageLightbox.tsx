@@ -99,18 +99,18 @@ export function ImageLightbox({ images, currentIndex, onClose, onNavigate }: Ima
     }
   }, [zoom])
 
-  // Wheel zoom
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Wheel zoom — use native event listener with { passive: false } so preventDefault() works
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
       e.preventDefault()
-      if (e.deltaY < 0) {
-        zoomIn()
-      } else {
-        zoomOut()
-      }
-    },
-    [zoomIn, zoomOut],
-  )
+      if (e.deltaY < 0) zoomIn()
+      else zoomOut()
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [zoomIn, zoomOut])
 
   // Mouse drag for panning when zoomed
   const handleMouseDown = useCallback(
@@ -287,7 +287,6 @@ export function ImageLightbox({ images, currentIndex, onClose, onNavigate }: Ima
       {/* Image */}
       <div
         className={`max-w-[90vw] max-h-[90vh] overflow-hidden ${isDragging ? 'cursor-grabbing' : zoom > 1 ? 'cursor-grab' : ''}`}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

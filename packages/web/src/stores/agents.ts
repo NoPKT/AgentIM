@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 import { api } from '../lib/api.js'
+import { registerStoreReset } from './reset.js'
 
 interface AgentState {
   agents: Agent[]
@@ -77,3 +78,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 }))
+
+registerStoreReset(() =>
+  useAgentStore.setState({
+    agents: [],
+    sharedAgents: [],
+    gateways: [],
+    isLoading: false,
+    loadError: false,
+  }),
+)

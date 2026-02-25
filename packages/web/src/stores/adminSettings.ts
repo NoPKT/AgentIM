@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
+import { registerStoreReset } from './reset.js'
 
 export interface SettingItem {
   key: string
@@ -46,3 +47,7 @@ export const useAdminSettingsStore = create<AdminSettingsState>((set) => ({
     return { ok: !!res.ok, error: res.error }
   },
 }))
+
+registerStoreReset(() =>
+  useAdminSettingsStore.setState({ groups: {}, loading: false, saving: false, error: null }),
+)
