@@ -23,18 +23,48 @@ interface PendingPermission {
   timer: ReturnType<typeof setTimeout>
 }
 
+/** Max age for unused room contexts before they are cleaned up. */
+const ROOM_CONTEXT_TTL_MS = 60 * 60 * 1000 // 1 hour
+const ROOM_CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
   private agentCapabilities = new Map<string, string[]>()
   private roomContexts = new Map<string, RoomContext>()
+  /** Tracks when each room context was last accessed (set/get). */
+  private roomContextLastUsed = new Map<string, number>()
   private pendingPermissions = new Map<string, PendingPermission>()
   private agentCurrentRoom = new Map<string, string>()
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
+  private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(wsClient: GatewayWsClient, permissionLevel: PermissionLevel = 'interactive') {
     this.wsClient = wsClient
     this.permissionLevel = permissionLevel
+    // Periodically clean up stale room contexts to prevent unbounded growth
+    this.contextCleanupTimer = setInterval(
+      () => this.cleanupStaleContexts(),
+      ROOM_CONTEXT_CLEANUP_INTERVAL_MS,
+    )
+    this.contextCleanupTimer.unref()
+  }
+
+  private cleanupStaleContexts() {
+    const now = Date.now()
+    const keysToDelete: string[] = []
+    for (const [key, lastUsed] of this.roomContextLastUsed) {
+      if (now - lastUsed > ROOM_CONTEXT_TTL_MS) {
+        keysToDelete.push(key)
+      }
+    }
+    for (const key of keysToDelete) {
+      this.roomContexts.delete(key)
+      this.roomContextLastUsed.delete(key)
+    }
+    if (keysToDelete.length > 0) {
+      log.info(`Cleaned up ${keysToDelete.length} stale room context(s)`)
+    }
   }
 
   addAgent(opts: {
@@ -116,6 +146,16 @@ export class AgentManager {
     return agentId
   }
 
+  /** Get room context and update last-used timestamp for TTL tracking. */
+  private getRoomContext(agentId: string, roomId: string): RoomContext | undefined {
+    const key = `${agentId}:${roomId}`
+    const ctx = this.roomContexts.get(key)
+    if (ctx) {
+      this.roomContextLastUsed.set(key, Date.now())
+    }
+    return ctx
+  }
+
   removeAgent(agentId: string) {
     const adapter = this.adapters.get(agentId)
     if (adapter) {
@@ -126,6 +166,7 @@ export class AgentManager {
       const keysToDelete = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToDelete) {
         this.roomContexts.delete(key)
+        this.roomContextLastUsed.delete(key)
       }
       this.wsClient.send({
         type: 'gateway:unregister_agent',
@@ -193,6 +234,7 @@ export class AgentManager {
   private handleRoomContext(msg: ServerRoomContext) {
     const key = `${msg.agentId}:${msg.context.roomId}`
     this.roomContexts.set(key, msg.context)
+    this.roomContextLastUsed.set(key, Date.now())
     log.info(`Room context updated for agent ${msg.agentId} in room ${msg.context.roomName}`)
   }
 
@@ -317,7 +359,7 @@ export class AgentManager {
           routingMode: msg.routingMode,
           conversationId: msg.conversationId,
           depth: msg.depth,
-          roomContext: this.roomContexts.get(`${msg.agentId}:${msg.roomId}`),
+          roomContext: this.getRoomContext(msg.agentId, msg.roomId),
         },
       )
     } catch (err) {
@@ -340,6 +382,7 @@ export class AgentManager {
       const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToRemove) {
         this.roomContexts.delete(key)
+        this.roomContextLastUsed.delete(key)
       }
       log.info(`Agent ${agentId} removed by server`)
     }
@@ -389,7 +432,12 @@ export class AgentManager {
     this.adapters.clear()
     this.agentCapabilities.clear()
     this.roomContexts.clear()
+    this.roomContextLastUsed.clear()
     this.agentCurrentRoom.clear()
+    if (this.contextCleanupTimer) {
+      clearInterval(this.contextCleanupTimer)
+      this.contextCleanupTimer = null
+    }
     // Reject all pending permissions
     for (const [, pending] of this.pendingPermissions) {
       clearTimeout(pending.timer)

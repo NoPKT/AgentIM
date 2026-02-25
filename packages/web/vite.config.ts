@@ -31,7 +31,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
+        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/ws/],
         runtimeCaching: [
           {
             urlPattern: /^\/uploads\/avatar_/,

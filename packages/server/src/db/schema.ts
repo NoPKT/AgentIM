@@ -106,25 +106,29 @@ export const agents = pgTable(
 
 // ─── Service Agents ───
 
-export const serviceAgents = pgTable('service_agents', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  type: text('type').notNull().default('openai-chat'),
-  category: text('category').notNull().default('chat'),
-  description: text('description'),
-  status: text('status').notNull().default('active'),
-  configEncrypted: text('config_encrypted').notNull(),
-  avatarUrl: text('avatar_url'),
-  createdById: text('created_by_id')
-    .notNull()
-    .references(() => users.id),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`now()`),
-  updatedAt: text('updated_at')
-    .notNull()
-    .default(sql`now()`),
-})
+export const serviceAgents = pgTable(
+  'service_agents',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    type: text('type').notNull().default('openai-chat'),
+    category: text('category').notNull().default('chat'),
+    description: text('description'),
+    status: text('status').notNull().default('active'),
+    configEncrypted: text('config_encrypted').notNull(),
+    avatarUrl: text('avatar_url'),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [index('service_agents_created_by_idx').on(table.createdById)],
+)
 
 // ─── Routers ───
 

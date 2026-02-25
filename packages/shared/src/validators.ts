@@ -31,6 +31,7 @@ import {
   ASSIGNEE_TYPES,
   NOTIFICATION_PREFS,
   PERMISSION_DECISIONS,
+  PERMISSION_TIMEOUT_MS,
   SERVICE_AGENT_TYPES,
   SERVICE_AGENT_CATEGORIES,
   SERVICE_AGENT_STATUSES,
@@ -364,7 +365,7 @@ export const updateServiceAgentSchema = z.object({
   category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
   description: z.string().max(1000).nullable().optional(),
   status: z.enum(SERVICE_AGENT_STATUSES).optional(),
-  config: z.record(z.string(), z.unknown()).optional(),
+  config: serviceAgentConfigSchema.optional(),
 })
 
 // ─── User ───
@@ -568,7 +569,7 @@ export const gatewayPermissionRequestSchema = z.object({
   roomId: z.string().min(1),
   toolName: z.string().min(1).max(200),
   toolInput: toolInputSchema,
-  timeoutMs: z.number().int().min(1000).max(600_000),
+  timeoutMs: z.number().int().min(1000).max(PERMISSION_TIMEOUT_MS),
 })
 
 export const gatewayPingSchema = z.object({
@@ -941,4 +942,5 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverRoomContextSchema,
   serverPermissionResponseSchema,
   serverPongSchema,
+  serverErrorSchema,
 ])
