@@ -11,18 +11,18 @@ import {
   messageEdits,
   users,
 } from '../db/schema.js'
-import { messageQuerySchema, editMessageSchema, batchDeleteMessagesSchema } from '@agentim/shared'
+import {
+  messageQuerySchema,
+  editMessageSchema,
+  batchDeleteMessagesSchema,
+  searchMessagesSchema,
+} from '@agentim/shared'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
-import {
-  validateIdParams,
-  parseJsonBody,
-  formatZodError,
-  parseQueryInt,
-} from '../lib/validation.js'
+import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 import { createLogger } from '../lib/logger.js'
 import { getStorage } from '../storage/index.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -197,15 +197,22 @@ messageRoutes.post('/rooms/:roomId/read', async (c) => {
 // Search messages across user's rooms
 messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
   const userId = c.get('userId')
-  const q = c.req.query('q')?.trim()
-  const roomId = c.req.query('roomId')
-  const limit = parseQueryInt(c.req.query('limit'), 20, 1, 50)
 
-  if (!q || q.length < 2) {
-    return c.json({ ok: false, error: 'Query must be at least 2 characters' }, 400)
+  const query = searchMessagesSchema.safeParse(c.req.query())
+  if (!query.success) {
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(query.error) },
+      400,
+    )
   }
-  if (q.length > 200) {
-    return c.json({ ok: false, error: 'Query must be at most 200 characters' }, 400)
+
+  const { q, limit, roomId, senderId, senderType, dateFrom, dateTo } = query.data
+
+  if (dateFrom && isNaN(new Date(dateFrom).getTime())) {
+    return c.json({ ok: false, error: 'Invalid "dateFrom" date format' }, 400)
+  }
+  if (dateTo && isNaN(new Date(dateTo).getTime())) {
+    return c.json({ ok: false, error: 'Invalid "dateTo" date format' }, 400)
   }
 
   // Get rooms the user belongs to
@@ -219,25 +226,15 @@ messageRoutes.get('/search', sensitiveRateLimit, async (c) => {
     return c.json({ ok: false, error: 'Room not found' }, 404)
   }
 
-  const sender = c.req.query('sender')?.trim().slice(0, 100)
-  const dateFrom = c.req.query('from')?.trim()
-  const dateTo = c.req.query('to')?.trim()
-
-  if (dateFrom && isNaN(new Date(dateFrom).getTime())) {
-    return c.json({ ok: false, error: 'Invalid "from" date format' }, 400)
-  }
-  if (dateTo && isNaN(new Date(dateTo).getTime())) {
-    return c.json({ ok: false, error: 'Invalid "to" date format' }, 400)
-  }
-
   // Escape LIKE special characters so user input is treated literally
   const escapeLike = (s: string) => s.replace(/[%_\\]/g, (ch) => `\\${ch}`)
-  const searchPattern = `%${escapeLike(q)}%`
+  const searchPattern = `%${escapeLike(q.trim())}%`
   const filters = [
     roomId ? eq(messages.roomId, roomId) : inArray(messages.roomId, [...userRoomIds]),
     ilike(messages.content, searchPattern),
   ]
-  if (sender) filters.push(ilike(messages.senderName, `%${escapeLike(sender)}%`))
+  if (senderId) filters.push(eq(messages.senderId, senderId))
+  if (senderType) filters.push(eq(messages.senderType, senderType))
   if (dateFrom) filters.push(gte(messages.createdAt, new Date(dateFrom).toISOString()))
   if (dateTo) filters.push(lte(messages.createdAt, new Date(dateTo).toISOString()))
 

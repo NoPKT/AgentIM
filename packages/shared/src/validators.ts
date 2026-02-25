@@ -231,6 +231,17 @@ export const messageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+export const searchMessagesSchema = z.object({
+  q: z.string().min(1).max(500),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  roomId: z.string().max(100).optional(),
+  senderId: z.string().max(100).optional(),
+  senderType: z.enum(SENDER_TYPES).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+})
+
 export const batchDeleteMessagesSchema = z.object({
   messageIds: z.array(z.string().min(1).max(100)).min(1).max(50),
 })
