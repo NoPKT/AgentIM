@@ -237,7 +237,7 @@ export const messageQuerySchema = z.object({
 })
 
 export const searchMessagesSchema = z.object({
-  q: z.string().min(1).max(500),
+  q: z.string().min(2).max(500),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   roomId: z.string().max(100).optional(),
