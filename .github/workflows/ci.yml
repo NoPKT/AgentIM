@@ -48,6 +48,9 @@ jobs:
       - name: Check formatting
         run: pnpm prettier --check "packages/*/src/**/*.{ts,tsx}"
 
+      - name: Lint
+        run: pnpm eslint packages/*/src/
+
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 
