@@ -392,6 +392,8 @@ export const zhCN = {
       avatarUrlInvalid: '头像 URL 包含无效字符',
       toolInputTooManyKeys: '工具输入键数过多',
       toolInputKeyTooLong: '工具输入键名过长',
+      toolInputDangerousKey: '工具输入包含危险的键名',
+      configDangerousKey: '配置包含危险的键名',
     },
   },
   a11y: {

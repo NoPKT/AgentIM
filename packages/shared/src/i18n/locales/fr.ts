@@ -402,6 +402,8 @@ export const fr = {
       avatarUrlInvalid: "L'URL de l'avatar contient des caractères invalides",
       toolInputTooManyKeys: "L'entrée de l'outil contient trop de clés",
       toolInputKeyTooLong: "La clé d'entrée de l'outil est trop longue",
+      toolInputDangerousKey: "L'entrée de l'outil contient un nom de clé dangereux",
+      configDangerousKey: 'La configuration contient un nom de clé dangereux',
     },
   },
   a11y: {

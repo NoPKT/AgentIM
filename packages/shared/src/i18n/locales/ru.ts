@@ -400,6 +400,8 @@ export const ru = {
       avatarUrlInvalid: 'URL аватара содержит недопустимые символы',
       toolInputTooManyKeys: 'Слишком много ключей во входных данных инструмента',
       toolInputKeyTooLong: 'Ключ входных данных инструмента слишком длинный',
+      toolInputDangerousKey: 'Ввод инструмента содержит опасное имя ключа',
+      configDangerousKey: 'Конфигурация содержит опасное имя ключа',
     },
   },
   a11y: {

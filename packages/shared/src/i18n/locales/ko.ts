@@ -395,6 +395,8 @@ export const ko = {
       avatarUrlInvalid: '아바타 URL에 잘못된 문자가 포함되어 있습니다',
       toolInputTooManyKeys: '도구 입력 키가 너무 많습니다',
       toolInputKeyTooLong: '도구 입력 키가 너무 깁니다',
+      toolInputDangerousKey: '도구 입력에 위험한 키 이름이 포함되어 있습니다',
+      configDangerousKey: '설정에 위험한 키 이름이 포함되어 있습니다',
     },
   },
   a11y: {

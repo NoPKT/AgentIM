@@ -396,6 +396,8 @@ export const en = {
       avatarUrlInvalid: 'Avatar URL contains invalid characters',
       toolInputTooManyKeys: 'Tool input has too many keys',
       toolInputKeyTooLong: 'Tool input key is too long',
+      toolInputDangerousKey: 'Tool input contains a dangerous key name',
+      configDangerousKey: 'Config contains a dangerous key name',
     },
   },
   a11y: {
