@@ -235,6 +235,19 @@ export const batchDeleteMessagesSchema = z.object({
   messageIds: z.array(z.string().min(1).max(100)).min(1).max(50),
 })
 
+// ─── Bookmark ───
+
+export const createBookmarkSchema = z.object({
+  messageId: z.string().min(1).max(100),
+  note: z.string().max(500).default(''),
+})
+
+// ─── Forward Message ───
+
+export const forwardMessageSchema = z.object({
+  targetRoomId: z.string().min(1).max(100),
+})
+
 // ─── Task ───
 
 export const createTaskSchema = z.object({
