@@ -59,6 +59,7 @@ export function loadConfig(): GatewayConfig | null {
       gatewayId: raw.gatewayId,
     }
     saveConfig(config)
+    // eslint-disable-next-line no-console -- startup migration notice
     console.info('Config migrated from v1 (plaintext) to v2 (encrypted)')
     return config
   } catch {

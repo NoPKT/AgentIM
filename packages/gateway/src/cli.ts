@@ -231,7 +231,7 @@ program
   .command('gemini')
   .description('Start a Gemini CLI agent (coming soon — SDK not yet published)')
   .action(() => {
-    console.log('Gemini CLI integration is coming soon. Stay tuned!')
+    log.info('Gemini CLI integration is coming soon. Stay tuned!')
     process.exit(0)
   })
 
@@ -257,6 +257,8 @@ program
 
     const tokenManager = new TokenManager(config)
     const deviceInfo = getDeviceInfo()
+    // AgentManager is initialized after wsClient is created (circular dependency)
+    // eslint-disable-next-line prefer-const
     let agentManager: AgentManager
     let refreshingToken: Promise<void> | null = null
     // Track whether we already performed one token refresh this connection.
@@ -405,6 +407,7 @@ program
       return
     }
 
+    /* eslint-disable no-console -- CLI table output */
     console.log('\n  Name\t\t\tType\t\tPID\tAlive\tStarted')
     console.log('  ' + '─'.repeat(72))
     for (const d of daemons) {
@@ -413,6 +416,7 @@ program
       console.log(`  ${d.name}\t${d.type}\t\t${d.pid}\t${alive}\t${started}`)
     }
     console.log()
+    /* eslint-enable no-console */
   })
 
 // ─── agentim stop <name> ───
@@ -470,6 +474,7 @@ program
       return
     }
 
+    /* eslint-disable no-console -- CLI table output */
     console.log(`\n  Custom adapters (${getCustomAdaptersPath()}):\n`)
     console.log('  Name\t\t\tCommand\t\t\tDescription')
     console.log('  ' + '\u2500'.repeat(72))
@@ -481,6 +486,7 @@ program
       console.log(`  ${adapter.name}\t\t${cmd}\t\t${desc}`)
     }
     console.log()
+    /* eslint-enable no-console */
   })
 
 function registerAgents(agentManager: AgentManager, agentSpecs: string[]) {

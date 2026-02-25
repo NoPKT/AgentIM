@@ -34,7 +34,7 @@ app.get('/providers', (c) => {
 app.get('/', async (c) => {
   const rows = await db.select().from(serviceAgents)
   // Strip config from list response
-  const result = rows.map(({ configEncrypted, ...rest }) => rest)
+  const result = rows.map(({ configEncrypted: _, ...rest }) => rest)
   return c.json({ ok: true, data: result })
 })
 
@@ -57,7 +57,7 @@ app.get('/:id', async (c) => {
     log.warn(`Failed to decrypt config for service agent ${id}`)
   }
 
-  const { configEncrypted, ...rest } = row
+  const { configEncrypted: _, ...rest } = row
   return c.json({ ok: true, data: { ...rest, config } })
 })
 
@@ -107,7 +107,7 @@ app.post('/', async (c) => {
   const id = nanoid()
   const now = new Date().toISOString()
 
-  const configEncrypted = encryptSecret(JSON.stringify(config))
+  const encryptedConfig = encryptSecret(JSON.stringify(config))
 
   await db.insert(serviceAgents).values({
     id,
@@ -116,7 +116,7 @@ app.post('/', async (c) => {
     category,
     description: data.description,
     status: 'active',
-    configEncrypted,
+    configEncrypted: encryptedConfig,
     createdById: userId,
     createdAt: now,
     updatedAt: now,
@@ -197,7 +197,7 @@ app.put('/:id', async (c) => {
 
   await db.update(serviceAgents).set(updateData).where(eq(serviceAgents.id, id))
 
-  const { configEncrypted, ...result } = (
+  const { configEncrypted: _enc, ...result } = (
     await db.select().from(serviceAgents).where(eq(serviceAgents.id, id)).limit(1)
   )[0]
   return c.json({ ok: true, data: result })

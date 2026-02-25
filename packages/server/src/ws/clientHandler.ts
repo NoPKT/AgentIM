@@ -779,7 +779,7 @@ async function routeToAgents(
   // broadcast + no mention + no Router → no routing (message shown in chat only)
   // non-broadcast + no mention         → no routing
   let routingMode: RoutingMode
-  let targetAgents: typeof agentRows = []
+  const targetAgents: typeof agentRows = []
 
   if (mentionedAgentIds.size > 0) {
     // Direct: only mentioned agents receive

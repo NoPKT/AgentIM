@@ -391,8 +391,9 @@ roomRoutes.post('/:id/members', async (c) => {
       joinedAt: now,
     })
   } catch (err: unknown) {
-    const code = (err as any)?.code ?? (err as any)?.cause?.code
-    if (code === '23505') {
+    const pgCode =
+      (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code
+    if (pgCode === '23505') {
       return c.json({ ok: false, error: 'Member already in room' }, 409)
     }
     throw err

@@ -9,7 +9,7 @@ interface ThreadViewProps {
   onClose: () => void
 }
 
-export function ThreadView({ messageId, roomId, onClose }: ThreadViewProps) {
+export function ThreadView({ messageId, roomId: _roomId, onClose }: ThreadViewProps) {
   const { t } = useTranslation()
   const [replies, setReplies] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
