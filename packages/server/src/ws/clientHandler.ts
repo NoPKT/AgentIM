@@ -62,12 +62,13 @@ const MAX_MEMBERSHIP_CACHE_SIZE = 10_000
 const membershipMemoryCache = new Map<string, { value: string; expiresAt: number }>()
 
 // Periodically clean up expired membership cache entries
-setInterval(() => {
+const membershipCacheTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of membershipMemoryCache) {
     if (now > entry.expiresAt) membershipMemoryCache.delete(key)
   }
-}, 60_000).unref()
+}, 60_000)
+membershipCacheTimer.unref()
 
 async function getCachedMembership(
   userId: string,
@@ -203,12 +204,13 @@ const MAX_WS_MEMORY_COUNTERS = 10_000
 const wsMemoryCounters = new Map<string, { count: number; resetAt: number }>()
 
 // Periodically clean up expired WS rate limit counters
-setInterval(() => {
+const wsRateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of wsMemoryCounters) {
     if (now > entry.resetAt) wsMemoryCounters.delete(key)
   }
-}, 60_000).unref()
+}, 60_000)
+wsRateCleanupTimer.unref()
 
 function wsMemoryRateLimit(compositeKey: string, window: number, max: number): boolean {
   const now = Date.now()
@@ -865,12 +867,13 @@ const MAX_TYPING_DEBOUNCE_ENTRIES = 10_000
 const typingDebounceMemory = new Map<string, number>()
 
 // Periodically clean up stale typing debounce entries (>5s old)
-setInterval(() => {
+const typingDebounceTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   for (const [key, ts] of typingDebounceMemory) {
     if (now - ts > 5_000) typingDebounceMemory.delete(key)
   }
-}, 30_000).unref()
+}, 30_000)
+typingDebounceTimer.unref()
 
 async function handleTyping(ws: WSContext, roomId: string) {
   const client = connectionManager.getClient(ws)
@@ -993,5 +996,21 @@ export function handleClientDisconnect(ws: WSContext) {
       }
     }, OFFLINE_DEBOUNCE_MS)
     offlineTimers.set(client.userId, timer)
+  }
+}
+
+/** Stop all periodic cleanup timers in clientHandler (for graceful shutdown / tests). */
+export function stopClientHandlerCleanup() {
+  if (membershipCacheTimer) {
+    clearInterval(membershipCacheTimer)
+    membershipCacheTimer = null
+  }
+  if (wsRateCleanupTimer) {
+    clearInterval(wsRateCleanupTimer)
+    wsRateCleanupTimer = null
+  }
+  if (typingDebounceTimer) {
+    clearInterval(typingDebounceTimer)
+    typingDebounceTimer = null
   }
 }
