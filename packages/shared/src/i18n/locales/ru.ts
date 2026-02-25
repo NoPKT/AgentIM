@@ -236,6 +236,7 @@ export const ru = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
+    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: 'Общий',
     deleteGateway: 'Удалить шлюз',

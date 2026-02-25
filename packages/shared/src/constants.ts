@@ -1,4 +1,4 @@
-export const AGENT_TYPES = ['claude-code', 'codex', 'gemini', 'generic'] as const
+export const AGENT_TYPES = ['claude-code', 'codex', 'gemini', 'opencode', 'generic'] as const
 export type AgentType = (typeof AGENT_TYPES)[number]
 
 export const AGENT_STATUSES = ['online', 'offline', 'busy', 'error'] as const

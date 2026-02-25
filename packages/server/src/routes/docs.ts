@@ -72,7 +72,7 @@ const spec = {
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
-          type: { type: 'string', enum: ['claude-code', 'codex', 'gemini', 'generic'] },
+          type: { type: 'string', enum: ['claude-code', 'codex', 'gemini', 'opencode', 'generic'] },
           status: { type: 'string', enum: ['online', 'offline', 'busy', 'error'] },
           gatewayId: { type: 'string' },
           workingDirectory: { type: 'string', nullable: true },

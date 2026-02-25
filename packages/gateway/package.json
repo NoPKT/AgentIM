@@ -22,6 +22,7 @@
     "claude-code",
     "codex",
     "gemini",
+    "opencode",
     "cli"
   ],
   "publishConfig": {
@@ -49,6 +50,7 @@
     "@agentim/shared": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "^0.2.50",
     "@openai/codex-sdk": "^0.104.0",
+    "@opencode-ai/sdk": "^1.2.12",
     "commander": "^14.0.3",
     "ws": "^8.18.0",
     "nanoid": "^5.1.0",

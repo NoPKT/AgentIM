@@ -43,6 +43,10 @@ export function getTypeConfig(t: TFunction) {
       label: t('agent.gemini'),
       color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
     },
+    opencode: {
+      label: t('agent.opencode'),
+      color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
+    },
     cursor: {
       label: t('agent.cursor'),
       color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
@@ -58,6 +62,7 @@ export const agentGradients: Record<string, string> = {
   'claude-code': 'from-purple-500 to-violet-600',
   codex: 'from-blue-500 to-indigo-600',
   gemini: 'from-cyan-500 to-teal-600',
+  opencode: 'from-emerald-500 to-green-600',
   cursor: 'from-indigo-500 to-purple-600',
   generic: 'from-gray-500 to-gray-600',
 }

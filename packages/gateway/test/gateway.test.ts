@@ -339,7 +339,7 @@ describe('CodexAdapter stop and dispose', () => {
 
 describe('Adapter common behaviour', () => {
   it('all adapter types start with running=false', () => {
-    for (const type of ['claude-code', 'codex', 'gemini', 'generic'] as const) {
+    for (const type of ['claude-code', 'codex', 'gemini', 'opencode', 'generic'] as const) {
       const adapter = createAdapter(type, { agentId: `edge-${type}`, agentName: `E${type}` })
       assert.equal(adapter.running, false, `${type} adapter should start not running`)
       adapter.dispose()

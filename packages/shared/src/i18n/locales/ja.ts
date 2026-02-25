@@ -236,6 +236,7 @@ export const ja = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
+    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: '汎用',
     deleteGateway: 'ゲートウェイを削除',
