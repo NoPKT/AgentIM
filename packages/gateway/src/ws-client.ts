@@ -157,6 +157,13 @@ export class GatewayWsClient {
     } else {
       if (this.sendQueue.length < MAX_QUEUE_SIZE) {
         this.sendQueue.push(msg)
+        // Warn when queue reaches 75% capacity
+        const threshold = Math.floor(MAX_QUEUE_SIZE * 0.75)
+        if (this.sendQueue.length === threshold) {
+          log.warn(
+            `Message queue at 75% capacity (${threshold}/${MAX_QUEUE_SIZE}), messages may be dropped soon`,
+          )
+        }
       } else {
         const priority = this.getMessagePriority(msg.type)
 
@@ -249,6 +256,7 @@ export class GatewayWsClient {
   private startHeartbeat() {
     this.stopHeartbeat()
     this.pingTimer = setInterval(() => {
+      // Note: .unref() called after assignment below
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.clearPongTimeout()
         try {
@@ -280,6 +288,8 @@ export class GatewayWsClient {
         }, PONG_TIMEOUT)
       }
     }, PING_INTERVAL)
+    // Allow process to exit even if heartbeat is still running
+    this.pingTimer.unref()
   }
 
   private stopHeartbeat() {

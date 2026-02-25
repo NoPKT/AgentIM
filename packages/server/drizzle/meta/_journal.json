@@ -225,6 +225,13 @@
       "when": 1772400000000,
       "tag": "0031_add_task_result_duedate",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0032_add_service_agents_created_by_idx",
+      "breakpoints": true
     }
   ]
 }

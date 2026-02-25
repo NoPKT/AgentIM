@@ -47,19 +47,32 @@ function isProcessAlive(pid: number): boolean {
 /**
  * Verify that the process with the given PID is actually an agentim process.
  * Prevents acting on a recycled PID that now belongs to an unrelated process.
+ * Uses argv-based matching to avoid false positives from unrelated processes
+ * that happen to have "agentim" in their path (e.g. /opt/agentim-tools/other).
  */
 function isAgentimProcess(pid: number): boolean {
   try {
     if (platform() === 'linux') {
+      // /proc/PID/cmdline uses NUL as argv separator
       const cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf-8')
-      return cmdline.includes('agentim')
+      const args = cmdline.split('\0')
+      // Check if any argv element ends with 'agentim' (the CLI entry point)
+      // or contains '/agentim/' (the dist path) or the argv includes 'daemon'
+      return args.some(
+        (arg) =>
+          arg.endsWith('/agentim') ||
+          arg.endsWith('/cli.js') ||
+          arg.endsWith('/cli.ts') ||
+          (arg.includes('agentim') && arg.includes('daemon')),
+      )
     }
-    // macOS / other Unix: use ps
-    const output = execSync(`ps -p ${pid} -o command=`, {
+    // macOS / other Unix: use ps with full argument list
+    const output = execSync(`ps -p ${pid} -o args=`, {
       encoding: 'utf-8',
       timeout: 3000,
     }).trim()
-    return output.includes('agentim')
+    // Match the agentim CLI binary or daemon subcommand
+    return /\bagentim\b/.test(output) || /cli\.[jt]s\b.*\bdaemon\b/.test(output)
   } catch {
     // If we cannot verify, assume NOT an agentim process to avoid killing
     // an unrelated process that recycled this PID.

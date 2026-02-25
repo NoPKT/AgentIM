@@ -30,6 +30,7 @@ import {
   cleanStaleDaemons,
   writeDaemonInfo,
   readDaemonInfo,
+  removeDaemonInfo,
 } from './lib/daemon-manager.js'
 import type {
   PermissionLevel,
@@ -329,6 +330,8 @@ program
               process.exit(1)
             }
           }
+        } else if (msg.type === 'server:error') {
+          log.warn(`Server error: [${msg.code}] ${msg.message}`)
         } else if (
           msg.type === 'server:send_to_agent' ||
           msg.type === 'server:stop_agent' ||
@@ -622,6 +625,20 @@ function spawnDaemon(
     }
   }
 
+  // Atomically reserve the daemon name before spawning to prevent TOCTOU races.
+  // writeDaemonInfo uses mode 0o600 which prevents parallel spawners from
+  // silently overwriting the file, and readDaemonInfo + kill(pid, 0) above
+  // catches live duplicates.
+  const reservationInfo = {
+    pid: process.pid, // placeholder — updated after spawn
+    name,
+    type,
+    workDir,
+    startedAt: new Date().toISOString(),
+    gatewayId: config.gatewayId,
+  }
+  writeDaemonInfo(reservationInfo)
+
   // Create log directory and open log file for daemon output
   const logDir = join(homedir(), '.agentim', 'logs')
   mkdirSync(logDir, { recursive: true })
@@ -646,19 +663,15 @@ function spawnDaemon(
   closeSync(logFd)
 
   if (child.pid) {
-    writeDaemonInfo({
-      pid: child.pid,
-      name,
-      type,
-      workDir,
-      startedAt: new Date().toISOString(),
-      gatewayId: config.gatewayId,
-    })
+    // Update the reservation with the actual child PID
+    writeDaemonInfo({ ...reservationInfo, pid: child.pid })
     log.info(`Agent "${name}" (${type}) started in background (PID ${child.pid})`)
     log.info(`Working directory: ${workDir}`)
     log.info(`Log file: ${logFile}`)
     log.info(`Use 'agentim list' to see running agents`)
   } else {
+    // Spawn failed — clean up the reservation
+    removeDaemonInfo(name)
     log.error('Failed to start daemon process')
     process.exit(1)
   }

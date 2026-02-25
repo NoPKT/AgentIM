@@ -379,6 +379,7 @@ export type ServerGatewayMessage =
   | ServerRoomContext
   | ServerPermissionResponse
   | ServerPong
+  | ServerError
 
 // ─── All Messages Union ───
 

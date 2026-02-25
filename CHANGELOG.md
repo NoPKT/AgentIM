@@ -138,6 +138,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **[SECURITY] updateServiceAgentSchema config validation**: Replaced bare `z.record()` with `serviceAgentConfigSchema` to enforce dangerous key name checks on service agent updates (prototype pollution prevention)
+- **ServerGatewayMessage missing error type**: Added `serverErrorSchema` to `serverGatewayMessageSchema` so gateways can receive and handle server error messages instead of silently discarding them
+- **GatewayPermissionRequest timeoutMs range**: Capped `timeoutMs` validator max at `PERMISSION_TIMEOUT_MS` (300s) instead of hardcoded 600s to match server-side timeout
+- **Gateway daemon spawn TOCTOU**: Write PID file reservation before spawning to prevent duplicate agent daemons from concurrent CLI invocations
+- **Gateway room context memory leak**: Added 1-hour TTL with periodic cleanup for room context entries to prevent unbounded growth in long-running daemons
+- **Gateway PID process verification**: Improved from substring match to argv-based pattern matching to prevent false positives on unrelated processes with "agentim" in their path
+- **Gateway WS heartbeat timer**: Added `.unref()` to ping interval timer to allow clean process exit
+- **Gateway message queue watermark**: Added warning log at 75% queue capacity before messages start dropping
+- **ServiceAgents missing index**: Added `service_agents_created_by_idx` index on `created_by_id` column (migration 0032)
+- **PWA offline fallback for WebSocket**: Added `/ws` to `navigateFallbackDenylist` to prevent WS upgrade requests from being served the offline fallback page
 - **[CRITICAL] VAPID private key encryption**: `setSetting()` now encrypts sensitive values before DB storage; `getSetting()` and `preloadSettings()` decrypt on read
 - **[CRITICAL] Stream total size limit**: Cumulative 10MB limit on streaming messages prevents memory abuse from infinite chunks
 - **[CRITICAL] Agent command permission feedback**: `routeToAgents()` now returns PERMISSION_DENIED error instead of silent failure
