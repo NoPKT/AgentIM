@@ -146,6 +146,7 @@ export function AppLayout() {
             <Link
               key={link.path}
               to={link.path}
+              aria-current={isActive(link.path) ? 'page' : undefined}
               className={`
                 flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all relative
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
