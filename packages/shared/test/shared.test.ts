@@ -22,7 +22,10 @@ import {
   updateRouterSchema,
   gatewayPermissionRequestSchema,
   serverPermissionRequestSchema,
+  gatewayAuthSchema,
   toolInputSchema,
+  searchMessagesSchema,
+  createServiceAgentSchema,
   AGENT_TYPES,
   AGENT_STATUSES,
   ROOM_TYPES,
@@ -34,7 +37,7 @@ import {
   WS_CLIENT_MESSAGE_SIZE_LIMIT,
   WS_GATEWAY_MESSAGE_SIZE_LIMIT,
 } from '../src/index.js'
-import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, en, zhCN, ja, ko, fr, de, ru } from '../src/i18n/index.js'
+import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, I18N_NAMESPACES, en, zhCN, ja, ko, fr, de, ru } from '../src/i18n/index.js'
 
 // ─── Mentions ───
 
@@ -726,6 +729,218 @@ describe('updateRouterSchema superRefine', () => {
       visibility: 'all',
       visibilityList: [],
     })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── searchMessagesSchema dateFrom/dateTo validation ──────────────────────────
+
+describe('searchMessagesSchema', () => {
+  it('accepts valid date range', () => {
+    const result = searchMessagesSchema.safeParse({
+      q: 'hello',
+      dateFrom: '2024-01-01T00:00:00Z',
+      dateTo: '2024-12-31T23:59:59Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects dateFrom >= dateTo', () => {
+    const result = searchMessagesSchema.safeParse({
+      q: 'hello',
+      dateFrom: '2024-12-31T00:00:00Z',
+      dateTo: '2024-01-01T00:00:00Z',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects dateFrom equal to dateTo', () => {
+    const result = searchMessagesSchema.safeParse({
+      q: 'hello',
+      dateFrom: '2024-06-15T12:00:00Z',
+      dateTo: '2024-06-15T12:00:00Z',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts when only dateFrom is provided', () => {
+    const result = searchMessagesSchema.safeParse({
+      q: 'hello',
+      dateFrom: '2024-01-01T00:00:00Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts when only dateTo is provided', () => {
+    const result = searchMessagesSchema.safeParse({
+      q: 'hello',
+      dateTo: '2024-12-31T00:00:00Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── gatewayAuthSchema ────────────────────────────────────────────────────────
+
+describe('gatewayAuthSchema', () => {
+  it('validates a complete gateway auth message', () => {
+    const result = gatewayAuthSchema.safeParse({
+      type: 'gateway:auth',
+      token: 'jwt-token-here',
+      gatewayId: 'gw-123',
+      deviceInfo: {
+        hostname: 'localhost',
+        platform: 'darwin',
+        arch: 'arm64',
+        nodeVersion: 'v20.0.0',
+      },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects missing gatewayId', () => {
+    const result = gatewayAuthSchema.safeParse({
+      type: 'gateway:auth',
+      token: 'jwt-token-here',
+      deviceInfo: {
+        hostname: 'localhost',
+        platform: 'darwin',
+        arch: 'arm64',
+        nodeVersion: 'v20.0.0',
+      },
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects empty token', () => {
+    const result = gatewayAuthSchema.safeParse({
+      type: 'gateway:auth',
+      token: '',
+      gatewayId: 'gw-123',
+      deviceInfo: {
+        hostname: 'localhost',
+        platform: 'darwin',
+        arch: 'arm64',
+        nodeVersion: 'v20.0.0',
+      },
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+// ─── createServiceAgentSchema provider validation ─────────────────────────────
+
+describe('createServiceAgentSchema provider validation', () => {
+  it('rejects runway type without apiKey', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Runway',
+      type: 'runway',
+      config: {},
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts runway type with apiKey', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Runway',
+      type: 'runway',
+      config: { apiKey: 'rk-test' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects meshy type without apiKey', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Meshy',
+      type: 'meshy',
+      config: {},
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects stability-audio type without apiKey', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Audio',
+      type: 'stability-audio',
+      config: {},
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects elevenlabs type without voiceId', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Voice',
+      type: 'elevenlabs',
+      config: { apiKey: 'el-test' },
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts elevenlabs type with apiKey and voiceId', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Voice',
+      type: 'elevenlabs',
+      config: { apiKey: 'el-test', voiceId: 'voice-1' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts custom type without apiKey', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Custom',
+      type: 'custom',
+      config: {},
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── I18N_NAMESPACES export ───────────────────────────────────────────────────
+
+describe('I18N_NAMESPACES', () => {
+  it('is an array of strings', () => {
+    assert.ok(Array.isArray(I18N_NAMESPACES))
+    assert.ok(I18N_NAMESPACES.length > 0)
+    for (const ns of I18N_NAMESPACES) {
+      assert.strictEqual(typeof ns, 'string')
+    }
+  })
+
+  it('includes common namespaces', () => {
+    assert.ok(I18N_NAMESPACES.includes('common'))
+    assert.ok(I18N_NAMESPACES.includes('auth'))
+    assert.ok(I18N_NAMESPACES.includes('chat'))
+  })
+})
+
+// ─── createRouterSchema nullable description ──────────────────────────────────
+
+describe('createRouterSchema nullable description', () => {
+  const baseRouter = {
+    name: 'test-router',
+    llmBaseUrl: 'https://api.example.com',
+    llmApiKey: 'sk-test',
+    llmModel: 'gpt-4',
+  }
+
+  it('accepts null description', () => {
+    const result = createRouterSchema.safeParse({
+      ...baseRouter,
+      description: null,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts string description', () => {
+    const result = createRouterSchema.safeParse({
+      ...baseRouter,
+      description: 'A test router',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts omitted description', () => {
+    const result = createRouterSchema.safeParse(baseRouter)
     assert.strictEqual(result.success, true)
   })
 })
