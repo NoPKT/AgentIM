@@ -25,12 +25,12 @@
 
 ## What is AgentIM?
 
-AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI *(coming soon)*, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
+AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI _(coming soon)_, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
 
 ### Key Features
 
 - **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
-- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI *(coming soon)*, or any CLI agent side by side via the generic adapter
+- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI _(coming soon)_, or any CLI agent side by side via the generic adapter
 - **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
 - **Cross-Device** — Manage agents running on your workstation from any device via PWA
 - **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
@@ -118,17 +118,17 @@ The Web UI will be at **http://localhost:5173** and the API server at **http://l
 
 ### Environment Variables
 
-| Variable         | Required | Default                     | Description                                                    |
-| ---------------- | -------- | --------------------------- | -------------------------------------------------------------- |
-| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                 |
-| `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                   |
-| `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                        |
-| `ENCRYPTION_KEY` | Prod     | —                           | Encryption key for secrets. Generate: `openssl rand -base64 32`|
-| `PORT`           | No       | `3000`                      | Server port                                                    |
-| `CORS_ORIGIN`    | Prod     | `localhost:5173`            | Allowed CORS origin (**required** in production)               |
-| `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                 |
-| `LOG_LEVEL`      | No       | `info`                      | Log level: `debug`, `info`, `warn`, `error`, `fatal`           |
+| Variable         | Required | Default                     | Description                                                     |
+| ---------------- | -------- | --------------------------- | --------------------------------------------------------------- |
+| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -base64 32`  |
+| `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                  |
+| `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                    |
+| `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                         |
+| `ENCRYPTION_KEY` | Prod     | —                           | Encryption key for secrets. Generate: `openssl rand -base64 32` |
+| `PORT`           | No       | `3000`                      | Server port                                                     |
+| `CORS_ORIGIN`    | Prod     | `localhost:5173`            | Allowed CORS origin (**required** in production)                |
+| `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                  |
+| `LOG_LEVEL`      | No       | `info`                      | Log level: `debug`, `info`, `warn`, `error`, `fatal`            |
 
 See [.env.example](.env.example) for the full list including file upload limits, rate limiting, and AI router settings.
 
@@ -184,12 +184,12 @@ agentim logout    # Clear saved credentials
 
 ### Supported Agents
 
-| Agent Type    | Description                    |
-| ------------- | ------------------------------ |
-| `claude-code` | Anthropic Claude Code CLI      |
-| `codex`       | OpenAI Codex CLI               |
-| `gemini`      | Google Gemini CLI *(coming soon)* |
-| `generic`     | Any CLI tool (custom commands) |
+| Agent Type    | Description                       |
+| ------------- | --------------------------------- |
+| `claude-code` | Anthropic Claude Code CLI         |
+| `codex`       | OpenAI Codex CLI                  |
+| `gemini`      | Google Gemini CLI _(coming soon)_ |
+| `generic`     | Any CLI tool (custom commands)    |
 
 ## For Developers
 
@@ -227,12 +227,22 @@ pnpm test             # Run all tests
 | AgentIM CLI | commander.js + child_process                  |
 | i18n        | i18next (EN / ZH-CN / JA / KO / FR / DE / RU) |
 
+### API Documentation
+
+The server exposes an OpenAPI specification at `/api/docs/openapi.json` when running. You can view the interactive API docs by navigating to the docs endpoint. For example, if your server runs at `http://localhost:3000`, open:
+
+```
+http://localhost:3000/api/docs/openapi.json
+```
+
+You can import this spec into tools like [Swagger UI](https://swagger.io/tools/swagger-ui/), [Insomnia](https://insomnia.rest/), or [Postman](https://www.postman.com/) for interactive exploration.
+
 ### Documentation
 
 - [Deployment Guide](docs/DEPLOYMENT.md) — Production setup, Nginx, backups, troubleshooting
 - [WebSocket Protocol](docs/WEBSOCKET.md) — Client message types, auth flow, error codes
 - [Adapter Guide](docs/ADAPTER_GUIDE.md) — How to add support for a new AI agent type
-- [API Reference](docs/DEPLOYMENT.md#environment-variables) — OpenAPI spec available at `/api/docs/openapi.json`
+- [Capacity Planning](docs/CAPACITY.md) — Hardware sizing, PostgreSQL, Redis, and WebSocket tuning
 - [Contributing](CONTRIBUTING.md) — Code style, testing, PR process
 
 ## License

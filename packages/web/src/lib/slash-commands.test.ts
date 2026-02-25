@@ -23,6 +23,42 @@ describe('slash-commands', () => {
     it('handles extra whitespace', () => {
       expect(parseSlashCommand('/help ')).toEqual({ name: 'help', args: '' })
     })
+
+    it('returns name with empty args for slash followed by command only', () => {
+      expect(parseSlashCommand('/ ')).toEqual({ name: '', args: '' })
+    })
+
+    it('handles slash-only input', () => {
+      expect(parseSlashCommand('/')).toEqual({ name: '', args: '' })
+    })
+
+    it('trims args whitespace', () => {
+      expect(parseSlashCommand('/task   hello world  ')).toEqual({
+        name: 'task',
+        args: 'hello world',
+      })
+    })
+
+    it('handles special characters in args', () => {
+      expect(parseSlashCommand('/task @user #tag $var')).toEqual({
+        name: 'task',
+        args: '@user #tag $var',
+      })
+    })
+
+    it('handles command names with hyphens', () => {
+      expect(parseSlashCommand('/my-command arg1')).toEqual({
+        name: 'my-command',
+        args: 'arg1',
+      })
+    })
+
+    it('handles unicode characters in args', () => {
+      expect(parseSlashCommand('/task 你好世界')).toEqual({
+        name: 'task',
+        args: '你好世界',
+      })
+    })
   })
 
   describe('getCommand', () => {
