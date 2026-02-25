@@ -106,6 +106,26 @@ describe('insertMention', () => {
   it('clamps position beyond length', () => {
     assert.equal(insertMention('hello', 'bot', 100), 'hello@bot ')
   })
+  // (not shown in this snippet)
+})
+
+describe('i18n structure', () => {
+  it('has non-empty language names for all supported languages', () => {
+  for (const lang of SUPPORTED_LANGUAGES) {
+    const name = LANGUAGE_NAMES[lang]
+    assert.notEqual(name, undefined)
+    assert.equal(typeof name, 'string')
+    assert.ok(name.trim().length > 0)
+  }
+  })
+
+  it('has valid translation objects for each locale', () => {
+  const locales = { en, zhCN, ja, ko, fr, de, ru }
+  for (const [code, locale] of Object.entries(locales)) {
+    assert.notEqual(locale, null, `Locale ${code} should not be null`)
+    assert.equal(typeof locale, 'object', `Locale ${code} should be an object`)
+  }
+  })
 })
 
 // ─── Validators ───
