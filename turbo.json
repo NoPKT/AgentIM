@@ -10,7 +10,8 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx"]
     },
     "test": {
       "dependsOn": ["^build"],

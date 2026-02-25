@@ -9,7 +9,7 @@
     "dev": "vite",
     "preview": "vite preview",
     "clean": "rm -rf dist .turbo",
-    "lint": "tsc --noEmit",
+    "lint": "eslint src/ && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

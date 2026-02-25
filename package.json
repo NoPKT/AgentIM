@@ -33,18 +33,20 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.5.0",
     "turbo": "^2.8.10",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.33.0"
   },
   "pnpm": {
     "overrides": {
       "glob>minimatch": "^10.2.2",
       "filelist>minimatch": "^10.2.2",
       "minimatch": "^10.2.2",
-      "ajv": "^8.18.0",
       "esbuild": "^0.25.0",
       "bn.js": ">=5.2.3"
     },
@@ -55,7 +57,8 @@
   },
   "lint-staged": {
     "packages/*/src/**/*.{ts,tsx}": [
-      "prettier --check"
+      "prettier --check",
+      "eslint --no-warn-ignored"
     ]
   },
   "packageManager": "pnpm@10.29.3",

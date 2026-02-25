@@ -9,22 +9,26 @@ echo "[pre-push] Running local CI validation..."
 echo "[pre-push] Checking formatting..."
 pnpm prettier --check "packages/*/src/**/*.{ts,tsx}" || exit 1
 
-# 2. Build
+# 2. Linting
+echo "[pre-push] Running ESLint..."
+pnpm eslint packages/*/src/ || exit 1
+
+# 3. Build
 echo "[pre-push] Building..."
 pnpm build || exit 1
 
-# 3. Unit tests (no external dependencies)
+# 4. Unit tests (no external dependencies)
 echo "[pre-push] Running shared tests..."
 pnpm --filter @agentim/shared test || exit 1
 
 echo "[pre-push] Running gateway tests..."
 pnpm --filter agentim test || exit 1
 
-# 4. Web tests (no external dependencies)
+# 5. Web tests (no external dependencies)
 echo "[pre-push] Running web tests..."
 pnpm --filter @agentim/web test:coverage || exit 1
 
-# 5. Server integration tests (require PostgreSQL + Redis)
+# 6. Server integration tests (require PostgreSQL + Redis)
 if pg_isready -h localhost -p 5432 -q 2>/dev/null && redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; then
   echo "[pre-push] Running server tests (PostgreSQL + Redis detected)..."
   pnpm --filter @agentim/server test:coverage || exit 1
