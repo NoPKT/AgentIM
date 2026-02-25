@@ -196,14 +196,18 @@ describe('logout deduplication', () => {
 })
 
 describe('cross-tab logout', () => {
+  function createStorageEvent(key: string, newValue: string | null): StorageEvent {
+    const event = document.createEvent('StorageEvent')
+    // type, bubbles, cancelable, key, oldValue, newValue, url, storageArea
+    event.initStorageEvent('storage', false, false, key, null, newValue, window.location.href, window.localStorage)
+    return event
+  }
+
   it('clears state when storage event fires with logout key', () => {
     useAuthStore.setState({ user: fakeUser })
 
     // Simulate another tab logging out via storage event
-    const event = new StorageEvent('storage', {
-      key: 'agentim:logout',
-      newValue: Date.now().toString(),
-    })
+    const event = createStorageEvent('agentim:logout', Date.now().toString())
     window.dispatchEvent(event)
 
     expect(mockApi.clearTokens).toHaveBeenCalled()
@@ -214,10 +218,7 @@ describe('cross-tab logout', () => {
   it('ignores storage events with null newValue', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
-      key: 'agentim:logout',
-      newValue: null,
-    })
+    const event = createStorageEvent('agentim:logout', null)
     window.dispatchEvent(event)
 
     // User should NOT be cleared
@@ -227,10 +228,7 @@ describe('cross-tab logout', () => {
   it('ignores storage events with unrelated keys', () => {
     useAuthStore.setState({ user: fakeUser })
 
-    const event = new StorageEvent('storage', {
-      key: 'some-other-key',
-      newValue: Date.now().toString(),
-    })
+    const event = createStorageEvent('some-other-key', Date.now().toString())
     window.dispatchEvent(event)
 
     expect(useAuthStore.getState().user).toEqual(fakeUser)
