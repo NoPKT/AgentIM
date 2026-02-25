@@ -18,10 +18,23 @@ export function parseMentions(content: string): string[] {
   return mentions
 }
 
+// Cache compiled mention regexes to avoid repeated compilation per call
+const mentionRegexCache = new Map<string, RegExp>()
+
 export function hasMention(content: string, name: string): boolean {
   // Use the same character set as parseMentions: the name must be followed
   // by a non-name character or end-of-string (consistent with MENTION_REGEX).
-  return new RegExp(`@${escapeRegex(name)}(?=${MENTION_BOUNDARY}|$)`).test(content)
+  let regex = mentionRegexCache.get(name)
+  if (!regex) {
+    regex = new RegExp(`@${escapeRegex(name)}(?=${MENTION_BOUNDARY}|$)`)
+    // Cap cache size to prevent unbounded growth
+    if (mentionRegexCache.size >= 500) {
+      const firstKey = mentionRegexCache.keys().next().value!
+      mentionRegexCache.delete(firstKey)
+    }
+    mentionRegexCache.set(name, regex)
+  }
+  return regex.test(content)
 }
 
 function escapeRegex(s: string): string {

@@ -398,6 +398,10 @@ export const ja = {
       toolInputKeyTooLong: 'ツール入力キーが長すぎます',
       toolInputDangerousKey: 'ツール入力に危険なキー名が含まれています',
       configDangerousKey: '設定に危険なキー名が含まれています',
+      visibilityListRequired: '選択した可視性モードでは可視性リストを空にできません',
+      serviceAgentApiKeyRequired: 'カスタム以外のサービスエージェントにはAPIキーが必要です',
+      serviceAgentModelRequired: 'OpenAIベースのサービスエージェントにはモデルの指定が必要です',
+      serviceAgentVoiceIdRequired: 'ElevenLabsのサービスエージェントにはボイスIDが必要です',
     },
   },
   a11y: {

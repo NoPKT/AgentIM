@@ -26,6 +26,7 @@ export type AuditAction =
   | 'member_remove'
   | 'file_upload'
   | 'file_delete'
+  | 'message_edit'
   | 'message_delete'
   | 'setting_update'
 

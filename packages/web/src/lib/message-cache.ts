@@ -6,6 +6,8 @@ const DB_NAME = 'agentim-cache'
 const DB_VERSION = 2
 
 const IDB_TIMEOUT_MS = 5000
+const IDB_MAX_RETRIES = 2
+const IDB_RETRY_DELAY_MS = 300
 
 function withIdbTimeout<T>(promise: Promise<T>, ms = IDB_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -21,6 +23,28 @@ function withIdbTimeout<T>(promise: Promise<T>, ms = IDB_TIMEOUT_MS): Promise<T>
       },
     )
   })
+}
+
+/**
+ * Retry wrapper for IDB operations. Retries on timeout or transient errors
+ * with a short delay. Non-retryable errors (e.g. QuotaExceededError) are
+ * thrown immediately.
+ */
+async function withIdbRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= IDB_MAX_RETRIES; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      // Don't retry quota errors
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') throw err
+      if (attempt < IDB_MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, IDB_RETRY_DELAY_MS * (attempt + 1)))
+      }
+    }
+  }
+  throw lastErr
 }
 
 interface RoomMeta {
@@ -108,30 +132,32 @@ export async function getCachedMessages(roomId: string): Promise<Message[]> {
 
 export async function setCachedMessages(roomId: string, messages: Message[]): Promise<void> {
   try {
-    const db = await getDb()
-    await withIdbTimeout(
-      (async () => {
-        const tx = db.transaction('messages', 'readwrite')
-        const store = tx.objectStore('messages')
+    await withIdbRetry(async () => {
+      const db = await getDb()
+      await withIdbTimeout(
+        (async () => {
+          const tx = db.transaction('messages', 'readwrite')
+          const store = tx.objectStore('messages')
 
-        // Remove existing messages for this room
-        const idx = store.index('by-room')
-        const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
-        let cursor = await idx.openCursor(range)
-        while (cursor) {
-          await cursor.delete()
-          cursor = await cursor.continue()
-        }
+          // Remove existing messages for this room
+          const idx = store.index('by-room')
+          const range = IDBKeyRange.bound([roomId, ''], [roomId, '\uffff'])
+          let cursor = await idx.openCursor(range)
+          while (cursor) {
+            await cursor.delete()
+            cursor = await cursor.continue()
+          }
 
-        // Keep only the latest N messages
-        const trimmed = messages.slice(-MAX_MESSAGES_PER_ROOM_CACHE)
-        for (const msg of trimmed) {
-          await store.put(msg)
-        }
+          // Keep only the latest N messages
+          const trimmed = messages.slice(-MAX_MESSAGES_PER_ROOM_CACHE)
+          for (const msg of trimmed) {
+            await store.put(msg)
+          }
 
-        await tx.done
-      })(),
-    )
+          await tx.done
+        })(),
+      )
+    })
   } catch (err) {
     console.warn('[MessageCache] Failed to set cached messages', err)
   }
@@ -287,8 +313,10 @@ export async function clearCache(): Promise<void> {
 
 export async function addPendingMessage(msg: PendingMessage): Promise<void> {
   try {
-    const db = await getDb()
-    await db.put('pending-messages', msg)
+    await withIdbRetry(async () => {
+      const db = await getDb()
+      await db.put('pending-messages', msg)
+    })
   } catch (err) {
     console.warn('[MessageCache] Failed to add pending message', err)
   }

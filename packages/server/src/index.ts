@@ -20,7 +20,7 @@ const log = createLogger('Server')
 // Initialize Sentry (if SENTRY_DSN is set)
 await initSentry()
 import { apiRateLimit, wsUpgradeRateLimit, stopRateLimitCleanup } from './middleware/rateLimit.js'
-import { migrate, closeDb, db } from './db/index.js'
+import { migrate, closeDb, db, verifyMigrations } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
@@ -72,6 +72,8 @@ if (config.runMigrations) {
   log.info('Database migrations completed')
 } else {
   log.info('Skipping migrations (RUN_MIGRATIONS=false)')
+  // Warn if the database is behind on migrations
+  await verifyMigrations()
 }
 
 // Preload settings from DB into cache and inject settings module into config bridge

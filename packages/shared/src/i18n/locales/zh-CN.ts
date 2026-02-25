@@ -394,6 +394,10 @@ export const zhCN = {
       toolInputKeyTooLong: '工具输入键名过长',
       toolInputDangerousKey: '工具输入包含危险的键名',
       configDangerousKey: '配置包含危险的键名',
+      visibilityListRequired: '选定的可见性模式要求可见性列表不能为空',
+      serviceAgentApiKeyRequired: '非自定义类型的服务代理需要提供 API 密钥',
+      serviceAgentModelRequired: 'OpenAI 类型的服务代理需要指定模型',
+      serviceAgentVoiceIdRequired: 'ElevenLabs 类型的服务代理需要指定语音 ID',
     },
   },
   a11y: {

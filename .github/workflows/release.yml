@@ -12,6 +12,7 @@ on:
 permissions:
   contents: write
   packages: write
+  security-events: write
 
 jobs:
   ci:
@@ -57,6 +58,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Scan Docker image for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   npm:
     # Publishes @agentim/shared and agentim CLI to npm via Trusted Publishing (OIDC).

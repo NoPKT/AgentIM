@@ -398,6 +398,10 @@ export const en = {
       toolInputKeyTooLong: 'Tool input key is too long',
       toolInputDangerousKey: 'Tool input contains a dangerous key name',
       configDangerousKey: 'Config contains a dangerous key name',
+      visibilityListRequired: 'Visibility list must not be empty for the selected visibility mode',
+      serviceAgentApiKeyRequired: 'API key is required for non-custom service agent types',
+      serviceAgentModelRequired: 'Model is required for OpenAI-based service agents',
+      serviceAgentVoiceIdRequired: 'Voice ID is required for ElevenLabs service agents',
     },
   },
   a11y: {

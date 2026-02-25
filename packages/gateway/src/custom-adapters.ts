@@ -18,6 +18,9 @@ const CustomAdapterSchema = z.object({
 
 export type CustomAdapterConfig = z.infer<typeof CustomAdapterSchema>
 
+/** Built-in adapter type names that custom adapters must not shadow. */
+const BUILTIN_ADAPTER_TYPES = new Set(['claude-code', 'codex', 'gemini', 'opencode', 'generic'])
+
 const CustomAdaptersFileSchema = z.record(z.string().min(1), CustomAdapterSchema)
 
 export type CustomAdaptersFile = z.infer<typeof CustomAdaptersFileSchema>
@@ -40,6 +43,16 @@ export function loadCustomAdapters(): CustomAdaptersFile {
   try {
     const raw = JSON.parse(readFileSync(ADAPTERS_FILE, 'utf-8'))
     const parsed = CustomAdaptersFileSchema.parse(raw)
+    // Filter out entries that shadow built-in adapter types
+    for (const name of Object.keys(parsed)) {
+      if (BUILTIN_ADAPTER_TYPES.has(name)) {
+        log.warn(
+          `Custom adapter "${name}" shadows built-in adapter type and will be ignored. ` +
+            `Built-in types: ${[...BUILTIN_ADAPTER_TYPES].join(', ')}`,
+        )
+        delete parsed[name]
+      }
+    }
     cachedAdapters = { data: parsed, expiresAt: Date.now() + ADAPTER_CACHE_TTL }
     log.debug(`Loaded ${Object.keys(parsed).length} custom adapter(s) from ${ADAPTERS_FILE}`)
     return cachedAdapters.data

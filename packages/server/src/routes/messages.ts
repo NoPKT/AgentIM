@@ -551,6 +551,15 @@ messageRoutes.put('/:id', async (c) => {
     chunks: updated.chunks ?? undefined,
   }
 
+  logAudit({
+    userId,
+    action: 'message_edit',
+    targetId: messageId,
+    targetType: 'message',
+    metadata: { roomId: msg.roomId },
+    ipAddress: getClientIp(c),
+  })
+
   // Broadcast edit to room
   connectionManager.broadcastToRoom(msg.roomId, {
     type: 'server:message_edited',

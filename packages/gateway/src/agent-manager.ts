@@ -298,14 +298,18 @@ export class AgentManager {
 
           if (workingDir) {
             const WORKSPACE_STATUS_TIMEOUT = 15_000
+            let timeoutTimer: ReturnType<typeof setTimeout> | undefined
             Promise.race([
-              getWorkspaceStatus(workingDir),
-              new Promise<null>((_, reject) =>
-                setTimeout(
+              getWorkspaceStatus(workingDir).finally(() => {
+                if (timeoutTimer) clearTimeout(timeoutTimer)
+              }),
+              new Promise<null>((_, reject) => {
+                timeoutTimer = setTimeout(
                   () => reject(new Error('Workspace status timed out')),
                   WORKSPACE_STATUS_TIMEOUT,
-                ),
-              ),
+                )
+                timeoutTimer.unref()
+              }),
             ])
               .then((status) => {
                 if (status) {

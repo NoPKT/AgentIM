@@ -397,6 +397,10 @@ export const ko = {
       toolInputKeyTooLong: '도구 입력 키가 너무 깁니다',
       toolInputDangerousKey: '도구 입력에 위험한 키 이름이 포함되어 있습니다',
       configDangerousKey: '설정에 위험한 키 이름이 포함되어 있습니다',
+      visibilityListRequired: '선택한 가시성 모드에서는 가시성 목록이 비어 있을 수 없습니다',
+      serviceAgentApiKeyRequired: '사용자 정의가 아닌 서비스 에이전트에는 API 키가 필요합니다',
+      serviceAgentModelRequired: 'OpenAI 기반 서비스 에이전트에는 모델이 필요합니다',
+      serviceAgentVoiceIdRequired: 'ElevenLabs 서비스 에이전트에는 음성 ID가 필요합니다',
     },
   },
   a11y: {

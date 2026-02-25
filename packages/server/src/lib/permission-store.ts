@@ -26,6 +26,11 @@ export function addPendingPermission(
     clearTimeout(opts.timer)
     return false
   }
+  // Clear the old timer if this requestId already exists (prevents timer leak)
+  const existing = pending.get(requestId)
+  if (existing) {
+    clearTimeout(existing.timer)
+  }
   pending.set(requestId, { ...opts, createdAt: Date.now() })
   return true
 }
