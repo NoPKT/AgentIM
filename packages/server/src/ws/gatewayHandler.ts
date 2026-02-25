@@ -41,7 +41,7 @@ const streamSizeTracker = new Map<string, number>()
 const MAX_STREAM_TRACKER_SIZE = 10_000
 
 // Clean up expired stream size tracker entries every 60 seconds
-setInterval(() => {
+let streamTrackerTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   // Simple eviction: if tracker is over 80% capacity, clear oldest entries
   if (streamSizeTracker.size > MAX_STREAM_TRACKER_SIZE * 0.8) {
     const entriesToRemove = streamSizeTracker.size - Math.floor(MAX_STREAM_TRACKER_SIZE * 0.5)
@@ -53,7 +53,16 @@ setInterval(() => {
     }
     log.debug(`Evicted ${removed} stream size tracker entries`)
   }
-}, 60_000).unref()
+}, 60_000)
+streamTrackerTimer.unref()
+
+/** Stop the periodic stream size tracker cleanup. */
+export function stopStreamTrackerCleanup() {
+  if (streamTrackerTimer) {
+    clearInterval(streamTrackerTimer)
+    streamTrackerTimer = null
+  }
+}
 
 /** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
 function safeJsonParse(raw: string, maxDepth: number): unknown {
@@ -82,12 +91,21 @@ const MAX_AGENT_RATE_COUNTERS = 10_000
 const agentRateCounters = new Map<string, { count: number; resetAt: number }>()
 
 // Periodically clean up expired agent rate limit counters
-setInterval(() => {
+let agentRateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of agentRateCounters) {
     if (now > entry.resetAt) agentRateCounters.delete(key)
   }
-}, 60_000).unref()
+}, 60_000)
+agentRateCleanupTimer.unref()
+
+/** Stop the periodic agent rate limit counter cleanup. */
+export function stopAgentRateCleanup() {
+  if (agentRateCleanupTimer) {
+    clearInterval(agentRateCleanupTimer)
+    agentRateCleanupTimer = null
+  }
+}
 
 async function isAgentRateLimited(
   agentId: string,
@@ -1020,12 +1038,21 @@ function fallbackSismember(key: string, value: string): boolean {
 }
 
 // Periodically evict expired entries to prevent unbounded growth
-setInterval(() => {
+let visitedFallbackTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const evicted = evictExpiredFallbackEntries()
   if (evicted > 0) {
     log.debug(`Evicted ${evicted} expired visited-set entries (remaining: ${visitedFallback.size})`)
   }
-}, 60_000).unref()
+}, 60_000)
+visitedFallbackTimer.unref()
+
+/** Stop the periodic visited-set fallback cleanup. */
+export function stopVisitedFallbackCleanup() {
+  if (visitedFallbackTimer) {
+    clearInterval(visitedFallbackTimer)
+    visitedFallbackTimer = null
+  }
+}
 
 async function routeAgentToAgent(
   roomId: string,
