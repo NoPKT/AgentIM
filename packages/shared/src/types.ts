@@ -159,6 +159,16 @@ export interface Task {
   updatedAt: string
 }
 
+// ─── Bookmarks ───
+
+export interface Bookmark {
+  id: string
+  userId: string
+  messageId: string
+  note: string
+  createdAt: string
+}
+
 // ─── Streaming ───
 
 export interface ParsedChunk {

@@ -11,7 +11,12 @@ import {
   messageEdits,
   users,
 } from '../db/schema.js'
-import { messageQuerySchema, editMessageSchema, batchDeleteMessagesSchema } from '@agentim/shared'
+import {
+  messageQuerySchema,
+  editMessageSchema,
+  batchDeleteMessagesSchema,
+  forwardMessageSchema,
+} from '@agentim/shared'
 import { sensitiveRateLimit } from '../middleware/rateLimit.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { connectionManager } from '../ws/connections.js'
@@ -797,4 +802,77 @@ messageRoutes.get('/:messageId/edits', authMiddleware, async (c) => {
     .orderBy(messageEdits.editedAt)
 
   return c.json({ ok: true, data: edits })
+})
+
+// Forward a message to another room
+messageRoutes.post('/:id/forward', async (c) => {
+  const messageId = c.req.param('id')
+  const userId = c.get('userId')
+  const username = c.get('username')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+
+  const parsed = forwardMessageSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
+  }
+
+  const { targetRoomId } = parsed.data
+
+  // Fetch original message
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+
+  // Verify sender is a member of the source message's room
+  if (!(await isRoomMember(userId, msg.roomId))) {
+    return c.json({ ok: false, error: 'Not a member of the source room' }, 403)
+  }
+
+  // Verify sender is a member of the target room
+  if (!(await isRoomMember(userId, targetRoomId))) {
+    return c.json({ ok: false, error: 'Not a member of the target room' }, 403)
+  }
+
+  // Prevent forwarding to the same room
+  if (msg.roomId === targetRoomId) {
+    return c.json({ ok: false, error: 'Cannot forward to the same room' }, 400)
+  }
+
+  // Create a new forwarded message in the target room
+  const now = new Date().toISOString()
+  const forwardedContent = `[Forwarded from ${msg.senderName}]\n\n${msg.content}`
+  const newId = nanoid()
+
+  const [forwarded] = await db
+    .insert(messages)
+    .values({
+      id: newId,
+      roomId: targetRoomId,
+      senderId: userId,
+      senderType: 'user',
+      senderName: username,
+      type: 'text',
+      content: sanitizeContent(forwardedContent),
+      mentions: [],
+      createdAt: now,
+    })
+    .returning()
+
+  const message = {
+    ...forwarded,
+    chunks: forwarded.chunks ?? undefined,
+  }
+
+  // Broadcast to target room
+  connectionManager.broadcastToRoom(targetRoomId, {
+    type: 'server:new_message',
+    message,
+  })
+
+  return c.json({ ok: true, data: message }, 201)
 })
