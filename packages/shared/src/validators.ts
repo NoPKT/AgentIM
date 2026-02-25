@@ -382,7 +382,7 @@ export const updateUserSchema = z.object({
     .max(500)
     .refine((s) => !s.includes('..'), 'validation.avatarUrlTraversal')
     .refine(
-      (s) => /^\/uploads\/[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(s),
+      (s) => /^\/uploads\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(s),
       'validation.avatarUrlInvalid',
     )
     .optional(),
