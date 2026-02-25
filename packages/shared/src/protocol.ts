@@ -379,3 +379,57 @@ export type ServerGatewayMessage =
 // ─── All Messages Union ───
 
 export type WsMessage = ClientMessage | ServerMessage | GatewayMessage | ServerGatewayMessage
+
+// ─── Type Guards ───
+
+/** Type guard for ClientMessage */
+export function isClientMessage(msg: unknown): msg is ClientMessage {
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    'type' in msg &&
+    typeof (msg as { type: unknown }).type === 'string' &&
+    (msg as { type: string }).type.startsWith('client:')
+  )
+}
+
+/** Type guard for ServerMessage */
+export function isServerMessage(msg: unknown): msg is ServerMessage {
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    'type' in msg &&
+    typeof (msg as { type: unknown }).type === 'string' &&
+    (msg as { type: string }).type.startsWith('server:') &&
+    !(msg as { type: string }).type.startsWith('server:gateway_auth_result')
+  )
+}
+
+/** Type guard for GatewayMessage */
+export function isGatewayMessage(msg: unknown): msg is GatewayMessage {
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    'type' in msg &&
+    typeof (msg as { type: unknown }).type === 'string' &&
+    (msg as { type: string }).type.startsWith('gateway:')
+  )
+}
+
+/** Type guard for ServerGatewayMessage */
+export function isServerGatewayMessage(msg: unknown): msg is ServerGatewayMessage {
+  const type = (msg as { type?: string })?.type
+  return (
+    typeof msg === 'object' &&
+    msg !== null &&
+    typeof type === 'string' &&
+    (type === 'server:gateway_auth_result' ||
+      type === 'server:send_to_agent' ||
+      type === 'server:stop_agent' ||
+      type === 'server:remove_agent' ||
+      type === 'server:room_context' ||
+      type === 'server:permission_response' ||
+      type === 'server:pong' ||
+      type === 'server:error')
+  )
+}

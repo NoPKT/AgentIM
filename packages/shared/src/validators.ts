@@ -61,8 +61,8 @@ export const toolInputSchema = z
 
 const passwordSchema = z
   .string()
-  .min(8)
-  .max(128)
+  .min(8, 'validation.passwordMinLength')
+  .max(128, 'validation.passwordMaxLength')
   .refine((p) => /[a-z]/.test(p), 'validation.passwordLowercase')
   .refine((p) => /[A-Z]/.test(p), 'validation.passwordUppercase')
   .refine((p) => /[0-9]/.test(p), 'validation.passwordDigit')

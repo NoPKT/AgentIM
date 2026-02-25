@@ -1,5 +1,5 @@
 # Multi-stage build: Build web + server, serve together
-FROM node:20-alpine AS base
+FROM node:20.19-alpine AS base
 RUN npm install -g pnpm@10.29.3
 
 # ── Build stage ──
@@ -25,7 +25,7 @@ COPY packages/web/ packages/web/
 RUN pnpm build
 
 # ── Production stage ──
-FROM node:20-alpine AS production
+FROM node:20.19-alpine AS production
 LABEL org.opencontainers.image.source="https://github.com/nopkt/agentim"
 LABEL org.opencontainers.image.description="AgentIM - AI Agent Management Platform"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"

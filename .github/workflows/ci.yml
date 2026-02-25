@@ -53,7 +53,6 @@ jobs:
 
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
-        continue-on-error: true
 
       - name: Build all packages
         run: pnpm build
@@ -207,8 +206,8 @@ jobs:
           HOST: 0.0.0.0
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentim_e2e
           REDIS_URL: redis://localhost:6379
-          JWT_SECRET: e2e-test-jwt-secret-minimum-32chars
-          ENCRYPTION_KEY: e2e-test-enc-key-minimum-32chars!!
+          JWT_SECRET: e2e-ci-jwt-6b3a9f7d4e2c8b1a5f0e3d7c9a4b8f2e1d6c0a5b
+          ENCRYPTION_KEY: e2e-ci-enc-8f2e1d6c0a5b3a9f7d4e2c8b1a5f0e3d7c9a4b
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: AdminPass123
           CORS_ORIGIN: http://localhost:3000
