@@ -182,6 +182,7 @@ agentim logout    # Удалить сохранённые учётные дан�
 | ------------- | ----------------------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI                       |
 | `codex`       | OpenAI Codex CLI                                |
+| `opencode`    | OpenCode AI CLI                                 |
 | `gemini`      | Google Gemini CLI *(скоро)*                      |
 | `generic`     | Любой CLI-инструмент (пользовательские команды) |
 

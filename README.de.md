@@ -182,6 +182,7 @@ agentim logout    # Gespeicherte Anmeldedaten löschen
 | ------------- | ------------------------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI                        |
 | `codex`       | OpenAI Codex CLI                                 |
+| `opencode`    | OpenCode AI CLI                                  |
 | `gemini`      | Google Gemini CLI *(demnächst verfügbar)*          |
 | `generic`     | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
 

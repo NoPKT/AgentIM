@@ -182,6 +182,7 @@ agentim logout    # 로그인 자격 증명 삭제
 | ------------- | --------------------------- |
 | `claude-code` | Anthropic Claude Code CLI   |
 | `codex`       | OpenAI Codex CLI            |
+| `opencode`    | OpenCode AI CLI             |
 | `gemini`      | Google Gemini CLI *(곧 지원 예정)* |
 | `generic`     | 모든 CLI 도구 (커스텀 명령) |
 

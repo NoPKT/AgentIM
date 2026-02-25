@@ -182,6 +182,7 @@ agentim logout    # Effacer les identifiants enregistrés
 | ------------- | --------------------------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI                           |
 | `codex`       | OpenAI Codex CLI                                    |
+| `opencode`    | OpenCode AI CLI                                     |
 | `gemini`      | Google Gemini CLI *(bientôt disponible)*             |
 | `generic`     | N'importe quel outil CLI (commandes personnalisées) |
 

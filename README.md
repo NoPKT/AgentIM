@@ -188,6 +188,7 @@ agentim logout    # Clear saved credentials
 | ------------- | --------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI         |
 | `codex`       | OpenAI Codex CLI                  |
+| `opencode`    | OpenCode AI CLI                   |
 | `gemini`      | Google Gemini CLI _(coming soon)_ |
 | `generic`     | Any CLI tool (custom commands)    |
 
