@@ -39,6 +39,7 @@ import { settingsRoutes } from './routes/settings.js'
 import { connectionManager } from './ws/connections.js'
 import { handleClientMessage, handleClientDisconnect } from './ws/clientHandler.js'
 import { handleGatewayMessage, handleGatewayDisconnect } from './ws/gatewayHandler.js'
+import { bookmarkRoutes } from './routes/bookmarks.js'
 import { pushRoutes } from './routes/push.js'
 import { initWebPush } from './lib/webPush.js'
 import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
@@ -408,6 +409,7 @@ app.route('/api/routers', routerRoutes)
 app.route('/api/service-agents', serviceAgentsRoutes)
 app.route('/api/docs', docsRoutes)
 app.route('/api/admin/settings', settingsRoutes)
+app.route('/api/bookmarks', bookmarkRoutes)
 app.route('/api/push', pushRoutes)
 
 // Auth guard for uploaded files: require a valid JWT (Bearer header or ?token= query param).

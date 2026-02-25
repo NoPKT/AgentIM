@@ -25,6 +25,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_TOOL_INPUT_KEYS,
   MAX_TOOL_INPUT_KEY_LENGTH,
+  DANGEROUS_KEY_NAMES,
   MEMBER_TYPES,
   SENDER_TYPES,
   ASSIGNEE_TYPES,
@@ -46,6 +47,13 @@ export const toolInputSchema = z
   .refine(
     (obj) => Object.keys(obj).every((k) => k.length <= MAX_TOOL_INPUT_KEY_LENGTH),
     'validation.toolInputKeyTooLong',
+  )
+  // Intentionally shallow: only checks top-level keys. Nested objects are
+  // not validated here because tool_input values are opaque JSON passed to
+  // agent tooling and never used as property accessors on the server side.
+  .refine(
+    (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
+    'validation.toolInputDangerousKey',
   )
 
 // ─── Password Complexity ───
@@ -231,8 +239,32 @@ export const messageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
+export const searchMessagesSchema = z.object({
+  q: z.string().min(2).max(500),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  roomId: z.string().max(100).optional(),
+  senderId: z.string().max(100).optional(),
+  senderType: z.enum(SENDER_TYPES).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+})
+
 export const batchDeleteMessagesSchema = z.object({
   messageIds: z.array(z.string().min(1).max(100)).min(1).max(50),
+})
+
+// ─── Bookmark ───
+
+export const createBookmarkSchema = z.object({
+  messageId: z.string().min(1).max(100),
+  note: z.string().max(500).default(''),
+})
+
+// ─── Forward Message ───
+
+export const forwardMessageSchema = z.object({
+  targetRoomId: z.string().min(1).max(100),
 })
 
 // ─── Task ───
@@ -244,6 +276,7 @@ export const createTaskSchema = z.object({
     .max(200)
     .refine((s) => s.trim().length > 0, 'validation.titleWhitespace'),
   description: z.string().max(10000).default(''),
+  dueDate: z.string().datetime().optional(),
   assigneeId: z.string().max(100).optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
 })
@@ -257,6 +290,8 @@ export const updateTaskSchema = z.object({
     .optional(),
   description: z.string().max(10000).optional(),
   status: z.enum(TASK_STATUSES).optional(),
+  result: z.string().max(100000).nullable().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
   assigneeId: z.string().max(100).nullable().optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).nullable().optional(),
 })
@@ -269,17 +304,35 @@ export const updateAgentSchema = z.object({
 
 // ─── Service Agent ───
 
-export const createServiceAgentSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(100)
-    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
-  type: z.enum(SERVICE_AGENT_TYPES).default('openai-chat'),
-  category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
-  description: z.string().max(1000).optional(),
-  config: z.record(z.string(), z.unknown()),
-})
+export const serviceAgentConfigSchema = z
+  .record(z.string(), z.unknown())
+  .refine(
+    (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
+    'validation.configDangerousKey',
+  )
+
+export const createServiceAgentSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((s) => s.trim().length > 0, 'validation.nameWhitespace'),
+    type: z.enum(SERVICE_AGENT_TYPES).default('openai-chat'),
+    category: z.enum(SERVICE_AGENT_CATEGORIES).optional(),
+    description: z.string().max(1000).optional(),
+    config: serviceAgentConfigSchema,
+  })
+  .superRefine((data, ctx) => {
+    // For non-custom types, apiKey is required in config
+    if (data.type !== 'custom' && !data.config.apiKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'config.apiKey is required for non-custom service agent types',
+        path: ['config', 'apiKey'],
+      })
+    }
+  })
 
 export const updateServiceAgentSchema = z.object({
   name: z
@@ -582,6 +635,8 @@ const taskSchema = z.object({
   title: z.string(),
   description: z.string(),
   status: z.enum(TASK_STATUSES),
+  result: z.string().optional(),
+  dueDate: z.string().optional(),
   assigneeId: z.string().optional(),
   assigneeType: z.enum(ASSIGNEE_TYPES).optional(),
   createdById: z.string(),

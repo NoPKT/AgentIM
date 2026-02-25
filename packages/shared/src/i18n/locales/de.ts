@@ -153,6 +153,7 @@ export const de = {
     messageTooLong: 'Nachricht ist zu lang',
     fileTypeNotAllowed: 'Dateityp nicht erlaubt',
     removeAttachment: 'Anhang entfernen',
+    dropFiles: 'Dateien hier ablegen',
     downloadFile: 'Herunterladen',
     openOriginal: 'Original öffnen',
     addReaction: 'Reaktion hinzufügen',
@@ -609,5 +610,12 @@ export const de = {
     avgDuration: 'Durchschn. Dauer',
     redisWarning:
       'Redis ist nicht verbunden — Token-Widerruf, globales Rate-Limiting und Multi-Node-Synchronisation sind nicht verfügbar. Für den Produktionseinsatz empfohlen.',
+  },
+  search: {
+    filters: 'Filter',
+    dateFrom: 'Von',
+    dateTo: 'Bis',
+    senderType: 'Absendertyp',
+    allTypes: 'Alle Typen',
   },
 }

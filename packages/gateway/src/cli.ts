@@ -546,6 +546,18 @@ function rotateLogIfNeeded(logFile: string) {
   }
 
   const lockFile = logFile + '.lock'
+
+  // Clean up stale lock files older than 60 seconds (orphaned from crashed processes)
+  try {
+    const lockStats = statSync(lockFile)
+    if (Date.now() - lockStats.mtimeMs > 60_000) {
+      log.warn(`Removing stale lock file: ${lockFile}`)
+      unlinkSync(lockFile)
+    }
+  } catch {
+    // Lock file doesn't exist — normal case
+  }
+
   let lockFd: number | undefined
   try {
     // Atomic lock acquisition using O_EXCL (fails if lock already exists)

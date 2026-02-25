@@ -148,6 +148,7 @@ export const ja = {
     messageTooLong: 'メッセージが長すぎます',
     fileTypeNotAllowed: 'このファイル形式は許可されていません',
     removeAttachment: '添付を削除',
+    dropFiles: 'ここにファイルをドロップ',
     downloadFile: 'ダウンロード',
     openOriginal: '元画像を開く',
     addReaction: 'リアクション追加',
@@ -598,5 +599,12 @@ export const ja = {
     avgDuration: '平均所要時間',
     redisWarning:
       'Redisが接続されていません — トークン失効、グローバルレート制限、マルチノード同期が利用できません。本番環境での使用を推奨します。',
+  },
+  search: {
+    filters: 'フィルター',
+    dateFrom: '開始日',
+    dateTo: '終了日',
+    senderType: '送信者タイプ',
+    allTypes: 'すべてのタイプ',
   },
 }

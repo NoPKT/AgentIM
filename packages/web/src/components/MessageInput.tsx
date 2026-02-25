@@ -57,6 +57,8 @@ export function MessageInput() {
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [slashFilter, setSlashFilter] = useState('')
   const [slashActiveIndex, setSlashActiveIndex] = useState(0)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragCounterRef = useRef(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const lastTypingSentRef = useRef(0)
@@ -410,6 +412,8 @@ export function MessageInput() {
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
+      dragCounterRef.current = 0
+      setIsDragOver(false)
       handleFileSelect(e.dataTransfer.files)
     },
     [handleFileSelect],
@@ -417,6 +421,22 @@ export function MessageInput() {
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+  }, [])
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounterRef.current += 1
+    if (dragCounterRef.current === 1) {
+      setIsDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounterRef.current -= 1
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false)
+    }
   }, [])
 
   if (!currentRoomId) {
@@ -475,10 +495,22 @@ export function MessageInput() {
       )}
 
       <div
-        className="relative border border-border rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent transition-shadow"
+        className={`relative border rounded-2xl shadow-sm transition-shadow ${
+          isDragOver
+            ? 'border-accent ring-2 ring-accent bg-accent/5'
+            : 'border-border focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent'
+        }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
       >
+        {/* Drop zone overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-accent/10 pointer-events-none">
+            <span className="text-sm font-medium text-accent">{t('chat.dropFiles')}</span>
+          </div>
+        )}
         {/* Slash command menu */}
         {showSlashMenu && (
           <SlashCommandMenu
@@ -576,7 +608,7 @@ export function MessageInput() {
                 {att.mimeType.startsWith('image/') && att.url && (
                   <img
                     src={attachmentAuthUrls[i]}
-                    alt={att.filename || 'attachment'}
+                    alt={att.filename || t('chat.attachFile')}
                     className="w-6 h-6 rounded object-cover"
                   />
                 )}

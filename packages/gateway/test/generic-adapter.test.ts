@@ -68,8 +68,15 @@ describe('GenericAdapter constructor validation', () => {
     )
   })
 
-  it('allows absolute path containing ".." (resolved by OS)', () => {
-    const adapter = new GenericAdapter({ ...baseOpts, command: '/usr/../bin/echo' })
+  it('rejects absolute path containing ".." when it differs from resolved path', () => {
+    assert.throws(
+      () => new GenericAdapter({ ...baseOpts, command: '/usr/../bin/echo' }),
+      /use the resolved path/,
+    )
+  })
+
+  it('allows absolute path that resolves to itself', () => {
+    const adapter = new GenericAdapter({ ...baseOpts, command: '/usr/bin/echo' })
     assert.equal(adapter.type, 'generic')
     adapter.dispose()
   })

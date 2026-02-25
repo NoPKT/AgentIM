@@ -148,6 +148,7 @@ export const ko = {
     messageTooLong: '메시지가 너무 깁니다',
     fileTypeNotAllowed: '허용되지 않는 파일 형식',
     removeAttachment: '첨부 삭제',
+    dropFiles: '여기에 파일을 놓으세요',
     downloadFile: '다운로드',
     openOriginal: '원본 보기',
     addReaction: '반응 추가',
@@ -596,5 +597,12 @@ export const ko = {
     avgDuration: '평균 소요 시간',
     redisWarning:
       'Redis가 연결되지 않았습니다 — 토큰 폐기, 글로벌 속도 제한, 멀티 노드 동기화를 사용할 수 없습니다. 프로덕션 환경에서는 사용을 권장합니다.',
+  },
+  search: {
+    filters: '필터',
+    dateFrom: '시작일',
+    dateTo: '종료일',
+    senderType: '발신자 유형',
+    allTypes: '모든 유형',
   },
 }

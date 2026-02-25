@@ -147,6 +147,7 @@ export const zhCN = {
     messageTooLong: '消息过长',
     fileTypeNotAllowed: '不支持的文件类型',
     removeAttachment: '移除附件',
+    dropFiles: '拖放文件到此处',
     downloadFile: '下载',
     openOriginal: '查看原图',
     addReaction: '添加表情',
@@ -589,5 +590,12 @@ export const zhCN = {
     endpoint: '端点',
     avgDuration: '平均耗时',
     redisWarning: 'Redis 未连接 — 令牌撤销、全局速率限制和多节点同步不可用。建议在生产环境中启用。',
+  },
+  search: {
+    filters: '筛选',
+    dateFrom: '起始日期',
+    dateTo: '截止日期',
+    senderType: '发送者类型',
+    allTypes: '全部类型',
   },
 }

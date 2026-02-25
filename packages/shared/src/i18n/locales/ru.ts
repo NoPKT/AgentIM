@@ -151,6 +151,7 @@ export const ru = {
     messageTooLong: 'Сообщение слишком длинное',
     fileTypeNotAllowed: 'Тип файла не разрешён',
     removeAttachment: 'Удалить вложение',
+    dropFiles: 'Перетащите файлы сюда',
     downloadFile: 'Скачать',
     openOriginal: 'Открыть оригинал',
     addReaction: 'Добавить реакцию',
@@ -608,5 +609,12 @@ export const ru = {
     avgDuration: 'Средняя длительность',
     redisWarning:
       'Redis не подключён — отзыв токенов, глобальное ограничение скорости и синхронизация между узлами недоступны. Рекомендуется для производственного использования.',
+  },
+  search: {
+    filters: 'Фильтры',
+    dateFrom: 'С',
+    dateTo: 'По',
+    senderType: 'Тип отправителя',
+    allTypes: 'Все типы',
   },
 }

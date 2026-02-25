@@ -152,11 +152,23 @@ export interface Task {
   title: string
   description: string
   status: TaskStatus
+  result?: string
+  dueDate?: string
   assigneeId?: string
   assigneeType?: AssigneeType
   createdById: string
   createdAt: string
   updatedAt: string
+}
+
+// ─── Bookmarks ───
+
+export interface Bookmark {
+  id: string
+  userId: string
+  messageId: string
+  note: string
+  createdAt: string
 }
 
 // ─── Streaming ───

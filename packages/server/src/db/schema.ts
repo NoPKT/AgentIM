@@ -312,6 +312,8 @@ export const tasks = pgTable(
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').notNull().default('pending'),
+    result: text('result'),
+    dueDate: ts('due_date'),
     assigneeId: text('assignee_id'),
     assigneeType: text('assignee_type'),
     createdById: text('created_by_id')
@@ -356,6 +358,30 @@ export const pushSubscriptions = pgTable(
   (table) => [
     index('push_subscriptions_user_idx').on(table.userId),
     uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint),
+  ],
+)
+
+// ─── Bookmarks ───
+
+export const bookmarks = pgTable(
+  'bookmarks',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    note: text('note').default(''),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    index('bookmarks_user_idx').on(table.userId),
+    index('bookmarks_created_at_idx').on(table.userId, table.createdAt),
+    uniqueIndex('bookmarks_user_message_unique').on(table.userId, table.messageId),
   ],
 )
 

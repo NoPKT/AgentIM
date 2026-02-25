@@ -300,7 +300,10 @@ export function ImageLightbox({ images, currentIndex, onClose, onNavigate }: Ima
       >
         <img
           src={currentImage}
-          alt={t('chat.imagePreview')}
+          alt={
+            decodeURIComponent(images[currentIndex]?.split('/').pop()?.split('?')[0] ?? '') ||
+            t('chat.imagePreview')
+          }
           className="max-w-[90vw] max-h-[90vh] object-contain select-none"
           style={{
             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,

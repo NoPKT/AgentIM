@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { resolve as pathResolve } from 'node:path'
 import { SpawnAgentAdapter, getSafeEnv } from './spawn-base.js'
 import type {
   AdapterOptions,
@@ -71,12 +72,23 @@ export class GenericAdapter extends SpawnAgentAdapter {
       throw new Error(`GenericAdapter: command contains unsafe characters: "${cmd}"`)
     }
 
-    // Reject relative paths that traverse upward (e.g. `../../bin/sh`).
-    // Absolute paths with `..` segments are resolved by the OS and are less risky.
-    if (!isAbsolutePath(cmd) && PATH_TRAVERSAL_PATTERN.test(cmd)) {
-      throw new Error(
-        'GenericAdapter: relative command path must not contain ".." traversal segments',
-      )
+    // Reject paths that contain `..` traversal segments.
+    // For relative paths, this prevents escaping the working directory.
+    // For absolute paths, normalize first then reject if `..` changed the path
+    // (e.g. /usr/bin/../../../etc/passwd resolves to /etc/passwd).
+    if (PATH_TRAVERSAL_PATTERN.test(cmd)) {
+      if (!isAbsolutePath(cmd)) {
+        throw new Error(
+          'GenericAdapter: relative command path must not contain ".." traversal segments',
+        )
+      }
+      // Normalize the absolute path and use the resolved version
+      const resolved = pathResolve(cmd)
+      if (resolved !== cmd) {
+        throw new Error(
+          `GenericAdapter: absolute command path contains ".." segments — use the resolved path "${resolved}" instead`,
+        )
+      }
     }
 
     this.command = cmd

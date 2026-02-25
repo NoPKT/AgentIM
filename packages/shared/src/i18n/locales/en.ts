@@ -151,6 +151,7 @@ export const en = {
     messageTooLong: 'Message is too long',
     fileTypeNotAllowed: 'File type not allowed',
     removeAttachment: 'Remove attachment',
+    dropFiles: 'Drop files here',
     downloadFile: 'Download',
     openOriginal: 'Open original',
     addReaction: 'Add Reaction',
@@ -599,5 +600,12 @@ export const en = {
     avgDuration: 'Avg Duration',
     redisWarning:
       'Redis is not connected — token revocation, global rate limiting, and multi-node sync are unavailable. Recommended for production use.',
+  },
+  search: {
+    filters: 'Filters',
+    dateFrom: 'From',
+    dateTo: 'To',
+    senderType: 'Sender Type',
+    allTypes: 'All Types',
   },
 }

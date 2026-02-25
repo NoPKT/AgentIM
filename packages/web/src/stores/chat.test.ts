@@ -341,6 +341,170 @@ describe('useChatStore', () => {
       useChatStore.getState().clearTerminalBuffer('agent-1')
       expect(useChatStore.getState().terminalBuffers.has('agent-1')).toBe(false)
     })
+
+    it('caps terminal buffer at MAX_TERMINAL_LINES (500)', () => {
+      // Push 501 lines to exceed the limit
+      for (let i = 0; i < 501; i++) {
+        useChatStore.getState().addTerminalData('agent-1', 'A', `line-${i}`)
+      }
+      const buf = useChatStore.getState().terminalBuffers.get('agent-1')!
+      expect(buf.lines.length).toBe(500)
+      // Oldest line should have been evicted
+      expect(buf.lines[0]).toBe('line-1')
+      expect(buf.lines[buf.lines.length - 1]).toBe('line-500')
+      // totalPushed tracks all lines ever pushed
+      expect(buf.totalPushed).toBe(501)
+    })
+
+    it('does not truncate when at exactly MAX_TERMINAL_LINES', () => {
+      for (let i = 0; i < 500; i++) {
+        useChatStore.getState().addTerminalData('agent-1', 'A', `line-${i}`)
+      }
+      const buf = useChatStore.getState().terminalBuffers.get('agent-1')!
+      expect(buf.lines.length).toBe(500)
+      expect(buf.lines[0]).toBe('line-0')
+      expect(buf.totalPushed).toBe(500)
+    })
+
+    it('maintains separate buffers per agent', () => {
+      useChatStore.getState().addTerminalData('agent-1', 'A', 'line-a')
+      useChatStore.getState().addTerminalData('agent-2', 'B', 'line-b')
+      expect(useChatStore.getState().terminalBuffers.get('agent-1')!.lines).toEqual(['line-a'])
+      expect(useChatStore.getState().terminalBuffers.get('agent-2')!.lines).toEqual(['line-b'])
+    })
+
+    it('updates agentName on subsequent calls', () => {
+      useChatStore.getState().addTerminalData('agent-1', 'OldName', 'line-1')
+      useChatStore.getState().addTerminalData('agent-1', 'NewName', 'line-2')
+      expect(useChatStore.getState().terminalBuffers.get('agent-1')!.agentName).toBe('NewName')
+    })
+  })
+
+  // ── cleanupStaleStreams() ─────────────────────────────────────────────────
+
+  describe('cleanupStaleStreams()', () => {
+    it('removes streams older than STALE_TIMEOUT (2 minutes)', () => {
+      const twoMinutesAgo = Date.now() - 121_000
+      useChatStore.setState({
+        streaming: new Map([
+          [
+            'room-1:agent-stale',
+            {
+              messageId: 'sm-stale',
+              agentId: 'agent-stale',
+              agentName: 'Stale',
+              chunks: [{ type: 'text', content: 'old' }],
+              lastChunkAt: twoMinutesAgo,
+            },
+          ],
+          [
+            'room-1:agent-fresh',
+            {
+              messageId: 'sm-fresh',
+              agentId: 'agent-fresh',
+              agentName: 'Fresh',
+              chunks: [{ type: 'text', content: 'new' }],
+              lastChunkAt: Date.now(),
+            },
+          ],
+        ]),
+      })
+
+      useChatStore.getState().cleanupStaleStreams()
+
+      expect(useChatStore.getState().streaming.has('room-1:agent-stale')).toBe(false)
+      expect(useChatStore.getState().streaming.has('room-1:agent-fresh')).toBe(true)
+    })
+
+    it('does nothing when all streams are fresh', () => {
+      const now = Date.now()
+      useChatStore.setState({
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              messageId: 'sm',
+              agentId: 'agent-1',
+              agentName: 'A',
+              chunks: [{ type: 'text', content: 'x' }],
+              lastChunkAt: now,
+            },
+          ],
+        ]),
+      })
+
+      useChatStore.getState().cleanupStaleStreams()
+
+      expect(useChatStore.getState().streaming.size).toBe(1)
+    })
+
+    it('does nothing when streaming map is empty', () => {
+      useChatStore.getState().cleanupStaleStreams()
+      expect(useChatStore.getState().streaming.size).toBe(0)
+    })
+
+    it('removes all streams when all are stale', () => {
+      const longAgo = Date.now() - 300_000
+      useChatStore.setState({
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              messageId: 'sm1',
+              agentId: 'agent-1',
+              agentName: 'A',
+              chunks: [{ type: 'text', content: 'x' }],
+              lastChunkAt: longAgo,
+            },
+          ],
+          [
+            'room-2:agent-2',
+            {
+              messageId: 'sm2',
+              agentId: 'agent-2',
+              agentName: 'B',
+              chunks: [{ type: 'text', content: 'y' }],
+              lastChunkAt: longAgo,
+            },
+          ],
+        ]),
+      })
+
+      useChatStore.getState().cleanupStaleStreams()
+
+      expect(useChatStore.getState().streaming.size).toBe(0)
+    })
+  })
+
+  // ── Unread count management ─────────────────────────────────────────────────
+
+  describe('unread count management', () => {
+    it('does not increment unread for messages in the current room', () => {
+      useChatStore.setState({ currentRoomId: 'room-1' })
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-1', roomId: 'room-1' }))
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-2', roomId: 'room-1' }))
+      expect(useChatStore.getState().unreadCounts.get('room-1')).toBeUndefined()
+    })
+
+    it('increments unread for multiple different rooms', () => {
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-1', roomId: 'room-1' }))
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-2', roomId: 'room-2' }))
+      useChatStore.getState().addMessage(makeMessage({ id: 'msg-3', roomId: 'room-1' }))
+
+      expect(useChatStore.getState().unreadCounts.get('room-1')).toBe(2)
+      expect(useChatStore.getState().unreadCounts.get('room-2')).toBe(1)
+    })
+
+    it('duplicate messages do not increment unread count', () => {
+      const msg = makeMessage({ id: 'msg-1', roomId: 'room-1' })
+      useChatStore.getState().addMessage(msg)
+      useChatStore.getState().addMessage(msg) // duplicate
+      expect(useChatStore.getState().unreadCounts.get('room-1')).toBe(1)
+    })
+
+    it('unread count starts at 0 for rooms with no messages', () => {
+      expect(useChatStore.getState().unreadCounts.get('room-1')).toBeUndefined()
+    })
   })
 
   // ── editMessage() optimistic update ─────────────────────────────────────────

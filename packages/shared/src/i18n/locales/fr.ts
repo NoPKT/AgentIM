@@ -153,6 +153,7 @@ export const fr = {
     messageTooLong: 'Le message est trop long',
     fileTypeNotAllowed: 'Type de fichier non autorisé',
     removeAttachment: 'Supprimer la pièce jointe',
+    dropFiles: 'Déposez les fichiers ici',
     downloadFile: 'Télécharger',
     openOriginal: "Ouvrir l'original",
     addReaction: 'Ajouter une réaction',
@@ -615,5 +616,12 @@ export const fr = {
     avgDuration: 'Durée moyenne',
     redisWarning:
       "Redis n'est pas connecté — la révocation des jetons, la limitation de débit globale et la synchronisation multi-nœuds sont indisponibles. Recommandé pour la production.",
+  },
+  search: {
+    filters: 'Filtres',
+    dateFrom: 'Du',
+    dateTo: 'Au',
+    senderType: "Type d'expéditeur",
+    allTypes: 'Tous les types',
   },
 }
