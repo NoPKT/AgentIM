@@ -168,6 +168,104 @@ describe('initial state', () => {
   })
 })
 
+describe('logout deduplication', () => {
+  it('concurrent logout calls are deduplicated', async () => {
+    useAuthStore.setState({ user: fakeUser })
+    mockApi.post.mockResolvedValue({ ok: true })
+
+    const p1 = useAuthStore.getState().logout()
+    const p2 = useAuthStore.getState().logout()
+
+    await Promise.all([p1, p2])
+
+    // Only one API call should have been made
+    expect(mockApi.post).toHaveBeenCalledTimes(1)
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+
+  it('logout resolves even if API call fails', async () => {
+    useAuthStore.setState({ user: fakeUser })
+    mockApi.post.mockRejectedValueOnce(new Error('Network error'))
+
+    await useAuthStore.getState().logout()
+
+    expect(mockApi.clearTokens).toHaveBeenCalled()
+    expect(mockWs.disconnect).toHaveBeenCalled()
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+})
+
+describe('cross-tab logout', () => {
+  it('clears state when storage event fires with logout key', () => {
+    useAuthStore.setState({ user: fakeUser })
+
+    // Simulate another tab logging out via storage event
+    const event = new StorageEvent('storage', {
+      key: 'agentim:logout',
+      newValue: Date.now().toString(),
+    })
+    window.dispatchEvent(event)
+
+    expect(mockApi.clearTokens).toHaveBeenCalled()
+    expect(mockWs.disconnect).toHaveBeenCalled()
+    expect(useAuthStore.getState().user).toBeNull()
+  })
+
+  it('ignores storage events with null newValue', () => {
+    useAuthStore.setState({ user: fakeUser })
+
+    const event = new StorageEvent('storage', {
+      key: 'agentim:logout',
+      newValue: null,
+    })
+    window.dispatchEvent(event)
+
+    // User should NOT be cleared
+    expect(useAuthStore.getState().user).toEqual(fakeUser)
+  })
+
+  it('ignores storage events with unrelated keys', () => {
+    useAuthStore.setState({ user: fakeUser })
+
+    const event = new StorageEvent('storage', {
+      key: 'some-other-key',
+      newValue: Date.now().toString(),
+    })
+    window.dispatchEvent(event)
+
+    expect(useAuthStore.getState().user).toEqual(fakeUser)
+  })
+})
+
+describe('token refresh edge cases', () => {
+  it('loadUser skips /users/me when refresh fails and no token exists', async () => {
+    mockApi.getToken.mockReturnValue(null)
+    mockApi.tryRefresh.mockResolvedValueOnce(false)
+
+    await useAuthStore.getState().loadUser()
+
+    expect(mockApi.get).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(useAuthStore.getState().isLoading).toBe(false)
+  })
+
+  it('loadUser handles /users/me network exception gracefully', async () => {
+    mockApi.getToken.mockReturnValue('at')
+    mockApi.get.mockRejectedValueOnce(new Error('Network error'))
+
+    await useAuthStore.getState().loadUser()
+
+    expect(useAuthStore.getState().user).toBeNull()
+    expect(useAuthStore.getState().isLoading).toBe(false)
+  })
+
+  it('login throws generic message when error is undefined', async () => {
+    mockApi.post.mockResolvedValueOnce({ ok: false, error: undefined })
+
+    await expect(useAuthStore.getState().login('alice', 'wrong')).rejects.toThrow('Login failed')
+  })
+})
+
 describe('side effect callbacks', () => {
   it('registers onAuthExpired and onTokenRefresh callbacks on module load', async () => {
     // Reset modules to re-trigger top-level side effects
