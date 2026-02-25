@@ -65,11 +65,24 @@ let memoryRateLimitWarned = false
 function memoryRateLimit(key: string, windowMs: number, maxRequests: number): boolean {
   if (!memoryRateLimitWarned) {
     memoryRateLimitWarned = true
-    log.warn(
-      'Using in-memory rate limiting. In multi-process/multi-node deployments, ' +
-        'enable Redis for accurate cross-process rate limiting.',
-    )
+    if (process.env.NODE_ENV === 'production') {
+      log.error(
+        'PRODUCTION WARNING: Using in-memory rate limiting without Redis. ' +
+          'Rate limits are NOT shared across processes/containers — each process maintains ' +
+          'its own counter. Effective per-IP limit = maxRequests x num_processes. ' +
+          'In-memory limits are reduced by 50% to partially compensate. ' +
+          'Enable Redis (REDIS_URL) for accurate cross-process rate limiting.',
+      )
+    } else {
+      log.warn(
+        'Using in-memory rate limiting. In multi-process/multi-node deployments, ' +
+          'enable Redis for accurate cross-process rate limiting.',
+      )
+    }
   }
+  // Reduce effective limit by 50% when using in-memory fallback
+  // to partially compensate for per-process multiplication
+  const effectiveMax = Math.max(1, Math.floor(maxRequests / 2))
   const now = Date.now()
   const entry = memoryCounters.get(key) ?? { count: 0, resetAt: now + windowMs }
   if (now > entry.resetAt) {
@@ -94,7 +107,7 @@ function memoryRateLimit(key: string, windowMs: number, maxRequests: number): bo
     }
   }
   memoryCounters.set(key, entry)
-  return entry.count > maxRequests
+  return entry.count > effectiveMax
 }
 
 export function rateLimitMiddleware(

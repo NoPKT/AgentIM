@@ -35,6 +35,17 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
+  /**
+   * Ensure a thread exists. On first call, starts a new thread because the
+   * Codex SDK only provides the threadId via the 'thread.started' event
+   * emitted during the first runStreamed() call. After that, threadId is
+   * captured and subsequent calls (e.g. after stop()) will use resumeThread()
+   * to continue the same conversation.
+   *
+   * Limitation: the SDK does not support pre-setting a threadId before the
+   * first query, so true cross-process session resumption is not possible
+   * unless the caller persists and injects threadId externally.
+   */
   private async ensureThread() {
     await this.ensureCodex()
     if (!this.thread) {
@@ -175,7 +186,7 @@ export class CodexAdapter extends BaseAgentAdapter {
     this.isRunning = false
     // Codex SDK doesn't expose a cancellation API on the Thread object,
     // so we discard the current thread to prevent further event processing.
-    // A new thread will be created on the next sendMessage() call.
+    // threadId is preserved so ensureThread() can resume the conversation.
     this.thread = undefined
   }
 

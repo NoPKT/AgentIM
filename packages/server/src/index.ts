@@ -61,6 +61,7 @@ import {
   getCountersSnapshot,
   getHistogramsSnapshot,
   getActiveRooms,
+  incCounter,
 } from './lib/metrics.js'
 
 // Verify Redis connectivity before proceeding
@@ -250,6 +251,9 @@ app.onError((err, c) => {
   const rawStatus = 'status' in err && typeof err.status === 'number' ? err.status : 500
   // Only allow valid HTTP client/server error codes; default to 500 for anything else
   const status = rawStatus >= 400 && rawStatus < 600 ? rawStatus : 500
+  if (status >= 500) {
+    incCounter('agentim_api_errors_total')
+  }
   return c.json(
     {
       ok: false,

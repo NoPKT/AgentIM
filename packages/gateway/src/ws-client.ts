@@ -30,6 +30,7 @@ export class GatewayWsClient {
   private connecting = false // Prevent concurrent connect attempts
   private flushing = false
   private probing = false
+  private pongTimeoutReconnect = false // Use fast reconnect after pong timeout
   private sendQueue: GatewayMessage[] = []
 
   constructor(opts: {
@@ -131,6 +132,11 @@ export class GatewayWsClient {
     'gateway:permission_request',
   ]
 
+  private static readonly RETRY_ON_DROP_TYPES = new Set([
+    'gateway:auth',
+    'gateway:permission_request',
+  ])
+
   private logDroppedMessage(msg: GatewayMessage): void {
     const msgType = msg.type ?? 'unknown'
     log.warn(
@@ -185,7 +191,9 @@ export class GatewayWsClient {
               this.onDroppedMessage?.(dropped)
               this.sendQueue.push(msg)
             } else {
-              log.warn('Send queue full (all critical), dropping message')
+              // Queue is full of critical messages; retry after a short delay
+              log.warn('Send queue full (all critical), retrying message after delay')
+              setTimeout(() => this.send(msg), 1000)
             }
           }
         } else if (priority === 'high') {
@@ -203,13 +211,18 @@ export class GatewayWsClient {
             this.onDroppedMessage?.(msg)
           }
         } else {
-          // Normal priority — just drop it
-          this.droppedCount++
-          this.logDroppedMessage(msg)
-          this.onDroppedMessage?.(msg)
+          // Normal priority — drop it, but retry if it's a critical type
+          if (GatewayWsClient.RETRY_ON_DROP_TYPES.has(msg.type)) {
+            log.warn(`Retrying dropped critical message type "${msg.type}" after delay`)
+            setTimeout(() => this.send(msg), 1000)
+          } else {
+            this.droppedCount++
+            this.logDroppedMessage(msg)
+            this.onDroppedMessage?.(msg)
+          }
         }
 
-        if (this.droppedCount % 50 === 0) {
+        if (this.droppedCount > 0 && this.droppedCount % 10 === 0) {
           log.warn(`Total messages dropped due to full queue: ${this.droppedCount}`)
         }
       }
@@ -273,8 +286,7 @@ export class GatewayWsClient {
         this.pongTimer = setTimeout(() => {
           log.warn('Pong timeout, forcing reconnect...')
           this.stopHeartbeat()
-          // Use close() instead of terminate() to ensure 'close' event fires
-          // and triggers scheduleReconnect() properly
+          this.pongTimeoutReconnect = true
           if (this.ws) {
             this.ws.removeAllListeners()
             this.ws.close(1006, 'pong timeout')
@@ -317,6 +329,17 @@ export class GatewayWsClient {
     }
 
     this.reconnectAttempts++
+
+    // Fast reconnect after pong timeout to reduce "agent appears offline" window
+    if (this.pongTimeoutReconnect) {
+      this.pongTimeoutReconnect = false
+      const delay = 1000 + Math.random() * 500
+      log.info(`Fast reconnect after pong timeout in ${Math.round(delay)}ms`)
+      this.reconnectTimer = setTimeout(() => {
+        this.connect()
+      }, delay)
+      return
+    }
 
     if (this.probing) {
       const jitter = Math.random() * PROBE_INTERVAL

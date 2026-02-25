@@ -1,8 +1,11 @@
 import { createHmac } from 'node:crypto'
 import { getRedis, isRedisEnabled } from './redis.js'
 import Redis from 'ioredis'
+import { eq, lt } from 'drizzle-orm'
 import { createLogger } from './logger.js'
 import { config } from '../config.js'
+import { db } from '../db/index.js'
+import { revokedTokens } from '../db/schema.js'
 
 const log = createLogger('TokenRevocation')
 
@@ -36,6 +39,7 @@ function parseDurationToSeconds(duration: string): number {
 const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
 const MAX_MEMORY_REVOCATIONS = 10_000
 const MEMORY_REVOCATION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+const DB_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 
 /**
  * Compute an HMAC-SHA256 signature over the message body using JWT_SECRET.
@@ -82,6 +86,57 @@ const memoryRevocationCleanupTimer = setInterval(
 ) // Clean up every hour
 memoryRevocationCleanupTimer.unref()
 
+// Periodically clean up expired rows from the DB revoked_tokens table
+const dbCleanupTimer = setInterval(async () => {
+  if (isRedisEnabled()) return
+  try {
+    const now = new Date()
+    await db.delete(revokedTokens).where(lt(revokedTokens.expiresAt, now))
+  } catch (err) {
+    log.warn(`Failed to clean expired revoked tokens from DB: ${(err as Error).message}`)
+  }
+}, DB_CLEANUP_INTERVAL_MS)
+dbCleanupTimer.unref()
+
+/**
+ * Persist a token revocation to the database (fallback when Redis is unavailable).
+ */
+async function persistRevocationToDb(userId: string, revokedAtMs: number): Promise<void> {
+  try {
+    const expiresAt = new Date(revokedAtMs + ACCESS_TOKEN_TTL * 1000)
+    await db.insert(revokedTokens).values({
+      userId,
+      tokenHash: String(revokedAtMs),
+      revokedAt: new Date(revokedAtMs),
+      expiresAt,
+    })
+  } catch (err) {
+    log.error(
+      `Failed to persist token revocation to DB for user ${userId}: ${(err as Error).message}`,
+    )
+  }
+}
+
+/**
+ * Check the database for token revocations (fallback when Redis is unavailable).
+ * Returns the most recent revokedAt timestamp for the user, or null if none found.
+ */
+async function checkRevocationInDb(userId: string): Promise<number | null> {
+  try {
+    const rows = await db
+      .select({ revokedAt: revokedTokens.revokedAt })
+      .from(revokedTokens)
+      .where(eq(revokedTokens.userId, userId))
+      .orderBy(revokedTokens.revokedAt)
+      .limit(1)
+    if (rows.length === 0) return null
+    return new Date(rows[0].revokedAt).getTime()
+  } catch (err) {
+    log.warn(`Failed to check token revocation in DB for user ${userId}: ${(err as Error).message}`)
+    return null
+  }
+}
+
 /**
  * Mark all access tokens issued before now as revoked for a user.
  * Called on logout or password change.
@@ -106,11 +161,9 @@ export async function revokeUserTokens(userId: string): Promise<void> {
   }
 
   if (!isRedisEnabled()) {
-    log.warn(
-      `Token revocation for user ${userId} stored in memory only (Redis not configured). ` +
-        `Revocation will be lost on server restart, but tokens expire within ${config.jwtAccessExpiry}. ` +
-        `WARNING: In multi-process deployments, revocations will NOT propagate across processes. ` +
-        `Enable Redis for production use.`,
+    await persistRevocationToDb(userId, Date.now())
+    log.info(
+      `Token revocation for user ${userId} stored in memory + database (Redis not configured).`,
     )
     return
   }
@@ -140,7 +193,14 @@ export async function isTokenRevoked(userId: string, iatMs: number): Promise<boo
   const memoryRevokedAt = memoryRevocations.get(userId)
   if (memoryRevokedAt && iatMs < memoryRevokedAt) return true
 
-  if (!isRedisEnabled()) return false
+  if (!isRedisEnabled()) {
+    const dbRevokedAt = await checkRevocationInDb(userId)
+    if (dbRevokedAt !== null) {
+      memoryRevocations.set(userId, dbRevokedAt)
+      return iatMs < dbRevokedAt
+    }
+    return false
+  }
 
   try {
     const redis = getRedis()
@@ -213,6 +273,7 @@ export async function initTokenRevocationSubscriber(): Promise<void> {
 /** Clean up timers and subscriber connection. Call on graceful shutdown. */
 export async function stopTokenRevocation(): Promise<void> {
   clearInterval(memoryRevocationCleanupTimer)
+  clearInterval(dbCleanupTimer)
   if (subscriber) {
     await subscriber.quit()
     subscriber = null
