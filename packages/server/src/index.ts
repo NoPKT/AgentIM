@@ -22,14 +22,14 @@ await initSentry()
 import { apiRateLimit, wsUpgradeRateLimit, stopRateLimitCleanup } from './middleware/rateLimit.js'
 import { migrate, closeDb, db, verifyMigrations } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
-import { sql, lt } from 'drizzle-orm'
+import { sql, lt, lte } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
 import { userRoutes } from './routes/users.js'
 import { roomRoutes } from './routes/rooms.js'
 import { messageRoutes } from './routes/messages.js'
 import { agentRoutes } from './routes/agents.js'
 import { taskRoutes } from './routes/tasks.js'
-import { refreshTokens } from './db/schema.js'
+import { refreshTokens, auditLogs } from './db/schema.js'
 import { uploadRoutes, startOrphanCleanup, stopOrphanCleanup } from './routes/uploads.js'
 import { startGatewayCleanup, stopGatewayCleanup } from './lib/gatewayCleanup.js'
 import { routerRoutes } from './routes/routers.js'
@@ -658,6 +658,35 @@ function stopTokenCleanup() {
 
 startTokenCleanup()
 
+// Periodic cleanup: remove old audit log entries beyond the retention window
+let auditCleanupTimer: ReturnType<typeof setInterval> | null = null
+
+function startAuditCleanup() {
+  auditCleanupTimer = setInterval(async () => {
+    try {
+      const cutoff = new Date(Date.now() - config.auditLogRetentionDays * 86400000).toISOString()
+      const result = await db.delete(auditLogs).where(lte(auditLogs.createdAt, cutoff))
+      const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0
+      if (deleted > 0) {
+        log.info(
+          `Purged ${deleted} audit log entries older than ${config.auditLogRetentionDays} days`,
+        )
+      }
+    } catch (err) {
+      log.error(`Failed to clean up audit logs: ${(err as Error).message}`)
+    }
+  }, config.auditLogCleanupInterval)
+}
+
+function stopAuditCleanup() {
+  if (auditCleanupTimer) {
+    clearInterval(auditCleanupTimer)
+    auditCleanupTimer = null
+  }
+}
+
+startAuditCleanup()
+
 log.info(`Running at http://${config.host}:${config.port}`)
 
 // Graceful shutdown
@@ -668,6 +697,7 @@ async function shutdown(signal: string) {
   stopOrphanCleanup()
   stopGatewayCleanup()
   stopTokenCleanup()
+  stopAuditCleanup()
   // Stop all module-level interval timers to allow clean process exit
   stopStreamTrackerCleanup()
   stopAgentRateCleanup()

@@ -125,9 +125,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace hardcoded enums with constants in validators (ASSIGNEE_TYPES, NOTIFICATION_PREFS, MEMBER_TYPES)
 - Add missing User and Gateway validation schemas
 - `I18N_NAMESPACES` now includes all actual namespaces (a11y, ws, pwa, thread, slashCommand, etc.)
-- `createServiceAgentSchema` now validates provider-specific required fields (model for OpenAI, voiceId for ElevenLabs)
+- `createServiceAgentSchema` now validates provider-specific required fields (model for OpenAI/Perplexity, voiceId for ElevenLabs)
+- Mention regex cache upgraded from FIFO to LRU eviction for better hit rates under high concurrency
 
 #### CI & Docs
+
+- Added `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1)
 
 - CI: E2E tests now run on daily schedule (UTC 04:00), manual dispatch, and release workflows only -- push/PR skip E2E to save Actions minutes
 - **i18n**: Added `serviceAgent`, `thread`, `slashCommand`, `ws` namespaces to all 7 language files; added provider/category translations for all 7 new providers
@@ -139,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Audit log unbounded growth**: Added periodic cleanup with configurable retention (`AUDIT_LOG_RETENTION_DAYS`, default 90 days) and cleanup interval (`AUDIT_LOG_CLEANUP_INTERVAL`, default 24h)
 - **[SECURITY] updateServiceAgentSchema config validation**: Replaced bare `z.record()` with `serviceAgentConfigSchema` to enforce dangerous key name checks on service agent updates (prototype pollution prevention)
 - **ServerGatewayMessage missing error type**: Added `serverErrorSchema` to `serverGatewayMessageSchema` so gateways can receive and handle server error messages instead of silently discarding them
 - **GatewayPermissionRequest timeoutMs range**: Capped `timeoutMs` validator max at `PERMISSION_TIMEOUT_MS` (300s) instead of hardcoded 600s to match server-side timeout
