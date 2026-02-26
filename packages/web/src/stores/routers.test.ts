@@ -41,7 +41,7 @@ function makeRouter(overrides: Partial<Router> = {}): Router {
     id: 'router-1',
     name: 'Default Router',
     description: 'Test router',
-    scope: 'room',
+    scope: 'personal',
     createdById: 'user-1',
     llmBaseUrl: 'https://api.openai.com/v1',
     llmApiKey: 'sk-test',
@@ -49,7 +49,7 @@ function makeRouter(overrides: Partial<Router> = {}): Router {
     maxChainDepth: 3,
     rateLimitWindow: 60,
     rateLimitMax: 100,
-    visibility: 'private',
+    visibility: 'all',
     visibilityList: [],
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
@@ -141,14 +141,14 @@ describe('useRouterStore', () => {
 
       const result = await useRouterStore.getState().createRouter({
         name: 'New Router',
-        scope: 'room',
+        scope: 'personal',
         llmBaseUrl: 'https://api.openai.com/v1',
         llmApiKey: 'sk-test',
         llmModel: 'gpt-4',
         maxChainDepth: 3,
         rateLimitWindow: 60,
         rateLimitMax: 100,
-        visibility: 'private',
+        visibility: 'all',
         visibilityList: [],
       })
 
@@ -163,14 +163,14 @@ describe('useRouterStore', () => {
       await expect(
         useRouterStore.getState().createRouter({
           name: 'Bad Router',
-          scope: 'room',
+          scope: 'personal',
           llmBaseUrl: '',
           llmApiKey: '',
           llmModel: '',
           maxChainDepth: 3,
           rateLimitWindow: 60,
           rateLimitMax: 100,
-          visibility: 'private',
+          visibility: 'all',
           visibilityList: [],
         }),
       ).rejects.toThrow('Validation error')
@@ -182,14 +182,14 @@ describe('useRouterStore', () => {
       await expect(
         useRouterStore.getState().createRouter({
           name: 'Bad',
-          scope: 'room',
+          scope: 'personal',
           llmBaseUrl: '',
           llmApiKey: '',
           llmModel: '',
           maxChainDepth: 1,
           rateLimitWindow: 60,
           rateLimitMax: 100,
-          visibility: 'private',
+          visibility: 'all',
           visibilityList: [],
         }),
       ).rejects.toThrow('Failed to create router')
