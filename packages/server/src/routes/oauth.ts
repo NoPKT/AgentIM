@@ -229,46 +229,28 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
         })
         .where(eq(oauthAccounts.id, existingOAuth.id))
     } else {
-      // New OAuth account — create a new user or auto-link
-      // Try to find a user with matching email
-      let existingUser: typeof users.$inferSelect | undefined
-      if (userInfo.email) {
-        const [byEmail] = await db
-          .select()
-          .from(oauthAccounts)
-          .where(eq(oauthAccounts.email, userInfo.email))
-          .limit(1)
-        if (byEmail) {
-          const [u] = await db.select().from(users).where(eq(users.id, byEmail.userId)).limit(1)
-          existingUser = u
-        }
-      }
-
-      if (existingUser) {
-        userId = existingUser.id
-        username = existingUser.username
-      } else {
-        // Create new user without password (OAuth-only)
-        const { nanoid } = await import('nanoid')
-        userId = nanoid()
-        username = await generateUniqueUsername(userInfo.displayName || userInfo.email || provider)
-        const now = new Date().toISOString()
-        await db.insert(users).values({
-          id: userId,
-          username,
-          passwordHash: null,
-          displayName: userInfo.displayName || username,
-          avatarUrl: userInfo.avatarUrl,
-          role: 'user',
-          createdAt: now,
-          updatedAt: now,
-        })
-      }
+      // New OAuth account — always create a new user.
+      // We intentionally do NOT auto-link by email because OAuth providers
+      // may not verify email ownership, allowing account takeover attacks
+      // (e.g. attacker sets victim's email on their GitHub account).
+      // Users can link additional OAuth providers manually when logged in.
+      const { nanoid } = await import('nanoid')
+      userId = nanoid()
+      username = await generateUniqueUsername(userInfo.displayName || userInfo.email || provider)
+      const now = new Date().toISOString()
+      await db.insert(users).values({
+        id: userId,
+        username,
+        passwordHash: null,
+        displayName: userInfo.displayName || username,
+        avatarUrl: userInfo.avatarUrl,
+        role: 'user',
+        createdAt: now,
+        updatedAt: now,
+      })
 
       // Link the OAuth account
-      const { nanoid } = await import('nanoid')
       const oauthId = nanoid()
-      const now = new Date().toISOString()
       await db.insert(oauthAccounts).values({
         id: oauthId,
         userId,
