@@ -13,6 +13,7 @@ import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config, getConfigSync } from '../config.js'
+import { parseExpiryMs } from '../lib/time.js'
 
 const REFRESH_COOKIE_NAME = 'agentim_rt'
 const REFRESH_COOKIE_PATH = '/api/auth'
@@ -35,26 +36,6 @@ function clearRefreshCookie(c: Parameters<typeof deleteCookie>[0]) {
 
 const LOCKOUT_THRESHOLD = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000 // 15 minutes
-
-/** Parse a duration string like '7d', '24h', '30m' into milliseconds. */
-function parseExpiryMs(expiry: string): number {
-  const match = expiry.match(/^(\d+)\s*([smhd])$/)
-  if (!match) return 7 * 24 * 60 * 60 * 1000 // default 7 days
-  const [, num, unit] = match
-  const n = parseInt(num, 10)
-  switch (unit) {
-    case 's':
-      return n * 1000
-    case 'm':
-      return n * 60 * 1000
-    case 'h':
-      return n * 60 * 60 * 1000
-    case 'd':
-      return n * 24 * 60 * 60 * 1000
-    default:
-      return 7 * 24 * 60 * 60 * 1000
-  }
-}
 
 // Dummy hash for timing-safe comparison when user doesn't exist
 // This prevents attackers from enumerating valid usernames via response timing

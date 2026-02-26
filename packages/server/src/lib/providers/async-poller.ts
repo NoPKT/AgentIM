@@ -20,6 +20,7 @@ interface AsyncTaskInfo {
   startedAt: number
   maxWaitMs: number
   timer: ReturnType<typeof setInterval>
+  maxTimeout: ReturnType<typeof setTimeout>
 }
 
 const activeTasks = new Map<string, AsyncTaskInfo>()
@@ -78,6 +79,15 @@ export async function startAsyncTaskPolling(
 
   // Start polling
   const taskKey = `${serviceAgentId}:${task.taskId}`
+  const cleanupTask = () => {
+    const info = activeTasks.get(taskKey)
+    if (info) {
+      clearInterval(info.timer)
+      clearTimeout(info.maxTimeout)
+      activeTasks.delete(taskKey)
+    }
+  }
+
   const timer = setInterval(async () => {
     try {
       const result = await provider.poll!(config, task.taskId)
@@ -88,30 +98,21 @@ export async function startAsyncTaskPolling(
       }
 
       // Task completed — cleanup and broadcast result
-      clearInterval(timer)
-      activeTasks.delete(taskKey)
-
+      cleanupTask()
       await broadcastResult(serviceAgentId, serviceAgentName, roomId, result)
     } catch (err) {
       log.error(`Async poll error for ${taskKey}: ${(err as Error).message}`)
-      clearInterval(timer)
-      activeTasks.delete(taskKey)
-
-      // Send error message
+      cleanupTask()
       await broadcastError(serviceAgentId, serviceAgentName, roomId, (err as Error).message)
     }
   }, task.pollIntervalMs)
 
   // Set up max timeout
   const maxTimeout = setTimeout(() => {
-    const info = activeTasks.get(taskKey)
-    if (info) {
-      clearInterval(info.timer)
-      activeTasks.delete(taskKey)
-      broadcastError(serviceAgentId, serviceAgentName, roomId, 'Generation timed out').catch((e) =>
-        log.error(`Timeout broadcast error: ${(e as Error).message}`),
-      )
-    }
+    cleanupTask()
+    broadcastError(serviceAgentId, serviceAgentName, roomId, 'Generation timed out').catch((e) =>
+      log.error(`Timeout broadcast error: ${(e as Error).message}`),
+    )
   }, task.maxWaitMs)
 
   // Prevent timeout from keeping process alive
@@ -128,6 +129,7 @@ export async function startAsyncTaskPolling(
     startedAt: Date.now(),
     maxWaitMs: task.maxWaitMs,
     timer,
+    maxTimeout,
   })
 }
 
@@ -236,6 +238,7 @@ async function broadcastError(
 export function cleanupActiveTasks(): void {
   for (const [key, info] of activeTasks) {
     clearInterval(info.timer)
+    clearTimeout(info.maxTimeout)
     activeTasks.delete(key)
   }
 }

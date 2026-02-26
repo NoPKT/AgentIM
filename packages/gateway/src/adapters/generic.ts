@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { resolve as pathResolve } from 'node:path'
-import { SpawnAgentAdapter, getSafeEnv } from './spawn-base.js'
+import { SpawnAgentAdapter, getSafeEnv, redactSensitiveContent } from './spawn-base.js'
 import type {
   AdapterOptions,
   ChunkCallback,
@@ -13,7 +13,10 @@ import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('GenericAdapter')
 
-const ABSOLUTE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes — cannot be reset by data chunks
+const ABSOLUTE_TIMEOUT_MS = Math.max(
+  60_000,
+  parseInt(process.env.AGENTIM_ABSOLUTE_TIMEOUT_MS ?? '', 10) || 15 * 60 * 1000,
+) // default 15 minutes, minimum 1 minute — cannot be reset by data chunks
 const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
 
 /** Characters that are unsafe in command names (shell metacharacters / path traversal).
@@ -155,7 +158,9 @@ export class GenericAdapter extends SpawnAgentAdapter {
       this.timedOut = true
       this.clearProcessTimer()
       this.isRunning = false
-      fail('Process exceeded absolute timeout (30 minutes)')
+      fail(
+        `Process exceeded absolute timeout (${Math.round(ABSOLUTE_TIMEOUT_MS / 60_000)} minutes)`,
+      )
       this.killProcess(proc)
     }, ABSOLUTE_TIMEOUT_MS)
     absoluteTimer.unref()
@@ -208,7 +213,7 @@ export class GenericAdapter extends SpawnAgentAdapter {
         return
       }
       const text = data.toString().trim()
-      if (text) onChunk({ type: 'error', content: text })
+      if (text) onChunk({ type: 'error', content: redactSensitiveContent(text) })
       // Reset process timer on stderr activity (agent is still working)
       this.startProcessTimer(proc)
     })

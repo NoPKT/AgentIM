@@ -141,7 +141,7 @@ const SENSITIVE_PATTERNS: [RegExp, string][] = [
   [/\/(?:home|Users)\/[a-zA-Z0-9._-]+/g, '/••••/••••'],
 ]
 
-function redactSensitiveContent(text: string): string {
+export function redactSensitiveContent(text: string): string {
   let result = text
   for (const [pattern, replacement] of SENSITIVE_PATTERNS) {
     result = result.replace(pattern, replacement)
