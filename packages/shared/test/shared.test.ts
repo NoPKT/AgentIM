@@ -36,8 +36,27 @@ import {
   MAX_TOOL_INPUT_KEY_LENGTH,
   WS_CLIENT_MESSAGE_SIZE_LIMIT,
   WS_GATEWAY_MESSAGE_SIZE_LIMIT,
+  MAX_ROOM_NAME_LENGTH,
+  MAX_SYSTEM_PROMPT_LENGTH,
+  MAX_MENTIONS_PER_MESSAGE,
+  MAX_USERNAME_LENGTH,
+  MAX_DISPLAY_NAME_LENGTH,
+  MAX_FULL_CONTENT_SIZE,
+  DANGEROUS_KEY_NAMES,
+  CHUNK_TYPES,
 } from '../src/index.js'
-import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, I18N_NAMESPACES, en, zhCN, ja, ko, fr, de, ru } from '../src/i18n/index.js'
+import {
+  SUPPORTED_LANGUAGES,
+  LANGUAGE_NAMES,
+  I18N_NAMESPACES,
+  en,
+  zhCN,
+  ja,
+  ko,
+  fr,
+  de,
+  ru,
+} from '../src/i18n/index.js'
 
 // ─── Mentions ───
 
@@ -1023,5 +1042,405 @@ describe('toolInputSchema', () => {
 
     assert.strictEqual(gatewayResult.success, false)
     assert.strictEqual(serverResult.success, false)
+  })
+})
+
+// ─── Password boundary tests ────────────────────────────────────────────────
+
+describe('Password boundary tests', () => {
+  it('accepts exactly 8 characters (valid boundary)', () => {
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Abcdef1x',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects exactly 7 characters (invalid boundary)', () => {
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Abcde1x',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts exactly 128 characters (valid boundary)', () => {
+    // 126 filler chars + 1 uppercase + 1 digit = 128 total
+    const password = 'A1' + 'a'.repeat(126)
+    assert.strictEqual(password.length, 128)
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects exactly 129 characters (invalid boundary)', () => {
+    const password = 'A1' + 'a'.repeat(127)
+    assert.strictEqual(password.length, 129)
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts password with special characters', () => {
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'P@$$w0rd!#%',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects password with no lowercase at all', () => {
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'ABCDEFG1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts password with unicode characters', () => {
+    // Unicode chars are fine as long as min length, upper, lower, digit are satisfied
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Passw0rd\u00e9\u00fc',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── Username boundary tests ────────────────────────────────────────────────
+
+describe('Username boundary tests', () => {
+  it('accepts exactly 3 characters (valid boundary)', () => {
+    const result = registerSchema.safeParse({
+      username: 'abc',
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects exactly 2 characters (invalid boundary)', () => {
+    const result = registerSchema.safeParse({
+      username: 'ab',
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts exactly MAX_USERNAME_LENGTH (50) characters', () => {
+    const username = 'a'.repeat(MAX_USERNAME_LENGTH)
+    assert.strictEqual(username.length, 50)
+    const result = registerSchema.safeParse({
+      username,
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects 51 characters (too long)', () => {
+    const username = 'a'.repeat(MAX_USERNAME_LENGTH + 1)
+    assert.strictEqual(username.length, 51)
+    const result = registerSchema.safeParse({
+      username,
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects username with dots', () => {
+    const result = registerSchema.safeParse({
+      username: 'user.name',
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects username with leading spaces', () => {
+    const result = registerSchema.safeParse({
+      username: ' username',
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects username with trailing spaces', () => {
+    const result = registerSchema.safeParse({
+      username: 'username ',
+      password: 'Password1',
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+// ─── DisplayName boundary tests ─────────────────────────────────────────────
+
+describe('DisplayName boundary tests', () => {
+  it('accepts exactly MAX_DISPLAY_NAME_LENGTH (100) characters', () => {
+    const displayName = 'A'.repeat(MAX_DISPLAY_NAME_LENGTH)
+    assert.strictEqual(displayName.length, 100)
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Password1',
+      displayName,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects 101 characters (too long)', () => {
+    const displayName = 'A'.repeat(MAX_DISPLAY_NAME_LENGTH + 1)
+    assert.strictEqual(displayName.length, 101)
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Password1',
+      displayName,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects whitespace-only displayName', () => {
+    const result = registerSchema.safeParse({
+      username: 'testuser',
+      password: 'Password1',
+      displayName: '   ',
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+// ─── dangerousKeys in toolInput ─────────────────────────────────────────────
+
+describe('dangerousKeys in toolInput', () => {
+  it('rejects toolInput with dangerous key "constructor"', () => {
+    const result = toolInputSchema.safeParse({ constructor: 'value' })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects toolInput with dangerous key "prototype"', () => {
+    const result = toolInputSchema.safeParse({ prototype: 'value' })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('__proto__ key is stripped by Zod z.record() during parsing (known JS/Zod behavior)', () => {
+    // __proto__ is special in JS: Zod internally constructs a plain object,
+    // which causes __proto__ to be consumed as a prototype setter rather than
+    // stored as an enumerable key. Object.keys() never sees it, so the refine
+    // check cannot reject it. This is safe because the key is effectively
+    // dropped and never reaches downstream code.
+    const obj = Object.create(null) as Record<string, unknown>
+    obj['__proto__'] = 'value'
+    const result = toolInputSchema.safeParse(obj)
+    assert.strictEqual(result.success, true)
+    if (result.success) {
+      // Verify the key was indeed stripped from the parsed output
+      assert.strictEqual(Object.prototype.hasOwnProperty.call(result.data, '__proto__'), false)
+    }
+  })
+
+  it('DANGEROUS_KEY_NAMES contains __proto__, constructor, and prototype', () => {
+    assert.ok(DANGEROUS_KEY_NAMES.includes('__proto__'))
+    assert.ok(DANGEROUS_KEY_NAMES.includes('constructor'))
+    assert.ok(DANGEROUS_KEY_NAMES.includes('prototype'))
+  })
+
+  it('accepts toolInput with safe keys alongside non-dangerous names', () => {
+    const result = toolInputSchema.safeParse({
+      file: '/tmp/test.ts',
+      command: 'run',
+      proto: 'safe',
+      constructorArg: 'also safe',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── sendMessage edge cases ─────────────────────────────────────────────────
+
+describe('sendMessage edge cases', () => {
+  it('accepts empty mentions array', () => {
+    const result = sendMessageSchema.safeParse({
+      content: 'Hello',
+      mentions: [],
+    })
+    assert.strictEqual(result.success, true)
+    if (result.success) {
+      assert.deepStrictEqual(result.data.mentions, [])
+    }
+  })
+
+  it('accepts max mentions (MAX_MENTIONS_PER_MESSAGE)', () => {
+    const mentions = Array.from({ length: MAX_MENTIONS_PER_MESSAGE }, (_, i) => `user${i}`)
+    const result = sendMessageSchema.safeParse({
+      content: 'Hello everyone',
+      mentions,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects mentions exceeding MAX_MENTIONS_PER_MESSAGE', () => {
+    const mentions = Array.from({ length: MAX_MENTIONS_PER_MESSAGE + 1 }, (_, i) => `user${i}`)
+    const result = sendMessageSchema.safeParse({
+      content: 'Hello everyone',
+      mentions,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts content with only whitespace (min 1 char satisfied)', () => {
+    const result = sendMessageSchema.safeParse({
+      content: '   ',
+    })
+    // min(1) checks length, not trimmed length; whitespace has length >= 1
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts message with replyToId provided', () => {
+    const result = sendMessageSchema.safeParse({
+      content: 'Replying to you',
+      replyToId: 'msg-abc123',
+    })
+    assert.strictEqual(result.success, true)
+    if (result.success) {
+      assert.strictEqual(result.data.replyToId, 'msg-abc123')
+    }
+  })
+})
+
+// ─── createRoom edge cases ──────────────────────────────────────────────────
+
+describe('createRoom edge cases', () => {
+  it('accepts room name at MAX_ROOM_NAME_LENGTH', () => {
+    const name = 'R'.repeat(MAX_ROOM_NAME_LENGTH)
+    assert.strictEqual(name.length, 100)
+    const result = createRoomSchema.safeParse({ name })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects room name exceeding MAX_ROOM_NAME_LENGTH', () => {
+    const name = 'R'.repeat(MAX_ROOM_NAME_LENGTH + 1)
+    const result = createRoomSchema.safeParse({ name })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts systemPrompt at MAX_SYSTEM_PROMPT_LENGTH', () => {
+    const systemPrompt = 'x'.repeat(MAX_SYSTEM_PROMPT_LENGTH)
+    assert.strictEqual(systemPrompt.length, 10_000)
+    const result = createRoomSchema.safeParse({
+      name: 'Test Room',
+      systemPrompt,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects systemPrompt exceeding MAX_SYSTEM_PROMPT_LENGTH', () => {
+    const systemPrompt = 'x'.repeat(MAX_SYSTEM_PROMPT_LENGTH + 1)
+    const result = createRoomSchema.safeParse({
+      name: 'Test Room',
+      systemPrompt,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('rejects whitespace-only room name', () => {
+    const result = createRoomSchema.safeParse({ name: '   ' })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+// ─── WebSocket protocol boundary tests ──────────────────────────────────────
+
+describe('WebSocket protocol boundary tests', () => {
+  it('accepts client:auth with token at max length (2000)', () => {
+    const token = 't'.repeat(2000)
+    const result = clientMessageSchema.safeParse({
+      type: 'client:auth',
+      token,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects client:auth with token exceeding max length (2001)', () => {
+    const token = 't'.repeat(2001)
+    const result = clientMessageSchema.safeParse({
+      type: 'client:auth',
+      token,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('accepts gateway:message_complete with fullContent at max (200000)', () => {
+    const fullContent = 'c'.repeat(MAX_FULL_CONTENT_SIZE)
+    assert.strictEqual(fullContent.length, 200_000)
+    const result = gatewayMessageSchema.safeParse({
+      type: 'gateway:message_complete',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      fullContent,
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects gateway:message_complete with fullContent exceeding max', () => {
+    const fullContent = 'c'.repeat(MAX_FULL_CONTENT_SIZE + 1)
+    const result = gatewayMessageSchema.safeParse({
+      type: 'gateway:message_complete',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      fullContent,
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('validates gateway:message_chunk with each chunk type', () => {
+    for (const chunkType of CHUNK_TYPES) {
+      const result = gatewayMessageSchema.safeParse({
+        type: 'gateway:message_chunk',
+        roomId: 'room1',
+        agentId: 'agent1',
+        messageId: 'msg1',
+        chunk: { type: chunkType, content: `content for ${chunkType}` },
+      })
+      assert.strictEqual(result.success, true, `chunk type "${chunkType}" should be valid`)
+    }
+  })
+
+  it('rejects gateway:message_chunk with invalid chunk type', () => {
+    const result = gatewayMessageSchema.safeParse({
+      type: 'gateway:message_chunk',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      chunk: { type: 'invalid_type', content: 'test' },
+    })
+    assert.strictEqual(result.success, false)
+  })
+
+  it('validates gateway:message_chunk with metadata in chunk', () => {
+    const result = gatewayMessageSchema.safeParse({
+      type: 'gateway:message_chunk',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      chunk: {
+        type: 'tool_use',
+        content: 'Running command',
+        metadata: { toolName: 'bash', exitCode: 0 },
+      },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('validates CHUNK_TYPES contains expected values', () => {
+    assert.ok(CHUNK_TYPES.includes('text'))
+    assert.ok(CHUNK_TYPES.includes('thinking'))
+    assert.ok(CHUNK_TYPES.includes('tool_use'))
+    assert.ok(CHUNK_TYPES.includes('tool_result'))
+    assert.ok(CHUNK_TYPES.includes('error'))
+    assert.ok(CHUNK_TYPES.includes('workspace_status'))
+    assert.strictEqual(CHUNK_TYPES.length, 6)
   })
 })
