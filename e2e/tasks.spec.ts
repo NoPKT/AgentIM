@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, authHeaders } from './helpers'
 
 /**
  * Tasks / Kanban page E2E tests.
@@ -15,10 +15,11 @@ import { loginAsAdmin } from './helpers'
 test.use({ storageState: { cookies: [], origins: [] } })
 
 /** Helper: create a room via API and return its id + name. */
-async function createTestRoom(page: import('@playwright/test').Page) {
+async function createTestRoom(page: import('@playwright/test').Page, token: string) {
   const roomName = `e2e-task-room-${Date.now()}`
   const res = await page.request.post('/api/rooms', {
     data: { name: roomName },
+    headers: authHeaders(token),
   })
   expect(res.ok()).toBeTruthy()
   const body = (await res.json()) as { ok: boolean; data: { id: string; name: string } }
@@ -29,11 +30,13 @@ async function createTestRoom(page: import('@playwright/test').Page) {
 /** Helper: create a task via API and return the task object. */
 async function createTestTask(
   page: import('@playwright/test').Page,
+  token: string,
   roomId: string,
   title: string,
 ) {
   const res = await page.request.post(`/api/tasks/rooms/${roomId}`, {
     data: { title, description: 'e2e test task' },
+    headers: authHeaders(token),
   })
   expect(res.ok()).toBeTruthy()
   const body = (await res.json()) as {
@@ -45,13 +48,17 @@ async function createTestTask(
 }
 
 /** Helper: delete a task via API (cleanup). */
-async function deleteTask(page: import('@playwright/test').Page, taskId: string) {
-  await page.request.delete(`/api/tasks/${taskId}`)
+async function deleteTask(page: import('@playwright/test').Page, token: string, taskId: string) {
+  await page.request.delete(`/api/tasks/${taskId}`, {
+    headers: authHeaders(token),
+  })
 }
 
 /** Helper: delete a room via API (cleanup). */
-async function deleteRoom(page: import('@playwright/test').Page, roomId: string) {
-  await page.request.delete(`/api/rooms/${roomId}`)
+async function deleteRoom(page: import('@playwright/test').Page, token: string, roomId: string) {
+  await page.request.delete(`/api/rooms/${roomId}`, {
+    headers: authHeaders(token),
+  })
 }
 
 test.describe('Tasks page', () => {
@@ -77,10 +84,10 @@ test.describe('Tasks page', () => {
 
   test('can create a task via the UI', async ({ page }) => {
     test.setTimeout(60_000)
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
     // Create a room first so the task dialog has a room to select
-    const room = await createTestRoom(page)
+    const room = await createTestRoom(page, token)
     let taskId: string | undefined
 
     try {
@@ -106,7 +113,9 @@ test.describe('Tasks page', () => {
       await expect(page.getByText(testTitle)).toBeVisible({ timeout: 10_000 })
 
       // Grab task id from API for cleanup
-      const tasksRes = await page.request.get('/api/tasks')
+      const tasksRes = await page.request.get('/api/tasks', {
+        headers: authHeaders(token),
+      })
       const tasksBody = (await tasksRes.json()) as {
         ok: boolean
         data: { id: string; title: string }[]
@@ -115,16 +124,16 @@ test.describe('Tasks page', () => {
       taskId = created?.id
     } finally {
       // Cleanup
-      if (taskId) await deleteTask(page, taskId)
-      await deleteRoom(page, room.id)
+      if (taskId) await deleteTask(page, token, taskId)
+      await deleteRoom(page, token, room.id)
     }
   })
 
   test('created task appears in the task list', async ({ page }) => {
-    await loginAsAdmin(page)
-    const room = await createTestRoom(page)
+    const token = await loginAsAdmin(page)
+    const room = await createTestRoom(page, token)
     const taskTitle = `e2e-visible-${Date.now()}`
-    const task = await createTestTask(page, room.id, taskTitle)
+    const task = await createTestTask(page, token, room.id, taskTitle)
 
     try {
       await page.goto('/tasks')
@@ -133,15 +142,15 @@ test.describe('Tasks page', () => {
       // The created task should be visible in the kanban board
       await expect(page.getByText(taskTitle)).toBeVisible({ timeout: 10_000 })
     } finally {
-      await deleteTask(page, task.id)
-      await deleteRoom(page, room.id)
+      await deleteTask(page, token, task.id)
+      await deleteRoom(page, token, room.id)
     }
   })
 
   test('can update task status via API', async ({ page }) => {
-    await loginAsAdmin(page)
-    const room = await createTestRoom(page)
-    const task = await createTestTask(page, room.id, `e2e-status-${Date.now()}`)
+    const token = await loginAsAdmin(page)
+    const room = await createTestRoom(page, token)
+    const task = await createTestTask(page, token, room.id, `e2e-status-${Date.now()}`)
 
     try {
       expect(task.status).toBe('pending')
@@ -149,6 +158,7 @@ test.describe('Tasks page', () => {
       // Update status to in_progress
       const updateRes = await page.request.put(`/api/tasks/${task.id}`, {
         data: { status: 'in_progress' },
+        headers: authHeaders(token),
       })
       expect(updateRes.ok()).toBeTruthy()
       const updateBody = (await updateRes.json()) as {
@@ -157,23 +167,27 @@ test.describe('Tasks page', () => {
       }
       expect(updateBody.data.status).toBe('in_progress')
     } finally {
-      await deleteTask(page, task.id)
-      await deleteRoom(page, room.id)
+      await deleteTask(page, token, task.id)
+      await deleteRoom(page, token, room.id)
     }
   })
 
   test('can delete a task via API', async ({ page }) => {
-    await loginAsAdmin(page)
-    const room = await createTestRoom(page)
-    const task = await createTestTask(page, room.id, `e2e-delete-${Date.now()}`)
+    const token = await loginAsAdmin(page)
+    const room = await createTestRoom(page, token)
+    const task = await createTestTask(page, token, room.id, `e2e-delete-${Date.now()}`)
 
     try {
       // Delete the task
-      const deleteRes = await page.request.delete(`/api/tasks/${task.id}`)
+      const deleteRes = await page.request.delete(`/api/tasks/${task.id}`, {
+        headers: authHeaders(token),
+      })
       expect(deleteRes.ok()).toBeTruthy()
 
       // Verify it no longer exists
-      const getRes = await page.request.get('/api/tasks')
+      const getRes = await page.request.get('/api/tasks', {
+        headers: authHeaders(token),
+      })
       const body = (await getRes.json()) as {
         ok: boolean
         data: { id: string }[]
@@ -181,7 +195,7 @@ test.describe('Tasks page', () => {
       const found = body.data.find((t) => t.id === task.id)
       expect(found).toBeUndefined()
     } finally {
-      await deleteRoom(page, room.id)
+      await deleteRoom(page, token, room.id)
     }
   })
 })

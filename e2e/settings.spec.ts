@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, authHeaders } from './helpers'
 
 /**
  * Settings page E2E tests.
@@ -42,7 +42,7 @@ test.describe('Settings page', () => {
 
   test('can update display name', async ({ page }) => {
     test.setTimeout(60_000)
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
     await page.goto('/settings')
     await page.waitForLoadState('networkidle')
 
@@ -66,7 +66,9 @@ test.describe('Settings page', () => {
       // Verify by re-fetching the user profile via API
       await page.waitForTimeout(1_000)
 
-      const meRes = await page.request.get('/api/users/me')
+      const meRes = await page.request.get('/api/users/me', {
+        headers: authHeaders(token),
+      })
       expect(meRes.ok()).toBeTruthy()
       const meBody = (await meRes.json()) as { ok: boolean; data: { displayName: string } }
       expect(meBody.data.displayName).toBe(newName)
@@ -74,6 +76,7 @@ test.describe('Settings page', () => {
       // Restore original name
       await page.request.put('/api/users/me', {
         data: { displayName: originalName || 'Admin' },
+        headers: authHeaders(token),
       })
     }
   })

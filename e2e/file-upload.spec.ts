@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, authHeaders } from './helpers'
 
 /**
  * File upload E2E tests.
@@ -15,10 +15,11 @@ import { loginAsAdmin } from './helpers'
 test.use({ storageState: { cookies: [], origins: [] } })
 
 /** Helper: create a room via API and return its id + name. */
-async function createTestRoom(page: import('@playwright/test').Page) {
+async function createTestRoom(page: import('@playwright/test').Page, token: string) {
   const roomName = `e2e-upload-room-${Date.now()}`
   const res = await page.request.post('/api/rooms', {
     data: { name: roomName },
+    headers: authHeaders(token),
   })
   expect(res.ok()).toBeTruthy()
   const body = (await res.json()) as { ok: boolean; data: { id: string; name: string } }
@@ -27,8 +28,10 @@ async function createTestRoom(page: import('@playwright/test').Page) {
 }
 
 /** Helper: delete a room via API (cleanup). */
-async function deleteRoom(page: import('@playwright/test').Page, roomId: string) {
-  await page.request.delete(`/api/rooms/${roomId}`)
+async function deleteRoom(page: import('@playwright/test').Page, token: string, roomId: string) {
+  await page.request.delete(`/api/rooms/${roomId}`, {
+    headers: authHeaders(token),
+  })
 }
 
 /** Helper: navigate to a room in the UI. Returns true if successful. */
@@ -51,8 +54,8 @@ async function navigateToRoom(page: import('@playwright/test').Page) {
 
 test.describe('File upload in chat', () => {
   test('file attach button is present in message input', async ({ page }) => {
-    await loginAsAdmin(page)
-    const room = await createTestRoom(page)
+    const token = await loginAsAdmin(page)
+    const room = await createTestRoom(page, token)
 
     try {
       await page.goto('/')
@@ -73,13 +76,13 @@ test.describe('File upload in chat', () => {
       const attachButton = page.getByRole('button', { name: /attach/i })
       await expect(attachButton).toBeVisible()
     } finally {
-      await deleteRoom(page, room.id)
+      await deleteRoom(page, token, room.id)
     }
   })
 
   test('hidden file input accepts files', async ({ page }) => {
-    await loginAsAdmin(page)
-    const room = await createTestRoom(page)
+    const token = await loginAsAdmin(page)
+    const room = await createTestRoom(page, token)
 
     try {
       await page.goto('/')
@@ -105,12 +108,12 @@ test.describe('File upload in chat', () => {
       expect(accept).toContain('image/jpeg')
       expect(accept).toContain('text/plain')
     } finally {
-      await deleteRoom(page, room.id)
+      await deleteRoom(page, token, room.id)
     }
   })
 
   test('can upload a small text file via API', async ({ page }) => {
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
     // Upload a small text file directly via the API
     const content = 'Hello, this is an E2E test file.'
@@ -129,6 +132,7 @@ test.describe('File upload in chat', () => {
     const res = await page.request.post('/api/upload', {
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        ...authHeaders(token),
       },
       data: Buffer.from(multipartBody),
     })
@@ -146,7 +150,7 @@ test.describe('File upload in chat', () => {
   })
 
   test('rejects disallowed MIME types via API', async ({ page }) => {
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
     // Try to upload a file with a disallowed MIME type (application/x-executable)
     const boundary = '----E2ETestBoundary' + Date.now()
@@ -162,6 +166,7 @@ test.describe('File upload in chat', () => {
     const res = await page.request.post('/api/upload', {
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        ...authHeaders(token),
       },
       data: Buffer.from(multipartBody),
     })
@@ -174,7 +179,7 @@ test.describe('File upload in chat', () => {
   })
 
   test('rejects files that exceed max size via API', async ({ page }) => {
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
     // Try to upload a file that is too large (send the request with a body that
     // declares a large size). Since we cannot send a 10MB+ payload efficiently
@@ -199,6 +204,7 @@ test.describe('File upload in chat', () => {
     const res = await page.request.post('/api/upload', {
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        ...authHeaders(token),
       },
       data: Buffer.from(multipartBody),
       timeout: 30_000,
