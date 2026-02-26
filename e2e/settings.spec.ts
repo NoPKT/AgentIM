@@ -29,7 +29,7 @@ test.describe('Settings page', () => {
     await page.waitForLoadState('networkidle')
 
     // The settings heading should be visible
-    const heading = page.getByRole('heading', { level: 1 })
+    const heading = page.getByRole('heading', { name: /settings/i })
     await expect(heading).toBeVisible({ timeout: 10_000 })
 
     // Profile section should display the username (admin)
@@ -151,7 +151,9 @@ test.describe('Settings page', () => {
     await page.waitForLoadState('networkidle')
 
     // The change password heading should be visible
-    await expect(page.getByText(/change password/i)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /change password/i })).toBeVisible({
+      timeout: 10_000,
+    })
 
     // Password inputs should be present
     const currentPassword = page.locator('#currentPassword')
@@ -172,6 +174,6 @@ test.describe('Settings page', () => {
     await expect(page.getByText(/version/i)).toBeVisible({ timeout: 10_000 })
 
     // Should show the app name somewhere
-    await expect(page.getByText(/agentim/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /agentim/i }).first()).toBeVisible()
   })
 })
