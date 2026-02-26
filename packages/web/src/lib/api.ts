@@ -97,12 +97,16 @@ function withTimeout(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error('Request timeout')), timeout)
   const clear = () => clearTimeout(timer)
-  controller.signal.addEventListener('abort', clear)
+  controller.signal.addEventListener('abort', clear, { once: true })
   if (signal) {
-    signal.addEventListener('abort', () => {
-      clear()
-      controller.abort(signal.reason)
-    })
+    signal.addEventListener(
+      'abort',
+      () => {
+        clear()
+        controller.abort(signal.reason)
+      },
+      { once: true },
+    )
   }
   return { signal: controller.signal, clear }
 }
