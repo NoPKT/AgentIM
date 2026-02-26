@@ -3,6 +3,17 @@
 # Pre-push hook: run the same checks as CI before pushing.
 # Skip with: git push --no-verify (use sparingly)
 
+# Skip validation for branch deletions (git push origin --delete <branch>)
+has_non_delete=false
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
+    has_non_delete=true
+  fi
+done
+if [ "$has_non_delete" = "false" ]; then
+  exit 0
+fi
+
 echo "[pre-push] Running local CI validation..."
 
 # 1. Formatting
