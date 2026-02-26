@@ -25,6 +25,7 @@ import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
 import { SlashCommandMenu } from './SlashCommandMenu.js'
 import { parseSlashCommand, getCommand, getAllCommands } from '../lib/slash-commands.js'
+import { getDraft, setDraft as saveDraft } from '../lib/message-cache.js'
 
 const MAX_UPLOAD_RETRIES = 3
 
@@ -72,30 +73,46 @@ export function MessageInput() {
     }
   }, [currentRoomId])
 
-  // Restore draft when room changes
+  // Restore draft from IndexedDB when room changes
   useEffect(() => {
     if (!currentRoomId) return
-    const saved = sessionStorage.getItem(`draft:${currentRoomId}`)
-    setContent(saved ?? '')
+    let cancelled = false
+    getDraft(currentRoomId).then((saved) => {
+      if (!cancelled) setContent(saved ?? '')
+    })
+    return () => {
+      cancelled = true
+    }
   }, [currentRoomId])
 
-  // Auto-save draft (debounced)
+  // Auto-save draft to IndexedDB (debounced)
   useEffect(() => {
     if (!currentRoomId) return
     clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
-      if (content) {
-        sessionStorage.setItem(`draft:${currentRoomId}`, content)
-      } else {
-        sessionStorage.removeItem(`draft:${currentRoomId}`)
-      }
+      saveDraft(currentRoomId, content)
     }, 500)
     return () => clearTimeout(draftTimerRef.current)
   }, [content, currentRoomId])
 
+  // Debounce mention search to avoid filtering on every keystroke
+  const [debouncedMentionSearch, setDebouncedMentionSearch] = useState('')
+  const mentionDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => {
+    clearTimeout(mentionDebounceRef.current)
+    mentionDebounceRef.current = setTimeout(() => {
+      setDebouncedMentionSearch(mentionSearch)
+    }, 150)
+    return () => clearTimeout(mentionDebounceRef.current)
+  }, [mentionSearch])
+
   const filteredAgents = useMemo(
-    () => agents.filter((agent) => agent.name.toLowerCase().includes(mentionSearch.toLowerCase())),
-    [agents, mentionSearch],
+    () =>
+      agents.filter((agent) =>
+        agent.name.toLowerCase().includes(debouncedMentionSearch.toLowerCase()),
+      ),
+    [agents, debouncedMentionSearch],
   )
 
   useEffect(() => {
@@ -406,7 +423,7 @@ export function MessageInput() {
     )
     setContent('')
     setPendingAttachments([])
-    sessionStorage.removeItem(`draft:${currentRoomId}`)
+    saveDraft(currentRoomId, '')
   }
 
   const handleDrop = useCallback(

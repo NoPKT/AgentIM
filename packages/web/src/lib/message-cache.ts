@@ -3,7 +3,7 @@ import type { Room, Message } from '@agentim/shared'
 import { MAX_MESSAGES_PER_ROOM_CACHE } from '@agentim/shared'
 
 const DB_NAME = 'agentim-cache'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 const IDB_TIMEOUT_MS = 5000
 const IDB_MAX_RETRIES = 2
@@ -69,6 +69,11 @@ export interface PendingMessage {
   createdAt: string
 }
 
+interface DraftEntry {
+  roomId: string
+  content: string
+}
+
 interface CacheDB {
   messages: {
     key: string
@@ -87,6 +92,10 @@ interface CacheDB {
     key: string
     value: PendingMessage
     indexes: { 'by-room': string }
+  }
+  drafts: {
+    key: string
+    value: DraftEntry
   }
 }
 
@@ -110,6 +119,10 @@ function getDb(): Promise<IDBPDatabase<CacheDB>> {
         if (!db.objectStoreNames.contains('pending-messages')) {
           const pendingStore = db.createObjectStore('pending-messages', { keyPath: 'id' })
           pendingStore.createIndex('by-room', 'roomId')
+        }
+        // v3: drafts persisted in IndexedDB instead of sessionStorage
+        if (!db.objectStoreNames.contains('drafts')) {
+          db.createObjectStore('drafts', { keyPath: 'roomId' })
         }
       },
     })
@@ -298,11 +311,15 @@ export async function clearRoomCache(roomId: string): Promise<void> {
 export async function clearCache(): Promise<void> {
   try {
     const db = await getDb()
-    const tx = db.transaction(['messages', 'rooms', 'room-meta', 'pending-messages'], 'readwrite')
+    const tx = db.transaction(
+      ['messages', 'rooms', 'room-meta', 'pending-messages', 'drafts'],
+      'readwrite',
+    )
     await tx.objectStore('messages').clear()
     await tx.objectStore('rooms').clear()
     await tx.objectStore('room-meta').clear()
     await tx.objectStore('pending-messages').clear()
+    await tx.objectStore('drafts').clear()
     await tx.done
   } catch (err) {
     console.warn('[MessageCache] Failed to clear cache', err)
@@ -338,5 +355,40 @@ export async function removePendingMessage(id: string): Promise<void> {
     await db.delete('pending-messages', id)
   } catch (err) {
     console.warn('[MessageCache] Failed to remove pending message', err)
+  }
+}
+
+// ─── Drafts ───
+
+export async function getDraft(roomId: string): Promise<string | null> {
+  try {
+    const db = await getDb()
+    const entry = await db.get('drafts', roomId)
+    return entry?.content ?? null
+  } catch (err) {
+    console.warn('[MessageCache] Failed to get draft', err)
+    return null
+  }
+}
+
+export async function setDraft(roomId: string, content: string): Promise<void> {
+  try {
+    const db = await getDb()
+    if (content) {
+      await db.put('drafts', { roomId, content })
+    } else {
+      await db.delete('drafts', roomId)
+    }
+  } catch (err) {
+    console.warn('[MessageCache] Failed to set draft', err)
+  }
+}
+
+export async function clearAllDrafts(): Promise<void> {
+  try {
+    const db = await getDb()
+    await db.clear('drafts')
+  } catch (err) {
+    console.warn('[MessageCache] Failed to clear drafts', err)
   }
 }

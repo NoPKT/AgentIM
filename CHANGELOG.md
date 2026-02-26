@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared: i18n translation completeness test
 - Web test suite now included in root CI pipeline and turbo task graph
 - Web coverage thresholds raised to 20%/16%/20%/10% (from 15%/15%/15%/9%)
+- E2E: Added specs for tasks, service-agents, file-upload, and settings pages
+- Web: Added unit tests for useUploadUrl/useUploadUrls hooks, getAvatarGradient, chat-presence actions, chat-streaming actions, routers store, and serviceAgents store
 
 ### Changed
 
@@ -91,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized LLM router timeout config into config.ts (ROUTER_LLM_TIMEOUT_MS)
 - Strengthened Redis production warning with security impact details
 - **Dynamic admin settings read-through**: Runtime configs (JWT expiry, agent rate limit, max chain depth, max file size) now use `getConfigSync()` so admin UI changes take effect without server restart
-- Health check endpoint cached for 5 seconds to reduce DB/Redis probe frequency
+- Health check endpoint cache TTL reduced from 5s to 2s for faster failure detection
 - Audit log metadata truncated at 4KB to prevent DB row bloat
 - Error handler status code restricted to valid 400-599 range (prevents leaking internal codes)
 - Docker Compose: added TRUST_PROXY environment variable pass-through
@@ -189,8 +191,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gateway PBKDF2 iterations increased from 100,000 to 600,000 to meet OWASP minimum recommendation
 - Gateway `GenericAdapter` `isAbsolutePath` now correctly detects UNC paths (`\\server\share`)
 - Gateway CLI now handles SIGPIPE signal to prevent crash when output is piped to a closed process
-- Web draft messages moved from localStorage to sessionStorage (prevents draft leakage on shared devices)
+- Web draft messages migrated from sessionStorage to IndexedDB (persists across tabs and page reloads, IDB v3)
 - Web draft auto-save debounce reduced from 1000ms to 500ms for better responsiveness
+- **API auth retry improvement**: `withAuthRetry()` now retries all HTTP methods after successful token refresh (not just GET/HEAD), since 401 means no side-effects were executed
+- **Mention search debounce**: Added 150ms debounce to mention search filtering in MessageInput to reduce unnecessary re-renders
+- **RoomList virtualization**: Room list now uses `@tanstack/react-virtual` for efficient rendering of large room lists with keyboard navigation support
 - Web MarkdownRenderer now sets `skipHtml` to prevent raw HTML passthrough as defense-in-depth
 - Gateway `git-utils.ts`: Fixed diff field always being `undefined` in workspace status output
 - Gateway `agent-manager.ts`: Fixed unsafe Map mutation during iteration when cleaning room contexts

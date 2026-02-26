@@ -112,20 +112,19 @@ function withTimeout(
  * `fn` receives a `headers` record whose Authorization is always up-to-date.
  * `isUnauthorized` inspects the result to decide whether a refresh is needed.
  *
- * For non-idempotent methods (POST/PUT/DELETE), the request is NOT retried
- * after token refresh to avoid double submission — instead fireAuthExpired()
- * is called so the user can re-authenticate and decide what to do.
+ * A 401 means the server rejected the request at the auth layer before
+ * executing any side-effects, so retrying after a successful token refresh
+ * is safe for all HTTP methods (including POST/PUT/DELETE).
  */
 async function withAuthRetry<T>(
   headers: Record<string, string>,
   fn: (hdrs: Record<string, string>) => Promise<T>,
   isUnauthorized: (result: T) => boolean,
-  isSafeMethod = true,
 ): Promise<T> {
   let result = await fn(headers)
   if (isUnauthorized(result)) {
     const refreshed = await refreshAccessToken()
-    if (refreshed && isSafeMethod) {
+    if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`
       result = await fn(headers)
     } else {
@@ -209,8 +208,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<ApiR
         }
       }
 
-      const isSafe = method === 'GET' || method === 'HEAD'
-      const res = await withAuthRetry(headers, doFetch, (r) => r.status === 401, isSafe)
+      const res = await withAuthRetry(headers, doFetch, (r) => r.status === 401)
 
       if (canRetry && attempt < maxAttempts - 1 && RETRYABLE_STATUSES.has(res.status)) {
         await delay(RETRY_BASE_DELAY * 2 ** attempt)
@@ -291,7 +289,6 @@ async function uploadFile<T>(
         return doXhrUpload(hdrs, fd)
       },
       (r) => r.status === 401,
-      false,
     )
     return result.data
   }
@@ -319,7 +316,6 @@ async function uploadFile<T>(
       }
     },
     (r) => r.status === 401,
-    false,
   )
 
   return res.json()

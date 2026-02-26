@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { api, setOnAuthExpired, setOnTokenRefresh } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { resetAllStores } from './reset.js'
+import { clearAllDrafts } from '../lib/message-cache.js'
 import type { UserRole } from '@agentim/shared'
 
 interface AuthUser {
@@ -56,15 +57,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         api.clearTokens()
         wsClient.disconnect()
         resetAllStores()
-        // Clear all draft entries from sessionStorage
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i)
-            if (key?.startsWith('draft:')) sessionStorage.removeItem(key)
-          }
-        } catch {
-          // sessionStorage may be unavailable in strict privacy mode
-        }
+        // Clear all drafts from IndexedDB
+        clearAllDrafts().catch(() => {})
         set({ user: null })
         // Signal other tabs to logout via storage event
         try {

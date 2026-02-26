@@ -280,7 +280,7 @@ app.onError((err, c) => {
 // Cached for 5 seconds to avoid excessive DB/Redis probes under frequent polling
 let healthCache: { result: Record<string, unknown>; healthy: boolean; expiresAt: number } | null =
   null
-const HEALTH_CACHE_TTL_MS = 5_000
+const HEALTH_CACHE_TTL_MS = 2_000
 
 app.get('/api/health', async (c) => {
   const now = Date.now()

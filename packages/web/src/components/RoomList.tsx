@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '../stores/chat.js'
 import { toast } from '../stores/toast.js'
 import { api } from '../lib/api.js'
@@ -107,6 +108,13 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
 
   const roomListRef = useRef<HTMLDivElement>(null)
 
+  const virtualizer = useVirtualizer({
+    count: sortedRooms.length,
+    getScrollElement: () => roomListRef.current,
+    estimateSize: () => 60,
+    overscan: 10,
+  })
+
   const handleRoomListKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!sortedRooms.length) return
@@ -136,8 +144,9 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
 
       const room = sortedRooms[nextIndex]
       handleRoomClick(room.id)
+      virtualizer.scrollToIndex(nextIndex, { align: 'auto' })
     },
-    [sortedRooms, currentRoomId, handleRoomClick],
+    [sortedRooms, currentRoomId, handleRoomClick, virtualizer],
   )
 
   return (
@@ -205,70 +214,91 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             tabIndex={0}
             ref={roomListRef}
             onKeyDown={handleRoomListKeyDown}
+            className="overflow-y-auto"
+            style={{ maxHeight: 'calc(100vh - 220px)' }}
           >
-            {sortedRooms.map((room) => {
-              const lastMsg = lastMessages.get(room.id)
-              const unread = unreadCounts.get(room.id) || 0
-              return (
-                <button
-                  key={room.id}
-                  role="option"
-                  aria-selected={room.id === currentRoomId}
-                  onClick={() => handleRoomClick(room.id)}
-                  aria-current={room.id === currentRoomId ? 'page' : undefined}
-                  className={`
-                    w-full px-3 py-2.5 text-left rounded-lg transition-all relative
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
-                    ${
-                      room.id === currentRoomId
-                        ? 'bg-info-subtle text-info-text font-medium'
-                        : 'text-text-primary hover:bg-surface-hover'
-                    }
-                  `}
-                >
-                  {/* Active indicator */}
-                  {room.id === currentRoomId && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-accent rounded-r-full" />
-                  )}
-                  <div className="flex items-center space-x-2.5">
-                    <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-sm flex items-center gap-1">
-                          {room.pinnedAt && (
-                            <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                          )}
-                          {room.name}
-                        </span>
-                        <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-                          {room.broadcastMode && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
-                              BC
-                            </span>
-                          )}
-                          {lastMsg && (
-                            <span className="text-[10px] text-text-muted">
-                              {formatTimeAgo(lastMsg.createdAt, i18n.language)}
-                            </span>
-                          )}
-                          {unread > 0 && room.id !== currentRoomId && (
-                            <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-accent rounded-full">
-                              {unread > 99 ? '99+' : unread}
-                            </span>
-                          )}
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const room = sortedRooms[virtualRow.index]
+                const lastMsg = lastMessages.get(room.id)
+                const unread = unreadCounts.get(room.id) || 0
+                const style: CSSProperties = {
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }
+                return (
+                  <button
+                    key={room.id}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    role="option"
+                    aria-selected={room.id === currentRoomId}
+                    onClick={() => handleRoomClick(room.id)}
+                    aria-current={room.id === currentRoomId ? 'page' : undefined}
+                    style={style}
+                    className={`
+                      w-full px-3 py-2.5 text-left rounded-lg transition-all relative
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+                      ${
+                        room.id === currentRoomId
+                          ? 'bg-info-subtle text-info-text font-medium'
+                          : 'text-text-primary hover:bg-surface-hover'
+                      }
+                    `}
+                  >
+                    {/* Active indicator */}
+                    {room.id === currentRoomId && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-accent rounded-r-full" />
+                    )}
+                    <div className="flex items-center space-x-2.5">
+                      <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate text-sm flex items-center gap-1">
+                            {room.pinnedAt && (
+                              <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                            )}
+                            {room.name}
+                          </span>
+                          <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                            {room.broadcastMode && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
+                                BC
+                              </span>
+                            )}
+                            {lastMsg && (
+                              <span className="text-[10px] text-text-muted">
+                                {formatTimeAgo(lastMsg.createdAt, i18n.language)}
+                              </span>
+                            )}
+                            {unread > 0 && room.id !== currentRoomId && (
+                              <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-accent rounded-full">
+                                {unread > 99 ? '99+' : unread}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        {lastMsg && (
+                          <p className="text-xs text-text-muted truncate mt-0.5">
+                            <span className="text-text-secondary">{lastMsg.senderName}: </span>
+                            {lastMsg.content.slice(0, 50)}
+                          </p>
+                        )}
                       </div>
-                      {lastMsg && (
-                        <p className="text-xs text-text-muted truncate mt-0.5">
-                          <span className="text-text-secondary">{lastMsg.senderName}: </span>
-                          {lastMsg.content.slice(0, 50)}
-                        </p>
-                      )}
                     </div>
-                  </div>
-                </button>
-              )
-            })}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </nav>
