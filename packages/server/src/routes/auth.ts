@@ -165,13 +165,12 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   logAudit({ userId: user.id, action: 'login', ipAddress: ip })
 
   // Set httpOnly Cookie for browser clients (web app).
+  // The refresh token is also returned in the JSON body for CLI clients.
+  // Note: The web client ignores the body refreshToken and relies solely on the
+  // httpOnly cookie. This dual delivery is intentional for backward compatibility
+  // with Gateway CLI clients that cannot use cookies.
   const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
   setRefreshCookie(c, refreshToken, cookieMaxAge)
-
-  // Only include refreshToken in the JSON body for non-browser (CLI/Gateway)
-  // clients that cannot use cookies. Browser clients receive the token solely
-  // via the httpOnly cookie, avoiding unnecessary exposure to JavaScript.
-  const acceptsCookies = c.req.header('cookie') !== undefined || c.req.header('sec-fetch-mode')
 
   return c.json({
     ok: true,
@@ -184,7 +183,7 @@ authRoutes.post('/login', authRateLimit, async (c) => {
         role: user.role,
       },
       accessToken,
-      ...(acceptsCookies ? {} : { refreshToken }),
+      refreshToken,
     },
   })
 })
