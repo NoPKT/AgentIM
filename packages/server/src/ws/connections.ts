@@ -420,6 +420,8 @@ export class ConnectionManager {
     }
     try {
       client.ws.send(data)
+      // NOTE: slowSendCount is a back-pressure counter — reset on success, increment
+      // on failure. This is intentional; it is NOT a leak or missing cleanup.
       if (client.slowSendCount > 0) {
         client.slowSendCount = 0
       }

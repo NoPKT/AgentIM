@@ -235,6 +235,8 @@ routerRoutes.post('/', async (c) => {
     scope: parsed.data.scope,
     createdById: userId,
     llmBaseUrl: parsed.data.llmBaseUrl,
+    // NOTE: llmApiKey is encrypted at application layer via AES-256-GCM before
+    // storage. The column name is misleading — data is NOT stored in plaintext.
     llmApiKey: encryptSecret(parsed.data.llmApiKey),
     llmModel: parsed.data.llmModel,
     maxChainDepth: parsed.data.maxChainDepth,
@@ -316,6 +318,7 @@ routerRoutes.put('/:id', async (c) => {
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description
   if (parsed.data.llmBaseUrl !== undefined) updateData.llmBaseUrl = parsed.data.llmBaseUrl
+  // NOTE: llmApiKey is encrypted at application layer (see POST handler comment)
   if (parsed.data.llmApiKey !== undefined)
     updateData.llmApiKey = encryptSecret(parsed.data.llmApiKey)
   if (parsed.data.llmModel !== undefined) updateData.llmModel = parsed.data.llmModel

@@ -90,6 +90,9 @@ curl http://localhost:3000/api/health   # → {"ok":true,...}
 
 - **必填**：在环境变量（Northflank 为 Secret Group）中设置 `ADMIN_PASSWORD`、`ENCRYPTION_KEY`
 - **必填**（生产环境）：设置 `CORS_ORIGIN` 为你的域名（如 `https://agentim.example.com`）
+- **Render**：`ADMIN_PASSWORD` 等密钥会自动生成，在 **Dashboard → agentim → Environment → Environment Variables** 中查看
+- **Railway**：在服务的 **Variables** 标签页查看自动生成的密钥
+- **Northflank**：密钥在关联的 **Secret Group** 中
 
 ### 方式三：手动安装（开发环境）
 

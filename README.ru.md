@@ -90,6 +90,9 @@ curl http://localhost:3000/api/health   # → {"ok":true,...}
 
 - **Обязательно**: Установите `ADMIN_PASSWORD`, `ENCRYPTION_KEY` в переменных окружения (на Northflank — в Secret Group)
 - **Обязательно** (продакшен): Установите `CORS_ORIGIN` на ваш домен (напр. `https://agentim.example.com`)
+- **Render**: `ADMIN_PASSWORD` и другие секреты генерируются автоматически. Найдите их в **Dashboard → agentim → Environment → Environment Variables**
+- **Railway**: Проверьте вкладку **Variables** сервиса для автоматически сгенерированных секретов
+- **Northflank**: Секреты находятся в привязанной **Secret Group**
 
 ### Вариант 3: Ручная установка (Разработка)
 

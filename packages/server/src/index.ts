@@ -90,21 +90,28 @@ async function seedAdmin() {
     log.warn('ADMIN_PASSWORD not set — no admin user will be seeded.')
     return
   }
-  // Validate admin password meets complexity requirements (same as user passwords)
-  const pwTooShort = config.adminPassword.length < 8
-  const pwTooWeak =
-    !/[a-z]/.test(config.adminPassword) ||
-    !/[A-Z]/.test(config.adminPassword) ||
-    !/[0-9]/.test(config.adminPassword)
+  // Validate admin password meets complexity requirements
+  const pwTooShort = config.adminPassword.length < 12
+  const pwNoLower = !/[a-z]/.test(config.adminPassword)
+  const pwNoUpper = !/[A-Z]/.test(config.adminPassword)
+  const pwNoDigit = !/[0-9]/.test(config.adminPassword)
+  const pwNoSpecial = !/[^a-zA-Z0-9]/.test(config.adminPassword)
+  const pwTooWeak = pwNoLower || pwNoUpper || pwNoDigit || pwNoSpecial
   if (config.isProduction && (pwTooShort || pwTooWeak)) {
+    const missing: string[] = []
+    if (pwTooShort) missing.push('at least 12 characters')
+    if (pwNoLower) missing.push('a lowercase letter')
+    if (pwNoUpper) missing.push('an uppercase letter')
+    if (pwNoDigit) missing.push('a digit')
+    if (pwNoSpecial) missing.push('a special character')
     log.fatal(
-      'ADMIN_PASSWORD does not meet minimum complexity requirements: must be at least 8 characters with lowercase, uppercase, and a digit. Example: ADMIN_PASSWORD=$(openssl rand -base64 16)',
+      `ADMIN_PASSWORD does not meet minimum complexity requirements: ${missing.join(', ')}. Example: ADMIN_PASSWORD=$(openssl rand -base64 16)`,
     )
     process.exit(1)
-  } else if (pwTooShort) {
+  } else if (config.adminPassword.length < 8) {
     log.warn('ADMIN_PASSWORD is shorter than 8 characters — consider using a stronger password.')
   } else if (pwTooWeak) {
-    log.warn('ADMIN_PASSWORD should contain lowercase, uppercase, and digit characters.')
+    log.warn('ADMIN_PASSWORD should contain lowercase, uppercase, digit, and special characters.')
   }
   const { nanoid } = await import('nanoid')
   const { hash, verify } = await import('argon2')
@@ -478,6 +485,8 @@ app.use('/uploads/*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
   // Strict CSP for uploaded content: prevent any script/style execution
   c.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+  // Prevent token leakage via Referer header when navigating away from uploaded content
+  c.header('Referrer-Policy', 'no-referrer')
   // Force download for non-safe types (prevent SVG XSS, HTML injection, etc.)
   const contentType = c.res.headers.get('Content-Type') ?? ''
   const safeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']

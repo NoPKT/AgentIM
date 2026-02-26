@@ -216,9 +216,14 @@ export async function isTokenRevoked(userId: string, iatMs: number): Promise<boo
     // revocations made by THIS process. Only cross-process revocations are
     // missed. Fail-open here to prevent a Redis outage from locking out all
     // users; the short access token TTL bounds the exposure window.
-    log.warn(
-      'Redis unavailable for token revocation check — in-memory layer passed, ' +
-        'allowing request (fail-open). Cross-process revocations may be missed.',
+    //
+    // Security note: this is an intentional trade-off for availability.
+    // In production multi-process deployments, ensure Redis is highly available
+    // (e.g. Redis Sentinel or managed Redis) to minimize this window.
+    log.error(
+      'SECURITY: Redis unavailable for token revocation check — in-memory layer passed, ' +
+        'allowing request (fail-open). Cross-process revocations may be missed. ' +
+        'Ensure Redis is highly available in production to prevent revoked tokens from being accepted.',
     )
     return false
   }

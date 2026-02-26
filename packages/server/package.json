@@ -33,6 +33,9 @@
     "web-push": "^3.6.7",
     "ws": "^8.18.0"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@types/pg": "^8.11.0",
     "@types/web-push": "^3.6.4",

@@ -81,12 +81,21 @@ Tips:
 
 ## Monitoring
 
-The server exposes Prometheus metrics at `GET /api/metrics` (no auth required):
+The server exposes Prometheus metrics at `GET /api/metrics`. In production, authentication is required by default (`METRICS_AUTH_ENABLED` defaults to `true`). Set `METRICS_AUTH_ENABLED=false` to allow unauthenticated Prometheus scrapes.
 
-- `agentim_client_connections` — active WebSocket clients
-- `agentim_gateway_connections` — connected gateways
+Available metrics:
+
+- `agentim_ws_client_connections` — active WebSocket clients
+- `agentim_ws_gateway_connections` — connected gateways
 - `agentim_online_users` — unique online users
-- `agentim_agents_total` — registered agents
-- `process_heap_used_bytes` / `process_rss_bytes` — Node.js memory
+- `agentim_connected_agents` — agents registered via active gateways
+- `process_uptime_seconds` — server uptime
+- `process_heap_bytes` / `process_rss_bytes` — Node.js memory
+- `agentim_messages_total` — message counters (by type)
+- `agentim_ws_messages_total` — WebSocket message counters (by direction)
+- `agentim_api_errors_total` — API error counter
+- `agentim_agent_response_duration_seconds` — agent response latency histogram
+- `agentim_http_request_duration_seconds` — HTTP request latency histogram
+- `agentim_active_rooms` — rooms with at least one connected client
 
 Set alerts on connection counts and memory to detect capacity issues early.

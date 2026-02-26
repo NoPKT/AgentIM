@@ -30,6 +30,6 @@ export async function getAccessToken(page: Page): Promise<string> {
   if (!res.ok()) {
     throw new Error(`Login failed: ${res.status()} ${await res.text()}`)
   }
-  const body = (await res.json()) as { accessToken: string }
-  return body.accessToken
+  const body = (await res.json()) as { data: { accessToken: string } }
+  return body.data.accessToken
 }

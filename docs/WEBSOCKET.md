@@ -16,9 +16,9 @@ ws://your-server.com/ws/client    # Client endpoint
 ws://your-server.com/ws/gateway   # Gateway endpoint
 ```
 
-### 2. Authenticate (within 10 seconds)
+### 2. Authenticate (within 5 seconds)
 
-Send an auth message immediately after connecting. The server closes connections that don't authenticate within 10 seconds (close code `4001`).
+Send an auth message immediately after connecting. The server closes connections that don't authenticate within 5 seconds (close code `4001`).
 
 ### 3. Exchange messages
 

@@ -90,6 +90,9 @@ curl http://localhost:3000/api/health   # → {"ok":true,...}
 
 - **必須**：環境変数（Northflank は Secret Group）で `ADMIN_PASSWORD`、`ENCRYPTION_KEY` を設定
 - **必須**（本番環境）：`CORS_ORIGIN` をドメインに設定（例：`https://agentim.example.com`）
+- **Render**：`ADMIN_PASSWORD` などのシークレットは自動生成されます。**Dashboard → agentim → Environment → Environment Variables** で確認できます
+- **Railway**：サービスの **Variables** タブで自動生成されたシークレットを確認
+- **Northflank**：シークレットはリンクされた **Secret Group** にあります
 
 ### 方法3：手動セットアップ（開発用）
 

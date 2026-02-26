@@ -239,6 +239,13 @@
       "when": 1772600000000,
       "tag": "0033_add_revoked_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1772700000000,
+      "tag": "0034_add_unique_name_indexes",
+      "breakpoints": true
     }
   ]
 }

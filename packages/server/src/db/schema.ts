@@ -128,7 +128,10 @@ export const serviceAgents = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (table) => [index('service_agents_created_by_idx').on(table.createdById)],
+  (table) => [
+    index('service_agents_created_by_idx').on(table.createdById),
+    uniqueIndex('service_agents_name_creator_idx').on(table.name, table.createdById),
+  ],
 )
 
 // ─── Routers ───
@@ -161,6 +164,7 @@ export const routers = pgTable(
     index('routers_created_by_idx').on(table.createdById),
     index('routers_scope_idx').on(table.scope),
     index('routers_scope_creator_idx').on(table.scope, table.createdById),
+    uniqueIndex('routers_name_creator_idx').on(table.name, table.createdById),
   ],
 )
 

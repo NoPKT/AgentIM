@@ -90,6 +90,9 @@ Nach dem Deployment:
 
 - **Erforderlich**: `ADMIN_PASSWORD`, `ENCRYPTION_KEY` in den Umgebungsvariablen setzen (bei Northflank in der Secret Group)
 - **Erforderlich** (Produktion): `CORS_ORIGIN` auf Ihre Domain setzen (z.B. `https://agentim.example.com`)
+- **Render**: `ADMIN_PASSWORD` und andere Secrets werden automatisch generiert. Finden Sie sie unter **Dashboard → agentim → Environment → Environment Variables**
+- **Railway**: Prüfen Sie den **Variables**-Tab des Services für automatisch generierte Secrets
+- **Northflank**: Secrets befinden sich in der verknüpften **Secret Group**
 
 ### Option 3: Manuelle Installation (Entwicklung)
 

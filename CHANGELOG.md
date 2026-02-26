@@ -260,3 +260,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deploy.sh key generation**: Switched from `openssl rand -base64 32` to `openssl rand -hex 32` to avoid shell-unsafe `+/=` characters in generated secrets
 - **SECURITY.md key generation**: Updated deployment checklist to use `openssl rand -hex 32`
 - **Upload token-in-URL documentation**: Enhanced JSDoc on `useUploadUrl` with explicit security mitigations (short-lived tokens, HTTPS, no query param logging)
+
+#### Comprehensive Code Audit (Round 2)
+
+- **[SECURITY] Docker Compose default password**: Removed weak default `postgres` password from `docker-compose.yml`; now requires `POSTGRES_PASSWORD` to be explicitly set (fails fast with error message if missing)
+- **[SECURITY] Admin password strength**: Production admin password now requires 12+ characters with uppercase, lowercase, digit, and special character (was 8+ chars with 3 classes)
+- **[SECURITY] Upload Referrer-Policy**: Added `Referrer-Policy: no-referrer` header to file upload responses to prevent token leakage via HTTP Referer
+- **[SECURITY] Token revocation fail-open logging**: Upgraded Redis-unavailable revocation check log from `warn` to `error` with `SECURITY:` prefix and Redis HA recommendation
+- **Router/ServiceAgent name uniqueness**: Added unique composite indexes `(name, created_by_id)` on `routers` and `service_agents` tables (migration 0034) to prevent duplicate names per user
+- **E2E helper token parsing**: Fixed login response parsing in `e2e/helpers.ts` from `body.accessToken` to `body.data.accessToken` to match actual server response structure
+- **Docs auth timeout drift**: Fixed WebSocket auth timeout from "10 seconds" to "5 seconds" in WEBSOCKET.md and ARCHITECTURE.md to match actual `wsAuthTimeoutMs` config (5000ms)
+- **Docs rate limit drift**: Fixed auth rate limit from "10 req/min" to "20 req/min" in ARCHITECTURE.md to match actual `authRateLimit` middleware config
+- **Docs metrics accuracy**: Rewrote CAPACITY.md Monitoring section with correct metric names (`agentim_ws_client_connections` not `agentim_client_connections`), auth requirement note, and complete metric inventory
+- **Server Node.js engine constraint**: Added `"engines": { "node": ">=20" }` to server package.json
+- **Pre-push hook UX**: Enhanced PostgreSQL/Redis not-running warning with Docker startup commands
+- **Cloud deploy credential docs**: Added credential retrieval instructions for Render, Railway, and Northflank to all 7 README translations
+- **Crypto unit tests**: Added dedicated test file for `encryptSecret`/`decryptSecret` covering round-trip, plaintext passthrough, random IV, malformed input, and missing key scenarios
+- **Transaction atomicity**: Wrapped password change + refresh token deletion in transactions for user self-change, admin password reset, and gateway deletion (prevents inconsistent state on partial failure)
+- **Audit false-positive guards**: Added protective code comments on 4 patterns frequently mis-flagged by audits (router API key encryption, slowSendCount back-pressure, streamSizeTracker dual cleanup, WeakMap auth counter)
