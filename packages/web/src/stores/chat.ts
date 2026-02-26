@@ -142,6 +142,9 @@ interface ChatState {
   reset: () => void
 }
 
+// Guard to prevent concurrent loadRooms() calls (mirrors loadMessages dedup pattern)
+let _loadingRooms = false
+
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
   currentRoomId: null,
@@ -191,6 +194,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadRooms: async () => {
+    // Prevent duplicate concurrent loads (e.g. rapid connect/disconnect)
+    if (_loadingRooms) return
+    _loadingRooms = true
+
     // Show cached data immediately while API loads
     const [cachedRooms, cachedMeta] = await Promise.all([getCachedRooms(), getCachedRoomMeta()])
     if (cachedRooms.length > 0) {
@@ -246,6 +253,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (get().rooms.length === 0) {
         toast.error('Failed to load rooms')
       }
+    } finally {
+      _loadingRooms = false
     }
   },
 

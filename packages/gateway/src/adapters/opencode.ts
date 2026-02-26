@@ -107,7 +107,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       // Start SSE event stream before sending the prompt.
       // If the initial subscribe fails (e.g. transient network error), retry up
       // to SSE_MAX_RETRIES times with exponential backoff before giving up.
-      const SSE_MAX_RETRIES = 2
+      const SSE_MAX_RETRIES = 5
       const abortController = new AbortController()
       this.streamAbort = abortController
 
@@ -120,7 +120,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
           break
         } catch (err: unknown) {
           if (attempt >= SSE_MAX_RETRIES || abortController.signal.aborted) throw err
-          const delay = 500 * (attempt + 1)
+          const delay = Math.min(500 * Math.pow(2, attempt), 10_000)
           log.warn(
             `SSE subscribe failed (attempt ${attempt + 1}/${SSE_MAX_RETRIES + 1}), retrying in ${delay}ms: ${(err as Error).message}`,
           )

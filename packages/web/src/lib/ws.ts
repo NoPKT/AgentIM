@@ -7,7 +7,9 @@ type StatusHandler = (status: ConnectionStatus) => void
 type ReconnectHandler = () => void
 
 const PING_INTERVAL = 30_000
-const PONG_TIMEOUT = 10_000
+// Allow generous pong timeout to avoid false disconnects on high-latency
+// networks (satellite, cross-continent). Must be < PING_INTERVAL.
+const PONG_TIMEOUT = 15_000
 
 export class WsClient {
   private ws: WebSocket | null = null
