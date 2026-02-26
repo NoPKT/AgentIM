@@ -307,16 +307,13 @@ app.get('/api/health', async (c) => {
   }
 
   const healthy = Object.values(checks).every(Boolean)
-  const mem = process.memoryUsage()
+  // Omit detailed system metrics (memory, uptime) from the public health endpoint
+  // to reduce the information surface exposed to unauthenticated scanners.
+  // Detailed system data is available via the authenticated /api/admin/metrics endpoint.
   const result = {
     ok: healthy,
     timestamp: new Date().toISOString(),
     checks,
-    system: {
-      memoryMB: Math.round(mem.rss / 1024 / 1024),
-      heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
-      uptimeSeconds: Math.round(process.uptime()),
-    },
   }
 
   healthCache = { result, healthy, expiresAt: now + HEALTH_CACHE_TTL_MS }
@@ -326,8 +323,24 @@ app.get('/api/health', async (c) => {
 // Register active rooms getter for Prometheus metrics
 setActiveRoomsGetter(() => connectionManager.getStats().activeRooms)
 
-// Prometheus-compatible metrics (unauthenticated; does not expose user data)
-app.get('/api/metrics', (c) => {
+// Prometheus-compatible metrics endpoint.
+// When METRICS_AUTH_ENABLED=true, requires a valid JWT to prevent information
+// leakage on public-facing deployments. Defaults to unauthenticated for
+// compatibility with standard Prometheus scrape configs.
+app.get('/api/metrics', async (c) => {
+  if (config.metricsAuthEnabled) {
+    const authHeader = c.req.header('Authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    if (!token) {
+      return c.text('Unauthorized', 401)
+    }
+    try {
+      await verifyToken(token)
+    } catch {
+      return c.text('Invalid or expired token', 401)
+    }
+  }
+
   const ws = connectionManager.getStats()
   const mem = process.memoryUsage()
   const lines = [

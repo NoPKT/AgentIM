@@ -39,6 +39,29 @@ interface AuditOptions {
   ipAddress?: string
 }
 
+/**
+ * Compute which fields changed between two objects. Returns a map of
+ * field names to `{ from, to }` pairs. Only includes fields where the
+ * serialized value actually differs. Useful for enriching audit logs with
+ * field-level change details.
+ */
+export function diffFields(
+  prev: Record<string, unknown>,
+  next: Record<string, unknown>,
+  fieldsToTrack?: string[],
+): Record<string, { from: unknown; to: unknown }> | null {
+  const keys = fieldsToTrack ?? [...new Set([...Object.keys(prev), ...Object.keys(next)])]
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  for (const key of keys) {
+    const a = JSON.stringify(prev[key] ?? null)
+    const b = JSON.stringify(next[key] ?? null)
+    if (a !== b) {
+      changes[key] = { from: prev[key] ?? null, to: next[key] ?? null }
+    }
+  }
+  return Object.keys(changes).length > 0 ? changes : null
+}
+
 const MAX_METADATA_SIZE = 4096 // 4KB limit for metadata JSON
 
 export async function logAudit(opts: AuditOptions): Promise<void> {

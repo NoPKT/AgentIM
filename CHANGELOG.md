@@ -226,3 +226,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced password environment variable cleanup in gateway CLI
 - Refresh token endpoint now validates Origin header (Cookie path only) in production for CSRF defence-in-depth
 - Trivy Docker image vulnerability scanning in release workflow with SARIF upload to GitHub CodeQL
+- **[SECURITY] CSRF Origin validation consistency**: `/auth/refresh` now uses dynamic CORS config (same source as global CORS middleware) instead of static `config.corsOrigin`, preventing 403 errors when admins change allowed origins at runtime
+- **[SECURITY] Push subscription ownership**: `/api/push/unsubscribe` now verifies the subscription belongs to the requesting user, preventing cross-user subscription removal
+- **[SECURITY] Health endpoint hardening**: Removed detailed system metrics (memory, uptime) from public `/api/health` endpoint to reduce information surface for unauthenticated scanners
+- **[SECURITY] Metrics endpoint auth**: Added optional `METRICS_AUTH_ENABLED` config to require Bearer token for `/api/metrics` (recommended for public deployments)
+- **JSON body parse protection**: `serviceAgents` and `push` routes now use `parseJsonBody()` for safe JSON parsing — invalid JSON returns 400 instead of unhandled 500
+- **Router LLM circuit breaker**: Added circuit breaker pattern (5 failures → 1min open → half-open probe) to prevent cascading failures when upstream LLM is down
+- **Gateway WS queue retry backoff**: Replaced fixed 1s retry delay with exponential backoff (max 5 retries, 1s→16s) to prevent retry storms under high load
+- **Gateway exception cleanup**: `uncaughtException` handler now properly awaits cleanup before exiting
+- **Audit log field diffing**: Added `diffFields()` utility for enriching audit logs with field-level change details
+- **OpenAPI docs accuracy**: Fixed `/auth/refresh` spec to document cookie-based flow (body is optional, not required)
+- **E2E assertion fix**: Replaced always-true `>=0` assertion in agents.spec.ts with meaningful `>0` check
+- **Web coverage thresholds raised**: lines 23→24, functions 19→21, statements 22→23, branches 11→12; added unit tests for toast and agents stores
+- **README**: Added early-stage (v0.x) notice to set user expectations

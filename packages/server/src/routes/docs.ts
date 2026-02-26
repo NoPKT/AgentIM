@@ -138,19 +138,35 @@ const spec = {
       post: {
         tags: ['Auth'],
         summary: 'Refresh access token',
+        description:
+          'Rotates the refresh token and returns a new access token. ' +
+          'Browser clients send the refresh token via httpOnly cookie (preferred). ' +
+          'CLI/non-browser clients may send it in the JSON body as a fallback.',
         security: [],
         requestBody: {
+          required: false,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['refreshToken'],
-                properties: { refreshToken: { type: 'string' } },
+                properties: {
+                  refreshToken: {
+                    type: 'string',
+                    description:
+                      'Only required for non-browser clients. Browser clients use the httpOnly cookie instead.',
+                  },
+                },
               },
             },
           },
         },
-        responses: { '200': { description: 'New tokens' } },
+        responses: {
+          '200': {
+            description:
+              'New access token (and new refresh token in body for CLI clients, or rotated cookie for browser clients)',
+          },
+          '401': { description: 'Refresh token missing, invalid, expired, or revoked' },
+        },
       },
     },
     '/auth/logout': {
@@ -424,12 +440,15 @@ const spec = {
       get: {
         tags: ['System'],
         summary: 'Prometheus metrics',
+        description:
+          'Returns Prometheus-format metrics. When METRICS_AUTH_ENABLED=true, requires Bearer token authentication.',
         security: [],
         responses: {
           '200': {
             description: 'Prometheus-format metrics (client connections, gateways, agents, memory)',
             content: { 'text/plain': { schema: { type: 'string' } } },
           },
+          '401': { description: 'Unauthorized (only when METRICS_AUTH_ENABLED=true)' },
         },
       },
     },

@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { parseJsonBody } from '../lib/validation.js'
 import {
   isWebPushEnabled,
   getVapidPublicKey,
@@ -24,25 +25,31 @@ pushRoutes.post('/subscribe', authMiddleware, async (c) => {
     return c.json({ ok: false, error: 'Web Push is not configured' }, 404)
   }
   const userId = c.get('userId')
-  const body = await c.req.json<{
-    endpoint: string
-    keys: { p256dh: string; auth: string }
-  }>()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const { endpoint, keys } = body as {
+    endpoint?: string
+    keys?: { p256dh?: string; auth?: string }
+  }
 
-  if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
     return c.json({ ok: false, error: 'Invalid subscription data' }, 400)
   }
 
-  await saveSubscription(userId, body)
+  await saveSubscription(userId, { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } })
   return c.json({ ok: true })
 })
 
-// Authenticated: remove push subscription
+// Authenticated: remove push subscription (scoped to current user)
 pushRoutes.post('/unsubscribe', authMiddleware, async (c) => {
-  const body = await c.req.json<{ endpoint: string }>()
-  if (!body.endpoint) {
+  const userId = c.get('userId')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const { endpoint } = body as { endpoint?: string }
+  if (!endpoint) {
     return c.json({ ok: false, error: 'Missing endpoint' }, 400)
   }
-  await removeSubscription(body.endpoint)
+  // Only allow removing subscriptions owned by the requesting user
+  await removeSubscription(endpoint, userId)
   return c.json({ ok: true })
 })

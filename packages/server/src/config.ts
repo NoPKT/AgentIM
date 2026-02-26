@@ -89,6 +89,9 @@ export const config = {
   maxRefreshTokensPerUser: 10,
   logLevel: env('LOG_LEVEL', 'info'),
   runMigrations: env('RUN_MIGRATIONS', 'true') === 'true',
+  // When true, /api/metrics requires a valid JWT (any authenticated user).
+  // Recommended for public-facing deployments to prevent information leakage.
+  metricsAuthEnabled: env('METRICS_AUTH_ENABLED', 'false') === 'true',
 }
 
 // Security check: refuse to start in production with weak JWT secret

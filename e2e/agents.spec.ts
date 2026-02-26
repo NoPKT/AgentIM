@@ -28,9 +28,9 @@ test.describe('Agents page', () => {
   test('displays agents section', async ({ page }) => {
     // Wait for page to fully load
     await page.waitForLoadState('networkidle')
-    // Page should contain the agents heading or an empty state
+    // Page should contain either an agents list or an empty-state message
     const hasAgents = await page.locator('[data-testid="agents-list"]').count()
     const hasEmpty = await page.getByText(/no agents|connect.*agent|start.*agent/i).count()
-    expect(hasAgents + hasEmpty).toBeGreaterThanOrEqual(0)
+    expect(hasAgents + hasEmpty).toBeGreaterThan(0)
   })
 })

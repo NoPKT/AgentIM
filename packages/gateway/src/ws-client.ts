@@ -150,6 +150,7 @@ export class GatewayWsClient {
   }
 
   private droppedCount = 0
+  private retryAttempts = new WeakMap<object, number>()
 
   send(msg: GatewayMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
@@ -193,9 +194,20 @@ export class GatewayWsClient {
               this.onDroppedMessage?.(dropped)
               this.sendQueue.push(msg)
             } else {
-              // Queue is full of critical messages; retry after a short delay
-              log.warn('Send queue full (all critical), retrying message after delay')
-              setTimeout(() => this.send(msg), 1000)
+              // Queue is full of critical messages; retry with exponential backoff
+              const attempt = (this.retryAttempts.get(msg as object) ?? 0) + 1
+              const MAX_RETRY = 5
+              if (attempt > MAX_RETRY) {
+                log.error(`Giving up on critical message after ${MAX_RETRY} retries`)
+                this.droppedCount++
+                this.logDroppedMessage(msg)
+                this.onDroppedMessage?.(msg)
+              } else {
+                this.retryAttempts.set(msg as object, attempt)
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 16000)
+                log.warn(`Send queue full (all critical), retry #${attempt} in ${delay}ms`)
+                setTimeout(() => this.send(msg), delay)
+              }
             }
           }
         } else if (priority === 'high') {
@@ -215,8 +227,19 @@ export class GatewayWsClient {
         } else {
           // Normal priority — drop it, but retry if it's a critical type
           if (GatewayWsClient.RETRY_ON_DROP_TYPES.has(msg.type)) {
-            log.warn(`Retrying dropped critical message type "${msg.type}" after delay`)
-            setTimeout(() => this.send(msg), 1000)
+            const attempt = (this.retryAttempts.get(msg as object) ?? 0) + 1
+            const MAX_RETRY = 5
+            if (attempt > MAX_RETRY) {
+              log.error(`Giving up on retryable message "${msg.type}" after ${MAX_RETRY} retries`)
+              this.droppedCount++
+              this.logDroppedMessage(msg)
+              this.onDroppedMessage?.(msg)
+            } else {
+              this.retryAttempts.set(msg as object, attempt)
+              const delay = Math.min(1000 * Math.pow(2, attempt - 1), 16000)
+              log.warn(`Retrying dropped message "${msg.type}", retry #${attempt} in ${delay}ms`)
+              setTimeout(() => this.send(msg), delay)
+            }
           } else {
             this.droppedCount++
             this.logDroppedMessage(msg)

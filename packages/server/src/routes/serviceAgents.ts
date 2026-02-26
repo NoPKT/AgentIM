@@ -9,6 +9,7 @@ import { encryptSecret, decryptSecret } from '../lib/crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { getProvider, listProviders } from '../lib/providers/registry.js'
 import { zodToJsonSchema } from '../lib/providers/schema-utils.js'
+import { parseJsonBody } from '../lib/validation.js'
 
 const log = createLogger('ServiceAgents')
 
@@ -63,7 +64,8 @@ app.get('/:id', async (c) => {
 
 // POST /api/service-agents - Create service agent
 app.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = createServiceAgentSchema.safeParse(body)
   if (!parsed.success) {
     return c.json(
@@ -131,7 +133,8 @@ app.post('/', async (c) => {
 // PUT /api/service-agents/:id - Update service agent
 app.put('/:id', async (c) => {
   const { id } = c.req.param()
-  const body = await c.req.json()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
   const parsed = updateServiceAgentSchema.safeParse(body)
   if (!parsed.success) {
     return c.json(

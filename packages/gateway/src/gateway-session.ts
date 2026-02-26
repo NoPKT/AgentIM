@@ -179,11 +179,11 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     })
     process.on('uncaughtException', (err) => {
       log.error(`Uncaught exception: ${err.message}`)
-      void cleanup()
+      void cleanup().finally(() => process.exit(1))
     })
     process.on('unhandledRejection', (reason) => {
       log.error(`Unhandled rejection: ${reason}`)
-      void cleanup()
+      void cleanup().catch((e) => log.warn(`Cleanup error: ${(e as Error).message}`))
     })
   }
 
