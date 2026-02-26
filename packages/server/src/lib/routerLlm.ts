@@ -9,6 +9,63 @@ const ROUTER_TIMEOUT = config.routerLlmTimeoutMs
 
 const MAX_ROUTER_AGENTS = Math.max(1, parseInt(process.env.ROUTER_LLM_MAX_AGENTS ?? '', 10) || 20)
 
+// ─── Circuit Breaker ───
+// Prevents cascading failures when the LLM service is down or slow.
+// After FAILURE_THRESHOLD consecutive failures, the circuit opens for
+// OPEN_DURATION_MS, during which requests are immediately short-circuited
+// (return null) without hitting the upstream. After the window expires, one
+// probe request is allowed through (half-open). If it succeeds the circuit
+// closes; if it fails it re-opens.
+const CB_FAILURE_THRESHOLD = 5
+const CB_OPEN_DURATION_MS = 60_000 // 1 minute
+
+interface CircuitState {
+  failures: number
+  state: 'closed' | 'open' | 'half-open'
+  openedAt: number
+}
+
+const circuits = new Map<string, CircuitState>()
+
+function getCircuit(key: string): CircuitState {
+  let c = circuits.get(key)
+  if (!c) {
+    c = { failures: 0, state: 'closed', openedAt: 0 }
+    circuits.set(key, c)
+  }
+  return c
+}
+
+function shouldAllowRequest(key: string): boolean {
+  const c = getCircuit(key)
+  if (c.state === 'closed') return true
+  if (c.state === 'open') {
+    if (Date.now() - c.openedAt >= CB_OPEN_DURATION_MS) {
+      c.state = 'half-open'
+      return true // allow one probe
+    }
+    return false
+  }
+  // half-open: already allowed one probe, block further until probe resolves
+  return false
+}
+
+function recordSuccess(key: string): void {
+  const c = getCircuit(key)
+  c.failures = 0
+  c.state = 'closed'
+}
+
+function recordFailure(key: string): void {
+  const c = getCircuit(key)
+  c.failures++
+  if (c.failures >= CB_FAILURE_THRESHOLD || c.state === 'half-open') {
+    c.state = 'open'
+    c.openedAt = Date.now()
+    log.warn(`Circuit breaker opened for LLM endpoint "${key}" after ${c.failures} failures`)
+  }
+}
+
 const llmResponseSchema = z.object({
   choices: z
     .array(
@@ -87,6 +144,13 @@ export async function selectAgents(
   if (!routerConfig.llmBaseUrl || !routerConfig.llmApiKey) return null
   if (agents.length === 0) return []
 
+  // Circuit breaker check: fail fast when the LLM endpoint is known to be down
+  const cbKey = routerConfig.llmBaseUrl
+  if (!shouldAllowRequest(cbKey)) {
+    log.debug(`Circuit breaker open for ${cbKey}, skipping LLM call`)
+    return null
+  }
+
   // Pre-filter agents by keyword relevance when the list is too large for the LLM context
   if (agents.length > MAX_ROUTER_AGENTS) {
     const messageTokens = tokenize(content)
@@ -148,6 +212,7 @@ export async function selectAgents(
       log.warn(
         `Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
       )
+      recordFailure(cbKey)
       return null
     } finally {
       clearTimeout(timeout)
@@ -155,6 +220,7 @@ export async function selectAgents(
 
     if (!res.ok) {
       log.warn(`Router LLM HTTP error: status ${res.status} ${res.statusText}`)
+      recordFailure(cbKey)
       return null
     }
 
@@ -200,8 +266,10 @@ export async function selectAgents(
 
     // Validate that returned IDs exist in the agent list
     const validIds = new Set(agents.map((a) => a.id))
+    recordSuccess(cbKey)
     return parsed.agentIds.filter((id) => validIds.has(id))
   } catch (err) {
+    recordFailure(cbKey)
     log.warn(`Router LLM unexpected error: ${err instanceof Error ? err.message : String(err)}`)
     return null
   }

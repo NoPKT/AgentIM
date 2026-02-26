@@ -1,5 +1,5 @@
 import webPush from 'web-push'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
 import { pushSubscriptions } from '../db/schema.js'
@@ -71,8 +71,15 @@ export async function saveSubscription(
     })
 }
 
-export async function removeSubscription(endpoint: string) {
-  await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint))
+export async function removeSubscription(endpoint: string, userId?: string) {
+  if (userId) {
+    // Scoped delete: only remove if the subscription belongs to this user
+    await db
+      .delete(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId)))
+  } else {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint))
+  }
 }
 
 export async function sendPushToUser(userId: string, payload: Record<string, unknown>) {

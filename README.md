@@ -23,6 +23,8 @@
 
 ---
 
+> **Note:** AgentIM is in early development (v0.x). APIs and configuration may change between minor versions. It is suitable for personal use, small teams, and evaluation — not yet recommended for large-scale production deployments. Feedback and contributions are welcome!
+
 ## What is AgentIM?
 
 AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI _(coming soon)_, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.

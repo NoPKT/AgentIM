@@ -12,7 +12,7 @@ import { logAudit, getClientIp } from '../lib/audit.js'
 import { revokeUserTokens } from '../lib/tokenRevocation.js'
 import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody, formatZodError } from '../lib/validation.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 
 const REFRESH_COOKIE_NAME = 'agentim_rt'
 const REFRESH_COOKIE_PATH = '/api/auth'
@@ -212,10 +212,18 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
   // Gateway CLI uses the JSON body path and skips this check.
   // SameSite=Strict already provides primary CSRF protection; this adds a
   // secondary layer for environments where SameSite may not be enforced.
-  if (usingCookie && config.isProduction && config.corsOrigin) {
-    const origin = c.req.header('origin')
-    if (origin && origin !== config.corsOrigin) {
-      return c.json({ ok: false, error: 'Forbidden' }, 403)
+  // Uses dynamic CORS config (same source as global CORS middleware) to stay
+  // consistent when admins change allowed origins at runtime.
+  if (usingCookie && config.isProduction) {
+    const allowed = getConfigSync<string>('cors.origin') || config.corsOrigin
+    if (allowed) {
+      const origin = c.req.header('origin')
+      if (origin) {
+        const origins = allowed.split(',').map((s) => s.trim())
+        if (!origins.includes(origin)) {
+          return c.json({ ok: false, error: 'Forbidden' }, 403)
+        }
+      }
     }
   }
 
