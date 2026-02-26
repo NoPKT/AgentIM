@@ -261,6 +261,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SECURITY.md key generation**: Updated deployment checklist to use `openssl rand -hex 32`
 - **Upload token-in-URL documentation**: Enhanced JSDoc on `useUploadUrl` with explicit security mitigations (short-lived tokens, HTTPS, no query param logging)
 
+#### Comprehensive Code Audit (Round 5)
+
+- **Schema timestamp type consistency**: Fixed `service_agents` and `bookmarks` tables to use `timestamptz` columns (via `ts()` helper) instead of `text` — aligns with all other tables for correct sorting, timezone awareness, and type safety (migration 0035)
+- **SSRF module extraction**: Extracted `isPrivateIp`, `isInternalUrl`, and `resolvesToPrivateIp` from `routers.ts` into dedicated `lib/ssrf.ts` module for testability and reuse; added `.local`/`.internal` hostname blocking
+- **SSRF unit tests**: Added 28 dedicated unit tests covering all IPv4 private ranges (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, CGNAT, multicast, reserved), IPv6 ranges (ULA, link-local, loopback, IPv4-mapped in both dotted and hex forms), bypass attempts (octal/hex notation, cloud metadata), non-HTTP schemes, and malformed URLs
+- **CI E2E cross-browser coverage**: Scheduled, manual, and release CI runs now install and execute E2E tests on both Chromium and Firefox (PRs remain Chromium-only for speed)
+- **Render CORS_ORIGIN guidance**: Added prominent comment in `render.yaml` and a dedicated "One-Click Cloud Deployment Notes" section in `DEPLOYMENT.md` explaining that `CORS_ORIGIN` must be manually set after Render deployment
+- **Redis security documentation**: Enhanced `DEPLOYMENT.md` Redis single-process section with explicit security note about token revocation cache behavior across restarts
+- **Web theme store tests**: Added 7 unit tests for `useThemeStore` covering default mode, localStorage persistence, dark/light switching, CSS transition class lifecycle, invalid value handling, and system theme listener cleanup
+- **Web coverage thresholds raised**: lines 25→26, functions 21→22, statements 24→25, branches 12→13
+- **Migration rollback coverage**: Added rollback scripts for migrations 0034–0035; updated `MIGRATION_ROLLBACK.md` coverage range to 0019–0035
+
 #### Comprehensive Code Audit (Round 3)
 
 - **[SECURITY] Auth inconsistency in metrics and uploads**: `/api/metrics`, `/api/admin/metrics`, and `/uploads/*` now enforce `type === 'access'` and token revocation checks, matching the `authMiddleware` contract — refresh tokens can no longer access these endpoints

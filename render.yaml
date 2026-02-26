@@ -32,6 +32,8 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      # IMPORTANT: You MUST set CORS_ORIGIN after deployment to your Render service URL
+      # (e.g. https://agentim-xxxx.onrender.com). The server will refuse to start without it.
       - key: CORS_ORIGIN
         sync: false
       - key: TRUST_PROXY

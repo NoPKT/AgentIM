@@ -3,8 +3,8 @@
 # Triggers:
 #   - Push to main: Build & Lint + Test (no E2E)
 #   - PRs: Build & Lint + Test + Smoke E2E (Chromium only)
-#   - Daily schedule (UTC 04:00): full suite including E2E (only if new commits)
-#   - Manual dispatch / release workflow: full suite
+#   - Daily schedule (UTC 04:00): full suite including E2E (Chromium + Firefox)
+#   - Manual dispatch / release workflow: full suite (Chromium + Firefox)
 
 name: CI
 
@@ -197,7 +197,12 @@ jobs:
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          # Install Firefox for full cross-browser coverage on scheduled/manual runs
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_call" ]; then
+            pnpm exec playwright install --with-deps firefox
+          fi
 
       - name: Start server in background
         run: node packages/server/dist/index.js > /tmp/server.log 2>&1 &
@@ -232,7 +237,12 @@ jobs:
           done
 
       - name: Run E2E tests
-        run: pnpm test:e2e --project=chromium
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_call" ]; then
+            pnpm test:e2e --project=chromium --project=firefox
+          else
+            pnpm test:e2e --project=chromium
+          fi
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           E2E_ADMIN_USERNAME: admin
