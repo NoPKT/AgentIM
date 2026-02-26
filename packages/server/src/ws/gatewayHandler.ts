@@ -27,7 +27,7 @@ import { captureException } from '../lib/sentry.js'
 import { db } from '../db/index.js'
 import { agents, gateways, messages, tasks, roomMembers, rooms, users } from '../db/schema.js'
 import { getRedis, INCR_WITH_EXPIRE_LUA, isRedisEnabled } from '../lib/redis.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
@@ -112,8 +112,11 @@ async function isAgentRateLimited(
   rateLimitWindow?: number,
   rateLimitMax?: number,
 ): Promise<boolean> {
-  const windowSec = rateLimitWindow ?? config.agentRateLimitWindow
-  const max = rateLimitMax ?? config.agentRateLimitMax
+  const windowSec =
+    rateLimitWindow ??
+    (getConfigSync<number>('rateLimit.agent.window') || config.agentRateLimitWindow)
+  const max =
+    rateLimitMax ?? (getConfigSync<number>('rateLimit.agent.max') || config.agentRateLimitMax)
 
   if (!isRedisEnabled()) {
     const key = `ws:agent_rate:${agentId}`
@@ -1076,7 +1079,9 @@ async function routeAgentToAgent(
   routerCfg?: RouterConfig | null,
 ) {
   // 1. Depth check — use room router config with env var fallback
-  const maxDepth = routerCfg?.maxChainDepth ?? config.maxAgentChainDepth
+  const maxDepth =
+    routerCfg?.maxChainDepth ??
+    (getConfigSync<number>('router.maxChainDepth') || config.maxAgentChainDepth)
 
   if (depth >= maxDepth) {
     log.warn(

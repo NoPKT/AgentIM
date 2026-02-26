@@ -136,7 +136,10 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   const { nanoid } = await import('nanoid')
   const rtId = nanoid()
   const rtHash = await hash(refreshToken)
-  const expiresAt = new Date(Date.now() + parseExpiryMs(config.jwtRefreshExpiry)).toISOString()
+  const expiresAt = new Date(
+    Date.now() +
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+  ).toISOString()
 
   // Limit refresh tokens per user: delete oldest when exceeded
   const MAX_REFRESH_TOKENS_PER_USER = config.maxRefreshTokensPerUser
@@ -169,7 +172,9 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   // Note: The web client ignores the body refreshToken and relies solely on the
   // httpOnly cookie. This dual delivery is intentional for backward compatibility
   // with Gateway CLI clients that cannot use cookies.
-  const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
+  const cookieMaxAge = Math.floor(
+    parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+  )
   setRefreshCookie(c, refreshToken, cookieMaxAge)
 
   return c.json({
@@ -274,7 +279,10 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
       const { nanoid } = await import('nanoid')
       const rtId = nanoid()
       const rtHash = await hash(newRefreshToken)
-      const expiresAt = new Date(Date.now() + parseExpiryMs(config.jwtRefreshExpiry)).toISOString()
+      const expiresAt = new Date(
+        Date.now() +
+          parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+      ).toISOString()
       await tx
         .insert(refreshTokens)
         .values({ id: rtId, userId: user.id, tokenHash: rtHash, expiresAt, createdAt: now })
@@ -288,7 +296,9 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
     }
 
     // Rotate Cookie for web clients
-    const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
+    const cookieMaxAge = Math.floor(
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+    )
     setRefreshCookie(c, result.refreshToken, cookieMaxAge)
 
     // Omit refreshToken from body when the Cookie path is used (browser clients)
