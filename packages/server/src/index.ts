@@ -129,7 +129,8 @@ async function seedAdmin() {
 
   if (existing) {
     // Only update if the env-var password has changed or role is not admin
-    const passwordChanged = !(await verify(existing.passwordHash, config.adminPassword))
+    const passwordChanged =
+      !existing.passwordHash || !(await verify(existing.passwordHash, config.adminPassword))
     const roleChanged = existing.role !== 'admin'
     if (passwordChanged || roleChanged) {
       const updates: Record<string, unknown> = { role: 'admin', updatedAt: now }
