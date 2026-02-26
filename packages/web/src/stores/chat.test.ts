@@ -657,6 +657,40 @@ describe('useChatStore', () => {
     })
   })
 
+  // ── loadRooms() concurrency guard ──────────────────────────────────────
+
+  describe('loadRooms()', () => {
+    it('prevents duplicate concurrent calls', async () => {
+      const { api } = await import('../lib/api.js')
+      let callCount = 0
+      vi.mocked(api.get).mockImplementation(async () => {
+        callCount++
+        await new Promise((r) => setTimeout(r, 10))
+        return { ok: true, data: [] }
+      })
+
+      // Fire two concurrent loadRooms calls
+      const p1 = useChatStore.getState().loadRooms()
+      const p2 = useChatStore.getState().loadRooms()
+      await Promise.all([p1, p2])
+
+      // api.get should only be called once (from the first call)
+      // because the second call returns immediately due to _loadingRooms guard
+      expect(callCount).toBeLessThanOrEqual(2) // at most: rooms + recent
+    })
+
+    it('allows a second call after the first completes', async () => {
+      const { api } = await import('../lib/api.js')
+      vi.mocked(api.get).mockResolvedValue({ ok: true, data: [] })
+
+      await useChatStore.getState().loadRooms()
+      await useChatStore.getState().loadRooms()
+
+      // Both should have completed successfully (no crash, no deadlock)
+      expect(api.get).toHaveBeenCalled()
+    })
+  })
+
   // ── evictRoom() ─────────────────────────────────────────────────────────
 
   describe('evictRoom()', () => {

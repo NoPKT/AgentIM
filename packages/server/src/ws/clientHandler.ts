@@ -43,12 +43,13 @@ const log = createLogger('ClientHandler')
 const OFFLINE_DEBOUNCE_MS = 2_000
 const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-// Per-socket auth attempt counter. Limits brute-force token guessing over a
-// single WebSocket connection (complements the WS upgrade rate limit per IP).
-// NOTE: WeakMap ensures entries are automatically GC'd when the WSContext
-// object is collected after disconnect — no manual cleanup timer needed.
+// Per-socket auth attempt counter with exponential backoff. Limits brute-force
+// token guessing over a single WebSocket connection (complements the WS upgrade
+// rate limit per IP). WeakMap ensures entries are automatically GC'd when the
+// WSContext object is collected after disconnect — no manual cleanup needed.
 const WS_MAX_AUTH_ATTEMPTS = 5
-const wsAuthAttempts = new WeakMap<object, number>()
+const WS_AUTH_BACKOFF_BASE_MS = 200
+const wsAuthAttempts = new WeakMap<object, { count: number; nextAllowedAt: number }>()
 
 // MAX_JSON_DEPTH imported from @agentim/shared (unified across client/gateway handlers)
 
@@ -369,10 +370,13 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
 }
 
 async function handleAuth(ws: WSContext, token: string, protocolVersion?: string) {
-  // Enforce per-socket auth attempt limit to prevent brute-force token guessing
-  const attempts = (wsAuthAttempts.get(ws) ?? 0) + 1
-  wsAuthAttempts.set(ws, attempts)
-  if (attempts > WS_MAX_AUTH_ATTEMPTS) {
+  // Enforce per-socket auth attempt limit with exponential backoff to prevent
+  // brute-force token guessing. Each failed attempt doubles the required wait
+  // time (200ms, 400ms, 800ms, 1600ms) before the next attempt is accepted.
+  const state = wsAuthAttempts.get(ws) ?? { count: 0, nextAllowedAt: 0 }
+  state.count++
+  const now = Date.now()
+  if (state.count > WS_MAX_AUTH_ATTEMPTS) {
     connectionManager.sendToClient(ws, {
       type: 'server:auth_result',
       ok: false,
@@ -381,6 +385,17 @@ async function handleAuth(ws: WSContext, token: string, protocolVersion?: string
     ws.close(1008, 'Too many authentication attempts')
     return
   }
+  if (now < state.nextAllowedAt) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:auth_result',
+      ok: false,
+      error: 'Too many authentication attempts, please wait',
+    })
+    return
+  }
+  // Set backoff for next attempt (exponential: 200ms, 400ms, 800ms, ...)
+  state.nextAllowedAt = now + WS_AUTH_BACKOFF_BASE_MS * Math.pow(2, state.count - 1)
+  wsAuthAttempts.set(ws, state)
 
   try {
     const payload = await verifyToken(token)

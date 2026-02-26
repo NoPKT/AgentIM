@@ -62,6 +62,7 @@ services:
     environment:
       - PORT=3000
       - HOST=0.0.0.0
+      - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/agentim
       - REDIS_URL=redis://redis:6379
       - 'JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required. Run ./deploy.sh or set it in .env}'
@@ -76,7 +77,10 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        # Use service_started (not service_healthy) because the server supports
+        # running without Redis (in-memory fallback). This prevents a Redis
+        # health-check failure from blocking server startup entirely.
+        condition: service_started
     volumes:
       - uploads_data:/app/uploads
     healthcheck:

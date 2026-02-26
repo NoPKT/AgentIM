@@ -771,7 +771,7 @@ describe('WsClient', () => {
       expect(typeof ping.ts).toBe('number')
     })
 
-    it('closes WebSocket if pong not received within 10s', () => {
+    it('closes WebSocket if pong not received within 15s', () => {
       vi.useFakeTimers()
       const client = new WsClient()
       const ws = connectClient(client)
@@ -779,8 +779,8 @@ describe('WsClient', () => {
       // Advance to trigger ping
       vi.advanceTimersByTime(30_000)
 
-      // Advance 10s more without pong — should close
-      vi.advanceTimersByTime(10_000)
+      // Advance 15s more without pong — should close
+      vi.advanceTimersByTime(15_000)
 
       expect(ws.closed).toBe(true)
     })
