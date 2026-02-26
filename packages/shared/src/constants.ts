@@ -83,6 +83,8 @@ export const MAX_ROOM_MEMBERS = 200
 export const MAX_REACTIONS_PER_MESSAGE = 50
 export const MAX_TOOL_INPUT_KEYS = 100
 export const MAX_TOOL_INPUT_KEY_LENGTH = 200
+/** Maximum serialized size (bytes) of the entire tool_input record. */
+export const MAX_TOOL_INPUT_SIZE = 1_000_000 // 1 MB
 
 /** Dangerous key names that could cause prototype pollution if passed through to objects */
 export const DANGEROUS_KEY_NAMES = ['__proto__', 'constructor', 'prototype'] as const

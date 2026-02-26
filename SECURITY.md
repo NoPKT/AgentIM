@@ -32,8 +32,8 @@ Thank you for helping keep AgentIM and its users safe.
 
 ## Deployment Security Checklist
 
-- Set `JWT_SECRET` to a cryptographically random string (min 32 chars): `openssl rand -base64 32`
-- Set `ENCRYPTION_KEY` to a strong random string (min 32 chars): `openssl rand -base64 32`
+- Set `JWT_SECRET` to a cryptographically random string (min 32 chars): `openssl rand -hex 32`
+- Set `ENCRYPTION_KEY` to a strong random string (min 32 chars): `openssl rand -hex 32`
 - Set `CORS_ORIGIN` to your exact frontend domain (e.g., `https://app.example.com`)
 - Set `TRUST_PROXY=true` only when behind a trusted reverse proxy (nginx, Cloudflare, etc.)
 - Use HTTPS in production — set `NODE_ENV=production` to enable secure cookies and HSTS

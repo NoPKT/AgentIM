@@ -61,7 +61,10 @@ export class CodexAdapter extends BaseAgentAdapter {
       //
       // This cannot be fixed without upstream SDK changes (exposing a callback or
       // event for permission requests). Tracked as a known limitation.
-      const approvalPolicy = this.permissionLevel === 'bypass' ? 'never' : 'on-request'
+      // In daemon mode (no tty), 'on-request' blocks indefinitely on stdin.
+      // Fall back to 'never' when stdin is not interactive.
+      const approvalPolicy =
+        this.permissionLevel === 'bypass' || !process.stdin.isTTY ? 'never' : 'on-request'
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId)
         log.info(`Resumed Codex thread: ${this.threadId}`)

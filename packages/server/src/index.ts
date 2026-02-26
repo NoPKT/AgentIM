@@ -223,7 +223,12 @@ app.use(
     origin: (requestOrigin) => {
       // Dynamic CORS: reads from DB settings cache (or env var fallback)
       const allowed = getConfigSync<string>('cors.origin') || config.corsOrigin
-      if (!allowed) return requestOrigin || '*'
+      if (!allowed) {
+        // In development, reflect the request origin; in production, deny
+        // (config.ts already enforces CORS_ORIGIN in production, so this is a
+        // safety net for dev mode only).
+        return config.isProduction ? null : requestOrigin || null
+      }
       const origins = allowed.split(',').map((s) => s.trim())
       return origins.includes(requestOrigin) ? requestOrigin : origins[0]
     },
@@ -324,9 +329,9 @@ app.get('/api/health', async (c) => {
 setActiveRoomsGetter(() => connectionManager.getStats().activeRooms)
 
 // Prometheus-compatible metrics endpoint.
-// When METRICS_AUTH_ENABLED=true, requires a valid JWT to prevent information
-// leakage on public-facing deployments. Defaults to unauthenticated for
-// compatibility with standard Prometheus scrape configs.
+// Requires a valid JWT in production by default (METRICS_AUTH_ENABLED defaults
+// to true in production). Set METRICS_AUTH_ENABLED=false explicitly to allow
+// unauthenticated Prometheus scrapes.
 app.get('/api/metrics', async (c) => {
   if (config.metricsAuthEnabled) {
     const authHeader = c.req.header('Authorization')

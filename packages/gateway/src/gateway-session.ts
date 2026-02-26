@@ -142,12 +142,18 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
 
   // Graceful shutdown
   let shuttingDown = false
+  const CLEANUP_DEADLINE_MS = 15_000 // Hard limit for disposeAll()
   const cleanup = async () => {
     if (shuttingDown) return
     shuttingDown = true
     log.info('Shutting down...')
     try {
-      await agentManager.disposeAll()
+      await Promise.race([
+        agentManager.disposeAll(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('disposeAll timed out')), CLEANUP_DEADLINE_MS).unref(),
+        ),
+      ])
     } catch (err) {
       log.warn(`Error during agent disposal: ${err instanceof Error ? err.message : err}`)
     }
