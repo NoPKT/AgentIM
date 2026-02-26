@@ -302,6 +302,33 @@ curl -X PUT https://your-server.com/api/users/<USER_ID> \
 
 Or through the Web UI: **Settings > User Management > Edit User**.
 
+## Multi-Instance Deployment
+
+When running multiple server instances (PM2 cluster, Kubernetes replicas, multiple containers), keep the following in mind in addition to the Redis requirement above.
+
+### Database Migrations
+
+Migrations run automatically on startup by default. In a multi-instance environment, **only one instance should run migrations** to avoid race conditions:
+
+```bash
+# On the migration runner (one-off job or the first instance):
+RUN_MIGRATIONS=true
+
+# On all other replicas:
+RUN_MIGRATIONS=false
+```
+
+When `RUN_MIGRATIONS=false`, the server logs a warning if the schema is behind, so you can detect missed migrations without risking concurrent DDL.
+
+### File Storage
+
+Uploaded files are stored on local disk (`UPLOAD_DIR`, default `./uploads`). This directory is **not shared across instances** by default. In a multi-instance setup:
+
+- **Docker / Kubernetes**: Mount a shared volume (e.g., NFS, EFS, PVC with `ReadWriteMany`) at the upload path so all instances can read and write the same files.
+- **Alternatively**: Consider using an S3-compatible object storage backend with a CDN. See the [Capacity Planning guide](./CAPACITY.md#file-storage) for storage estimates.
+
+Without a shared upload path, files uploaded through one instance will not be accessible from others.
+
 ## Nginx Reverse Proxy
 
 ```nginx

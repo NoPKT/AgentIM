@@ -80,22 +80,39 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
     }
   }, [])
 
-  // Write new data to terminal.
-  // Uses a monotonic totalPushed counter from the store to reliably determine
-  // how many new lines arrived, even when React batches multiple store updates
-  // into a single render while the buffer is at its 500-line cap.
+  // Write new data to terminal, throttled to one flush per animation frame.
+  // High-frequency terminal output (e.g. build logs, test runners) can trigger
+  // many store updates per frame; batching writes into a single rAF prevents
+  // layout thrashing and keeps the UI responsive.
+  const rafRef = useRef(0)
+
   useEffect(() => {
     if (!termRef.current || !lines || totalPushed === 0) return
-    const newCount = totalPushed - writtenTotalRef.current
-    if (newCount <= 0) return
+    if (totalPushed <= writtenTotalRef.current) return
 
-    const term = termRef.current
-    const startIdx = Math.max(0, lines.length - newCount)
-    for (let i = startIdx; i < lines.length; i++) {
-      term.write(lines[i])
-    }
-    writtenTotalRef.current = totalPushed
+    // Cancel any pending frame to coalesce rapid updates
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0
+      const term = termRef.current
+      if (!term) return
+      const newCount = totalPushed - writtenTotalRef.current
+      if (newCount <= 0) return
+      const startIdx = Math.max(0, lines.length - newCount)
+      for (let i = startIdx; i < lines.length; i++) {
+        term.write(lines[i])
+      }
+      writtenTotalRef.current = totalPushed
+    })
   }, [lines, totalPushed])
+
+  // Cleanup pending rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
 
   // Re-fit when collapsed state changes
   useEffect(() => {
