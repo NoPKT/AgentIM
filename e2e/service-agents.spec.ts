@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, authHeaders } from './helpers'
 
 /**
  * Service Agents admin page E2E tests.
@@ -40,9 +40,11 @@ test.describe('Service Agents page', () => {
   })
 
   test('providers API returns available provider list', async ({ page }) => {
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
-    const res = await page.request.get('/api/service-agents/providers')
+    const res = await page.request.get('/api/service-agents/providers', {
+      headers: authHeaders(token),
+    })
     expect(res.ok()).toBeTruthy()
     const body = (await res.json()) as {
       ok: boolean
@@ -62,9 +64,11 @@ test.describe('Service Agents page', () => {
   })
 
   test('service agents list API works', async ({ page }) => {
-    await loginAsAdmin(page)
+    const token = await loginAsAdmin(page)
 
-    const res = await page.request.get('/api/service-agents')
+    const res = await page.request.get('/api/service-agents', {
+      headers: authHeaders(token),
+    })
     expect(res.ok()).toBeTruthy()
     const body = (await res.json()) as {
       ok: boolean
