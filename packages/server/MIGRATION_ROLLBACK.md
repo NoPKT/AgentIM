@@ -13,7 +13,7 @@ AgentIM uses Drizzle Kit for forward-only migrations. Each `.sql` file in `drizz
 
 ## Rollback Coverage Policy
 
-Rollback scripts are maintained for **recent migrations** (0019 onwards, including 0027–0033). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
+Rollback scripts are maintained for **recent migrations** (0019 onwards, including 0027–0035). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
 
 ## Rollback Files
 
@@ -36,6 +36,8 @@ Pre-written down migrations are in `drizzle/rollback/`:
 | `0031_rollback.sql` | `0031_add_task_result_duedate.sql` — drops `result` and `due_date` columns from `tasks` |
 | `0032_rollback.sql` | `0032_add_service_agents_created_by_idx.sql` — drops `service_agents_created_by_idx` index |
 | `0033_rollback.sql` | `0033_add_revoked_tokens.sql` — drops `revoked_tokens` table and its indexes |
+| `0034_rollback.sql` | `0034_add_unique_name_indexes.sql` — drops unique composite indexes on `routers` and `service_agents` |
+| `0035_rollback.sql` | `0035_fix_timestamp_column_types.sql` — reverts `service_agents` and `bookmarks` timestamp columns from `timestamptz` back to `text` |
 
 ## Step-by-Step Rollback Procedure
 

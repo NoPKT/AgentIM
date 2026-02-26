@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm'
 import {
   pgTable,
   text,
@@ -121,12 +120,8 @@ export const serviceAgents = pgTable(
     createdById: text('created_by_id')
       .notNull()
       .references(() => users.id),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`now()`),
-    updatedAt: text('updated_at')
-      .notNull()
-      .default(sql`now()`),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
   },
   (table) => [
     index('service_agents_created_by_idx').on(table.createdById),
@@ -383,9 +378,7 @@ export const bookmarks = pgTable(
       .notNull()
       .references(() => messages.id, { onDelete: 'cascade' }),
     note: text('note').default(''),
-    createdAt: text('created_at')
-      .notNull()
-      .default(sql`now()`),
+    createdAt: ts('created_at').notNull(),
   },
   (table) => [
     index('bookmarks_user_idx').on(table.userId),

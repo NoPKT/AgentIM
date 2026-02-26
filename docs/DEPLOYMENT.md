@@ -25,6 +25,8 @@ When Redis is not configured, the server uses in-memory fallbacks:
 
 This mode is suitable for personal use, development, and small teams running a single server instance.
 
+> **Security note for single-process deployments**: While functional without Redis, be aware that token revocation is limited to the current process's lifetime. If the server restarts, the in-memory revocation cache is lost (the DB table persists, but there is a brief window during startup where recently-revoked tokens might not be re-loaded into the cache). For deployments where immediate token revocation is critical (e.g., compromised credentials), Redis is strongly recommended even for single instances.
+
 ### Multi-process / multi-container deployment (Redis required)
 
 When running multiple server processes (e.g., PM2 cluster mode, Kubernetes replicas, or multiple Docker containers), Redis is **required** for:
@@ -370,6 +372,22 @@ server {
     }
 }
 ```
+
+## One-Click Cloud Deployment Notes
+
+### Render
+
+After deploying via the **Deploy to Render** button, you **must** manually set the `CORS_ORIGIN` environment variable in the Render dashboard:
+
+1. Go to your Render service → **Environment** tab
+2. Set `CORS_ORIGIN` to your Render service URL (e.g., `https://agentim-xxxx.onrender.com`)
+3. Click **Save Changes** — the service will restart automatically
+
+The server will refuse to start in production without a valid `CORS_ORIGIN`.
+
+### Railway / Northflank
+
+These platforms use externally-hosted templates. After deployment, verify that `CORS_ORIGIN` is set to your service's public URL. Check the platform dashboard for the generated URL.
 
 ## Health Check
 
