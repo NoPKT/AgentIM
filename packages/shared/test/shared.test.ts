@@ -66,6 +66,21 @@ import {
   adminUpdateUserSchema,
   updateAgentSchema,
   updateServiceAgentSchema,
+  clientSendMessageSchema,
+  createBookmarkSchema,
+  gatewayMessageChunkSchema,
+  gatewayMessageCompleteSchema,
+  gatewayTaskUpdateSchema,
+  gatewayTerminalDataSchema,
+  serverNewMessageSchema,
+  serverMessageDeletedSchema,
+  serverTypingSchema,
+  serverReadReceiptSchema,
+  serverRoomRemovedSchema,
+  userSchema,
+  gatewaySchema,
+  TASK_STATUSES,
+  USER_ROLES,
 } from '../src/index.js'
 import {
   SUPPORTED_LANGUAGES,
@@ -1748,6 +1763,264 @@ describe('updateAgentSchema', () => {
 describe('updateServiceAgentSchema', () => {
   it('accepts config update', () => {
     const result = updateServiceAgentSchema.safeParse({ displayName: 'Updated Service Agent' })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── Additional Schema Coverage ───
+
+describe('clientSendMessageSchema', () => {
+  it('accepts valid send message', () => {
+    const result = clientSendMessageSchema.safeParse({
+      type: 'client:send_message',
+      roomId: 'room1',
+      content: 'Hello world',
+      mentions: ['user1'],
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts with optional replyToId and attachmentIds', () => {
+    const result = clientSendMessageSchema.safeParse({
+      type: 'client:send_message',
+      roomId: 'room1',
+      content: 'Reply',
+      mentions: [],
+      replyToId: 'msg123',
+      attachmentIds: ['att1', 'att2'],
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects empty content', () => {
+    const result = clientSendMessageSchema.safeParse({
+      type: 'client:send_message',
+      roomId: 'room1',
+      content: '',
+      mentions: [],
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('createBookmarkSchema', () => {
+  it('accepts valid bookmark', () => {
+    const result = createBookmarkSchema.safeParse({ messageId: 'msg1' })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts with note', () => {
+    const result = createBookmarkSchema.safeParse({ messageId: 'msg1', note: 'Important' })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects missing messageId', () => {
+    const result = createBookmarkSchema.safeParse({})
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('gatewayMessageChunkSchema', () => {
+  it('accepts valid text chunk', () => {
+    const result = gatewayMessageChunkSchema.safeParse({
+      type: 'gateway:message_chunk',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      chunk: { type: 'text', content: 'Hello' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('gatewayMessageCompleteSchema', () => {
+  it('accepts valid message complete', () => {
+    const result = gatewayMessageCompleteSchema.safeParse({
+      type: 'gateway:message_complete',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      fullContent: 'Full response text',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts with optional chunks and depth', () => {
+    const result = gatewayMessageCompleteSchema.safeParse({
+      type: 'gateway:message_complete',
+      roomId: 'room1',
+      agentId: 'agent1',
+      messageId: 'msg1',
+      fullContent: 'Full text',
+      chunks: [{ type: 'text', content: 'Full text' }],
+      depth: 2,
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('gatewayTaskUpdateSchema', () => {
+  it('accepts valid task update', () => {
+    for (const status of TASK_STATUSES) {
+      const result = gatewayTaskUpdateSchema.safeParse({
+        type: 'gateway:task_update',
+        taskId: 'task1',
+        status,
+      })
+      assert.strictEqual(result.success, true, `should accept status: ${status}`)
+    }
+  })
+
+  it('accepts with optional result', () => {
+    const result = gatewayTaskUpdateSchema.safeParse({
+      type: 'gateway:task_update',
+      taskId: 'task1',
+      status: 'completed',
+      result: 'Task completed successfully',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('gatewayTerminalDataSchema', () => {
+  it('accepts valid terminal data', () => {
+    const result = gatewayTerminalDataSchema.safeParse({
+      type: 'gateway:terminal_data',
+      agentId: 'agent1',
+      data: 'ls -la\n',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverNewMessageSchema', () => {
+  it('accepts valid new message event', () => {
+    const result = serverNewMessageSchema.safeParse({
+      type: 'server:new_message',
+      message: {
+        id: 'msg1',
+        roomId: 'room1',
+        senderId: 'user1',
+        senderType: 'user',
+        senderName: 'Alice',
+        type: 'text',
+        content: 'Hello',
+        mentions: [],
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverMessageDeletedSchema', () => {
+  it('accepts valid message deleted event', () => {
+    const result = serverMessageDeletedSchema.safeParse({
+      type: 'server:message_deleted',
+      roomId: 'room1',
+      messageId: 'msg1',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverTypingSchema', () => {
+  it('accepts valid typing event', () => {
+    const result = serverTypingSchema.safeParse({
+      type: 'server:typing',
+      roomId: 'room1',
+      userId: 'user1',
+      username: 'alice',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverReadReceiptSchema', () => {
+  it('accepts valid read receipt', () => {
+    const result = serverReadReceiptSchema.safeParse({
+      type: 'server:read_receipt',
+      roomId: 'room1',
+      userId: 'user1',
+      username: 'alice',
+      lastReadAt: '2026-01-01T00:00:00Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverRoomRemovedSchema', () => {
+  it('accepts valid room removed event', () => {
+    const result = serverRoomRemovedSchema.safeParse({
+      type: 'server:room_removed',
+      roomId: 'room1',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('userSchema', () => {
+  it('accepts valid user', () => {
+    for (const role of USER_ROLES) {
+      const result = userSchema.safeParse({
+        id: 'u1',
+        username: 'alice',
+        displayName: 'Alice',
+        role,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      })
+      assert.strictEqual(result.success, true, `should accept role: ${role}`)
+    }
+  })
+
+  it('accepts with optional avatarUrl', () => {
+    const result = userSchema.safeParse({
+      id: 'u1',
+      username: 'bob',
+      displayName: 'Bob',
+      avatarUrl: 'https://example.com/avatar.png',
+      role: 'user',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('gatewaySchema', () => {
+  it('accepts valid gateway', () => {
+    const result = gatewaySchema.safeParse({
+      id: 'gw1',
+      userId: 'u1',
+      name: 'My Gateway',
+      deviceInfo: {
+        hostname: 'laptop',
+        platform: 'darwin',
+        arch: 'arm64',
+        nodeVersion: 'v22.0.0',
+      },
+      createdAt: '2026-01-01T00:00:00Z',
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('accepts with optional fields', () => {
+    const result = gatewaySchema.safeParse({
+      id: 'gw1',
+      userId: 'u1',
+      name: 'My Gateway',
+      deviceInfo: {
+        hostname: 'laptop',
+        platform: 'linux',
+        arch: 'x64',
+        nodeVersion: 'v22.0.0',
+        agentimVersion: '0.1.0',
+      },
+      connectedAt: '2026-01-01T00:00:00Z',
+      disconnectedAt: '2026-01-01T01:00:00Z',
+      createdAt: '2026-01-01T00:00:00Z',
+    })
     assert.strictEqual(result.success, true)
   })
 })
