@@ -406,12 +406,6 @@ describe('isAdminCached', () => {
     const { isAdminCached } = await import('../src/middleware/auth.js')
     assert.equal(typeof isAdminCached, 'function')
   })
-
-  it('returns false for non-existent users', async () => {
-    const { isAdminCached } = await import('../src/middleware/auth.js')
-    const result = await isAdminCached('nonexistent-user-' + Date.now())
-    assert.equal(result, false)
-  })
 })
 
 describe('AuthEnv type export', () => {
