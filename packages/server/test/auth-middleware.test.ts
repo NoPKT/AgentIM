@@ -316,9 +316,7 @@ describe('authMiddleware + token revocation', () => {
 
     const app = new Hono()
     app.use('/protected/*', authMiddleware)
-    app.get('/protected/resource', (c) =>
-      c.json({ ok: true, userId: c.get('userId') }),
-    )
+    app.get('/protected/resource', (c) => c.json({ ok: true, userId: c.get('userId') }))
 
     const userId = `revoke-test-user-${Date.now()}`
 
@@ -351,9 +349,7 @@ describe('authMiddleware + token revocation', () => {
 
     const app = new Hono()
     app.use('/protected/*', authMiddleware)
-    app.get('/protected/resource', (c) =>
-      c.json({ ok: true, userId: c.get('userId') }),
-    )
+    app.get('/protected/resource', (c) => c.json({ ok: true, userId: c.get('userId') }))
 
     const userId = `revoke-after-test-${Date.now()}`
 
@@ -405,6 +401,13 @@ describe('adminMiddleware', () => {
 
 // ─── AuthEnv type export ───────────────────────────────────────────────────
 
+describe('isAdminCached', () => {
+  it('exports isAdminCached as a function', async () => {
+    const { isAdminCached } = await import('../src/middleware/auth.js')
+    assert.equal(typeof isAdminCached, 'function')
+  })
+})
+
 describe('AuthEnv type export', () => {
   it('exports AuthEnv type (compile-time check via import)', async () => {
     // If this import succeeds without error, the type is properly exported
@@ -412,5 +415,6 @@ describe('AuthEnv type export', () => {
     assert.ok(mod.authMiddleware, 'authMiddleware should be exported')
     assert.ok(mod.adminMiddleware, 'adminMiddleware should be exported')
     assert.ok(mod.invalidateAdminCache, 'invalidateAdminCache should be exported')
+    assert.ok(mod.isAdminCached, 'isAdminCached should be exported')
   })
 })

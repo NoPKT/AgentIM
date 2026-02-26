@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { isPrivateIp, isInternalUrl } from '../../src/lib/ssrf.js'
+import { isPrivateIp, isInternalUrl, resolvesToPrivateIp } from '../../src/lib/ssrf.js'
 
 describe('isPrivateIp', () => {
   // IPv4 private ranges
@@ -166,5 +166,24 @@ describe('isInternalUrl', () => {
 
   it('allows valid public HTTP URLs', () => {
     assert.ok(!isInternalUrl('http://api.example.com/v1'))
+  })
+})
+
+describe('resolvesToPrivateIp', () => {
+  it('returns false for literal IP addresses (already handled by isInternalUrl)', async () => {
+    assert.equal(await resolvesToPrivateIp('http://8.8.8.8'), false)
+    assert.equal(await resolvesToPrivateIp('http://127.0.0.1'), false)
+  })
+
+  it('returns false for well-known public domains', async () => {
+    assert.equal(await resolvesToPrivateIp('https://google.com'), false)
+  })
+
+  it('returns false for malformed URLs', async () => {
+    assert.equal(await resolvesToPrivateIp('not-a-url'), false)
+  })
+
+  it('returns false for IPv6 literal addresses', async () => {
+    assert.equal(await resolvesToPrivateIp('http://[::1]'), false)
   })
 })

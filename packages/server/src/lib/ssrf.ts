@@ -107,20 +107,33 @@ export async function resolvesToPrivateIp(urlStr: string): Promise<boolean> {
           setTimeout(() => reject(new Error('DNS timeout')), DNS_TIMEOUT_MS),
         ),
       ])
-    try {
-      const addresses = await withTimeout(dns.resolve4(hostname))
-      if (addresses.some(isPrivateIp)) return true
-    } catch {
-      /* no A records or timeout — try AAAA */
+
+    // Resolve A and AAAA records in parallel for efficiency.
+    // If a DNS lookup times out, treat as potentially unsafe (reject).
+    // This prevents SSRF via DNS rebinding where an attacker controls a
+    // slow-resolving domain that eventually points to a private IP.
+    const [v4Result, v6Result] = await Promise.allSettled([
+      withTimeout(dns.resolve4(hostname)),
+      withTimeout(dns.resolve6(hostname)),
+    ])
+
+    // Check for timeouts — reject if any lookup timed out
+    for (const result of [v4Result, v6Result]) {
+      if (
+        result.status === 'rejected' &&
+        result.reason instanceof Error &&
+        result.reason.message === 'DNS timeout'
+      ) {
+        return true // Timeout → reject (fail-closed)
+      }
     }
-    try {
-      const addresses = await withTimeout(dns.resolve6(hostname))
-      if (addresses.some(isPrivateIp)) return true
-    } catch {
-      /* no AAAA records or timeout */
-    }
+
+    // Check resolved addresses for private IPs
+    if (v4Result.status === 'fulfilled' && v4Result.value.some(isPrivateIp)) return true
+    if (v6Result.status === 'fulfilled' && v6Result.value.some(isPrivateIp)) return true
+
     return false
   } catch {
-    return false // DNS resolution failure is not an SSRF indicator
+    return false // URL parse failure is not an SSRF indicator
   }
 }

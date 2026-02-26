@@ -70,7 +70,6 @@ export const messageRoutes = new Hono<AuthEnv>()
 messageRoutes.use('*', authMiddleware)
 messageRoutes.use('/:id/*', validateIdParams)
 messageRoutes.use('/:id', validateIdParams)
-messageRoutes.use('/:messageId/*', validateIdParams)
 messageRoutes.use('/rooms/:roomId/*', validateIdParams)
 messageRoutes.use('/rooms/:roomId', validateIdParams)
 
@@ -745,8 +744,8 @@ messageRoutes.post('/batch-delete', async (c) => {
 })
 
 // Get thread (replies to a message) with pagination
-messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
-  const { messageId } = c.req.param()
+messageRoutes.get('/:id/thread', async (c) => {
+  const messageId = c.req.param('id')
   const userId = c.get('userId')
 
   // Verify user has access to the message's room
@@ -813,8 +812,8 @@ messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
 })
 
 // Get reply count for a message
-messageRoutes.get('/:messageId/replies/count', authMiddleware, async (c) => {
-  const { messageId } = c.req.param()
+messageRoutes.get('/:id/replies/count', async (c) => {
+  const messageId = c.req.param('id')
   const userId = c.get('userId')
 
   // Verify user has access to the message's room

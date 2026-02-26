@@ -74,6 +74,25 @@ export function invalidateAdminCache(userId: string) {
   adminRoleCache.delete(userId)
 }
 
+/**
+ * Check if a user has admin role, using the same short-lived cache as adminMiddleware.
+ * Use this instead of querying the DB directly when you need a conditional admin check
+ * inside a route handler (as opposed to blocking non-admins with adminMiddleware).
+ */
+export async function isAdminCached(userId: string): Promise<boolean> {
+  const cachedRole = getCachedAdminRole(userId)
+  if (cachedRole !== null) return cachedRole === 'admin'
+
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  if (user) setCachedAdminRole(userId, user.role)
+  return user?.role === 'admin'
+}
+
 export const adminMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   const userId = c.get('userId')
 
