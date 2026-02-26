@@ -28,6 +28,7 @@ import {
 } from '../db/schema.js'
 import { sanitizeContent } from '../lib/sanitize.js'
 import { getRedis, isRedisEnabled } from '../lib/redis.js'
+import { isWsRateLimited, stopWsRateCleanup } from './wsRateLimit.js'
 import { selectAgents } from '../lib/routerLlm.js'
 import { getRouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
@@ -35,6 +36,7 @@ import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 import { getRoomMemberRole } from '../lib/roomAccess.js'
 import { incCounter } from '../lib/metrics.js'
 import { handleServiceAgentMention } from '../lib/serviceAgentHandler.js'
+import { safeJsonParse } from '../lib/json.js'
 
 const log = createLogger('ClientHandler')
 
@@ -158,74 +160,12 @@ export async function invalidateMembershipCache(userId: string, roomId: string):
 // Maximum number of elements in a single array / keys in a single object.
 // A 10,000-element flat array has depth 1 and bypasses depth checks, so we
 // impose an independent collection-size limit to cap memory allocation.
-import { safeJsonParse } from '../lib/json.js'
-
-// Atomic INCR + conditional EXPIRE in a single Lua script to eliminate the
-// TOCTOU race where a Redis restart between INCR and EXPIRE leaves the key
-// without a TTL, permanently blocking the user.
-const WS_INCR_WITH_EXPIRE_LUA = `
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then
-  redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-return count
-`
-
-// In-memory fallback counters when Redis is unavailable for WS rate limiting.
-// Process-local: effective limit is (max × number-of-processes) in multi-process deployments.
-const MAX_WS_MEMORY_COUNTERS = 10_000
-const wsMemoryCounters = new Map<string, { count: number; resetAt: number }>()
-
-// Periodically clean up expired WS rate limit counters
-let wsRateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of wsMemoryCounters) {
-    if (now > entry.resetAt) wsMemoryCounters.delete(key)
-  }
-}, 60_000)
-wsRateCleanupTimer.unref()
-
-function wsMemoryRateLimit(compositeKey: string, window: number, max: number): boolean {
-  const now = Date.now()
-  const windowMs = window * 1000
-  const entry = wsMemoryCounters.get(compositeKey)
-  if (!entry || now > entry.resetAt) {
-    // Enforce capacity limit — evict expired entries first
-    if (wsMemoryCounters.size >= MAX_WS_MEMORY_COUNTERS && !wsMemoryCounters.has(compositeKey)) {
-      for (const [k, e] of wsMemoryCounters) {
-        if (now > e.resetAt) wsMemoryCounters.delete(k)
-      }
-      if (wsMemoryCounters.size >= MAX_WS_MEMORY_COUNTERS) {
-        const oldestKey = wsMemoryCounters.keys().next().value
-        if (oldestKey) wsMemoryCounters.delete(oldestKey)
-      }
-    }
-    wsMemoryCounters.set(compositeKey, { count: 1, resetAt: now + windowMs })
-    return false
-  }
-  entry.count++
-  return entry.count > max
-}
 
 async function isRateLimited(userId: string, roomId?: string): Promise<boolean> {
   const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
   const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
   const keySuffix = roomId ? `${userId}:${roomId}` : userId
-
-  if (!isRedisEnabled()) {
-    return wsMemoryRateLimit(keySuffix, window, max)
-  }
-
-  try {
-    const redis = getRedis()
-    const key = `ws:rate:${keySuffix}`
-    const count = (await redis.eval(WS_INCR_WITH_EXPIRE_LUA, 1, key, String(window))) as number
-    return count > max
-  } catch {
-    // Redis unavailable — fallback to in-memory rate limiting (fail-open degradation)
-    log.warn('Redis unavailable for WS rate limiting, using in-memory fallback')
-    return wsMemoryRateLimit(keySuffix, window, max)
-  }
+  return isWsRateLimited(keySuffix, window, max)
 }
 
 export async function handleClientMessage(ws: WSContext, raw: string) {
@@ -1061,10 +1001,7 @@ export function stopClientHandlerCleanup() {
     clearInterval(membershipCacheTimer)
     membershipCacheTimer = null
   }
-  if (wsRateCleanupTimer) {
-    clearInterval(wsRateCleanupTimer)
-    wsRateCleanupTimer = null
-  }
+  stopWsRateCleanup()
   if (typingDebounceTimer) {
     clearInterval(typingDebounceTimer)
     typingDebounceTimer = null
