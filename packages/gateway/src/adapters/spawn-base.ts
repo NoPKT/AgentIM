@@ -16,7 +16,10 @@ const PROCESS_TIMEOUT_MS = Math.max(
   parseInt(process.env.AGENTIM_PROCESS_TIMEOUT_MS ?? '', 10) || 5 * 60 * 1000,
 ) // default 5 minutes, minimum 30 seconds
 
-const ABSOLUTE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes — cannot be reset by data chunks
+const ABSOLUTE_TIMEOUT_MS = Math.max(
+  60_000,
+  parseInt(process.env.AGENTIM_ABSOLUTE_TIMEOUT_MS ?? '', 10) || 15 * 60 * 1000,
+) // default 15 minutes, minimum 1 minute
 const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
 
 /**
@@ -119,6 +122,31 @@ export function getSafeEnv(passEnv?: Set<string>): Record<string, string | undef
     envLog.debug(`Filtered ${filtered.length} sensitive env var(s): ${filtered.join(', ')}`)
   }
   return env
+}
+
+/**
+ * Redact sensitive patterns (API keys, tokens, local paths) from stderr output
+ * before relaying to the hub.  This prevents accidental credential leaks when
+ * a child process prints an API key in an error message.
+ */
+const SENSITIVE_PATTERNS: [RegExp, string][] = [
+  // API key formats: sk-..., key-..., Bearer <token>
+  [/\b(sk-[a-zA-Z0-9]{20,})/g, 'sk-••••••'],
+  [/\b(key-[a-zA-Z0-9]{20,})/g, 'key-••••••'],
+  [/(Bearer\s+)[a-zA-Z0-9._-]{20,}/gi, '$1••••••'],
+  [/(Authorization:\s*)[^\s]+/gi, '$1••••••'],
+  // Common env var values leaked in error messages
+  [/(api[_-]?key|token|secret|password|credential)[\s=:]+\S+/gi, '$1=••••••'],
+  // Absolute paths (home dir leak)
+  [/\/(?:home|Users)\/[a-zA-Z0-9._-]+/g, '/••••/••••'],
+]
+
+function redactSensitiveContent(text: string): string {
+  let result = text
+  for (const [pattern, replacement] of SENSITIVE_PATTERNS) {
+    result = result.replace(pattern, replacement)
+  }
+  return result
 }
 
 /**
@@ -234,7 +262,9 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
       this.timedOut = true
       this.clearProcessTimer()
       this.isRunning = false
-      fail('Process exceeded absolute timeout (30 minutes)')
+      fail(
+        `Process exceeded absolute timeout (${Math.round(ABSOLUTE_TIMEOUT_MS / 60_000)} minutes)`,
+      )
       this.killProcess(proc)
     }, ABSOLUTE_TIMEOUT_MS)
     absoluteTimer.unref()
@@ -268,7 +298,7 @@ export abstract class SpawnAgentAdapter extends BaseAgentAdapter {
         return
       }
       const text = data.toString().trim()
-      if (text) onChunk({ type: 'error', content: text })
+      if (text) onChunk({ type: 'error', content: redactSensitiveContent(text) })
       // Reset process timer on stderr activity (agent is still working)
       this.startProcessTimer(proc)
     })
