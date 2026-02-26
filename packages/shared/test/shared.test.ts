@@ -44,6 +44,28 @@ import {
   MAX_FULL_CONTENT_SIZE,
   DANGEROUS_KEY_NAMES,
   CHUNK_TYPES,
+  clientAuthSchema,
+  clientJoinRoomSchema,
+  clientLeaveRoomSchema,
+  clientStopGenerationSchema,
+  clientTypingSchema,
+  clientPingSchema,
+  clientPermissionResponseSchema,
+  gatewayAgentStatusSchema,
+  gatewayRegisterAgentSchema,
+  gatewayUnregisterAgentSchema,
+  gatewayPingSchema,
+  serverAuthResultSchema,
+  serverErrorSchema,
+  serverGatewayAuthResultSchema,
+  serverPongSchema,
+  batchDeleteMessagesSchema,
+  forwardMessageSchema,
+  messageQuerySchema,
+  refreshSchema,
+  adminUpdateUserSchema,
+  updateAgentSchema,
+  updateServiceAgentSchema,
 } from '../src/index.js'
 import {
   SUPPORTED_LANGUAGES,
@@ -1442,5 +1464,290 @@ describe('WebSocket protocol boundary tests', () => {
     assert.ok(CHUNK_TYPES.includes('error'))
     assert.ok(CHUNK_TYPES.includes('workspace_status'))
     assert.strictEqual(CHUNK_TYPES.length, 6)
+  })
+})
+
+// ─── WebSocket Client Protocol Schemas ───
+
+describe('clientAuthSchema', () => {
+  it('accepts valid auth message', () => {
+    const result = clientAuthSchema.safeParse({ type: 'client:auth', token: 'jwt-token-123' })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects missing token', () => {
+    const result = clientAuthSchema.safeParse({ type: 'client:auth' })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('clientJoinRoomSchema', () => {
+  it('accepts valid join message', () => {
+    const result = clientJoinRoomSchema.safeParse({ type: 'client:join_room', roomId: 'room-abc' })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects empty roomId', () => {
+    const result = clientJoinRoomSchema.safeParse({ type: 'client:join_room', roomId: '' })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('clientLeaveRoomSchema', () => {
+  it('accepts valid leave message', () => {
+    const result = clientLeaveRoomSchema.safeParse({
+      type: 'client:leave_room',
+      roomId: 'room-abc',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('clientStopGenerationSchema', () => {
+  it('accepts valid stop message', () => {
+    const result = clientStopGenerationSchema.safeParse({
+      type: 'client:stop_generation',
+      roomId: 'room-abc',
+      agentId: 'agent-123',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('clientTypingSchema', () => {
+  it('accepts valid typing message', () => {
+    const result = clientTypingSchema.safeParse({
+      type: 'client:typing',
+      roomId: 'room-abc',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('clientPingSchema', () => {
+  it('accepts valid ping message', () => {
+    const result = clientPingSchema.safeParse({ type: 'client:ping', ts: Date.now() })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects missing ts', () => {
+    const result = clientPingSchema.safeParse({ type: 'client:ping' })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('clientPermissionResponseSchema', () => {
+  it('accepts allow decision', () => {
+    const result = clientPermissionResponseSchema.safeParse({
+      type: 'client:permission_response',
+      requestId: 'req-abc',
+      decision: 'allow',
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('accepts deny decision', () => {
+    const result = clientPermissionResponseSchema.safeParse({
+      type: 'client:permission_response',
+      requestId: 'req-abc',
+      decision: 'deny',
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects invalid decision', () => {
+    const result = clientPermissionResponseSchema.safeParse({
+      type: 'client:permission_response',
+      requestId: 'req-abc',
+      decision: 'maybe',
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+// ─── WebSocket Gateway Protocol Schemas ───
+
+describe('gatewayRegisterAgentSchema', () => {
+  it('accepts valid register message', () => {
+    const result = gatewayRegisterAgentSchema.safeParse({
+      type: 'gateway:register_agent',
+      agent: { id: 'agent-abc', name: 'My Agent', type: 'claude-code' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects invalid agent type', () => {
+    const result = gatewayRegisterAgentSchema.safeParse({
+      type: 'gateway:register_agent',
+      agent: { id: 'agent-abc', name: 'My Agent', type: 'invalid_type' },
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('gatewayUnregisterAgentSchema', () => {
+  it('accepts valid unregister message', () => {
+    const result = gatewayUnregisterAgentSchema.safeParse({
+      type: 'gateway:unregister_agent',
+      agentId: 'agent-abc',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('gatewayAgentStatusSchema', () => {
+  it('accepts valid agent status update', () => {
+    const result = gatewayAgentStatusSchema.safeParse({
+      type: 'gateway:agent_status',
+      agentId: 'agent-abc',
+      status: 'online',
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects invalid status', () => {
+    const result = gatewayAgentStatusSchema.safeParse({
+      type: 'gateway:agent_status',
+      agentId: 'agent-abc',
+      status: 'invalid_status',
+    })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('gatewayPingSchema', () => {
+  it('accepts valid gateway ping', () => {
+    const result = gatewayPingSchema.safeParse({ type: 'gateway:ping', ts: Date.now() })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── Server Response Schemas ───
+
+describe('serverAuthResultSchema', () => {
+  it('accepts successful auth result', () => {
+    const result = serverAuthResultSchema.safeParse({
+      type: 'server:auth_result',
+      ok: true,
+      userId: 'user-abc',
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('accepts auth failure', () => {
+    const result = serverAuthResultSchema.safeParse({
+      type: 'server:auth_result',
+      ok: false,
+      error: 'Invalid token',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverErrorSchema', () => {
+  it('accepts valid error message', () => {
+    const result = serverErrorSchema.safeParse({
+      type: 'server:error',
+      code: 'RATE_LIMITED',
+      message: 'Too many requests',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverGatewayAuthResultSchema', () => {
+  it('accepts valid gateway auth result', () => {
+    const result = serverGatewayAuthResultSchema.safeParse({
+      type: 'server:gateway_auth_result',
+      ok: true,
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('accepts gateway auth failure', () => {
+    const result = serverGatewayAuthResultSchema.safeParse({
+      type: 'server:gateway_auth_result',
+      ok: false,
+      error: 'Invalid token',
+    })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('serverPongSchema', () => {
+  it('accepts valid pong message', () => {
+    const result = serverPongSchema.safeParse({ type: 'server:pong', ts: Date.now() })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+// ─── Additional REST API Schemas ───
+
+describe('batchDeleteMessagesSchema', () => {
+  it('accepts valid batch delete', () => {
+    const result = batchDeleteMessagesSchema.safeParse({
+      messageIds: ['id1', 'id2', 'id3'],
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects empty array', () => {
+    const result = batchDeleteMessagesSchema.safeParse({ messageIds: [] })
+    assert.strictEqual(result.success, false)
+  })
+  it('rejects too many IDs', () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `id${i}`)
+    const result = batchDeleteMessagesSchema.safeParse({ messageIds: ids })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('forwardMessageSchema', () => {
+  it('accepts valid forward request', () => {
+    const result = forwardMessageSchema.safeParse({
+      targetRoomId: 'room-target',
+    })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects missing targetRoomId', () => {
+    const result = forwardMessageSchema.safeParse({})
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('messageQuerySchema', () => {
+  it('accepts empty query (uses defaults)', () => {
+    const result = messageQuerySchema.safeParse({})
+    assert.strictEqual(result.success, true)
+  })
+  it('accepts cursor and limit', () => {
+    const result = messageQuerySchema.safeParse({ cursor: 'abc', limit: 25 })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects negative limit', () => {
+    const result = messageQuerySchema.safeParse({ limit: -1 })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('refreshSchema', () => {
+  it('accepts valid refresh token', () => {
+    const result = refreshSchema.safeParse({ refreshToken: 'token-abc-xyz' })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('adminUpdateUserSchema', () => {
+  it('accepts role update', () => {
+    const result = adminUpdateUserSchema.safeParse({ role: 'admin' })
+    assert.strictEqual(result.success, true)
+  })
+  it('rejects invalid role', () => {
+    const result = adminUpdateUserSchema.safeParse({ role: 'superuser' })
+    assert.strictEqual(result.success, false)
+  })
+})
+
+describe('updateAgentSchema', () => {
+  it('accepts display name update', () => {
+    const result = updateAgentSchema.safeParse({ displayName: 'My Agent' })
+    assert.strictEqual(result.success, true)
+  })
+})
+
+describe('updateServiceAgentSchema', () => {
+  it('accepts config update', () => {
+    const result = updateServiceAgentSchema.safeParse({ displayName: 'Updated Service Agent' })
+    assert.strictEqual(result.success, true)
   })
 })

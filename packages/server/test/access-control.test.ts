@@ -1,6 +1,14 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { startServer, stopServer, api, registerUser } from './helpers.js'
+import {
+  startServer,
+  stopServer,
+  api,
+  registerUser,
+  connectWs,
+  wsSendAndWait,
+  WS_CLIENT_URL,
+} from './helpers.js'
 
 describe('Access Control', () => {
   before(async () => {
@@ -124,6 +132,7 @@ describe('Access Control', () => {
     let userA: { userId: string; accessToken: string }
     let userB: { userId: string; accessToken: string }
     let roomId: string
+    let messageId: string
 
     before(async () => {
       userA = await registerUser('acl_msg_userA')
@@ -132,6 +141,26 @@ describe('Access Control', () => {
       const res = await api('POST', '/api/rooms', { name: 'ACL Message Room' }, userA.accessToken)
       assert.equal(res.status, 201)
       roomId = res.data.data.id
+
+      // User A sends a message via WebSocket (messages are sent over WS, not REST)
+      const ws = await connectWs(WS_CLIENT_URL)
+      ws.send(JSON.stringify({ type: 'client:auth', token: userA.accessToken }))
+      await new Promise((r) => setTimeout(r, 200))
+      ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
+      await new Promise((r) => setTimeout(r, 200))
+
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'test message for ACL',
+          mentions: [],
+        },
+        'server:new_message',
+      )
+      messageId = msgResult.message.id
+      ws.close()
     })
 
     it('non-member cannot GET /api/messages/rooms/:roomId', async () => {
@@ -144,6 +173,70 @@ describe('Access Control', () => {
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
       assert.ok(res.data.data.items)
+    })
+
+    it('non-member cannot GET /api/messages/:messageId/thread', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/thread`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:messageId/thread', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/thread`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+    })
+
+    it('non-member cannot GET /api/messages/:messageId/replies/count', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/replies/count`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:messageId/replies/count', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/replies/count`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+      assert.equal(res.data.data.count, 0)
+    })
+
+    it('non-member cannot GET /api/messages/:id/history', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/history`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:id/history', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/history`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
     })
   })
 

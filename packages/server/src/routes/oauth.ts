@@ -16,6 +16,7 @@ import {
 import { encryptSecret } from '../lib/crypto.js'
 import { config, getConfigSync } from '../config.js'
 import { parseExpiryMs } from '../lib/time.js'
+import { nanoid } from 'nanoid'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('OAuth')
@@ -121,7 +122,6 @@ oauthRoutes.get('/oauth/:provider', async (c) => {
     return c.json({ ok: false, error: 'Provider not configured' }, 400)
   }
 
-  const { nanoid } = await import('nanoid')
   const state = nanoid(32)
   const storeResult = await storeOAuthState(state, provider as OAuthProvider)
   if (!storeResult.ok) {
@@ -234,7 +234,6 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
       // may not verify email ownership, allowing account takeover attacks
       // (e.g. attacker sets victim's email on their GitHub account).
       // Users can link additional OAuth providers manually when logged in.
-      const { nanoid } = await import('nanoid')
       userId = nanoid()
       username = await generateUniqueUsername(userInfo.displayName || userInfo.email || provider)
       const now = new Date().toISOString()
@@ -270,7 +269,6 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
     const refreshToken = await signRefreshToken({ sub: userId, username })
 
     const now = new Date().toISOString()
-    const { nanoid } = await import('nanoid')
     const rtId = nanoid()
     const rtHash = await hash(refreshToken)
     const expiresAt = new Date(
@@ -328,7 +326,6 @@ oauthRoutes.post('/oauth/:provider/link', authMiddleware, async (c) => {
   }
 
   // Redirect to OAuth flow — the callback will detect the logged-in user and link
-  const { nanoid } = await import('nanoid')
   const state = nanoid(32)
   const storeResult = await storeOAuthState(state, provider as OAuthProvider)
   if (!storeResult.ok) {
@@ -412,7 +409,6 @@ async function generateUniqueUsername(source: string): Promise<string> {
     username = `${base}${attempt}`
     if (attempt > 100) {
       // Fallback to nanoid suffix
-      const { nanoid } = await import('nanoid')
       return `${base}_${nanoid(6)}`
     }
   }
