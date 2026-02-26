@@ -27,6 +27,9 @@ interface PendingPermission {
 const ROOM_CONTEXT_TTL_MS = 60 * 60 * 1000 // 1 hour
 const ROOM_CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
+/** Maximum number of messages to queue per agent when it is busy. */
+const MAX_AGENT_QUEUE_SIZE = 10
+
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
   private agentCapabilities = new Map<string, string[]>()
@@ -35,6 +38,8 @@ export class AgentManager {
   private roomContextLastUsed = new Map<string, number>()
   private pendingPermissions = new Map<string, PendingPermission>()
   private agentCurrentRoom = new Map<string, string>()
+  /** Per-agent FIFO queue for messages that arrive while the adapter is busy. */
+  private messageQueues = new Map<string, ServerSendToAgent[]>()
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
   private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -190,6 +195,7 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
+      this.messageQueues.delete(agentId)
       // Clean up room contexts for this agent (collect keys first to avoid mutating during iteration)
       const keysToDelete = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToDelete) {
@@ -273,6 +279,69 @@ export class AgentManager {
       return
     }
 
+    // If the adapter is currently processing, queue the message for later
+    if (adapter.running) {
+      const queue = this.messageQueues.get(msg.agentId) ?? []
+      if (queue.length >= MAX_AGENT_QUEUE_SIZE) {
+        log.warn(
+          `Message queue full for agent ${msg.agentId} (${MAX_AGENT_QUEUE_SIZE}), rejecting ${msg.messageId}`,
+        )
+        this.wsClient.send({
+          type: 'gateway:message_complete',
+          roomId: msg.roomId,
+          agentId: msg.agentId,
+          messageId: msg.messageId,
+          fullContent: 'Error: Agent message queue is full. Please try again later.',
+          chunks: [
+            { type: 'error', content: 'Agent message queue is full. Please try again later.' },
+          ],
+          conversationId: msg.conversationId,
+          depth: msg.depth,
+        })
+        return
+      }
+      queue.push(msg)
+      this.messageQueues.set(msg.agentId, queue)
+      log.info(
+        `Queued message ${msg.messageId} for busy agent ${adapter.agentName} (queue: ${queue.length})`,
+      )
+      return
+    }
+
+    this.processMessage(adapter, msg)
+  }
+
+  /**
+   * Process the next queued message for the given agent, or set agent status
+   * back to online if the queue is empty.
+   */
+  private processNextQueued(agentId: string) {
+    const queue = this.messageQueues.get(agentId)
+    if (queue && queue.length > 0) {
+      const next = queue.shift()!
+      if (queue.length === 0) this.messageQueues.delete(agentId)
+      const adapter = this.adapters.get(agentId)
+      if (adapter) {
+        log.info(
+          `Processing queued message ${next.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
+        )
+        this.processMessage(adapter, next)
+        return
+      }
+    }
+    // Queue is empty or adapter gone — set status to online
+    this.wsClient.send({
+      type: 'gateway:agent_status',
+      agentId,
+      status: 'online',
+    })
+  }
+
+  /**
+   * Dispatch a single message to the adapter. When the adapter completes
+   * (success or error), the next queued message is automatically processed.
+   */
+  private processMessage(adapter: BaseAgentAdapter, msg: ServerSendToAgent) {
     // Track which room this agent is responding to
     this.agentCurrentRoom.set(msg.agentId, msg.roomId)
     this.touchRoomContext(msg.agentId, msg.roomId)
@@ -319,11 +388,8 @@ export class AgentManager {
               conversationId: msg.conversationId,
               depth: msg.depth,
             })
-            this.wsClient.send({
-              type: 'gateway:agent_status',
-              agentId: msg.agentId,
-              status: 'online',
-            })
+            // Process next queued message or go online
+            this.processNextQueued(msg.agentId)
           }
 
           if (workingDir) {
@@ -392,11 +458,8 @@ export class AgentManager {
             conversationId: msg.conversationId,
             depth: msg.depth,
           })
-          this.wsClient.send({
-            type: 'gateway:agent_status',
-            agentId: msg.agentId,
-            status: 'error',
-          })
+          // Process next queued message or set error status
+          this.processNextQueued(msg.agentId)
         },
         {
           roomId: msg.roomId,
@@ -410,11 +473,7 @@ export class AgentManager {
     } catch (err) {
       // Recover from synchronous throw in sendMessage to avoid agent stuck in 'busy'
       log.error(`Agent ${msg.agentId} sendMessage threw: ${(err as Error).message}`)
-      this.wsClient.send({
-        type: 'gateway:agent_status',
-        agentId: msg.agentId,
-        status: 'error',
-      })
+      this.processNextQueued(msg.agentId)
     }
   }
 
@@ -424,6 +483,7 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
+      this.messageQueues.delete(agentId)
       const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToRemove) {
         this.roomContexts.delete(key)
@@ -436,6 +496,8 @@ export class AgentManager {
   private handleStopAgent(agentId: string) {
     const adapter = this.adapters.get(agentId)
     if (adapter) {
+      // Clear queued messages — the user explicitly wants to stop this agent
+      this.messageQueues.delete(agentId)
       adapter.stop()
     }
   }
@@ -476,6 +538,7 @@ export class AgentManager {
     ])
     this.adapters.clear()
     this.agentCapabilities.clear()
+    this.messageQueues.clear()
     this.roomContexts.clear()
     this.roomContextLastUsed.clear()
     this.agentCurrentRoom.clear()

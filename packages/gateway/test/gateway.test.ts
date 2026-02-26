@@ -446,3 +446,216 @@ describe('AgentManager extended', () => {
     assert.equal(manager.listAgents().length, 0)
   })
 })
+
+// ─── AgentManager message queue tests ───
+
+/**
+ * Controllable adapter stub: lets the test decide when sendMessage completes
+ * by calling the captured onComplete/onError callback.
+ */
+class ControllableAdapter extends BaseAgentAdapter {
+  private _onComplete: ((content: string) => void) | null = null
+  private _onError: ((error: string) => void) | null = null
+  public messageCount = 0
+
+  get type() {
+    return 'test'
+  }
+
+  sendMessage(
+    _content: string,
+    _onChunk: (chunk: any) => void,
+    onComplete: (content: string) => void,
+    onError: (error: string) => void,
+  ) {
+    if (this.isRunning) {
+      onError('Agent is already processing a message')
+      return
+    }
+    this.isRunning = true
+    this.messageCount++
+    this._onComplete = onComplete
+    this._onError = onError
+  }
+
+  /** Simulate adapter finishing successfully. */
+  complete(content = 'done') {
+    const cb = this._onComplete
+    this.isRunning = false
+    this._onComplete = null
+    this._onError = null
+    cb?.(content)
+  }
+
+  /** Simulate adapter finishing with error. */
+  fail(error = 'fail') {
+    const cb = this._onError
+    this.isRunning = false
+    this._onComplete = null
+    this._onError = null
+    cb?.(error)
+  }
+
+  stop() {
+    this.isRunning = false
+  }
+  dispose() {
+    this.isRunning = false
+  }
+}
+
+/**
+ * Helper: create an AgentManager with a pre-registered ControllableAdapter,
+ * bypassing the normal adapter factory.
+ */
+function createManagerWithControllable() {
+  const sentMessages: any[] = []
+  const mockWsClient = { send(msg: unknown) { sentMessages.push(msg) } }
+  const manager = new AgentManager(mockWsClient as any)
+
+  // Use addAgent to register, then swap the adapter internally
+  const agentId = manager.addAgent({ type: 'generic', name: 'QueueTest' })
+  sentMessages.length = 0
+
+  // Replace the real adapter with our controllable one
+  const adapter = new ControllableAdapter({ agentId, agentName: 'QueueTest' })
+  const adaptersMap = (manager as any).adapters as Map<string, BaseAgentAdapter>
+  adaptersMap.get(agentId)?.dispose()
+  adaptersMap.set(agentId, adapter)
+
+  const makeSendMsg = (messageId: string) => ({
+    type: 'server:send_to_agent' as const,
+    agentId,
+    roomId: 'room1',
+    content: `msg-${messageId}`,
+    senderName: 'user1',
+    senderType: 'user' as const,
+    routingMode: 'direct' as const,
+    conversationId: 'conv-1',
+    depth: 0,
+    messageId,
+  })
+
+  return { manager, adapter, agentId, sentMessages, makeSendMsg }
+}
+
+describe('AgentManager message queue', () => {
+  it('first message is processed immediately', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+
+    assert.equal(adapter.messageCount, 1, 'adapter should have received 1 message')
+    assert.ok(adapter.running, 'adapter should be running')
+    // Should have sent busy status
+    const busyMsgs = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'busy')
+    assert.equal(busyMsgs.length, 1)
+  })
+
+  it('second message while busy is queued, then processed on completion', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+    assert.equal(adapter.messageCount, 1)
+
+    // Send second message while adapter is busy
+    manager.handleServerMessage(makeSendMsg('m2'))
+    assert.equal(adapter.messageCount, 1, 'second message should be queued, not sent')
+
+    sentMessages.length = 0
+    // Complete first message — should trigger processing of queued m2
+    adapter.complete('response1')
+
+    // m2 should now be processed
+    assert.equal(adapter.messageCount, 2, 'queued message should have been processed')
+    assert.ok(adapter.running, 'adapter should be running the queued message')
+  })
+
+  it('queue drains in FIFO order', () => {
+    const { manager, adapter, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+
+    // Queue 3 more messages
+    manager.handleServerMessage(makeSendMsg('m2'))
+    manager.handleServerMessage(makeSendMsg('m3'))
+    manager.handleServerMessage(makeSendMsg('m4'))
+    assert.equal(adapter.messageCount, 1)
+
+    // Complete m1 → m2 processed
+    adapter.complete()
+    assert.equal(adapter.messageCount, 2)
+
+    // Complete m2 → m3 processed
+    adapter.complete()
+    assert.equal(adapter.messageCount, 3)
+
+    // Complete m3 → m4 processed
+    adapter.complete()
+    assert.equal(adapter.messageCount, 4)
+  })
+
+  it('sets status to online when queue is drained', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+    manager.handleServerMessage(makeSendMsg('m2'))
+
+    sentMessages.length = 0
+    adapter.complete()
+    // m2 is now processing, not yet online
+    const onlineAfterM1 = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'online')
+    assert.equal(onlineAfterM1.length, 0, 'should not be online while queue has items')
+
+    sentMessages.length = 0
+    adapter.complete()
+    // Queue empty now — should be online
+    const onlineAfterM2 = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'online')
+    assert.equal(onlineAfterM2.length, 1, 'should be online after queue drains')
+  })
+
+  it('adapter error does not stop queue processing', () => {
+    const { manager, adapter, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+    manager.handleServerMessage(makeSendMsg('m2'))
+    assert.equal(adapter.messageCount, 1)
+
+    // Fail first message — should still process m2
+    adapter.fail('some error')
+    assert.equal(adapter.messageCount, 2, 'should process next after error')
+  })
+
+  it('rejects message when queue is full', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m0'))
+
+    // Fill queue to MAX_AGENT_QUEUE_SIZE (10)
+    for (let i = 1; i <= 10; i++) {
+      manager.handleServerMessage(makeSendMsg(`m${i}`))
+    }
+
+    sentMessages.length = 0
+    // 11th queued message should be rejected
+    manager.handleServerMessage(makeSendMsg('overflow'))
+
+    const errorMsgs = sentMessages.filter(
+      (m: any) => m.type === 'gateway:message_complete' && m.fullContent.includes('queue is full'),
+    )
+    assert.equal(errorMsgs.length, 1, 'should reject with queue-full error')
+    assert.equal(adapter.messageCount, 1, 'adapter should not receive overflow message')
+  })
+
+  it('stop_agent clears the queue', () => {
+    const { manager, adapter, sentMessages, makeSendMsg, agentId } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+    manager.handleServerMessage(makeSendMsg('m2'))
+    manager.handleServerMessage(makeSendMsg('m3'))
+
+    // Stop the agent — should clear queue
+    manager.handleServerMessage({ type: 'server:stop_agent', agentId })
+
+    sentMessages.length = 0
+    // Complete current message — should go online (no queued m2/m3)
+    adapter.complete()
+
+    const onlineMsgs = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'online')
+    assert.equal(onlineMsgs.length, 1, 'should go online, not process cleared queue')
+    assert.equal(adapter.messageCount, 1, 'only the first message should have been processed')
+  })
+})
