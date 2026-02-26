@@ -19,7 +19,7 @@ import {
   addMemberSchema,
   NOTIFICATION_PREFS,
 } from '@agentim/shared'
-import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { authMiddleware, isAdminCached, type AuthEnv } from '../middleware/auth.js'
 import { getStorage } from '../storage/index.js'
 import { sanitizeText } from '../lib/sanitize.js'
 import { createLogger } from '../lib/logger.js'
@@ -31,6 +31,10 @@ import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHa
 import { invalidateMembershipCache } from '../ws/clientHandler.js'
 import { invalidateRoomAccessCache } from '../lib/roomAccess.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
+import { rateLimitMiddleware } from '../middleware/rateLimit.js'
+
+/** Room creation: 10 rooms per hour per user to prevent resource exhaustion */
+const roomCreateRateLimit = rateLimitMiddleware(3_600_000, 10, 'room-create', { useUserId: true })
 import {
   cacheGet,
   cacheSet,
@@ -49,15 +53,9 @@ async function checkRouterAccess(
   if (!router) {
     return { ok: false, status: 404, error: 'Router not found' }
   }
-  const [me] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-  if (!me) {
-    return { ok: false, status: 404, error: 'User not found' }
-  }
-  if (me.role !== 'admin' && !isRouterVisibleToUser(router, userId)) {
+  // Use cached admin check to avoid redundant DB queries
+  const admin = await isAdminCached(userId)
+  if (!admin && !isRouterVisibleToUser(router, userId)) {
     return { ok: false, status: 403, error: 'Router not accessible' }
   }
   return { ok: true }
@@ -99,7 +97,7 @@ roomRoutes.get('/', async (c) => {
 })
 
 // Create room
-roomRoutes.post('/', async (c) => {
+roomRoutes.post('/', roomCreateRateLimit, async (c) => {
   const userId = c.get('userId')
   const body = await parseJsonBody(c)
   if (body instanceof Response) return body

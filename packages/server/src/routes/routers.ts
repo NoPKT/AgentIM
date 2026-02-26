@@ -2,9 +2,9 @@ import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { eq, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { routers, users } from '../db/schema.js'
+import { routers } from '../db/schema.js'
 import { createRouterSchema, updateRouterSchema } from '@agentim/shared'
-import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
+import { authMiddleware, isAdminCached, type AuthEnv } from '../middleware/auth.js'
 import { createLogger } from '../lib/logger.js'
 import { isRouterVisibleToUser } from '../lib/routerConfig.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -24,14 +24,8 @@ function maskApiKey(storedKey: string): string {
   return '••••' + key.slice(-2)
 }
 
-async function isAdmin(userId: string): Promise<boolean> {
-  const [user] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-  return user?.role === 'admin'
-}
+// Use the shared cached admin check from auth middleware (avoids redundant DB queries)
+const isAdmin = isAdminCached
 
 function sanitizeRouter(router: typeof routers.$inferSelect) {
   return {
