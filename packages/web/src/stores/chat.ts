@@ -145,6 +145,9 @@ interface ChatState {
 // Guard to prevent concurrent loadRooms() calls (mirrors loadMessages dedup pattern)
 let _loadingRooms = false
 
+// Guards to prevent concurrent mutating API calls (e.g. rapid double-click)
+const _pendingMutations = new Set<string>()
+
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
   currentRoomId: null,
@@ -483,13 +486,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   createRoom: async (name, type, broadcastMode, systemPrompt?, routerId?) => {
-    const body: Record<string, unknown> = { name, type, broadcastMode }
-    if (systemPrompt) body.systemPrompt = systemPrompt
-    if (routerId) body.routerId = routerId
-    const res = await api.post<Room>('/rooms', body)
-    if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to create room')
-    set({ rooms: [...get().rooms, res.data] })
-    return res.data
+    const mutKey = `createRoom:${name}`
+    if (_pendingMutations.has(mutKey)) throw new Error('Operation already in progress')
+    _pendingMutations.add(mutKey)
+    try {
+      const body: Record<string, unknown> = { name, type, broadcastMode }
+      if (systemPrompt) body.systemPrompt = systemPrompt
+      if (routerId) body.routerId = routerId
+      const res = await api.post<Room>('/rooms', body)
+      if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to create room')
+      set({ rooms: [...get().rooms, res.data] })
+      return res.data
+    } finally {
+      _pendingMutations.delete(mutKey)
+    }
   },
 
   loadRoomMembers: async (roomId) => {
@@ -502,30 +512,57 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addRoomMember: async (roomId, memberId, memberType, roleDescription?) => {
-    const body: Record<string, unknown> = { memberId, memberType }
-    if (roleDescription) body.roleDescription = roleDescription
-    const res = await api.post(`/rooms/${roomId}/members`, body)
-    if (!res.ok) throw new Error(res.error ?? 'Failed to add member')
-    await get().loadRoomMembers(roomId)
+    const mutKey = `addMember:${roomId}:${memberId}`
+    if (_pendingMutations.has(mutKey)) throw new Error('Operation already in progress')
+    _pendingMutations.add(mutKey)
+    try {
+      const body: Record<string, unknown> = { memberId, memberType }
+      if (roleDescription) body.roleDescription = roleDescription
+      const res = await api.post(`/rooms/${roomId}/members`, body)
+      if (!res.ok) throw new Error(res.error ?? 'Failed to add member')
+      await get().loadRoomMembers(roomId)
+    } finally {
+      _pendingMutations.delete(mutKey)
+    }
   },
 
   removeRoomMember: async (roomId, memberId) => {
-    const res = await api.delete(`/rooms/${roomId}/members/${memberId}`)
-    if (!res.ok) throw new Error(res.error ?? 'Failed to remove member')
-    await get().loadRoomMembers(roomId)
+    const mutKey = `removeMember:${roomId}:${memberId}`
+    if (_pendingMutations.has(mutKey)) throw new Error('Operation already in progress')
+    _pendingMutations.add(mutKey)
+    try {
+      const res = await api.delete(`/rooms/${roomId}/members/${memberId}`)
+      if (!res.ok) throw new Error(res.error ?? 'Failed to remove member')
+      await get().loadRoomMembers(roomId)
+    } finally {
+      _pendingMutations.delete(mutKey)
+    }
   },
 
   updateRoom: async (roomId, data) => {
-    const res = await api.put<Room>(`/rooms/${roomId}`, data)
-    if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to update room')
-    set({
-      rooms: get().rooms.map((r) => (r.id === roomId ? { ...r, ...res.data } : r)),
-    })
+    const mutKey = `updateRoom:${roomId}`
+    if (_pendingMutations.has(mutKey)) throw new Error('Operation already in progress')
+    _pendingMutations.add(mutKey)
+    try {
+      const res = await api.put<Room>(`/rooms/${roomId}`, data)
+      if (!res.ok || !res.data) throw new Error(res.error ?? 'Failed to update room')
+      set({
+        rooms: get().rooms.map((r) => (r.id === roomId ? { ...r, ...res.data } : r)),
+      })
+    } finally {
+      _pendingMutations.delete(mutKey)
+    }
   },
 
   deleteRoom: async (roomId) => {
+    const mutKey = `deleteRoom:${roomId}`
+    if (_pendingMutations.has(mutKey)) throw new Error('Operation already in progress')
+    _pendingMutations.add(mutKey)
     const res = await api.delete(`/rooms/${roomId}`)
-    if (!res.ok) throw new Error(res.error ?? 'Failed to delete room')
+    if (!res.ok) {
+      _pendingMutations.delete(mutKey)
+      throw new Error(res.error ?? 'Failed to delete room')
+    }
 
     // Clean up all Map/Set entries associated with this room
     const messages = new Map(get().messages)
@@ -572,6 +609,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streaming,
       replyTo,
     })
+
+    _pendingMutations.delete(mutKey)
 
     clearRoomCache(roomId).catch((err) => {
       console.warn('[IDB] clearRoomCache failed', err)
