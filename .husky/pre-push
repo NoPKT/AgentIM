@@ -33,8 +33,19 @@ if pg_isready -h localhost -p 5432 -q 2>/dev/null && redis-cli -h localhost -p 6
   echo "[pre-push] Running server tests (PostgreSQL + Redis detected)..."
   pnpm --filter @agentim/server test:coverage || exit 1
 else
-  echo "[pre-push] WARN: Skipping server tests (PostgreSQL or Redis not running)"
-  echo "[pre-push] Start Docker services for full local validation"
+  echo ""
+  echo "============================================================"
+  echo "[pre-push] WARNING: Server tests SKIPPED"
+  echo "  PostgreSQL or Redis is not running on localhost."
+  echo "  Server integration tests require both services."
+  echo ""
+  echo "  To start them:"
+  echo "    docker run -d --name pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine"
+  echo "    docker run -d --name redis -p 6379:6379 redis:7-alpine"
+  echo ""
+  echo "  CI will run these tests — but local coverage is incomplete."
+  echo "============================================================"
+  echo ""
 fi
 
 # 7. Dependency audit (informational only)

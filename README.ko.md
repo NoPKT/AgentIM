@@ -90,6 +90,9 @@ curl http://localhost:3000/api/health   # → {"ok":true,...}
 
 - **필수**: 환경 변수 (Northflank는 Secret Group)에서 `ADMIN_PASSWORD`, `ENCRYPTION_KEY` 설정
 - **필수** (프로덕션): `CORS_ORIGIN`을 도메인으로 설정 (예: `https://agentim.example.com`)
+- **Render**: `ADMIN_PASSWORD` 등의 시크릿은 자동 생성됩니다. **Dashboard → agentim → Environment → Environment Variables**에서 확인
+- **Railway**: 서비스의 **Variables** 탭에서 자동 생성된 시크릿 확인
+- **Northflank**: 시크릿은 연결된 **Secret Group**에 있습니다
 
 ### 방법 3: 수동 설치 (개발용)
 

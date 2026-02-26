@@ -120,7 +120,7 @@ Two separate WebSocket endpoints with distinct authentication models:
 | `/ws/client` | Browser clients | JWT access token (Bearer) |
 | `/ws/gateway` | CLI gateways | JWT access token (same) |
 
-All connections must authenticate within `WS_AUTH_TIMEOUT_MS` (default 10s) or
+All connections must authenticate within `WS_AUTH_TIMEOUT_MS` (default 5s) or
 be closed with code `4001`.
 
 See [`WEBSOCKET.md`](./WEBSOCKET.md) for the full message protocol reference.
@@ -160,7 +160,7 @@ If the user does not respond within 5 minutes, the server auto-denies the reques
 Network Layer
   └─ CORS strict origin validation
   └─ Rate limiting: IP-based (Redis Lua atomic INCR)
-       Auth:     10 req/min
+       Auth:     20 req/min
        API:     120 req/min
        Upload:   10 req/min
        WS upgrade: 30/min
