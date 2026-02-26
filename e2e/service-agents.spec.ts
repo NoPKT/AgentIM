@@ -35,7 +35,7 @@ test.describe('Service Agents page', () => {
     expect(hasAgents + hasEmpty + hasLoading).toBeGreaterThanOrEqual(0)
 
     // The page title should be visible
-    const heading = page.getByRole('heading', { name: /service agents/i })
+    const heading = page.getByRole('heading', { name: 'Service Agents', exact: true })
     await expect(heading).toBeVisible({ timeout: 10_000 })
   })
 
