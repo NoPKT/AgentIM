@@ -30,6 +30,18 @@ const ROOM_CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 /** Maximum number of messages to queue per agent when it is busy. */
 const MAX_AGENT_QUEUE_SIZE = 10
 
+/**
+ * Maximum time (ms) a message can sit in the queue before being discarded.
+ * Stale messages are dropped at dequeue time to avoid processing requests
+ * that are no longer relevant (e.g. user moved on, context changed).
+ */
+const QUEUE_MESSAGE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+interface QueuedMessage {
+  msg: ServerSendToAgent
+  queuedAt: number
+}
+
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
   private agentCapabilities = new Map<string, string[]>()
@@ -39,7 +51,7 @@ export class AgentManager {
   private pendingPermissions = new Map<string, PendingPermission>()
   private agentCurrentRoom = new Map<string, string>()
   /** Per-agent FIFO queue for messages that arrive while the adapter is busy. */
-  private messageQueues = new Map<string, ServerSendToAgent[]>()
+  private messageQueues = new Map<string, QueuedMessage[]>()
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
   private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -300,7 +312,7 @@ export class AgentManager {
         })
         return
       }
-      queue.push(msg)
+      queue.push({ msg, queuedAt: Date.now() })
       this.messageQueues.set(msg.agentId, queue)
       log.info(
         `Queued message ${msg.messageId} for busy agent ${adapter.agentName} (queue: ${queue.length})`,
@@ -313,23 +325,37 @@ export class AgentManager {
 
   /**
    * Process the next queued message for the given agent, or set agent status
-   * back to online if the queue is empty.
+   * back to online if the queue is empty. Expired messages (older than
+   * QUEUE_MESSAGE_TTL_MS) are silently discarded.
    */
   private processNextQueued(agentId: string) {
     const queue = this.messageQueues.get(agentId)
-    if (queue && queue.length > 0) {
-      const next = queue.shift()!
+    const now = Date.now()
+
+    while (queue && queue.length > 0) {
+      const entry = queue.shift()!
       if (queue.length === 0) this.messageQueues.delete(agentId)
+
+      // Drop stale messages that have been waiting too long
+      const age = now - entry.queuedAt
+      if (age > QUEUE_MESSAGE_TTL_MS) {
+        log.info(
+          `Dropping expired queued message ${entry.msg.messageId} for agent ${agentId} (age: ${Math.round(age / 1000)}s)`,
+        )
+        continue
+      }
+
       const adapter = this.adapters.get(agentId)
       if (adapter) {
         log.info(
-          `Processing queued message ${next.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
+          `Processing queued message ${entry.msg.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
         )
-        this.processMessage(adapter, next)
+        this.processMessage(adapter, entry.msg)
         return
       }
     }
-    // Queue is empty or adapter gone — set status to online
+
+    // Queue is empty (or all expired) or adapter gone — set status to online
     this.wsClient.send({
       type: 'gateway:agent_status',
       agentId,

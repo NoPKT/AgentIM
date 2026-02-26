@@ -658,4 +658,45 @@ describe('AgentManager message queue', () => {
     assert.equal(onlineMsgs.length, 1, 'should go online, not process cleared queue')
     assert.equal(adapter.messageCount, 1, 'only the first message should have been processed')
   })
+
+  it('expired queued messages are skipped', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+
+    // Queue two messages
+    manager.handleServerMessage(makeSendMsg('m2-stale'))
+    manager.handleServerMessage(makeSendMsg('m3-fresh'))
+
+    // Manually age the first queued entry to simulate TTL expiry (>5 min)
+    const queues = (manager as any).messageQueues as Map<string, { msg: any; queuedAt: number }[]>
+    const agentQueue = [...queues.values()][0]!
+    agentQueue[0].queuedAt = Date.now() - 6 * 60 * 1000 // 6 minutes ago
+
+    sentMessages.length = 0
+    adapter.complete()
+
+    // m2-stale should be skipped, m3-fresh should be processed
+    assert.equal(adapter.messageCount, 2, 'should skip expired and process fresh message')
+  })
+
+  it('all expired messages result in agent going online', () => {
+    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    manager.handleServerMessage(makeSendMsg('m1'))
+    manager.handleServerMessage(makeSendMsg('m2'))
+    manager.handleServerMessage(makeSendMsg('m3'))
+
+    // Age all queued entries to be expired
+    const queues = (manager as any).messageQueues as Map<string, { msg: any; queuedAt: number }[]>
+    const agentQueue = [...queues.values()][0]!
+    const expired = Date.now() - 6 * 60 * 1000
+    for (const entry of agentQueue) entry.queuedAt = expired
+
+    sentMessages.length = 0
+    adapter.complete()
+
+    // All expired — should go directly online
+    const onlineMsgs = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'online')
+    assert.equal(onlineMsgs.length, 1, 'should go online when all queued messages expired')
+    assert.equal(adapter.messageCount, 1, 'no expired messages should be processed')
+  })
 })
