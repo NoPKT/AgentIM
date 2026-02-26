@@ -70,6 +70,7 @@ export const messageRoutes = new Hono<AuthEnv>()
 messageRoutes.use('*', authMiddleware)
 messageRoutes.use('/:id/*', validateIdParams)
 messageRoutes.use('/:id', validateIdParams)
+messageRoutes.use('/:messageId/*', validateIdParams)
 messageRoutes.use('/rooms/:roomId/*', validateIdParams)
 messageRoutes.use('/rooms/:roomId', validateIdParams)
 
@@ -743,18 +744,41 @@ messageRoutes.post('/batch-delete', async (c) => {
   return c.json({ ok: true, data: { deleted: deletableIds.length } })
 })
 
-// Get thread (replies to a message)
+// Get thread (replies to a message) with pagination
 messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
   const { messageId } = c.req.param()
+  const userId = c.get('userId')
+
+  // Verify user has access to the message's room
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+  if (!(await isRoomMember(userId, msg.roomId))) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
+  // Pagination: cursor-based using createdAt
+  const cursor = c.req.query('cursor')
+  const limitParam = Math.min(Number(c.req.query('limit') || 50), 100)
+
+  const conditions = [eq(messages.replyToId, messageId)]
+  if (cursor) {
+    conditions.push(gt(messages.createdAt, cursor))
+  }
 
   const replies = await db
     .select()
     .from(messages)
-    .where(eq(messages.replyToId, messageId))
+    .where(and(...conditions))
     .orderBy(messages.createdAt)
+    .limit(limitParam + 1)
+
+  const hasMore = replies.length > limitParam
+  const page = hasMore ? replies.slice(0, limitParam) : replies
 
   // Fetch attachments for all replies
-  const replyIds = replies.map((r) => r.id)
+  const replyIds = page.map((r) => r.id)
   const attachments =
     replyIds.length > 0
       ? await db
@@ -770,7 +794,7 @@ messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
     attachmentMap.set(att.messageId!, list)
   }
 
-  const result = replies.map((r) => ({
+  const result = page.map((r) => ({
     ...r,
     attachments:
       attachmentMap.get(r.id)?.map((a) => ({
@@ -783,12 +807,24 @@ messageRoutes.get('/:messageId/thread', authMiddleware, async (c) => {
       })) ?? [],
   }))
 
-  return c.json({ ok: true, data: result })
+  const nextCursor = hasMore ? page[page.length - 1]?.createdAt : undefined
+
+  return c.json({ ok: true, data: result, nextCursor })
 })
 
 // Get reply count for a message
 messageRoutes.get('/:messageId/replies/count', authMiddleware, async (c) => {
   const { messageId } = c.req.param()
+  const userId = c.get('userId')
+
+  // Verify user has access to the message's room
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1)
+  if (!msg) {
+    return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+  if (!(await isRoomMember(userId, msg.roomId))) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
 
   const result = await db
     .select({ count: sql<number>`count(*)` })
@@ -796,19 +832,6 @@ messageRoutes.get('/:messageId/replies/count', authMiddleware, async (c) => {
     .where(eq(messages.replyToId, messageId))
 
   return c.json({ ok: true, data: { count: Number(result[0]?.count ?? 0) } })
-})
-
-// Get message edit history
-messageRoutes.get('/:messageId/edits', authMiddleware, async (c) => {
-  const { messageId } = c.req.param()
-
-  const edits = await db
-    .select()
-    .from(messageEdits)
-    .where(eq(messageEdits.messageId, messageId))
-    .orderBy(messageEdits.editedAt)
-
-  return c.json({ ok: true, data: edits })
 })
 
 // Forward a message to another room

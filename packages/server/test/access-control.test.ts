@@ -124,6 +124,7 @@ describe('Access Control', () => {
     let userA: { userId: string; accessToken: string }
     let userB: { userId: string; accessToken: string }
     let roomId: string
+    let messageId: string
 
     before(async () => {
       userA = await registerUser('acl_msg_userA')
@@ -132,6 +133,16 @@ describe('Access Control', () => {
       const res = await api('POST', '/api/rooms', { name: 'ACL Message Room' }, userA.accessToken)
       assert.equal(res.status, 201)
       roomId = res.data.data.id
+
+      // User A sends a message in the room
+      const msgRes = await api(
+        'POST',
+        `/api/messages/rooms/${roomId}`,
+        { content: 'test message for ACL' },
+        userA.accessToken,
+      )
+      assert.equal(msgRes.status, 201)
+      messageId = msgRes.data.data.id
     })
 
     it('non-member cannot GET /api/messages/rooms/:roomId', async () => {
@@ -144,6 +155,70 @@ describe('Access Control', () => {
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
       assert.ok(res.data.data.items)
+    })
+
+    it('non-member cannot GET /api/messages/:messageId/thread', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/thread`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:messageId/thread', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/thread`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+    })
+
+    it('non-member cannot GET /api/messages/:messageId/replies/count', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/replies/count`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:messageId/replies/count', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/replies/count`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+      assert.equal(res.data.data.count, 0)
+    })
+
+    it('non-member cannot GET /api/messages/:id/history', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/history`,
+        undefined,
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can GET /api/messages/:id/history', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/${messageId}/history`,
+        undefined,
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
     })
   })
 
