@@ -64,7 +64,7 @@ function cleanupBrowserApis() {
     Object.defineProperty(window, 'PushManager', originalPushManager)
   } else {
     // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (window as Record<string, unknown>)['PushManager']
+    delete (window as unknown as Record<string, unknown>)['PushManager']
   }
   if (originalServiceWorker) {
     Object.defineProperty(navigator, 'serviceWorker', originalServiceWorker)

@@ -11,7 +11,7 @@ function makeTouchEvent(clientX: number, clientY: number, touchCount = 1) {
 }
 
 describe('useSwipeToClose', () => {
-  let onClose: ReturnType<typeof vi.fn>
+  let onClose: () => void
 
   beforeEach(() => {
     onClose = vi.fn()

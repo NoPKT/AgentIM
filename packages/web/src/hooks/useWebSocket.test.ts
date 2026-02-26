@@ -117,10 +117,11 @@ function captureMessageHandler(): (msg: ServerMessage) => void {
 /** Capture the onReconnect handler. */
 function captureReconnectHandler(): () => void {
   let handler: (() => void) | null = null
-  mockOnReconnect.mockImplementation((h: () => void) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockOnReconnect.mockImplementation(((h: () => void) => {
     handler = h
     return vi.fn()
-  })
+  }) as any)
   renderHook(() => useWebSocket())
   if (!handler) throw new Error('onReconnect handler was not registered')
   return handler
@@ -364,7 +365,10 @@ describe('useWebSocket', () => {
     })
 
     it('does not show notification when user is null', () => {
-      mockAuthGetState.mockReturnValue({ user: null, logout: mockLogout })
+      mockAuthGetState.mockReturnValue({
+        user: null as unknown as { id: string; username: string; displayName: string },
+        logout: mockLogout,
+      })
       const handler = captureMessageHandler()
       const msg = makeMessage({ senderId: 'user2', senderName: 'Other', content: 'Hi' })
       handler({ type: 'server:new_message', message: msg })
@@ -463,7 +467,12 @@ describe('useWebSocket', () => {
 
   it('calls agentStore.updateAgent for server:agent_status', () => {
     const handler = captureMessageHandler()
-    const agent = { id: 'a1', name: 'Claude', type: 'claude' as const, status: 'online' as const }
+    const agent = {
+      id: 'a1',
+      name: 'Claude',
+      type: 'claude-code' as const,
+      status: 'online' as const,
+    }
     handler({ type: 'server:agent_status', agent })
     expect(mockUpdateAgent).toHaveBeenCalledWith(agent)
   })
@@ -491,9 +500,11 @@ describe('useWebSocket', () => {
     const task = {
       id: 't1',
       roomId: 'room1',
+      title: 'Test task',
       agentId: 'a1',
       description: 'Test',
       status: 'completed' as const,
+      createdById: 'user1',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -536,7 +547,9 @@ describe('useWebSocket', () => {
     const room = {
       id: 'room1',
       name: 'General',
-      createdBy: 'user1',
+      type: 'group' as const,
+      broadcastMode: false,
+      createdById: 'user1',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
