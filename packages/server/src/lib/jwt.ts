@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
+import { nanoid } from 'nanoid'
 import { config, getConfigSync } from '../config.js'
 
 const secret = new TextEncoder().encode(config.jwtSecret)
@@ -8,6 +9,7 @@ export async function signAccessToken(payload: { sub: string; username: string }
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
+    .setJti(nanoid())
     .setExpirationTime(getConfigSync<string>('jwt.accessExpiry') || config.jwtAccessExpiry)
     .setIssuedAt()
     .sign(secret)
@@ -21,6 +23,7 @@ export async function signRefreshToken(payload: {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
+    .setJti(nanoid())
     .setExpirationTime(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry)
     .setIssuedAt()
     .sign(secret)
