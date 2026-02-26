@@ -207,6 +207,10 @@ export interface JwtPayload {
   sub: string
   username: string
   type: 'access' | 'refresh'
+  /** Issued-at timestamp (seconds since epoch), set by jose during signing */
+  iat?: number
+  /** Expiration timestamp (seconds since epoch), set by jose during signing */
+  exp?: number
 }
 
 // ─── API Responses ───

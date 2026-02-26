@@ -165,7 +165,10 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   logAudit({ userId: user.id, action: 'login', ipAddress: ip })
 
   // Set httpOnly Cookie for browser clients (web app).
-  // The refresh token is also returned in the JSON body for CLI (Gateway) clients.
+  // The refresh token is also returned in the JSON body for CLI clients.
+  // Note: The web client ignores the body refreshToken and relies solely on the
+  // httpOnly cookie. This dual delivery is intentional for backward compatibility
+  // with Gateway CLI clients that cannot use cookies.
   const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
   setRefreshCookie(c, refreshToken, cookieMaxAge)
 
@@ -280,7 +283,10 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
     const cookieMaxAge = Math.floor(parseExpiryMs(config.jwtRefreshExpiry) / 1000)
     setRefreshCookie(c, result.refreshToken, cookieMaxAge)
 
-    return c.json({ ok: true, data: result })
+    // Omit refreshToken from body when the Cookie path is used (browser clients)
+    const responseData = usingCookie ? { accessToken: result.accessToken } : result
+
+    return c.json({ ok: true, data: responseData })
   } catch (err) {
     // jose JWT errors have a `code` property starting with "ERR_" (e.g. ERR_JWT_EXPIRED)
     const isJoseError =

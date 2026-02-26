@@ -12,7 +12,11 @@ export function isPrivateUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr)
     const hostname = parsed.hostname
-    // Block private IP ranges, localhost, and link-local addresses
+
+    // Block dangerous schemes
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true
+
+    // Block private hostnames
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
@@ -23,6 +27,30 @@ export function isPrivateUrl(urlStr: string): boolean {
     ) {
       return true
     }
+
+    // IPv6 private ranges (bracket-stripped by URL parser)
+    const bare = hostname.replace(/^\[|]$/g, '')
+    if (bare.includes(':')) {
+      const lower = bare.toLowerCase()
+      // ::1 already handled above
+      // fe80::/10 — link-local
+      if (
+        lower.startsWith('fe80:') ||
+        lower.startsWith('fe8') ||
+        lower.startsWith('fe9') ||
+        lower.startsWith('fea') ||
+        lower.startsWith('feb')
+      )
+        return true
+      // fc00::/7 — unique local addresses (ULA)
+      if (lower.startsWith('fc') || lower.startsWith('fd')) return true
+      // ::ffff:0:0/96 — IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1)
+      if (lower.startsWith('::ffff:')) return true
+      // :: (unspecified address)
+      if (lower === '::') return true
+      return true // Block all other raw IPv6 addresses as a safety default
+    }
+
     // IPv4 private ranges
     const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
     if (ipv4Match) {
@@ -32,6 +60,7 @@ export function isPrivateUrl(urlStr: string): boolean {
       if (a === 192 && b === 168) return true // 192.168.0.0/16
       if (a === 169 && b === 254) return true // 169.254.0.0/16 (link-local)
       if (a === 100 && b >= 64 && b <= 127) return true // 100.64.0.0/10 (CGNAT)
+      if (a === 0) return true // 0.0.0.0/8
       if (a >= 224) return true // multicast + reserved
     }
     return false

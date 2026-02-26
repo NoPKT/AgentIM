@@ -1,11 +1,22 @@
 import { describe, it, afterEach, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, accessSync, constants as fsConstants } from 'node:fs'
 import { join } from 'node:path'
 
-// Use an isolated temp directory instead of ~/.agentim/daemons
-const testDir = mkdtempSync(join(tmpdir(), 'agentim-daemon-test-'))
+// Use an isolated temp directory instead of ~/.agentim/daemons.
+// This avoids requiring write access to the user's home directory, which may
+// not be available in restricted CI environments or containers.
+let testDir: string
+try {
+  testDir = mkdtempSync(join(tmpdir(), 'agentim-daemon-test-'))
+  // Verify we have read+write access — some CI runners mount tmpdir read-only
+  accessSync(testDir, fsConstants.R_OK | fsConstants.W_OK)
+} catch {
+  // Graceful skip: if we cannot create/access a temp directory, the rest of the
+  // suite will fail meaninglessly, so just create it in cwd as a last resort.
+  testDir = mkdtempSync(join(process.cwd(), '.agentim-daemon-test-'))
+}
 process.env.AGENTIM_DAEMONS_DIR = testDir
 
 import {
@@ -20,9 +31,17 @@ import {
 // NOTE: These tests use an isolated temp directory for test isolation.
 const TEST_PREFIX = `__test_${Date.now()}_`
 
+/**
+ * Pick a PID that is guaranteed to not be alive. We use a high value (999999)
+ * which is above the typical PID range on most systems. On Linux, pid_max
+ * defaults to 32768 (or 4194304 on 64-bit); on macOS, max is 99999.
+ * PID 999999 is safe on both.
+ */
+const DEAD_PID = 999999
+
 function makeTestDaemonInfo(suffix: string): DaemonInfo {
   return {
-    pid: 999999, // Non-existent PID
+    pid: DEAD_PID,
     name: `${TEST_PREFIX}${suffix}`,
     type: 'claude-code',
     workDir: tmpdir(),

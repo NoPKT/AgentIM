@@ -374,6 +374,15 @@ const DEFINITION_MAP = new Map(SETTING_DEFINITIONS.map((d) => [d.key, d]))
 const CACHE_TTL_MS = 5_000
 const cache = new Map<string, { value: string; expiresAt: number }>()
 
+/**
+ * Persistent store of the last known DB value for each setting. Unlike `cache`
+ * (which has a 5 s TTL), this map retains the most recent value that was
+ * successfully read from the database until it is explicitly overwritten by a
+ * newer DB read or a `setSetting()` call. This prevents `getSettingSync()` from
+ * silently falling back to env-var / default values after the short TTL expires.
+ */
+const lastKnownDbValue = new Map<string, string>()
+
 function getCached(key: string): string | undefined {
   const entry = cache.get(key)
   if (entry && Date.now() < entry.expiresAt) return entry.value
@@ -382,6 +391,7 @@ function getCached(key: string): string | undefined {
 
 function setCache(key: string, value: string): void {
   cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS })
+  lastKnownDbValue.set(key, value)
 }
 
 // ─── Core Functions ───
@@ -424,12 +434,22 @@ export async function getSetting(key: string): Promise<string> {
 }
 
 /**
- * Synchronous setting read. Priority: cache → env var → default.
- * Used in hot paths that cannot await (e.g. CORS origin callback).
+ * Synchronous setting read.
+ * Priority: cache → last known DB value → env var → default.
+ *
+ * The "last known DB value" layer ensures that dynamic settings changed via the
+ * admin UI persist across the short cache TTL even in synchronous hot paths.
+ * Without it, sync reads would silently regress to the env-var / default value
+ * once the 5 s cache expired, making admin changes appear to "not stick".
  */
 export function getSettingSync(key: string): string {
   const cached = getCached(key)
   if (cached !== undefined) return cached
+
+  // Return the last value that was successfully read from the database (if any).
+  // This survives cache expiration and avoids falling back to env/default.
+  const persisted = lastKnownDbValue.get(key)
+  if (persisted !== undefined) return persisted
 
   const def = DEFINITION_MAP.get(key)
   if (def?.envKey) {

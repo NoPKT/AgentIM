@@ -416,6 +416,22 @@ export function isGatewayMessage(msg: unknown): msg is GatewayMessage {
   )
 }
 
+/**
+ * All known ServerGatewayMessage type discriminants. Kept in sync with the
+ * ServerGatewayMessage union above. When adding a new variant to the union,
+ * add its type string here as well so the type guard stays correct.
+ */
+const SERVER_GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+  'server:gateway_auth_result',
+  'server:send_to_agent',
+  'server:stop_agent',
+  'server:remove_agent',
+  'server:room_context',
+  'server:permission_response',
+  'server:pong',
+  'server:error',
+])
+
 /** Type guard for ServerGatewayMessage */
 export function isServerGatewayMessage(msg: unknown): msg is ServerGatewayMessage {
   const type = (msg as { type?: string })?.type
@@ -423,13 +439,6 @@ export function isServerGatewayMessage(msg: unknown): msg is ServerGatewayMessag
     typeof msg === 'object' &&
     msg !== null &&
     typeof type === 'string' &&
-    (type === 'server:gateway_auth_result' ||
-      type === 'server:send_to_agent' ||
-      type === 'server:stop_agent' ||
-      type === 'server:remove_agent' ||
-      type === 'server:room_context' ||
-      type === 'server:permission_response' ||
-      type === 'server:pong' ||
-      type === 'server:error')
+    SERVER_GATEWAY_MESSAGE_TYPES.has(type)
   )
 }
