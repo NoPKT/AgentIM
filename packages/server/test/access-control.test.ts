@@ -1,6 +1,14 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { startServer, stopServer, api, registerUser } from './helpers.js'
+import {
+  startServer,
+  stopServer,
+  api,
+  registerUser,
+  connectWs,
+  wsSendAndWait,
+  WS_CLIENT_URL,
+} from './helpers.js'
 
 describe('Access Control', () => {
   before(async () => {
@@ -134,15 +142,25 @@ describe('Access Control', () => {
       assert.equal(res.status, 201)
       roomId = res.data.data.id
 
-      // User A sends a message in the room
-      const msgRes = await api(
-        'POST',
-        `/api/messages/rooms/${roomId}`,
-        { content: 'test message for ACL' },
-        userA.accessToken,
+      // User A sends a message via WebSocket (messages are sent over WS, not REST)
+      const ws = await connectWs(WS_CLIENT_URL)
+      ws.send(JSON.stringify({ type: 'client:auth', token: userA.accessToken }))
+      await new Promise((r) => setTimeout(r, 200))
+      ws.send(JSON.stringify({ type: 'client:join_room', roomId }))
+      await new Promise((r) => setTimeout(r, 200))
+
+      const msgResult = await wsSendAndWait(
+        ws,
+        {
+          type: 'client:send_message',
+          roomId,
+          content: 'test message for ACL',
+          mentions: [],
+        },
+        'server:new_message',
       )
-      assert.equal(msgRes.status, 201)
-      messageId = msgRes.data.data.id
+      messageId = msgResult.message.id
+      ws.close()
     })
 
     it('non-member cannot GET /api/messages/rooms/:roomId', async () => {
