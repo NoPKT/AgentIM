@@ -557,6 +557,7 @@ export const gatewayAgentStatusSchema = z.object({
   type: z.literal('gateway:agent_status'),
   agentId: z.string().min(1),
   status: z.enum(AGENT_STATUSES),
+  queueDepth: z.number().int().min(0).optional(),
 })
 
 export const gatewayTerminalDataSchema = z.object({

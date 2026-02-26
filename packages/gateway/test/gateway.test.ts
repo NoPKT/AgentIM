@@ -621,17 +621,17 @@ describe('AgentManager message queue', () => {
     assert.equal(adapter.messageCount, 2, 'should process next after error')
   })
 
-  it('rejects message when queue is full', () => {
+  it('rejects message when queue is full (50)', () => {
     const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
     manager.handleServerMessage(makeSendMsg('m0'))
 
-    // Fill queue to MAX_AGENT_QUEUE_SIZE (10)
-    for (let i = 1; i <= 10; i++) {
+    // Fill queue to MAX_AGENT_QUEUE_SIZE (50)
+    for (let i = 1; i <= 50; i++) {
       manager.handleServerMessage(makeSendMsg(`m${i}`))
     }
 
     sentMessages.length = 0
-    // 11th queued message should be rejected
+    // 51st queued message should be rejected
     manager.handleServerMessage(makeSendMsg('overflow'))
 
     const errorMsgs = sentMessages.filter(
@@ -659,44 +659,44 @@ describe('AgentManager message queue', () => {
     assert.equal(adapter.messageCount, 1, 'only the first message should have been processed')
   })
 
-  it('expired queued messages are skipped', () => {
+  it('reports queueDepth in agent_status messages', () => {
     const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
     manager.handleServerMessage(makeSendMsg('m1'))
 
-    // Queue two messages
-    manager.handleServerMessage(makeSendMsg('m2-stale'))
-    manager.handleServerMessage(makeSendMsg('m3-fresh'))
+    sentMessages.length = 0
+    // Queue a second message — should report queueDepth=1
+    manager.handleServerMessage(makeSendMsg('m2'))
 
-    // Manually age the first queued entry to simulate TTL expiry (>5 min)
-    const queues = (manager as any).messageQueues as Map<string, { msg: any; queuedAt: number }[]>
-    const agentQueue = [...queues.values()][0]!
-    agentQueue[0].queuedAt = Date.now() - 6 * 60 * 1000 // 6 minutes ago
+    const statusMsgs = sentMessages.filter(
+      (m: any) => m.type === 'gateway:agent_status' && typeof m.queueDepth === 'number',
+    )
+    assert.equal(statusMsgs.length, 1, 'should send status with queueDepth')
+    assert.equal((statusMsgs[0] as any).queueDepth, 1)
 
     sentMessages.length = 0
-    adapter.complete()
-
-    // m2-stale should be skipped, m3-fresh should be processed
-    assert.equal(adapter.messageCount, 2, 'should skip expired and process fresh message')
+    // Queue a third — queueDepth=2
+    manager.handleServerMessage(makeSendMsg('m3'))
+    const statusMsgs2 = sentMessages.filter(
+      (m: any) => m.type === 'gateway:agent_status' && typeof m.queueDepth === 'number',
+    )
+    assert.equal((statusMsgs2[0] as any).queueDepth, 2)
   })
 
-  it('all expired messages result in agent going online', () => {
+  it('reports queueDepth=0 when queue drains', () => {
     const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
     manager.handleServerMessage(makeSendMsg('m1'))
     manager.handleServerMessage(makeSendMsg('m2'))
-    manager.handleServerMessage(makeSendMsg('m3'))
 
-    // Age all queued entries to be expired
-    const queues = (manager as any).messageQueues as Map<string, { msg: any; queuedAt: number }[]>
-    const agentQueue = [...queues.values()][0]!
-    const expired = Date.now() - 6 * 60 * 1000
-    for (const entry of agentQueue) entry.queuedAt = expired
-
+    // Complete m1 → m2 processed
+    adapter.complete()
     sentMessages.length = 0
+    // Complete m2 → queue empty, agent goes online with queueDepth=0
     adapter.complete()
 
-    // All expired — should go directly online
-    const onlineMsgs = sentMessages.filter((m: any) => m.type === 'gateway:agent_status' && m.status === 'online')
-    assert.equal(onlineMsgs.length, 1, 'should go online when all queued messages expired')
-    assert.equal(adapter.messageCount, 1, 'no expired messages should be processed')
+    const onlineMsgs = sentMessages.filter(
+      (m: any) => m.type === 'gateway:agent_status' && m.status === 'online',
+    )
+    assert.equal(onlineMsgs.length, 1)
+    assert.equal((onlineMsgs[0] as any).queueDepth, 0)
   })
 })
