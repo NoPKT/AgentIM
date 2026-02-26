@@ -158,7 +158,7 @@ export async function invalidateMembershipCache(userId: string, roomId: string):
 // Maximum number of elements in a single array / keys in a single object.
 // A 10,000-element flat array has depth 1 and bypasses depth checks, so we
 // impose an independent collection-size limit to cap memory allocation.
-const MAX_COLLECTION_SIZE = 1000
+import { safeJsonParse } from '../lib/json.js'
 
 // Atomic INCR + conditional EXPIRE in a single Lua script to eliminate the
 // TOCTOU race where a Redis restart between INCR and EXPIRE leaves the key
@@ -170,35 +170,6 @@ if count == 1 then
 end
 return count
 `
-
-/** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
-function safeJsonParse(raw: string, maxDepth: number): unknown {
-  const result = JSON.parse(raw)
-  checkDepth(result, maxDepth, 0)
-  return result
-}
-
-function checkDepth(value: unknown, maxDepth: number, current: number): void {
-  if (current > maxDepth) {
-    throw new Error('JSON nesting depth exceeded')
-  }
-  if (Array.isArray(value)) {
-    if (value.length > MAX_COLLECTION_SIZE) {
-      throw new Error('JSON collection size exceeded')
-    }
-    for (const item of value) {
-      checkDepth(item, maxDepth, current + 1)
-    }
-  } else if (value !== null && typeof value === 'object') {
-    const keys = Object.keys(value as Record<string, unknown>)
-    if (keys.length > MAX_COLLECTION_SIZE) {
-      throw new Error('JSON collection size exceeded')
-    }
-    for (const key of keys) {
-      checkDepth((value as Record<string, unknown>)[key], maxDepth, current + 1)
-    }
-  }
-}
 
 // In-memory fallback counters when Redis is unavailable for WS rate limiting.
 // Process-local: effective limit is (max × number-of-processes) in multi-process deployments.

@@ -715,7 +715,8 @@ function startAuditCleanup() {
     try {
       const cutoff = new Date(Date.now() - config.auditLogRetentionDays * 86400000).toISOString()
       const result = await db.delete(auditLogs).where(lte(auditLogs.createdAt, cutoff))
-      const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0
+      const { getAffectedRowCount } = await import('./lib/drizzleUtils.js')
+      const deleted = getAffectedRowCount(result)
       if (deleted > 0) {
         log.info(
           `Purged ${deleted} audit log entries older than ${config.auditLogRetentionDays} days`,

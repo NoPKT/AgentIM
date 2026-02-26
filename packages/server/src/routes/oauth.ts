@@ -24,23 +24,73 @@ const OAUTH_STATE_COOKIE = 'agentim_oauth_state'
 const REFRESH_COOKIE_NAME = 'agentim_rt'
 const REFRESH_COOKIE_PATH = '/api/auth'
 
-// In-memory state store for CSRF protection (short-lived)
-const pendingStates = new Map<string, { provider: OAuthProvider; expiresAt: number }>()
+// ─── OAuth State Store (Redis-backed with in-memory fallback) ─────────────
+
+import { getRedis, isRedisEnabled } from '../lib/redis.js'
+
+const OAUTH_STATE_PREFIX = 'oauth_state:'
+const STATE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+const STATE_TTL_SEC = Math.ceil(STATE_TTL_MS / 1000)
+
+// In-memory fallback for single-node deployments without Redis
+const memoryStates = new Map<string, { provider: OAuthProvider; expiresAt: number }>()
 const MAX_PENDING_STATES = 1000
 
-// Periodically clean expired states
+// Periodically clean expired in-memory states
 setInterval(
   () => {
     const now = Date.now()
-    for (const [key, val] of pendingStates) {
-      if (val.expiresAt < now) pendingStates.delete(key)
+    for (const [key, val] of memoryStates) {
+      if (val.expiresAt < now) memoryStates.delete(key)
     }
   },
   5 * 60 * 1000,
 )
 
+async function storeOAuthState(
+  state: string,
+  provider: OAuthProvider,
+): Promise<{ ok: boolean; error?: string }> {
+  if (isRedisEnabled()) {
+    const redis = getRedis()
+    await redis.set(
+      `${OAUTH_STATE_PREFIX}${state}`,
+      JSON.stringify({ provider }),
+      'EX',
+      STATE_TTL_SEC,
+    )
+    return { ok: true }
+  }
+  if (memoryStates.size >= MAX_PENDING_STATES) {
+    return { ok: false, error: 'Too many pending OAuth requests, try again later' }
+  }
+  memoryStates.set(state, { provider, expiresAt: Date.now() + STATE_TTL_MS })
+  return { ok: true }
+}
+
+async function consumeOAuthState(state: string, expectedProvider: string): Promise<boolean> {
+  if (isRedisEnabled()) {
+    const redis = getRedis()
+    const raw = await redis.get(`${OAUTH_STATE_PREFIX}${state}`)
+    if (!raw) return false
+    await redis.del(`${OAUTH_STATE_PREFIX}${state}`)
+    try {
+      const data = JSON.parse(raw) as { provider: string }
+      return data.provider === expectedProvider
+    } catch {
+      return false
+    }
+  }
+  const entry = memoryStates.get(state)
+  if (!entry || entry.provider !== expectedProvider || entry.expiresAt < Date.now()) {
+    memoryStates.delete(state)
+    return false
+  }
+  memoryStates.delete(state)
+  return true
+}
+
 const VALID_PROVIDERS = new Set<string>(['github', 'google'])
-const STATE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export const oauthRoutes = new Hono<AuthEnv>()
 
@@ -62,17 +112,12 @@ oauthRoutes.get('/oauth/:provider', async (c) => {
     return c.json({ ok: false, error: 'Provider not configured' }, 400)
   }
 
-  // Prevent memory exhaustion from rapid OAuth state creation
-  if (pendingStates.size >= MAX_PENDING_STATES) {
-    return c.json({ ok: false, error: 'Too many pending OAuth requests, try again later' }, 429)
-  }
-
   const { nanoid } = await import('nanoid')
   const state = nanoid(32)
-  pendingStates.set(state, {
-    provider: provider as OAuthProvider,
-    expiresAt: Date.now() + STATE_TTL_MS,
-  })
+  const storeResult = await storeOAuthState(state, provider as OAuthProvider)
+  if (!storeResult.ok) {
+    return c.json({ ok: false, error: storeResult.error }, 429)
+  }
 
   // Set state in cookie for double-check on callback
   setCookie(c, OAUTH_STATE_COOKIE, state, {
@@ -83,9 +128,8 @@ oauthRoutes.get('/oauth/:provider', async (c) => {
     ...(config.isProduction ? { secure: true } : {}),
   })
 
-  const baseUrl = c.req.header('x-forwarded-proto')
-    ? `${c.req.header('x-forwarded-proto')}://${c.req.header('host')}`
-    : new URL(c.req.url).origin
+  const fwdProto = config.trustProxy ? c.req.header('x-forwarded-proto') : undefined
+  const baseUrl = fwdProto ? `${fwdProto}://${c.req.header('host')}` : new URL(c.req.url).origin
   const redirectUri = `${baseUrl}/api/auth/oauth/${provider}/callback`
   const authUrl = getAuthorizationUrl(provider as OAuthProvider, state, redirectUri)
 
@@ -112,12 +156,11 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
     return c.redirect('/login?error=missing_params')
   }
 
-  // Verify state (in-memory + cookie double-check)
-  const pendingState = pendingStates.get(state)
-  if (!pendingState || pendingState.provider !== provider || pendingState.expiresAt < Date.now()) {
+  // Verify state (store + cookie double-check)
+  const validState = await consumeOAuthState(state, provider)
+  if (!validState) {
     return c.redirect('/login?error=invalid_state')
   }
-  pendingStates.delete(state)
 
   const cookieState = getCookie(c, OAUTH_STATE_COOKIE)
   if (cookieState !== state) {
@@ -293,20 +336,15 @@ oauthRoutes.post('/oauth/:provider/link', authMiddleware, async (c) => {
   }
 
   // Redirect to OAuth flow — the callback will detect the logged-in user and link
-  if (pendingStates.size >= MAX_PENDING_STATES) {
-    return c.json({ ok: false, error: 'Too many pending OAuth requests, try again later' }, 429)
-  }
-
   const { nanoid } = await import('nanoid')
   const state = nanoid(32)
-  pendingStates.set(state, {
-    provider: provider as OAuthProvider,
-    expiresAt: Date.now() + STATE_TTL_MS,
-  })
+  const storeResult = await storeOAuthState(state, provider as OAuthProvider)
+  if (!storeResult.ok) {
+    return c.json({ ok: false, error: storeResult.error }, 429)
+  }
 
-  const baseUrl = c.req.header('x-forwarded-proto')
-    ? `${c.req.header('x-forwarded-proto')}://${c.req.header('host')}`
-    : new URL(c.req.url).origin
+  const fwdProto = config.trustProxy ? c.req.header('x-forwarded-proto') : undefined
+  const baseUrl = fwdProto ? `${fwdProto}://${c.req.header('host')}` : new URL(c.req.url).origin
   const redirectUri = `${baseUrl}/api/auth/oauth/${provider}/callback`
   const authUrl = getAuthorizationUrl(provider as OAuthProvider, state, redirectUri)
 
@@ -343,7 +381,8 @@ oauthRoutes.delete('/oauth/:provider/unlink', authMiddleware, async (c) => {
     .delete(oauthAccounts)
     .where(and(eq(oauthAccounts.userId, userId), eq(oauthAccounts.provider, provider)))
 
-  const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0
+  const { getAffectedRowCount } = await import('../lib/drizzleUtils.js')
+  const deleted = getAffectedRowCount(result)
   if (deleted === 0) {
     return c.json({ ok: false, error: 'Not linked' }, 404)
   }

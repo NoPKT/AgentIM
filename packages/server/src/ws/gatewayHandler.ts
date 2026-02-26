@@ -82,27 +82,7 @@ export function stopStreamTrackerCleanup() {
   }
 }
 
-/** Parse JSON with a nesting depth limit to prevent DoS via deeply nested payloads. */
-function safeJsonParse(raw: string, maxDepth: number): unknown {
-  const result = JSON.parse(raw)
-  checkDepth(result, maxDepth, 0)
-  return result
-}
-
-function checkDepth(value: unknown, maxDepth: number, current: number): void {
-  if (current > maxDepth) {
-    throw new Error('JSON nesting depth exceeded')
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      checkDepth(item, maxDepth, current + 1)
-    }
-  } else if (value !== null && typeof value === 'object') {
-    for (const key of Object.keys(value as Record<string, unknown>)) {
-      checkDepth((value as Record<string, unknown>)[key], maxDepth, current + 1)
-    }
-  }
-}
+import { safeJsonParse } from '../lib/json.js'
 
 // In-memory agent rate limit counters when Redis is not available
 const MAX_AGENT_RATE_COUNTERS = 10_000
