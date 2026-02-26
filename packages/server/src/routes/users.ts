@@ -11,6 +11,7 @@ import {
   refreshTokens,
   messageAttachments,
   messages,
+  oauthAccounts,
 } from '../db/schema.js'
 import {
   updateUserSchema,
@@ -102,6 +103,26 @@ userRoutes.put('/me', async (c) => {
   })
 })
 
+// ─── OAuth Accounts ───
+
+userRoutes.get('/me/oauth-accounts', async (c) => {
+  const userId = c.get('userId')
+  const accounts = await db
+    .select({
+      id: oauthAccounts.id,
+      provider: oauthAccounts.provider,
+      providerAccountId: oauthAccounts.providerAccountId,
+      email: oauthAccounts.email,
+      displayName: oauthAccounts.displayName,
+      avatarUrl: oauthAccounts.avatarUrl,
+      createdAt: oauthAccounts.createdAt,
+      updatedAt: oauthAccounts.updatedAt,
+    })
+    .from(oauthAccounts)
+    .where(eq(oauthAccounts.userId, userId))
+  return c.json({ ok: true, data: accounts })
+})
+
 // ─── Change Password (any user) ───
 
 userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
@@ -119,6 +140,11 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!user) {
     return c.json({ ok: false, error: 'User not found' }, 404)
+  }
+
+  // OAuth-only users have no password — they must set one via another flow
+  if (!user.passwordHash) {
+    return c.json({ ok: false, error: 'No password set for this account' }, 400)
   }
 
   const valid = await verify(user.passwordHash, parsed.data.currentPassword)

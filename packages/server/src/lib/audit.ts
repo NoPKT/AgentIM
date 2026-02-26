@@ -29,6 +29,8 @@ export type AuditAction =
   | 'message_edit'
   | 'message_delete'
   | 'setting_update'
+  | 'oauth_link'
+  | 'oauth_unlink'
 
 interface AuditOptions {
   userId?: string | null

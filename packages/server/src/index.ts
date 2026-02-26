@@ -24,6 +24,7 @@ import { migrate, closeDb, db, verifyMigrations } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt, lte } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
+import { oauthRoutes } from './routes/oauth.js'
 import { userRoutes } from './routes/users.js'
 import { roomRoutes } from './routes/rooms.js'
 import { messageRoutes } from './routes/messages.js'
@@ -128,7 +129,8 @@ async function seedAdmin() {
 
   if (existing) {
     // Only update if the env-var password has changed or role is not admin
-    const passwordChanged = !(await verify(existing.passwordHash, config.adminPassword))
+    const passwordChanged =
+      !existing.passwordHash || !(await verify(existing.passwordHash, config.adminPassword))
     const roleChanged = existing.role !== 'admin'
     if (passwordChanged || roleChanged) {
       const updates: Record<string, unknown> = { role: 'admin', updatedAt: now }
@@ -454,6 +456,7 @@ app.get('/api/admin/metrics', async (c) => {
 
 // API routes
 app.route('/api/auth', authRoutes)
+app.route('/api/auth', oauthRoutes)
 app.route('/api/users', userRoutes)
 app.route('/api/rooms', roomRoutes)
 app.route('/api/messages', messageRoutes)

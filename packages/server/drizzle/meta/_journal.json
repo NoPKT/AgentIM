@@ -253,6 +253,13 @@
       "when": 1772800000000,
       "tag": "0035_fix_timestamp_column_types",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1772900000000,
+      "tag": "0036_add_oauth_accounts",
+      "breakpoints": true
     }
   ]
 }

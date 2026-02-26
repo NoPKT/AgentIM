@@ -101,6 +101,18 @@ authRoutes.post('/login', authRateLimit, async (c) => {
     return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
 
+  // OAuth-only users have null passwordHash — reject with same error to prevent enumeration
+  if (!user.passwordHash) {
+    await verify(DUMMY_HASH, password).catch(() => {})
+    logAudit({
+      userId: user.id,
+      action: 'login_failed',
+      metadata: { noPassword: true },
+      ipAddress: ip,
+    })
+    return c.json({ ok: false, error: 'Invalid credentials' }, 401)
+  }
+
   const valid = await verify(user.passwordHash, password)
   if (!valid) {
     // Atomically increment failed attempts using SQL to prevent race conditions
