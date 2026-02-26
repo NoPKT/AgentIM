@@ -1,4 +1,4 @@
-import { describe, it, beforeEach } from 'node:test'
+import { describe, it, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { Hono } from 'hono'
 import { SignJWT } from 'jose'
@@ -56,6 +56,18 @@ async function makeExpiredToken(sub: string, username: string): Promise<string> 
 async function makeRefreshToken(sub: string, username: string): Promise<string> {
   return makeAccessToken(sub, username, { type: 'refresh' })
 }
+
+// ─── Cleanup persistent connections after all tests ─────────────────────────
+
+after(async () => {
+  const { stopTokenRevocation } = await import('../src/lib/tokenRevocation.js')
+  const { closeRedis } = await import('../src/lib/redis.js')
+  const { closeDb } = await import('../src/db/index.js')
+
+  await stopTokenRevocation()
+  await closeRedis()
+  await closeDb()
+})
 
 // ─── authMiddleware tests ──────────────────────────────────────────────────
 
