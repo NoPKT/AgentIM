@@ -15,6 +15,7 @@ import {
 } from '../lib/oauth.js'
 import { encryptSecret } from '../lib/crypto.js'
 import { config, getConfigSync } from '../config.js'
+import { parseExpiryMs } from '../lib/time.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('OAuth')
@@ -23,28 +24,9 @@ const OAUTH_STATE_COOKIE = 'agentim_oauth_state'
 const REFRESH_COOKIE_NAME = 'agentim_rt'
 const REFRESH_COOKIE_PATH = '/api/auth'
 
-/** Parse a duration string like '7d', '24h', '30m' into milliseconds. */
-function parseExpiryMs(expiry: string): number {
-  const match = expiry.match(/^(\d+)\s*([smhd])$/)
-  if (!match) return 7 * 24 * 60 * 60 * 1000
-  const [, num, unit] = match
-  const n = parseInt(num, 10)
-  switch (unit) {
-    case 's':
-      return n * 1000
-    case 'm':
-      return n * 60 * 1000
-    case 'h':
-      return n * 60 * 60 * 1000
-    case 'd':
-      return n * 24 * 60 * 60 * 1000
-    default:
-      return 7 * 24 * 60 * 60 * 1000
-  }
-}
-
 // In-memory state store for CSRF protection (short-lived)
 const pendingStates = new Map<string, { provider: OAuthProvider; expiresAt: number }>()
+const MAX_PENDING_STATES = 1000
 
 // Periodically clean expired states
 setInterval(
@@ -78,6 +60,11 @@ oauthRoutes.get('/oauth/:provider', async (c) => {
   }
   if (!isProviderConfigured(provider as OAuthProvider)) {
     return c.json({ ok: false, error: 'Provider not configured' }, 400)
+  }
+
+  // Prevent memory exhaustion from rapid OAuth state creation
+  if (pendingStates.size >= MAX_PENDING_STATES) {
+    return c.json({ ok: false, error: 'Too many pending OAuth requests, try again later' }, 429)
   }
 
   const { nanoid } = await import('nanoid')
@@ -306,6 +293,10 @@ oauthRoutes.post('/oauth/:provider/link', authMiddleware, async (c) => {
   }
 
   // Redirect to OAuth flow — the callback will detect the logged-in user and link
+  if (pendingStates.size >= MAX_PENDING_STATES) {
+    return c.json({ ok: false, error: 'Too many pending OAuth requests, try again later' }, 429)
+  }
+
   const { nanoid } = await import('nanoid')
   const state = nanoid(32)
   pendingStates.set(state, {

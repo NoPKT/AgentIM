@@ -29,14 +29,9 @@ export function isPrivateIp(ip: string): boolean {
     if (lower.startsWith('fe80')) return true
     if (lower === '::' || lower === '::1') return true
     // IPv4-mapped IPv6 in dotted form: ::ffff:127.0.0.1
-    const mapped = lower.match(/^::ffff:(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
-    if (mapped) {
-      const [, ma, mb] = mapped.map(Number)
-      if (ma === 10 || ma === 127 || ma === 0) return true
-      if (ma === 172 && mb >= 16 && mb <= 31) return true
-      if (ma === 192 && mb === 168) return true
-      if (ma === 169 && mb === 254) return true
-    }
+    // Delegate to isPrivateIp() to reuse the full IPv4 range checks
+    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+    if (mapped) return isPrivateIp(mapped[1])
     // IPv4-mapped IPv6 in hex form: ::ffff:7f00:1 (= ::ffff:127.0.0.1)
     const hexMapped = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
     if (hexMapped) {

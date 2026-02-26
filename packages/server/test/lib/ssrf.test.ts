@@ -79,6 +79,11 @@ describe('isPrivateIp', () => {
     assert.ok(isPrivateIp('::ffff:127.0.0.1'))
     assert.ok(isPrivateIp('::ffff:10.0.0.1'))
     assert.ok(isPrivateIp('::ffff:192.168.1.1'))
+    assert.ok(isPrivateIp('::ffff:169.254.1.1')) // link-local
+    assert.ok(isPrivateIp('::ffff:100.64.0.1')) // CGNAT
+    assert.ok(isPrivateIp('::ffff:224.0.0.1')) // multicast
+    assert.ok(isPrivateIp('::ffff:240.0.0.1')) // reserved
+    assert.ok(isPrivateIp('::ffff:255.255.255.255')) // broadcast
     assert.ok(!isPrivateIp('::ffff:8.8.8.8'))
   })
 
