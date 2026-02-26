@@ -25,6 +25,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_TOOL_INPUT_KEYS,
   MAX_TOOL_INPUT_KEY_LENGTH,
+  MAX_TOOL_INPUT_SIZE,
   DANGEROUS_KEY_NAMES,
   MEMBER_TYPES,
   SENDER_TYPES,
@@ -55,6 +56,10 @@ export const toolInputSchema = z
   .refine(
     (obj) => !Object.keys(obj).some((k) => (DANGEROUS_KEY_NAMES as readonly string[]).includes(k)),
     'validation.toolInputDangerousKey',
+  )
+  .refine(
+    (obj) => JSON.stringify(obj).length <= MAX_TOOL_INPUT_SIZE,
+    'validation.toolInputTooLarge',
   )
 
 // ─── Password Complexity ───
@@ -435,12 +440,19 @@ export const adminUpdateUserSchema = z.object({
 
 // ─── WebSocket Protocol Validators ───
 
+/** Maximum serialized size for metadata values (100 KB). */
+const MAX_METADATA_VALUE_SIZE = 100_000
+
 const parsedChunkSchema = z.object({
   type: z.enum(CHUNK_TYPES),
   content: z.string().max(1_000_000),
   metadata: z
     .record(z.string(), z.unknown())
     .refine((obj) => Object.keys(obj).length <= 50, 'validation.metadataTooManyKeys')
+    .refine(
+      (obj) => JSON.stringify(obj).length <= MAX_METADATA_VALUE_SIZE,
+      'validation.metadataTooLarge',
+    )
     .optional(),
 })
 

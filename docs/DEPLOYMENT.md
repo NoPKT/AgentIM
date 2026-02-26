@@ -251,8 +251,8 @@ pm2 restart agentim-server
 curl https://your-server.com/api/routers \
   -H "Authorization: Bearer <ADMIN_TOKEN>" | jq '.data'
 
-# 2. Generate a new key (must be exactly 32 bytes when decoded)
-NEW_ENCRYPTION_KEY=$(openssl rand -base64 32)
+# 2. Generate a new key (any string ≥ 32 chars; AES key is derived via SHA-256)
+NEW_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # 3. Update your .env and restart the server
 

@@ -52,3 +52,8 @@ export function insertMention(content: string, name: string, position: number): 
   const clamped = Math.max(0, Math.min(position, content.length))
   return content.slice(0, clamped) + `@${name} ` + content.slice(clamped)
 }
+
+/** Clear the mention regex cache (useful for memory pressure scenarios). */
+export function clearMentionCache(): void {
+  mentionRegexCache.clear()
+}

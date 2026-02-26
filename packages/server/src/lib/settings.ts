@@ -608,6 +608,18 @@ function mapDef(
   }
 }
 
+/** Validate an origin string: must be scheme + host (+ optional port), no path. */
+function isValidOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+    if (u.pathname !== '/' && u.pathname !== '') return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 function validateSetting(def: SettingDefinition, value: string): string | undefined {
   if (def.type === 'number') {
     const num = Number(value)
@@ -620,6 +632,19 @@ function validateSetting(def: SettingDefinition, value: string): string | undefi
   }
   if (def.type === 'enum' && def.enumValues && !def.enumValues.includes(value)) {
     return `${def.key}: must be one of ${def.enumValues.join(', ')}`
+  }
+  // Semantic validation for cors.origin — must be comma-separated valid origins
+  if (def.key === 'cors.origin' && value) {
+    if (value === '*') return `${def.key}: wildcard "*" is not allowed — specify explicit origins`
+    const origins = value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const origin of origins) {
+      if (!isValidOrigin(origin)) {
+        return `${def.key}: "${origin}" is not a valid HTTP(S) origin (e.g. https://app.example.com)`
+      }
+    }
   }
   return undefined
 }

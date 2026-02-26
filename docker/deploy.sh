@@ -16,8 +16,8 @@ else
   echo "No $ENV_FILE found — generating one with random secrets..."
 
   PORT="${PORT:-3000}"
-  JWT_SECRET=$(openssl rand -base64 32)
-  ENCRYPTION_KEY=$(openssl rand -base64 32)
+  JWT_SECRET=$(openssl rand -hex 32)
+  ENCRYPTION_KEY=$(openssl rand -hex 32)
   POSTGRES_PASSWORD=$(openssl rand -base64 16)
   ADMIN_PASSWORD=$(generate_password)
 

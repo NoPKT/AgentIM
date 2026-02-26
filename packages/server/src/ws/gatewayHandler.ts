@@ -36,22 +36,37 @@ const log = createLogger('GatewayHandler')
 
 const MAX_CHUNK_SIZE = 1024 * 1024 // 1 MB per chunk
 
-/** Track cumulative size of streaming messages. Key = messageId, Value = total bytes so far */
-const streamSizeTracker = new Map<string, number>()
+/** Track cumulative size of streaming messages. Key = messageId, Value = { bytes, lastSeen } */
+const streamSizeTracker = new Map<string, { bytes: number; lastSeen: number }>()
 const MAX_STREAM_TRACKER_SIZE = 10_000
+/** Entries not updated within this window are eligible for eviction. */
+const STREAM_TRACKER_STALE_MS = 5 * 60_000 // 5 minutes
 
-// Clean up expired stream size tracker entries every 60 seconds
+// Clean up stale stream size tracker entries every 60 seconds
 let streamTrackerTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
-  // Simple eviction: if tracker is over 80% capacity, clear oldest entries
+  const now = Date.now()
+  // Prefer evicting stale entries first
   if (streamSizeTracker.size > MAX_STREAM_TRACKER_SIZE * 0.8) {
-    const entriesToRemove = streamSizeTracker.size - Math.floor(MAX_STREAM_TRACKER_SIZE * 0.5)
+    const staleThreshold = now - STREAM_TRACKER_STALE_MS
     let removed = 0
-    for (const key of streamSizeTracker.keys()) {
-      if (removed >= entriesToRemove) break
-      streamSizeTracker.delete(key)
-      removed++
+    for (const [key, entry] of streamSizeTracker) {
+      if (entry.lastSeen < staleThreshold) {
+        streamSizeTracker.delete(key)
+        removed++
+      }
     }
-    log.debug(`Evicted ${removed} stream size tracker entries`)
+    // If stale eviction wasn't enough, fall back to oldest-first
+    if (streamSizeTracker.size > MAX_STREAM_TRACKER_SIZE * 0.8) {
+      const entriesToRemove = streamSizeTracker.size - Math.floor(MAX_STREAM_TRACKER_SIZE * 0.5)
+      let extraRemoved = 0
+      for (const key of streamSizeTracker.keys()) {
+        if (extraRemoved >= entriesToRemove) break
+        streamSizeTracker.delete(key)
+        extraRemoved++
+      }
+      removed += extraRemoved
+    }
+    if (removed > 0) log.debug(`Evicted ${removed} stream size tracker entries`)
   }
 }, 60_000)
 streamTrackerTimer.unref()
@@ -573,7 +588,9 @@ async function handleMessageChunk(
   }
 
   // Track cumulative stream size
-  const currentTotal = streamSizeTracker.get(msg.messageId) ?? 0
+  const now = Date.now()
+  const currentEntry = streamSizeTracker.get(msg.messageId)
+  const currentTotal = currentEntry?.bytes ?? 0
   const newTotal = currentTotal + msg.chunk.content.length
   if (newTotal > MAX_STREAM_TOTAL_SIZE) {
     log.warn(
@@ -592,7 +609,7 @@ async function handleMessageChunk(
     const oldestKey = streamSizeTracker.keys().next().value
     if (oldestKey) streamSizeTracker.delete(oldestKey)
   }
-  streamSizeTracker.set(msg.messageId, newTotal)
+  streamSizeTracker.set(msg.messageId, { bytes: newTotal, lastSeen: now })
 
   const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
   const agentName = agent?.name ?? 'Unknown Agent'

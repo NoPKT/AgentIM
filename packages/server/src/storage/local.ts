@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { createReadStream } from 'node:fs'
 import { writeFile, readFile, unlink, readdir, access, stat, constants } from 'node:fs/promises'
 import { Readable } from 'node:stream'
@@ -13,7 +13,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   private safePath(key: string): string {
     const full = resolve(this.baseDir, key)
-    if (!full.startsWith(this.baseDir + '/') && full !== this.baseDir) {
+    if (!full.startsWith(this.baseDir + sep) && full !== this.baseDir) {
       throw new Error('Path traversal detected')
     }
     return full

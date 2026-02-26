@@ -240,3 +240,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **E2E assertion fix**: Replaced always-true `>=0` assertion in agents.spec.ts with meaningful `>0` check
 - **Web coverage thresholds raised**: lines 23→24, functions 19→21, statements 22→23, branches 11→12; added unit tests for toast and agents stores
 - **README**: Added early-stage (v0.x) notice to set user expectations
+
+#### Comprehensive Audit Fixes
+
+- **[SECURITY] CORS fallback hardening**: CORS handler no longer falls back to wildcard `*` when no origin is configured; production mode denies unknown origins, dev mode reflects request origin
+- **[SECURITY] SVG/MathML sanitization**: Added `<svg>` and `<math>` block-level tag stripping to server-side HTML sanitizer (defense-in-depth for stored XSS via embedded scripts/foreignObject)
+- **[SECURITY] Local storage path traversal (Windows)**: `safePath()` now uses platform-specific `path.sep` instead of hardcoded `/` for path traversal detection
+- **[SECURITY] Metrics endpoint auth default**: `METRICS_AUTH_ENABLED` now defaults to `true` in production (was `false`), preventing unauthenticated information leakage
+- **[SECURITY] CORS origin semantic validation**: `validateSetting()` now validates `cors.origin` values are well-formed HTTP(S) origins and rejects wildcard `*`
+- **[SECURITY] Tool input size limit**: Added `MAX_TOOL_INPUT_SIZE` (1 MB) total serialized size check to `toolInputSchema` to prevent oversized payloads
+- **[SECURITY] Metadata value size limit**: Added 100 KB total serialized size check to `parsedChunkSchema.metadata`
+- **Gateway Codex adapter daemon hang**: Codex approval policy now falls back to `'never'` when stdin is not a TTY (daemon mode), preventing indefinite stdin block
+- **Gateway cleanup timeout**: `disposeAll()` now has a 15-second hard deadline via `Promise.race()` to prevent process hang during shutdown
+- **Stream size tracker stale eviction**: Tracker entries now carry `lastSeen` timestamps; eviction prefers stale entries (>5 min) before falling back to FIFO
+- **Mention cache memory pressure**: Exported `clearMentionCache()` from `@agentim/shared` for callers needing explicit cache invalidation
+- **Release workflow sub-package version check**: `release.yml` now verifies all sub-package versions match the tag version (not just root `package.json`)
+- **CI E2E on main push**: E2E tests now run on pushes to `main` in addition to PRs, schedules, and manual dispatch
+- **ENCRYPTION_KEY documentation**: Fixed inconsistent "must be exactly 32 bytes (base64-encoded)" in `.env.example` and `DEPLOYMENT.md` — the key is arbitrary (derived via SHA-256); updated generation commands to use `openssl rand -hex 32`
+- **deploy.sh key generation**: Switched from `openssl rand -base64 32` to `openssl rand -hex 32` to avoid shell-unsafe `+/=` characters in generated secrets
+- **SECURITY.md key generation**: Updated deployment checklist to use `openssl rand -hex 32`
+- **Upload token-in-URL documentation**: Enhanced JSDoc on `useUploadUrl` with explicit security mitigations (short-lived tokens, HTTPS, no query param logging)

@@ -8,6 +8,10 @@ import { api } from '../lib/api.js'
  * Security trade-off: token is passed in the URL because {@literal <img src>}
  * and other HTML resource attributes cannot send Authorization headers.
  * The server validates and expires these tokens to limit exposure.
+ * Mitigations:
+ *   - Access tokens are short-lived (default 15m) and auto-rotated
+ *   - Server logs should never log query parameters
+ *   - HTTPS ensures the URL is not visible on the wire
  *
  * Re-evaluates whenever the token rotates (tokenVersion changes), so browser
  * image requests always carry a valid credential.

@@ -37,6 +37,12 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /<embed\b[^>]*>/gi,
   // <form>…</form> (prevents phishing via injected forms)
   /<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form\s*>/gi,
+  // <svg>…</svg> blocks — SVGs can embed <script>, <foreignObject>,
+  // <use xlink:href="data:…">, and event handlers to execute arbitrary JS.
+  /<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg\s*>/gi,
+  // <math>…</math> blocks — MathML can contain embedded scripts via
+  // annotation-xml and similar exotic injection vectors.
+  /<math\b[^<]*(?:(?!<\/math>)<[^<]*)*<\/math\s*>/gi,
 ]
 
 /**
