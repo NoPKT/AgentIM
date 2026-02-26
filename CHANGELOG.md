@@ -272,7 +272,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docs auth timeout drift**: Fixed WebSocket auth timeout from "10 seconds" to "5 seconds" in WEBSOCKET.md and ARCHITECTURE.md to match actual `wsAuthTimeoutMs` config (5000ms)
 - **Docs rate limit drift**: Fixed auth rate limit from "10 req/min" to "20 req/min" in ARCHITECTURE.md to match actual `authRateLimit` middleware config
 - **Docs metrics accuracy**: Rewrote CAPACITY.md Monitoring section with correct metric names (`agentim_ws_client_connections` not `agentim_client_connections`), auth requirement note, and complete metric inventory
-- **Server Node.js engine constraint**: Added `"engines": { "node": ">=20 <23" }` to server package.json to prevent test coverage instability on newer Node versions
+- **Server Node.js engine constraint**: Added `"engines": { "node": ">=20" }` to server package.json
 - **Pre-push hook UX**: Enhanced PostgreSQL/Redis not-running warning with Docker startup commands
 - **Cloud deploy credential docs**: Added credential retrieval instructions for Render, Railway, and Northflank to all 7 README translations
 - **Crypto unit tests**: Added dedicated test file for `encryptSecret`/`decryptSecret` covering round-trip, plaintext passthrough, random IV, malformed input, and missing key scenarios
+- **Transaction atomicity**: Wrapped password change + refresh token deletion in transactions for user self-change, admin password reset, and gateway deletion (prevents inconsistent state on partial failure)
+- **Audit false-positive guards**: Added protective code comments on 4 patterns frequently mis-flagged by audits (router API key encryption, slowSendCount back-pressure, streamSizeTracker dual cleanup, WeakMap auth counter)

@@ -45,7 +45,8 @@ const offlineTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 // Per-socket auth attempt counter. Limits brute-force token guessing over a
 // single WebSocket connection (complements the WS upgrade rate limit per IP).
-// WeakMap ensures entries are GC'd when the WSContext object is collected.
+// NOTE: WeakMap ensures entries are automatically GC'd when the WSContext
+// object is collected after disconnect — no manual cleanup timer needed.
 const WS_MAX_AUTH_ATTEMPTS = 5
 const wsAuthAttempts = new WeakMap<object, number>()
 

@@ -34,7 +34,7 @@
     "ws": "^8.18.0"
   },
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=20"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0",

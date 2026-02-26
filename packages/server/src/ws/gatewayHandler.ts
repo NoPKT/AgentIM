@@ -42,7 +42,10 @@ const MAX_STREAM_TRACKER_SIZE = 10_000
 /** Entries not updated within this window are eligible for eviction. */
 const STREAM_TRACKER_STALE_MS = 5 * 60_000 // 5 minutes
 
-// Clean up stale stream size tracker entries every 60 seconds
+// Clean up stale stream size tracker entries every 60 seconds.
+// NOTE: Two-layer cleanup ensures no leak — (1) periodic eviction here for
+// stale/overflow entries, and (2) immediate deletion in handleMessageComplete()
+// when a stream finishes. Do NOT remove either layer.
 let streamTrackerTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
   const now = Date.now()
   // Prefer evicting stale entries first

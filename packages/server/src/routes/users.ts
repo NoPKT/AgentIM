@@ -128,10 +128,12 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
 
   const passwordHash = await hash(parsed.data.newPassword)
   const now = new Date().toISOString()
-  await db.update(users).set({ passwordHash, updatedAt: now }).where(eq(users.id, userId))
 
-  // Invalidate all refresh tokens so other sessions must re-login
-  await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
+  // Atomic: update password + invalidate refresh tokens in one transaction
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ passwordHash, updatedAt: now }).where(eq(users.id, userId))
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
+  })
   // Revoke all outstanding access tokens. Best-effort: refresh tokens are
   // already deleted, so no new access tokens can be obtained even if Redis
   // is temporarily unavailable. Existing access tokens expire within TTL.
@@ -265,11 +267,16 @@ userRoutes.put('/:id', adminMiddleware, async (c) => {
     updateData.maxGateways = parsed.data.maxGateways
   }
 
-  await db.update(users).set(updateData).where(eq(users.id, targetId))
+  // Atomic: update user + invalidate refresh tokens when password changes
+  await db.transaction(async (tx) => {
+    await tx.update(users).set(updateData).where(eq(users.id, targetId))
+    if (parsed.data.password) {
+      await tx.delete(refreshTokens).where(eq(refreshTokens.userId, targetId))
+    }
+  })
 
-  // If password was changed by admin, revoke target user's tokens and disconnect sessions
+  // If password was changed by admin, revoke access tokens and disconnect sessions
   if (parsed.data.password) {
-    await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId))
     try {
       await revokeUserTokens(targetId)
     } catch {

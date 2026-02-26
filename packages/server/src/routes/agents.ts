@@ -249,23 +249,25 @@ agentRoutes.delete('/gateways/:gatewayId', async (c) => {
     .where(eq(agents.gatewayId, gatewayId))
   const agentIds = agentRows.map((a) => a.id)
 
-  // Collect affected rooms
+  // Atomic: collect rooms, remove memberships, delete gateway in one transaction
   let affectedRoomIds: string[] = []
-  if (agentIds.length > 0) {
-    const memberRows = await db
-      .select({ roomId: roomMembers.roomId })
-      .from(roomMembers)
-      .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
-    affectedRoomIds = [...new Set(memberRows.map((r) => r.roomId))]
+  await db.transaction(async (tx) => {
+    if (agentIds.length > 0) {
+      const memberRows = await tx
+        .select({ roomId: roomMembers.roomId })
+        .from(roomMembers)
+        .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
+      affectedRoomIds = [...new Set(memberRows.map((r) => r.roomId))]
 
-    // Clean up room memberships
-    await db
-      .delete(roomMembers)
-      .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
-  }
+      // Clean up room memberships
+      await tx
+        .delete(roomMembers)
+        .where(and(inArray(roomMembers.memberId, agentIds), eq(roomMembers.memberType, 'agent')))
+    }
 
-  // Delete gateway (agents cascade-deleted via FK)
-  await db.delete(gateways).where(eq(gateways.id, gatewayId))
+    // Delete gateway (agents cascade-deleted via FK)
+    await tx.delete(gateways).where(eq(gateways.id, gatewayId))
+  })
 
   // Notify connection manager and mark agents as deleted
   for (const agentId of agentIds) {
