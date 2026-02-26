@@ -11,6 +11,7 @@ import { PwaUpdateBanner } from './components/PwaUpdateBanner.js'
 import './lib/i18n.js'
 
 const LoginPage = lazy(() => import('./pages/LoginPage.js'))
+const OAuthCallbackPage = lazy(() => import('./pages/OAuthCallbackPage.js'))
 const ChatPage = lazy(() => import('./pages/ChatPage.js'))
 const AgentsPage = lazy(() => import('./pages/AgentsPage.js'))
 const TasksPage = lazy(() => import('./pages/TasksPage.js'))
@@ -63,6 +64,14 @@ function AppInner() {
         element={
           <Suspense fallback={<PageLoader />}>
             <LoginPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/auth/callback"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <OAuthCallbackPage />
           </Suspense>
         }
       />

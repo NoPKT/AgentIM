@@ -24,6 +24,7 @@ import { migrate, closeDb, db, verifyMigrations } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt, lte } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
+import { oauthRoutes } from './routes/oauth.js'
 import { userRoutes } from './routes/users.js'
 import { roomRoutes } from './routes/rooms.js'
 import { messageRoutes } from './routes/messages.js'
@@ -454,6 +455,7 @@ app.get('/api/admin/metrics', async (c) => {
 
 // API routes
 app.route('/api/auth', authRoutes)
+app.route('/api/auth', oauthRoutes)
 app.route('/api/users', userRoutes)
 app.route('/api/rooms', roomRoutes)
 app.route('/api/messages', messageRoutes)

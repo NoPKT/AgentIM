@@ -173,6 +173,9 @@ export type ServiceAgentStatus = (typeof SERVICE_AGENT_STATUSES)[number]
 
 export const MAX_SERVICE_AGENT_FILE_SIZE = 100 * 1024 * 1024 // 100 MB for media files
 
+// ─── OAuth Providers ───
+export const OAUTH_PROVIDERS = ['github', 'google'] as const
+
 // ─── Slash Commands ───
 export const SLASH_COMMANDS = ['clear', 'help', 'task', 'status'] as const
 export type SlashCommandName = (typeof SLASH_COMMANDS)[number]

@@ -15,6 +15,7 @@ import { toast } from '../stores/toast.js'
 import { Button, Input, FormField } from '../components/ui.js'
 import { RouterFormDialog } from '../components/RouterFormDialog.js'
 import type { Router } from '@agentim/shared'
+import { OAUTH_PROVIDERS } from '@agentim/shared'
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -53,9 +54,39 @@ export default function SettingsPage() {
   const [deletingRouterId, setDeletingRouterId] = useState<string | null>(null)
   const isAdmin = user?.role === 'admin'
 
+  // OAuth linked accounts state
+  const [linkedAccounts, setLinkedAccounts] = useState<
+    { id: string; provider: string; email?: string | null; displayName?: string | null }[]
+  >([])
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([])
+  const [isUnlinkingOAuth, setIsUnlinkingOAuth] = useState<string | null>(null)
+
   useEffect(() => {
     loadRouters()
   }, [loadRouters])
+
+  // Load OAuth accounts and configured providers
+  useEffect(() => {
+    const loadOAuth = async () => {
+      try {
+        const [accountsRes, providersRes] = await Promise.all([
+          api.get<
+            { id: string; provider: string; email?: string | null; displayName?: string | null }[]
+          >('/users/me/oauth-accounts'),
+          fetch('/api/auth/oauth/providers').then((r) => r.json()),
+        ])
+        if (accountsRes.ok && accountsRes.data) {
+          setLinkedAccounts(accountsRes.data)
+        }
+        if (providersRes.ok && providersRes.data) {
+          setConfiguredProviders(providersRes.data as string[])
+        }
+      } catch {
+        // OAuth is optional — silently ignore errors
+      }
+    }
+    loadOAuth()
+  }, [])
 
   const myRouters = routers.filter((r) => r.scope === 'personal' && r.createdById === user?.id)
   const globalRouters = routers.filter((r) => r.scope === 'global')
@@ -67,6 +98,27 @@ export default function SettingsPage() {
       setDeletingRouterId(null)
     } catch {
       toast.error(t('error.generic'))
+    }
+  }
+
+  const handleLinkOAuth = (provider: string) => {
+    window.location.href = `/api/auth/oauth/${provider}`
+  }
+
+  const handleUnlinkOAuth = async (provider: string) => {
+    setIsUnlinkingOAuth(provider)
+    try {
+      const res = await api.delete(`/auth/oauth/${provider}/unlink`)
+      if (res.ok) {
+        setLinkedAccounts((prev) => prev.filter((a) => a.provider !== provider))
+        toast.success(t('auth.accountUnlinked'))
+      } else {
+        toast.error(res.error || t('common.error'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setIsUnlinkingOAuth(null)
     }
   }
 
@@ -388,6 +440,53 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+
+          {/* Linked Accounts Section */}
+          {configuredProviders.length > 0 && (
+            <div className="bg-surface rounded-lg border border-border shadow-sm">
+              <div className="px-6 py-4 border-b border-border">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {t('auth.linkedAccounts')}
+                </h2>
+              </div>
+              <div className="px-6 py-5 space-y-3">
+                {OAUTH_PROVIDERS.filter((p) => configuredProviders.includes(p)).map((provider) => {
+                  const linked = linkedAccounts.find((a) => a.provider === provider)
+                  return (
+                    <div
+                      key={provider}
+                      className="flex items-center justify-between py-3 border-b border-border last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-text-primary capitalize">
+                          {provider}
+                        </span>
+                        {linked && (
+                          <span className="text-xs text-text-muted">
+                            {linked.email || linked.displayName}
+                          </span>
+                        )}
+                      </div>
+                      {linked ? (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleUnlinkOAuth(provider)}
+                          disabled={isUnlinkingOAuth === provider}
+                        >
+                          {t('auth.unlinkAccount')}
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => handleLinkOAuth(provider)}>
+                          {t('auth.linkAccount')}
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Theme Section */}
           <div className="bg-surface rounded-lg border border-border shadow-sm">

@@ -20,7 +20,7 @@ export const users = pgTable(
   {
     id: text('id').primaryKey(),
     username: text('username').notNull().unique(),
-    passwordHash: text('password_hash').notNull(),
+    passwordHash: text('password_hash'),
     displayName: text('display_name').notNull(),
     avatarUrl: text('avatar_url'),
     role: text('role').notNull().default('user'), // 'admin' | 'user'
@@ -406,6 +406,31 @@ export const auditLogs = pgTable(
     index('audit_logs_action_idx').on(table.action),
     index('audit_logs_created_at_idx').on(table.createdAt),
     index('audit_logs_target_idx').on(table.targetId, table.targetType),
+  ],
+)
+
+// ─── OAuth Accounts ───
+
+export const oauthAccounts = pgTable(
+  'oauth_accounts',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    providerAccountId: text('provider_account_id').notNull(),
+    email: text('email'),
+    displayName: text('display_name'),
+    avatarUrl: text('avatar_url'),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    createdAt: ts('created_at').notNull(),
+    updatedAt: ts('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('oauth_provider_account_idx').on(table.provider, table.providerAccountId),
+    index('oauth_user_idx').on(table.userId),
   ],
 )
 

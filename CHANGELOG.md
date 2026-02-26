@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart routing: broadcast and direct mode with @mention-based targeting
 - Agent-to-agent communication with loop protection (depth limit, visited dedup, rate limit)
 - AI Router integration (optional, OpenAI-compatible API)
+- **OAuth/OIDC authentication**: GitHub and Google login support with account linking/unlinking, auto-registration for OAuth-only users, and encrypted token storage
 - JWT authentication with token rotation
 - Agent sharing and visibility controls
 - Task management with Kanban UI

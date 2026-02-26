@@ -263,6 +263,22 @@ export interface ServiceAgent {
   updatedAt: string
 }
 
+// ─── OAuth ───
+
+export type OAuthProvider = 'github' | 'google'
+
+export interface OAuthAccount {
+  id: string
+  userId: string
+  provider: OAuthProvider
+  providerAccountId: string
+  email?: string | null
+  displayName?: string | null
+  avatarUrl?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Slash Commands ───
 
 export interface SlashCommand {
