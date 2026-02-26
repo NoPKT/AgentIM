@@ -275,6 +275,8 @@ export interface GatewayAgentStatus {
   type: 'gateway:agent_status'
   agentId: string
   status: AgentStatus
+  /** Number of messages waiting in the per-agent queue on the gateway. */
+  queueDepth?: number
 }
 
 export interface GatewayTerminalData {

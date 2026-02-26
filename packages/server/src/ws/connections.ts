@@ -53,6 +53,9 @@ export class ConnectionManager {
   // Agent ID → gateway ws mapping
   private agentToGateway = new Map<string, WSContext>()
 
+  // Agent ID → queue depth reported by gateway (volatile, best-effort)
+  private agentQueueDepths = new Map<string, number>()
+
   // Agent IDs deleted while their gateway was offline.
   // Prevents resurrection via reRegisterAll() on reconnect.
   // Capped to prevent unbounded growth in long-lived processes.
@@ -290,6 +293,7 @@ export class ConnectionManager {
       if (existing.userId !== userId) {
         for (const agentId of existing.agentIds) {
           this.agentToGateway.delete(agentId)
+          this.agentQueueDepths.delete(agentId)
         }
         existing.agentIds.clear()
       }
@@ -306,6 +310,7 @@ export class ConnectionManager {
     if (gw) {
       for (const agentId of gw.agentIds) {
         this.agentToGateway.delete(agentId)
+        this.agentQueueDepths.delete(agentId)
       }
       const count = Math.max(0, (this.userGatewayCount.get(gw.userId) ?? 1) - 1)
       if (count <= 0) {
@@ -336,6 +341,7 @@ export class ConnectionManager {
     if (gw) {
       gw.agentIds.delete(agentId)
       this.agentToGateway.delete(agentId)
+      this.agentQueueDepths.delete(agentId)
     }
   }
 
@@ -365,6 +371,7 @@ export class ConnectionManager {
       }
     }
     this.agentToGateway.delete(agentId)
+    this.agentQueueDepths.delete(agentId)
   }
 
   /**
@@ -450,6 +457,20 @@ export class ConnectionManager {
     for (const ws of failed) {
       this.removeClient(ws)
     }
+  }
+
+  /** Update the gateway-reported queue depth for an agent. */
+  setAgentQueueDepth(agentId: string, depth: number) {
+    if (depth > 0) {
+      this.agentQueueDepths.set(agentId, depth)
+    } else {
+      this.agentQueueDepths.delete(agentId)
+    }
+  }
+
+  /** Get the current queue depth for an agent (0 if unknown/idle). */
+  getAgentQueueDepth(agentId: string): number {
+    return this.agentQueueDepths.get(agentId) ?? 0
   }
 
   sendToGateway(agentId: string, message: object): boolean {

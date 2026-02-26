@@ -829,6 +829,36 @@ async function routeToAgents(
   const conversationId = nanoid()
 
   for (const agent of targetAgents) {
+    // Sender-side cooldown: if this agent has a queue backlog, enforce a
+    // progressive wait period per sender to prevent bombardment.
+    const cooldownMs = getAgentCooldownMs(agent.id)
+    if (cooldownMs > 0) {
+      const cooldownKey = `sender:${senderId}:agent:${agent.id}`
+      const lastSent = agentSendCooldowns.get(cooldownKey)
+      const now = Date.now()
+      if (lastSent && now - lastSent < cooldownMs) {
+        const waitSec = Math.ceil((cooldownMs - (now - lastSent)) / 1000)
+        const queueDepth = connectionManager.getAgentQueueDepth(agent.id)
+        connectionManager.sendToClient(ws, {
+          type: 'server:new_message',
+          message: {
+            id: nanoid(),
+            roomId,
+            senderId: 'system',
+            senderType: 'system' as const,
+            senderName: 'System',
+            type: 'system' as const,
+            content:
+              `Agent @${agent.name} is busy (${queueDepth} message${queueDepth === 1 ? '' : 's'} pending). ` +
+              `Please wait ${waitSec}s before sending another message.`,
+            mentions: [],
+            createdAt: new Date().toISOString(),
+          },
+        })
+        continue
+      }
+    }
+
     const sendMsg: ServerSendToAgent = {
       type: 'server:send_to_agent',
       agentId: agent.id,
@@ -858,8 +888,47 @@ async function routeToAgents(
           createdAt: new Date().toISOString(),
         },
       })
+    } else if (cooldownMs > 0) {
+      // Record this send time for future cooldown checks
+      const cooldownKey = `sender:${senderId}:agent:${agent.id}`
+      if (agentSendCooldowns.size >= MAX_COOLDOWN_ENTRIES) {
+        // Evict oldest entry to prevent unbounded growth
+        const firstKey = agentSendCooldowns.keys().next().value
+        if (firstKey) agentSendCooldowns.delete(firstKey)
+      }
+      agentSendCooldowns.set(cooldownKey, Date.now())
     }
   }
+}
+
+// ─── Sender-side Agent Cooldown ───
+// When an agent is busy with a queue, senders must wait before sending another
+// message to the same agent. Prevents "bombardment" while allowing natural
+// conversation pacing. Cooldown scales with queue depth.
+const AGENT_COOLDOWN_BASE_MS = 15_000 // 15 seconds base cooldown
+const AGENT_COOLDOWN_MAX_MS = 120_000 // 2 minutes max cooldown
+const MAX_COOLDOWN_ENTRIES = 10_000
+// Key: `sender:${senderId}:agent:${agentId}`, Value: timestamp of last send
+const agentSendCooldowns = new Map<string, number>()
+
+// Periodic cleanup of stale cooldown entries (every 60s)
+const cooldownCleanupTimer = setInterval(() => {
+  const now = Date.now()
+  for (const [key, ts] of agentSendCooldowns) {
+    if (now - ts > AGENT_COOLDOWN_MAX_MS) agentSendCooldowns.delete(key)
+  }
+}, 60_000)
+cooldownCleanupTimer.unref()
+
+/**
+ * Compute the sender-side cooldown for a specific agent based on its queue depth.
+ * Returns 0 if no cooldown is needed (agent is idle or has no queue).
+ */
+function getAgentCooldownMs(agentId: string): number {
+  const queueDepth = connectionManager.getAgentQueueDepth(agentId)
+  if (queueDepth <= 0) return 0
+  // Progressive: 15s × queueDepth, capped at 2 minutes
+  return Math.min(AGENT_COOLDOWN_BASE_MS * queueDepth, AGENT_COOLDOWN_MAX_MS)
 }
 
 // In-memory typing debounce when Redis is not available

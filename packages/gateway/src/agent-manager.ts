@@ -3,6 +3,7 @@ import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
 import { createLogger } from './lib/logger.js'
 import type {
+  AgentStatus,
   AgentType,
   PermissionLevel,
   ServerSendToAgent,
@@ -27,20 +28,12 @@ interface PendingPermission {
 const ROOM_CONTEXT_TTL_MS = 60 * 60 * 1000 // 1 hour
 const ROOM_CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
-/** Maximum number of messages to queue per agent when it is busy. */
-const MAX_AGENT_QUEUE_SIZE = 10
-
 /**
- * Maximum time (ms) a message can sit in the queue before being discarded.
- * Stale messages are dropped at dequeue time to avoid processing requests
- * that are no longer relevant (e.g. user moved on, context changed).
+ * Hard ceiling for the per-agent message queue. This is a safety backstop,
+ * NOT the primary throttle — sender-side cooldowns on the server are the
+ * main mechanism for preventing bombardment.
  */
-const QUEUE_MESSAGE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-
-interface QueuedMessage {
-  msg: ServerSendToAgent
-  queuedAt: number
-}
+const MAX_AGENT_QUEUE_SIZE = 50
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
@@ -51,7 +44,7 @@ export class AgentManager {
   private pendingPermissions = new Map<string, PendingPermission>()
   private agentCurrentRoom = new Map<string, string>()
   /** Per-agent FIFO queue for messages that arrive while the adapter is busy. */
-  private messageQueues = new Map<string, QueuedMessage[]>()
+  private messageQueues = new Map<string, ServerSendToAgent[]>()
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
   private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -312,11 +305,13 @@ export class AgentManager {
         })
         return
       }
-      queue.push({ msg, queuedAt: Date.now() })
+      queue.push(msg)
       this.messageQueues.set(msg.agentId, queue)
       log.info(
         `Queued message ${msg.messageId} for busy agent ${adapter.agentName} (queue: ${queue.length})`,
       )
+      // Report updated queue depth to server so it can throttle senders
+      this.sendAgentStatus(msg.agentId, 'busy', queue.length)
       return
     }
 
@@ -325,42 +320,24 @@ export class AgentManager {
 
   /**
    * Process the next queued message for the given agent, or set agent status
-   * back to online if the queue is empty. Expired messages (older than
-   * QUEUE_MESSAGE_TTL_MS) are silently discarded.
+   * back to online if the queue is empty.
    */
   private processNextQueued(agentId: string) {
     const queue = this.messageQueues.get(agentId)
-    const now = Date.now()
-
-    while (queue && queue.length > 0) {
-      const entry = queue.shift()!
+    if (queue && queue.length > 0) {
+      const next = queue.shift()!
       if (queue.length === 0) this.messageQueues.delete(agentId)
-
-      // Drop stale messages that have been waiting too long
-      const age = now - entry.queuedAt
-      if (age > QUEUE_MESSAGE_TTL_MS) {
-        log.info(
-          `Dropping expired queued message ${entry.msg.messageId} for agent ${agentId} (age: ${Math.round(age / 1000)}s)`,
-        )
-        continue
-      }
-
       const adapter = this.adapters.get(agentId)
       if (adapter) {
         log.info(
-          `Processing queued message ${entry.msg.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
+          `Processing queued message ${next.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
         )
-        this.processMessage(adapter, entry.msg)
+        this.processMessage(adapter, next)
         return
       }
     }
-
-    // Queue is empty (or all expired) or adapter gone — set status to online
-    this.wsClient.send({
-      type: 'gateway:agent_status',
-      agentId,
-      status: 'online',
-    })
+    // Queue is empty or adapter gone — set status to online
+    this.sendAgentStatus(agentId, 'online', 0)
   }
 
   /**
@@ -376,12 +353,9 @@ export class AgentManager {
     const allChunks: ParsedChunk[] = []
     let completed = false
 
-    // Update status to busy
-    this.wsClient.send({
-      type: 'gateway:agent_status',
-      agentId: msg.agentId,
-      status: 'busy',
-    })
+    // Update status to busy with current queue depth
+    const queueDepth = this.messageQueues.get(msg.agentId)?.length ?? 0
+    this.sendAgentStatus(msg.agentId, 'busy', queueDepth)
 
     try {
       adapter.sendMessage(
@@ -501,6 +475,16 @@ export class AgentManager {
       log.error(`Agent ${msg.agentId} sendMessage threw: ${(err as Error).message}`)
       this.processNextQueued(msg.agentId)
     }
+  }
+
+  /** Send agent status update to the server, including current queue depth. */
+  private sendAgentStatus(agentId: string, status: AgentStatus, queueDepth: number) {
+    this.wsClient.send({
+      type: 'gateway:agent_status',
+      agentId,
+      status,
+      queueDepth,
+    })
   }
 
   private handleRemoveAgent(agentId: string) {

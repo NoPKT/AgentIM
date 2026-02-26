@@ -263,7 +263,7 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
       case 'gateway:message_complete':
         return await handleMessageComplete(ws, msg)
       case 'gateway:agent_status':
-        return await handleAgentStatus(ws, msg.agentId, msg.status)
+        return await handleAgentStatus(ws, msg.agentId, msg.status, msg.queueDepth)
       case 'gateway:terminal_data':
         return await handleTerminalData(ws, msg)
       case 'gateway:task_update':
@@ -775,7 +775,12 @@ async function handleMessageComplete(
   }
 }
 
-async function handleAgentStatus(ws: WSContext, agentId: string, status: string) {
+async function handleAgentStatus(
+  ws: WSContext,
+  agentId: string,
+  status: string,
+  queueDepth?: number,
+) {
   // Verify the agent belongs to this gateway
   const gw = connectionManager.getGateway(ws)
   if (!gw || !gw.agentIds.has(agentId)) {
@@ -788,6 +793,11 @@ async function handleAgentStatus(ws: WSContext, agentId: string, status: string)
     .update(agents)
     .set({ status, lastSeenAt: now, updatedAt: now })
     .where(eq(agents.id, agentId))
+
+  // Track gateway-reported queue depth for sender-side throttling
+  if (typeof queueDepth === 'number') {
+    connectionManager.setAgentQueueDepth(agentId, queueDepth)
+  }
 
   await broadcastAgentStatus(agentId)
 }
