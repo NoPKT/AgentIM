@@ -205,12 +205,19 @@ roomRoutes.get('/:id', async (c) => {
     return c.json({ ok: false, error: 'Not a member of this room' }, 403)
   }
 
+  const INLINE_MEMBER_LIMIT = 100
   let members = await cacheGet<(typeof roomMembers.$inferSelect)[]>(roomMembersCacheKey(roomId))
   if (!members) {
     members = await db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId)).limit(500)
     await cacheSet(roomMembersCacheKey(roomId), members, ROOM_MEMBERS_CACHE_TTL)
   }
-  return c.json({ ok: true, data: { ...room, members } })
+  // Return first N members inline; use GET /:id/members for full paginated list
+  const totalMembers = members.length
+  const inlineMembers = members.slice(0, INLINE_MEMBER_LIMIT)
+  return c.json({
+    ok: true,
+    data: { ...room, members: inlineMembers, totalMembers },
+  })
 })
 
 // Update room (owner/admin only)

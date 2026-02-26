@@ -85,6 +85,13 @@ describe('Access Control', () => {
       assert.ok(res.data.data.length >= 1)
     })
 
+    it('GET /api/rooms/:id returns totalMembers count', async () => {
+      const res = await api('GET', `/api/rooms/${roomId}`, undefined, userA.accessToken)
+      assert.equal(res.status, 200)
+      assert.equal(typeof res.data.data.totalMembers, 'number')
+      assert.ok(res.data.data.totalMembers >= 1)
+    })
+
     it('member can PUT /api/rooms/:id', async () => {
       const res = await api(
         'PUT',
@@ -237,6 +244,90 @@ describe('Access Control', () => {
       )
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
+    })
+
+    it('non-member cannot POST /api/messages/:id/reactions', async () => {
+      const res = await api(
+        'POST',
+        `/api/messages/${messageId}/reactions`,
+        { emoji: '👍' },
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can POST /api/messages/:id/reactions', async () => {
+      const res = await api(
+        'POST',
+        `/api/messages/${messageId}/reactions`,
+        { emoji: '👍' },
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+    })
+
+    it('non-member cannot PUT /api/messages/:id (edit)', async () => {
+      const res = await api(
+        'PUT',
+        `/api/messages/${messageId}`,
+        { content: 'hacked content' },
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('member can PUT /api/messages/:id (edit own message)', async () => {
+      const res = await api(
+        'PUT',
+        `/api/messages/${messageId}`,
+        { content: 'edited content' },
+        userA.accessToken,
+      )
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+      assert.equal(res.data.data.content, 'edited content')
+    })
+
+    it('non-member cannot POST /api/messages/:id/forward', async () => {
+      // User B creates their own room as forward target
+      const roomRes = await api(
+        'POST',
+        '/api/rooms',
+        { name: 'B Forward Target' },
+        userB.accessToken,
+      )
+      const targetRoomId = roomRes.data.data.id
+
+      const res = await api(
+        'POST',
+        `/api/messages/${messageId}/forward`,
+        { targetRoomId },
+        userB.accessToken,
+      )
+      assert.equal(res.status, 403)
+    })
+
+    it('non-member cannot DELETE /api/messages/:id', async () => {
+      const res = await api('DELETE', `/api/messages/${messageId}`, undefined, userB.accessToken)
+      assert.equal(res.status, 403)
+    })
+
+    it('member can search messages in their rooms', async () => {
+      const res = await api('GET', `/api/messages/search?q=edited`, undefined, userA.accessToken)
+      assert.equal(res.status, 200)
+      assert.equal(res.data.ok, true)
+    })
+
+    it('search does not return messages from rooms user is not a member of', async () => {
+      const res = await api(
+        'GET',
+        `/api/messages/search?q=edited&roomId=${roomId}`,
+        undefined,
+        userB.accessToken,
+      )
+      // Non-member searching in a specific room they don't belong to
+      assert.equal(res.status, 404)
     })
   })
 
