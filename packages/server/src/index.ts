@@ -54,7 +54,7 @@ import { pushRoutes } from './routes/push.js'
 import { stopPermissionCleanup } from './lib/permission-store.js'
 import { stopCacheCleanup } from './lib/cache.js'
 import { initWebPush } from './lib/webPush.js'
-import { initTokenRevocationSubscriber } from './lib/tokenRevocation.js'
+import { initTokenRevocationSubscriber, isTokenRevoked } from './lib/tokenRevocation.js'
 import {
   renderPrometheusMetrics,
   setActiveRoomsGetter,
@@ -347,7 +347,13 @@ app.get('/api/metrics', async (c) => {
       return c.text('Unauthorized', 401)
     }
     try {
-      await verifyToken(token)
+      const payload = await verifyToken(token)
+      if (payload.type !== 'access') {
+        return c.text('Invalid token type', 401)
+      }
+      if (payload.iat && (await isTokenRevoked(payload.sub, payload.iat * 1000))) {
+        return c.text('Token has been revoked', 401)
+      }
     } catch {
       return c.text('Invalid or expired token', 401)
     }
@@ -397,6 +403,12 @@ app.get('/api/admin/metrics', async (c) => {
   }
   try {
     const payload = await verifyToken(token)
+    if (payload.type !== 'access') {
+      return c.json({ ok: false, error: 'Invalid token type' }, 401)
+    }
+    if (payload.iat && (await isTokenRevoked(payload.sub, payload.iat * 1000))) {
+      return c.json({ ok: false, error: 'Token has been revoked' }, 401)
+    }
     const { eq } = await import('drizzle-orm')
     const { users } = await import('./db/schema.js')
     const [user] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1)
@@ -471,9 +483,11 @@ app.use('/uploads/*', async (c, next) => {
 
   try {
     const payload = await verifyToken(token)
+    if (payload.type !== 'access') {
+      return c.json({ ok: false, error: 'Invalid token type' }, 401)
+    }
     // Also check if the token has been revoked (e.g. user logged out)
-    const { isTokenRevoked } = await import('./lib/tokenRevocation.js')
-    if (await isTokenRevoked(payload.sub, (payload.iat ?? 0) * 1000)) {
+    if (payload.iat && (await isTokenRevoked(payload.sub, payload.iat * 1000))) {
       return c.json({ ok: false, error: 'Token has been revoked' }, 401)
     }
   } catch {

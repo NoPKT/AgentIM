@@ -261,6 +261,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SECURITY.md key generation**: Updated deployment checklist to use `openssl rand -hex 32`
 - **Upload token-in-URL documentation**: Enhanced JSDoc on `useUploadUrl` with explicit security mitigations (short-lived tokens, HTTPS, no query param logging)
 
+#### Comprehensive Code Audit (Round 3)
+
+- **[SECURITY] Auth inconsistency in metrics and uploads**: `/api/metrics`, `/api/admin/metrics`, and `/uploads/*` now enforce `type === 'access'` and token revocation checks, matching the `authMiddleware` contract — refresh tokens can no longer access these endpoints
+- **[SECURITY] JWT token uniqueness**: Added `jti` (JWT ID) claim via `nanoid()` to both `signAccessToken` and `signRefreshToken`, preventing identical tokens when the same user signs in within the same second
+- **[SECURITY] Refresh token rotation scope**: Refresh rotation now deletes only the matched token instead of all tokens for the user, preserving multi-device sessions — previously refreshing on one device would invalidate all other sessions
+- **Refresh endpoint error semantics**: `/api/auth/refresh` now returns 401 "Refresh token required" instead of 400 "Invalid JSON body" when called without a cookie or body
+- **Docs Redis requirement consistency**: Fixed `DEPLOYMENT.md` environment variable table to show `REDIS_URL` as required for multi-process deployments only (was misleadingly marked as "Production" required, contradicting the Redis Requirements section)
+
 #### Comprehensive Code Audit (Round 2)
 
 - **[SECURITY] Docker Compose default password**: Removed weak default `postgres` password from `docker-compose.yml`; now requires `POSTGRES_PASSWORD` to be explicitly set (fails fast with error message if missing)

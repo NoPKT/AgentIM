@@ -154,7 +154,7 @@ agentim claude /path/to/project
 | Variable       | Default                                                 | Required   | Description                  |
 | -------------- | ------------------------------------------------------- | ---------- | ---------------------------- |
 | `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/agentim` | Production | PostgreSQL connection string |
-| `REDIS_URL`    | `redis://localhost:6379`                                | Production | Redis connection string      |
+| `REDIS_URL`    | `redis://localhost:6379`                                | Multi-process | Redis connection string (optional for single-process; see [Redis Requirements](#redis-requirements)) |
 
 ### Authentication
 

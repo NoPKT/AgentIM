@@ -200,11 +200,15 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
   const usingCookie = incomingRefreshToken !== null
 
   if (!incomingRefreshToken) {
+    // Try to read refreshToken from JSON body (Gateway CLI path).
+    // If the body is missing or not valid JSON, silently skip — we'll fall through
+    // to the "Refresh token required" 401 below rather than returning a misleading 400.
     const body = await parseJsonBody(c)
-    if (body instanceof Response) return body
-    const rt = (body as Record<string, unknown>)?.refreshToken
-    if (typeof rt === 'string' && rt.length > 0 && rt.length <= 2000) {
-      incomingRefreshToken = rt
+    if (!(body instanceof Response)) {
+      const rt = (body as Record<string, unknown>)?.refreshToken
+      if (typeof rt === 'string' && rt.length > 0 && rt.length <= 2000) {
+        incomingRefreshToken = rt
+      }
     }
   }
 
@@ -258,20 +262,20 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
         .where(eq(refreshTokens.userId, user.id))
 
       // Verify tokens sequentially with early exit to avoid O(n) argon2 operations
-      let tokenValid = false
+      let matchedTokenId: string | null = null
       for (const t of storedTokens) {
         if (t.expiresAt && t.expiresAt < now) continue
         const match = await verify(t.tokenHash, incomingRefreshToken!).catch(() => false)
         if (match) {
-          tokenValid = true
+          matchedTokenId = t.id
           break
         }
       }
 
-      if (!tokenValid) return null
+      if (!matchedTokenId) return null
 
-      // Delete all old tokens and insert new one atomically
-      await tx.delete(refreshTokens).where(eq(refreshTokens.userId, user.id))
+      // Delete only the matched token (preserve other sessions) and insert new one atomically
+      await tx.delete(refreshTokens).where(eq(refreshTokens.id, matchedTokenId))
 
       const newAccessToken = await signAccessToken({ sub: user.id, username: user.username })
       const newRefreshToken = await signRefreshToken({ sub: user.id, username: user.username })
