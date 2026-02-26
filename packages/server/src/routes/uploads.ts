@@ -13,7 +13,7 @@ import { db } from '../db/index.js'
 import { messageAttachments, users } from '../db/schema.js'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { uploadRateLimit } from '../middleware/rateLimit.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { getStorage } from '../storage/index.js'
 import { createLogger } from '../lib/logger.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -106,11 +106,12 @@ uploadRoutes.post('/', async (c) => {
     return c.json({ ok: false, error: 'No file provided' }, 400)
   }
 
-  if (file.size > config.maxFileSize) {
+  const maxFileSize = getConfigSync<number>('upload.maxFileSize') || config.maxFileSize
+  if (file.size > maxFileSize) {
     return c.json(
       {
         ok: false,
-        error: `File too large. Maximum size is ${Math.round(config.maxFileSize / 1024 / 1024)}MB`,
+        error: `File too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB`,
       },
       400,
     )

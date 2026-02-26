@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 
 const secret = new TextEncoder().encode(config.jwtSecret)
 
@@ -8,7 +8,7 @@ export async function signAccessToken(payload: { sub: string; username: string }
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
-    .setExpirationTime(config.jwtAccessExpiry)
+    .setExpirationTime(getConfigSync<string>('jwt.accessExpiry') || config.jwtAccessExpiry)
     .setIssuedAt()
     .sign(secret)
 }
@@ -21,7 +21,7 @@ export async function signRefreshToken(payload: {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('agentim')
     .setAudience('agentim')
-    .setExpirationTime(config.jwtRefreshExpiry)
+    .setExpirationTime(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry)
     .setIssuedAt()
     .sign(secret)
 }

@@ -90,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extracted duplicate Redis Lua rate-limit script to shared constant in redis.ts
 - Centralized LLM router timeout config into config.ts (ROUTER_LLM_TIMEOUT_MS)
 - Strengthened Redis production warning with security impact details
+- **Dynamic admin settings read-through**: Runtime configs (JWT expiry, agent rate limit, max chain depth, max file size) now use `getConfigSync()` so admin UI changes take effect without server restart
 - Health check endpoint cached for 5 seconds to reduce DB/Redis probe frequency
 - Audit log metadata truncated at 4KB to prevent DB row bloat
 - Error handler status code restricted to valid 400-599 range (prevents leaking internal codes)

@@ -3,7 +3,7 @@ import { getRedis, isRedisEnabled } from './redis.js'
 import Redis from 'ioredis'
 import { eq, lt, desc } from 'drizzle-orm'
 import { createLogger } from './logger.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { db } from '../db/index.js'
 import { revokedTokens } from '../db/schema.js'
 
@@ -36,7 +36,10 @@ function parseDurationToSeconds(duration: string): number {
   return seconds < 1 ? 900 : seconds
 }
 
-const ACCESS_TOKEN_TTL = parseDurationToSeconds(config.jwtAccessExpiry)
+/** Read at call time so admin UI changes take effect without restart */
+function getAccessTokenTTL(): number {
+  return parseDurationToSeconds(getConfigSync<string>('jwt.accessExpiry') || config.jwtAccessExpiry)
+}
 const MAX_MEMORY_REVOCATIONS = 10_000
 const MEMORY_REVOCATION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const DB_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
@@ -103,7 +106,7 @@ dbCleanupTimer.unref()
  */
 async function persistRevocationToDb(userId: string, revokedAtMs: number): Promise<void> {
   try {
-    const expiresAt = new Date(revokedAtMs + ACCESS_TOKEN_TTL * 1000)
+    const expiresAt = new Date(revokedAtMs + getAccessTokenTTL() * 1000)
     await db.insert(revokedTokens).values({
       userId,
       tokenHash: String(revokedAtMs),
@@ -172,7 +175,7 @@ export async function revokeUserTokens(userId: string): Promise<void> {
     const redis = getRedis()
     const key = `revoked:${userId}`
     const now = String(Date.now())
-    await redis.set(key, now, 'EX', ACCESS_TOKEN_TTL)
+    await redis.set(key, now, 'EX', getAccessTokenTTL())
     // Broadcast to other processes so they update their in-memory maps.
     // Messages are HMAC-signed to prevent forged revocations from Redis-level attacks.
     const body = JSON.stringify({ userId, revokedAt: now })
