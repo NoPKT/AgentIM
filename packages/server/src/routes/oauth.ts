@@ -37,7 +37,7 @@ const memoryStates = new Map<string, { provider: OAuthProvider; expiresAt: numbe
 const MAX_PENDING_STATES = 1000
 
 // Periodically clean expired in-memory states
-setInterval(
+let oauthStateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(
   () => {
     const now = Date.now()
     for (const [key, val] of memoryStates) {
@@ -46,6 +46,15 @@ setInterval(
   },
   5 * 60 * 1000,
 )
+oauthStateCleanupTimer.unref()
+
+/** Stop the periodic OAuth state cleanup timer (for graceful shutdown). */
+export function stopOAuthStateCleanup() {
+  if (oauthStateCleanupTimer) {
+    clearInterval(oauthStateCleanupTimer)
+    oauthStateCleanupTimer = null
+  }
+}
 
 async function storeOAuthState(
   state: string,
@@ -171,8 +180,9 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
   const ip = getClientIp(c)
 
   try {
-    const baseUrl = c.req.header('x-forwarded-proto')
-      ? `${c.req.header('x-forwarded-proto')}://${c.req.header('host')}`
+    const cbFwdProto = config.trustProxy ? c.req.header('x-forwarded-proto') : undefined
+    const baseUrl = cbFwdProto
+      ? `${cbFwdProto}://${c.req.header('host')}`
       : new URL(c.req.url).origin
     const redirectUri = `${baseUrl}/api/auth/oauth/${provider}/callback`
     const userInfo = await exchangeCode(provider as OAuthProvider, code, redirectUri)

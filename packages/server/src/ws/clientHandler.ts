@@ -36,6 +36,7 @@ import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 import { getRoomMemberRole } from '../lib/roomAccess.js'
 import { incCounter } from '../lib/metrics.js'
 import { handleServiceAgentMention } from '../lib/serviceAgentHandler.js'
+import { safeJsonParse } from '../lib/json.js'
 
 const log = createLogger('ClientHandler')
 
@@ -159,7 +160,6 @@ export async function invalidateMembershipCache(userId: string, roomId: string):
 // Maximum number of elements in a single array / keys in a single object.
 // A 10,000-element flat array has depth 1 and bypasses depth checks, so we
 // impose an independent collection-size limit to cap memory allocation.
-import { safeJsonParse } from '../lib/json.js'
 
 async function isRateLimited(userId: string, roomId?: string): Promise<boolean> {
   const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow

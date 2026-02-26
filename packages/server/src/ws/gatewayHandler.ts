@@ -32,6 +32,7 @@ import { isAgentRateLimited } from './agentRateLimit.js'
 import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
+import { safeJsonParse } from '../lib/json.js'
 
 const log = createLogger('GatewayHandler')
 
@@ -82,8 +83,6 @@ export function stopStreamTrackerCleanup() {
     streamTrackerTimer = null
   }
 }
-
-import { safeJsonParse } from '../lib/json.js'
 
 // Re-export stopAgentRateCleanup for backwards compatibility with index.ts shutdown
 export { stopAgentRateCleanup } from './agentRateLimit.js'

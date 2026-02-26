@@ -24,7 +24,7 @@ import { migrate, closeDb, db, verifyMigrations } from './db/index.js'
 import { closeRedis, getRedis, ensureRedisConnected, isRedisEnabled } from './lib/redis.js'
 import { sql, lt, lte } from 'drizzle-orm'
 import { authRoutes } from './routes/auth.js'
-import { oauthRoutes } from './routes/oauth.js'
+import { oauthRoutes, stopOAuthStateCleanup } from './routes/oauth.js'
 import { userRoutes } from './routes/users.js'
 import { roomRoutes } from './routes/rooms.js'
 import { messageRoutes } from './routes/messages.js'
@@ -756,6 +756,7 @@ async function shutdown(signal: string) {
   stopRateLimitCleanup()
   stopPermissionCleanup()
   stopCacheCleanup()
+  stopOAuthStateCleanup()
   // Notify connected WS clients about the shutdown
   connectionManager.broadcastToAll({
     type: 'server:error',
