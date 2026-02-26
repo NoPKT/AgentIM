@@ -2,8 +2,13 @@ import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { stopAgentRateCleanup } from '../../src/ws/agentRateLimit.js'
 
-after(() => {
+after(async () => {
   stopAgentRateCleanup()
+  // Close persistent connections opened by transitive imports (redis, db)
+  const { closeRedis } = await import('../../src/lib/redis.js')
+  const { closeDb } = await import('../../src/db/index.js')
+  await closeRedis()
+  await closeDb()
 })
 
 // We test the in-memory path indirectly via isAgentRateLimited (Redis disabled in test env)

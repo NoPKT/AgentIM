@@ -2,8 +2,13 @@ import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { wsMemoryRateLimit, stopWsRateCleanup } from '../../src/ws/wsRateLimit.js'
 
-after(() => {
+after(async () => {
   stopWsRateCleanup()
+  // Close persistent connections opened by transitive imports (redis, db)
+  const { closeRedis } = await import('../../src/lib/redis.js')
+  const { closeDb } = await import('../../src/db/index.js')
+  await closeRedis()
+  await closeDb()
 })
 
 describe('wsMemoryRateLimit', () => {
