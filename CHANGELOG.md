@@ -207,6 +207,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shared mentions performance**: Added regex compilation cache (500-entry cap) to `hasMention()` to avoid repeated `RegExp` construction
 - **Web chat store refactor**: Extracted streaming and presence logic from monolithic `chat.ts` (974 lines) into `chat-streaming.ts` and `chat-presence.ts` helper modules
 
+- **Shared JwtPayload type**: Added optional `iat` and `exp` fields to match the actual JWT claims set by jose during signing
+- **Shared isServerGatewayMessage**: Replaced fragile hardcoded type list with a `SERVER_GATEWAY_MESSAGE_TYPES` Set constant for easier maintenance when adding new message types
+- **Server SSRF protection**: Extended `isPrivateUrl()` with IPv6 private ranges (fe80::/10 link-local, fc00::/7 ULA, ::ffff:0:0/96 IPv4-mapped), blocks non-HTTP schemes, and blocks the 0.0.0.0/8 range
+- **Server settings persistence**: `getSettingSync()` now falls back to last known DB value before env/default, preventing dynamic admin settings from regressing after the 5s cache TTL expires
+- **Server auth response**: Login and refresh endpoints no longer expose `refreshToken` in the JSON body for browser clients — the token is delivered exclusively via httpOnly cookie
+- **Server migration rollbacks**: Added rollback scripts for migrations 0028–0033 (service_agents, bookmarks, task result/duedate, revoked_tokens)
+- **Gateway Codex adapter**: Documented SDK limitation — Codex SDK manages permissions internally and does not expose a callback for relaying through AgentIM's permission system
+- **Gateway OpenCode SSE**: Added retry logic (2 attempts, exponential backoff) for SSE subscribe failures during transient network errors
+- **Gateway daemon test portability**: Improved temp directory handling with fallback for restricted CI environments
+- **Web PageLoader accessibility**: Added `role="status"`, `aria-live="polite"`, and visually-hidden loading text for screen readers
+- **Web PWA cache security**: Added `ignoreURLParametersMatching: [/^token$/]` to Workbox config to strip access tokens from service-worker cache keys
+- **CI E2E on PRs**: E2E smoke tests (Chromium only) now run on pull requests to catch regressions before merge
+
 ### Security
 
 - Added ANTHROPIC_API_KEY and CLAUDE_API_KEY to sensitive env var filter

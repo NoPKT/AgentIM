@@ -32,6 +32,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/offline.html',
         navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/ws/],
+        // Strip the `token` query parameter from upload URLs before using them
+        // as cache keys. This prevents access tokens from being stored in the
+        // service-worker cache and avoids creating duplicate cache entries when
+        // the token rotates for the same resource.
+        ignoreURLParametersMatching: [/^token$/],
         runtimeCaching: [
           {
             urlPattern: /^\/uploads\/avatar_/,

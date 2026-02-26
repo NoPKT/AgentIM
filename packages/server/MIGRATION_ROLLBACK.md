@@ -13,7 +13,7 @@ AgentIM uses Drizzle Kit for forward-only migrations. Each `.sql` file in `drizz
 
 ## Rollback Coverage Policy
 
-Rollback scripts are maintained for **recent migrations** (0019 onwards). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
+Rollback scripts are maintained for **recent migrations** (0019 onwards, including 0027–0033). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
 
 ## Rollback Files
 
@@ -29,6 +29,13 @@ Pre-written down migrations are in `drizzle/rollback/`:
 | `0021_rollback.sql` | `0021_fix_attachment_fk_on_delete.sql` — reverts `message_attachments.uploaded_by` FK ON DELETE from `set null` → `no action` |
 | `0020_rollback.sql` | `0020_perpetual_stark_industries.sql` — drops `max_ws_connections` / `max_gateways` columns from `users` and their associated indexes |
 | `0019_rollback.sql` | `0019_little_blazing_skull.sql` — drops `audit_logs_target_idx` and `attachments_uploaded_by_idx` indexes |
+| `0027_rollback.sql` | `0027_add_fulltext_search_index.sql` — drops full-text search index |
+| `0028_rollback.sql` | `0028_add_service_agents.sql` — drops `service_agents` table and its indexes |
+| `0029_rollback.sql` | `0029_service_agents_category.sql` — reverts `openai-chat` → `openai-compatible` type rename and drops `category` column |
+| `0030_rollback.sql` | `0030_add_bookmarks.sql` — drops `bookmarks` table and its indexes |
+| `0031_rollback.sql` | `0031_add_task_result_duedate.sql` — drops `result` and `due_date` columns from `tasks` |
+| `0032_rollback.sql` | `0032_add_service_agents_created_by_idx.sql` — drops `service_agents_created_by_idx` index |
+| `0033_rollback.sql` | `0033_add_revoked_tokens.sql` — drops `revoked_tokens` table and its indexes |
 
 ## Step-by-Step Rollback Procedure
 

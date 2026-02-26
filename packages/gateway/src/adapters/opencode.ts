@@ -104,12 +104,29 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       const modelID = this.env.OPENCODE_MODEL_ID
       const providerID = this.env.OPENCODE_PROVIDER_ID
 
-      // Start SSE event stream before sending the prompt
+      // Start SSE event stream before sending the prompt.
+      // If the initial subscribe fails (e.g. transient network error), retry up
+      // to SSE_MAX_RETRIES times with exponential backoff before giving up.
+      const SSE_MAX_RETRIES = 2
       const abortController = new AbortController()
       this.streamAbort = abortController
-      const sseResult = await client.event.subscribe({
-        signal: abortController.signal,
-      })
+
+      let sseResult: Awaited<ReturnType<typeof client.event.subscribe>>
+      for (let attempt = 0; ; attempt++) {
+        try {
+          sseResult = await client.event.subscribe({
+            signal: abortController.signal,
+          })
+          break
+        } catch (err: unknown) {
+          if (attempt >= SSE_MAX_RETRIES || abortController.signal.aborted) throw err
+          const delay = 500 * (attempt + 1)
+          log.warn(
+            `SSE subscribe failed (attempt ${attempt + 1}/${SSE_MAX_RETRIES + 1}), retrying in ${delay}ms: ${(err as Error).message}`,
+          )
+          await new Promise((r) => setTimeout(r, delay))
+        }
+      }
 
       // Fire off the prompt (async — returns full response when done)
       const promptPromise = client.session

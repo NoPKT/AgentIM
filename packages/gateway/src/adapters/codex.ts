@@ -49,6 +49,18 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async ensureThread() {
     await this.ensureCodex()
     if (!this.thread) {
+      // Codex SDK limitation: the SDK does not expose a permission-request callback
+      // or event in its streaming API. The only control is `approvalPolicy`:
+      //   - 'never' = auto-approve all tool executions (bypass mode)
+      //   - 'on-request' = SDK prompts for approval interactively (stdin-based)
+      //
+      // Unlike OpenCode (which emits 'permission.updated' SSE events that we relay
+      // through AgentIM's permission system), the Codex SDK manages permissions
+      // internally. In daemon mode this means 'on-request' may block on stdin —
+      // callers should use 'bypass' permission level for headless operation.
+      //
+      // This cannot be fixed without upstream SDK changes (exposing a callback or
+      // event for permission requests). Tracked as a known limitation.
       const approvalPolicy = this.permissionLevel === 'bypass' ? 'never' : 'on-request'
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId)

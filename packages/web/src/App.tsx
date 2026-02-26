@@ -23,8 +23,12 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'))
 
 function PageLoader() {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
+      <div
+        className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"
+        aria-hidden="true"
+      />
+      <span className="sr-only">Loading…</span>
     </div>
   )
 }
