@@ -125,7 +125,11 @@ describe('WsClient', () => {
 
       expect(ws.sent).toHaveLength(1)
       const parsed = JSON.parse(ws.sent[0])
-      expect(parsed).toEqual({ type: 'client:auth', token: 'my-token' })
+      expect(parsed).toEqual({
+        type: 'client:auth',
+        token: 'my-token',
+        protocolVersion: '1',
+      })
     })
 
     it('uses the freshest token if updateToken() was called before open', () => {
