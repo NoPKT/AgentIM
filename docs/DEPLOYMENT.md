@@ -145,6 +145,8 @@ agentim claude /path/to/project
 
 ## Environment Variables
 
+> **Note:** Most optional settings below are also **runtime-configurable via the Admin Settings UI** (Settings > Admin Settings in the web panel). Environment variables serve as initial fallback values — once a setting is saved in the Admin UI, the database value takes precedence. Only infrastructure variables (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_*`, `UPLOAD_DIR`, `PORT`, `HOST`, `NODE_ENV`, `RUN_MIGRATIONS`) require a server restart. Rows marked with **(runtime)** can be changed without restarting.
+
 ### Core
 
 | Variable   | Default   | Required   | Description         |
@@ -165,8 +167,8 @@ agentim claude /path/to/project
 | Variable             | Default                | Required       | Description                                                               |
 | -------------------- | ---------------------- | -------------- | ------------------------------------------------------------------------- |
 | `JWT_SECRET`         | `dev-secret-change-me` | **Production** | Server refuses to start with default value. Use `openssl rand -hex 32` |
-| `JWT_ACCESS_EXPIRY`  | `15m`                  | No             | Access token TTL                                                          |
-| `JWT_REFRESH_EXPIRY` | `7d`                   | No             | Refresh token TTL                                                         |
+| `JWT_ACCESS_EXPIRY`  | `15m`                  | No             | Access token TTL **(runtime)**                                            |
+| `JWT_REFRESH_EXPIRY` | `7d`                   | No             | Refresh token TTL **(runtime)**                                           |
 | `ADMIN_USERNAME`     | `admin`                | No             | Admin user (auto-created on startup)                                      |
 | `ADMIN_PASSWORD`     | (empty)                | Docker         | Admin password                                                            |
 
@@ -174,36 +176,52 @@ agentim claude /path/to/project
 
 | Variable      | Default                                  | Required       | Description                         |
 | ------------- | ---------------------------------------- | -------------- | ----------------------------------- |
-| `CORS_ORIGIN` | Dev: `http://localhost:5173`, Prod: `""` | **Production** | `*` causes fatal exit in production |
+| `CORS_ORIGIN` | Dev: `http://localhost:5173`, Prod: `""` | **Production** | `*` causes fatal exit in production **(runtime)** |
 
 ### File Upload
 
 | Variable        | Default            | Description              |
 | --------------- | ------------------ | ------------------------ |
 | `UPLOAD_DIR`    | `./uploads`        | Upload storage directory |
-| `MAX_FILE_SIZE` | `10485760` (10 MB) | Max file size in bytes   |
+| `MAX_FILE_SIZE` | `10485760` (10 MB) | Max file size in bytes **(runtime)** |
 
 ### AI Router (Optional)
 
+These are **per-router initial defaults** — each Router entity stores its own LLM config in the database. Create and manage routers via the web UI (Settings > Routers). The env vars below are used only as fallback values before any Admin Settings value is saved.
+
 | Variable              | Default       | Description                                                                       |
 | --------------------- | ------------- | --------------------------------------------------------------------------------- |
-| `ROUTER_LLM_BASE_URL` | (empty)       | OpenAI-compatible API URL. Without this, broadcast rooms only route via @mentions |
-| `ROUTER_LLM_API_KEY`  | (empty)       | API key                                                                           |
-| `ROUTER_LLM_MODEL`    | (empty)       | Model name (e.g. `gpt-4o-mini`, `llama-3.1-8b-instant`)                          |
+| `ROUTER_LLM_BASE_URL` | (empty)       | OpenAI-compatible API URL. Without this, broadcast rooms only route via @mentions **(runtime)** |
+| `ROUTER_LLM_API_KEY`  | (empty)       | API key **(runtime)**                                                             |
+| `ROUTER_LLM_MODEL`    | (empty)       | Model name (e.g. `gpt-4o-mini`, `llama-3.1-8b-instant`) **(runtime)**            |
+| `ROUTER_LLM_TIMEOUT_MS` | `15000`     | LLM request timeout in ms (1000-120000) **(runtime)**                             |
 
 ### Routing Protection
 
 | Variable                  | Default | Description                 |
 | ------------------------- | ------- | --------------------------- |
-| `MAX_AGENT_CHAIN_DEPTH`   | `5`     | Max agent chain depth       |
-| `AGENT_RATE_LIMIT_WINDOW` | `60`    | Rate limit window (seconds) |
-| `AGENT_RATE_LIMIT_MAX`    | `20`    | Max requests per window     |
+| `MAX_AGENT_CHAIN_DEPTH`   | `5`     | Max agent chain depth **(runtime)** |
+| `AGENT_RATE_LIMIT_WINDOW` | `60`    | Rate limit window (seconds) **(runtime)** |
+| `AGENT_RATE_LIMIT_MAX`    | `20`    | Max requests per window **(runtime)** |
+
+### Maintenance
+
+| Variable                      | Default      | Description                                            |
+| ----------------------------- | ------------ | ------------------------------------------------------ |
+| `ORPHAN_FILE_CHECK_INTERVAL`  | `3600000`    | Orphan file cleanup interval in ms **(runtime)**       |
+| `TOKEN_CLEANUP_INTERVAL`      | `3600000`    | Expired token cleanup interval in ms **(runtime)**     |
+| `AUDIT_LOG_RETENTION_DAYS`    | `90`         | Days to retain audit logs **(runtime)**                |
+| `AUDIT_LOG_CLEANUP_INTERVAL`  | `86400000`   | Audit log cleanup interval in ms **(runtime)**         |
+| `GATEWAY_CLEANUP_INTERVAL`    | `86400000`   | Zombie gateway cleanup interval in ms **(runtime)**    |
+| `GATEWAY_MAX_OFFLINE_DAYS`    | `30`         | Auto-remove gateways offline longer than this **(runtime)** |
 
 ### Monitoring (Optional)
 
-| Variable     | Default | Description               |
-| ------------ | ------- | ------------------------- |
-| `SENTRY_DSN` | (empty) | Sentry error tracking DSN |
+| Variable               | Default | Description                                                       |
+| ---------------------- | ------- | ----------------------------------------------------------------- |
+| `SENTRY_DSN`           | (empty) | Sentry error tracking DSN **(runtime)**                           |
+| `LOG_LEVEL`            | `info`  | Log level: debug, info, warn, error, fatal **(runtime)**          |
+| `METRICS_AUTH_ENABLED` | `true`  | Require JWT for /api/metrics (default: true in production) **(runtime)** |
 
 ### Encryption
 
@@ -247,7 +265,7 @@ OAuth credentials are configurable through the **Admin Settings UI** (Settings >
 
 | Variable      | Default | Description                                                  |
 | ------------- | ------- | ------------------------------------------------------------ |
-| `TRUST_PROXY` | `false` | Set to `true` when behind a reverse proxy (reads `X-Forwarded-For`) |
+| `TRUST_PROXY` | `false` | Set to `true` when behind a reverse proxy (reads `X-Forwarded-For`) **(runtime)** |
 
 ### JWT Key Rotation (Optional)
 

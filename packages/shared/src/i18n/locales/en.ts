@@ -525,6 +525,20 @@ export const en = {
     tokenIntervalDesc: 'Interval in milliseconds between expired token cleanup runs.',
     sentryDsn: 'Sentry DSN',
     sentryDsnDesc: 'Sentry error tracking DSN. Leave empty to disable.',
+    auditRetentionDays: 'Audit Log Retention (days)',
+    auditRetentionDaysDesc: 'Number of days to retain audit log entries before automatic purge.',
+    auditCleanupInterval: 'Audit Cleanup Interval (ms)',
+    auditCleanupIntervalDesc: 'Interval in milliseconds between audit log cleanup runs.',
+    gatewayCleanupInterval: 'Gateway Cleanup Interval (ms)',
+    gatewayCleanupIntervalDesc: 'Interval in milliseconds between zombie gateway cleanup runs.',
+    gatewayMaxOfflineDays: 'Gateway Max Offline (days)',
+    gatewayMaxOfflineDaysDesc:
+      'Gateways offline longer than this many days are automatically removed.',
+    routerLlmTimeout: 'Router LLM Timeout (ms)',
+    routerLlmTimeoutDesc: 'Timeout in milliseconds for LLM routing requests.',
+    metricsAuthEnabled: 'Metrics Auth Enabled',
+    metricsAuthEnabledDesc:
+      'When enabled, /api/metrics requires a valid JWT. Defaults to true in production.',
     vapidPublicKey: 'VAPID Public Key',
     vapidPublicKeyDesc:
       'Public key for Web Push (VAPID). Generate with: npx web-push generate-vapid-keys',

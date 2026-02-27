@@ -607,6 +607,20 @@ export const ja = {
     tokenIntervalDesc: '期限切れトークンのクリーンアップ実行間隔（ミリ秒）。',
     sentryDsn: 'Sentry DSN',
     sentryDsnDesc: 'Sentryエラートラッキング用DSN。無効にするには空欄のまま。',
+    auditRetentionDays: '監査ログ保持日数',
+    auditRetentionDaysDesc:
+      '監査ログを保持する日数。この期間を超えたエントリは自動的に削除されます。',
+    auditCleanupInterval: '監査ログクリーンアップ間隔（ミリ秒）',
+    auditCleanupIntervalDesc: '監査ログクリーンアップ実行間隔（ミリ秒）。',
+    gatewayCleanupInterval: 'ゲートウェイクリーンアップ間隔（ミリ秒）',
+    gatewayCleanupIntervalDesc: 'ゾンビゲートウェイのクリーンアップ実行間隔（ミリ秒）。',
+    gatewayMaxOfflineDays: 'ゲートウェイ最大オフライン日数',
+    gatewayMaxOfflineDaysDesc: 'この日数を超えてオフラインのゲートウェイは自動的に削除されます。',
+    routerLlmTimeout: 'ルーターLLMタイムアウト（ミリ秒）',
+    routerLlmTimeoutDesc: 'LLMルーティングリクエストのタイムアウト（ミリ秒）。',
+    metricsAuthEnabled: 'メトリクス認証有効',
+    metricsAuthEnabledDesc:
+      '有効にすると、/api/metricsに有効なJWTが必要になります。本番環境ではデフォルトで有効。',
     vapidPublicKey: 'VAPID公開鍵',
     vapidPublicKeyDesc:
       'Web Push用の公開鍵（VAPID）。npx web-push generate-vapid-keys で生成してください。',

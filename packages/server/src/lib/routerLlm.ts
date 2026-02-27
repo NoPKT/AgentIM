@@ -1,11 +1,9 @@
 import { z } from 'zod'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { createLogger } from './logger.js'
 import type { RouterConfig } from './routerConfig.js'
 
 const log = createLogger('RouterLLM')
-
-const ROUTER_TIMEOUT = config.routerLlmTimeoutMs
 
 const MAX_ROUTER_AGENTS = Math.max(1, parseInt(process.env.ROUTER_LLM_MAX_AGENTS ?? '', 10) || 20)
 
@@ -183,8 +181,9 @@ export async function selectAgents(
   const userContent = `Available agents:\n${agentDescriptions}\n\nUser message: "${content}"`
 
   try {
+    const routerTimeout = getConfigSync<number>('router.llm.timeout') || config.routerLlmTimeoutMs
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), ROUTER_TIMEOUT)
+    const timeout = setTimeout(() => controller.abort(), routerTimeout)
 
     let res: Response
     try {
