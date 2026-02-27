@@ -67,17 +67,16 @@ test.describe('Authenticated session', () => {
   })
 
   test('can log out', async ({ page }) => {
-    // Find the logout button (usually in settings or a menu)
-    const logoutButton = page.getByRole('button', { name: /log.?out|sign.?out/i })
-    if (await logoutButton.isVisible()) {
-      await logoutButton.click()
-      await expect(page).toHaveURL(/\/login/, { timeout: 5_000 })
-    } else {
-      // Navigate to settings page where logout typically lives
-      await page.goto('/settings')
-      await page.getByRole('button', { name: /log.?out|sign.?out/i }).click()
-      await expect(page).toHaveURL(/\/login/, { timeout: 5_000 })
+    // On mobile viewports the logout button is inside the sidebar which is
+    // hidden by default.  Open it via the hamburger menu first.
+    const menuButton = page.getByRole('button', { name: /rooms|menu/i })
+    if (await menuButton.isVisible()) {
+      await menuButton.click()
     }
+
+    const logoutButton = page.getByRole('button', { name: /log.?out|sign.?out/i })
+    await logoutButton.click()
+    await expect(page).toHaveURL(/\/login/, { timeout: 5_000 })
   })
 
   test('redirects unauthenticated users to login', async ({ page, context }) => {
