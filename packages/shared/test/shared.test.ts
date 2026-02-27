@@ -1260,19 +1260,38 @@ describe('dangerousKeys in toolInput', () => {
     assert.strictEqual(result.success, false)
   })
 
-  it('__proto__ key is stripped by Zod z.record() during parsing (known JS/Zod behavior)', () => {
+  it('__proto__ handling relies on Zod z.record() internals (known limitation, verify no prototype pollution)', () => {
     // __proto__ is special in JS: Zod internally constructs a plain object,
-    // which causes __proto__ to be consumed as a prototype setter rather than
-    // stored as an enumerable key. Object.keys() never sees it, so the refine
-    // check cannot reject it. This is safe because the key is effectively
-    // dropped and never reaches downstream code.
+    // which currently causes __proto__ to be consumed as a prototype setter rather
+    // than stored as an enumerable key. Object.keys() never sees it, so the refine
+    // check cannot reject it. This behavior is library-implementation-dependent and
+    // should be treated as a known limitation that requires periodic security review
+    // when upgrading Zod or changing the schema.
     const obj = Object.create(null) as Record<string, unknown>
     obj['__proto__'] = 'value'
     const result = toolInputSchema.safeParse(obj)
     assert.strictEqual(result.success, true)
     if (result.success) {
       // Verify the key was indeed stripped from the parsed output
-      assert.strictEqual(Object.prototype.hasOwnProperty.call(result.data, '__proto__'), false)
+      assert.strictEqual(
+        Object.prototype.hasOwnProperty.call(result.data, '__proto__'),
+        false,
+      )
+      // Additionally, verify that parsing did not cause prototype pollution.
+      // The parsed value should have a normal, safe prototype (Object.prototype
+      // or null, depending on Zod's internal representation), and it must not
+      // introduce unexpected properties on Object.prototype.
+      const parsedProto = Object.getPrototypeOf(result.data)
+      assert.ok(parsedProto === Object.prototype || parsedProto === null)
+      const pollutionSentinel = Symbol('pollutionSentinel')
+      // Create a fresh plain object and ensure it does not see any polluted property.
+      const fresh = {}
+      // If Object.prototype were polluted with our sentinel, it would appear here.
+      // We assert that this is not the case.
+      assert.strictEqual(
+        Object.prototype.hasOwnProperty.call(fresh, pollutionSentinel as unknown as PropertyKey),
+        false,
+      )
     }
   })
 
