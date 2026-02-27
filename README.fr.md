@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # Définir les secrets requis
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Tout démarrer (PostgreSQL + Redis + AgentIM)
@@ -117,11 +117,11 @@ L'interface Web sera accessible à **http://localhost:5173** et le serveur API �
 
 | Variable         | Requis | Par défaut                  | Description                                                          |
 | ---------------- | ------ | --------------------------- | -------------------------------------------------------------------- |
-| `JWT_SECRET`     | Oui    | —                           | Clé secrète pour les jetons JWT. Générer : `openssl rand -base64 32` |
+| `JWT_SECRET`     | Oui    | —                           | Clé secrète pour les jetons JWT. Générer : `openssl rand -hex 32` |
 | `ADMIN_PASSWORD` | Oui    | —                           | Mot de passe du compte administrateur                                |
 | `DATABASE_URL`   | Oui    | `postgresql://...localhost` | Chaîne de connexion PostgreSQL                                       |
 | `REDIS_URL`      | Oui    | `redis://localhost:6379`    | Chaîne de connexion Redis                                            |
-| `ENCRYPTION_KEY` | Prod   | —                           | Clé de chiffrement. Générer : `openssl rand -base64 32`              |
+| `ENCRYPTION_KEY` | Prod   | —                           | Clé de chiffrement. Générer : `openssl rand -hex 32`              |
 | `PORT`           | Non    | `3000`                      | Port du serveur                                                      |
 | `CORS_ORIGIN`    | Prod   | `localhost:5173`            | Origine CORS autorisée (**requis** en production)                    |
 | `ADMIN_USERNAME` | Non    | `admin`                     | Nom d'utilisateur administrateur                                     |

@@ -16,9 +16,9 @@ Error: ENCRYPTION_KEY is required
 **Fix**: Copy `.env.example` to `.env` and fill in all required values.
 Generate secrets with:
 ```bash
-openssl rand -base64 32   # JWT_SECRET
-openssl rand -base64 32   # ENCRYPTION_KEY
-openssl rand -base64 16   # ADMIN_PASSWORD
+openssl rand -hex 32   # JWT_SECRET
+openssl rand -hex 32   # ENCRYPTION_KEY
+openssl rand -hex 16   # ADMIN_PASSWORD
 ```
 
 ### Cannot connect to PostgreSQL

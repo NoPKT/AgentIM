@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # 设置必需的密钥
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='你的强密码!'
 
 # 一键启动（PostgreSQL + Redis + AgentIM）
@@ -117,11 +117,11 @@ Web UI 在 **http://localhost:5173**，API 服务器在 **http://localhost:3000*
 
 | 变量             | 必需 | 默认值                      | 说明                                                |
 | ---------------- | ---- | --------------------------- | --------------------------------------------------- |
-| `JWT_SECRET`     | 是   | —                           | JWT 令牌密钥。生成方式：`openssl rand -base64 32`   |
+| `JWT_SECRET`     | 是   | —                           | JWT 令牌密钥。生成方式：`openssl rand -hex 32`   |
 | `ADMIN_PASSWORD` | 是   | —                           | 管理员账号密码                                      |
 | `DATABASE_URL`   | 是   | `postgresql://...localhost` | PostgreSQL 连接字符串                               |
 | `REDIS_URL`      | 是   | `redis://localhost:6379`    | Redis 连接字符串                                    |
-| `ENCRYPTION_KEY` | 生产 | —                           | 加密密钥。生成方式：`openssl rand -base64 32`       |
+| `ENCRYPTION_KEY` | 生产 | —                           | 加密密钥。生成方式：`openssl rand -hex 32`       |
 | `PORT`           | 否   | `3000`                      | 服务器端口                                          |
 | `CORS_ORIGIN`    | 生产 | `localhost:5173`            | 允许的 CORS 来源（生产环境**必填**）                |
 | `ADMIN_USERNAME` | 否   | `admin`                     | 管理员用户名                                        |

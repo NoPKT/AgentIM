@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # Установить необходимые секреты
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Запустить всё (PostgreSQL + Redis + AgentIM)
@@ -117,11 +117,11 @@ pnpm dev
 
 | Переменная       | Обязательна | По умолчанию                | Описание                                                                 |
 | ---------------- | ----------- | --------------------------- | ------------------------------------------------------------------------ |
-| `JWT_SECRET`     | Да          | —                           | Секретный ключ для JWT-токенов. Сгенерировать: `openssl rand -base64 32` |
+| `JWT_SECRET`     | Да          | —                           | Секретный ключ для JWT-токенов. Сгенерировать: `openssl rand -hex 32` |
 | `ADMIN_PASSWORD` | Да          | —                           | Пароль для учётной записи администратора                                 |
 | `DATABASE_URL`   | Да          | `postgresql://...localhost` | Строка подключения к PostgreSQL                                          |
 | `REDIS_URL`      | Да          | `redis://localhost:6379`    | Строка подключения к Redis                                               |
-| `ENCRYPTION_KEY` | Прод        | —                           | Ключ шифрования. Сгенерировать: `openssl rand -base64 32`               |
+| `ENCRYPTION_KEY` | Прод        | —                           | Ключ шифрования. Сгенерировать: `openssl rand -hex 32`               |
 | `PORT`           | Нет         | `3000`                      | Порт сервера                                                             |
 | `CORS_ORIGIN`    | Прод        | `localhost:5173`            | Разрешённый CORS-источник (**обязательно** в продакшене)                 |
 | `ADMIN_USERNAME` | Нет         | `admin`                     | Имя пользователя администратора                                          |

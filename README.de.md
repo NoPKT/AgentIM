@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # Erforderliche Geheimnisse setzen
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Alles starten (PostgreSQL + Redis + AgentIM)
@@ -117,11 +117,11 @@ Die Web-Oberfläche ist unter **http://localhost:5173** erreichbar, der API-Serv
 
 | Variable         | Erforderlich | Standard                    | Beschreibung                                                         |
 | ---------------- | ------------ | --------------------------- | -------------------------------------------------------------------- |
-| `JWT_SECRET`     | Ja           | —                           | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -base64 32` |
+| `JWT_SECRET`     | Ja           | —                           | Geheimschlüssel für JWT-Token. Generieren: `openssl rand -hex 32` |
 | `ADMIN_PASSWORD` | Ja           | —                           | Passwort für das Admin-Konto                                         |
 | `DATABASE_URL`   | Ja           | `postgresql://...localhost` | PostgreSQL-Verbindungszeichenkette                                   |
 | `REDIS_URL`      | Ja           | `redis://localhost:6379`    | Redis-Verbindungszeichenkette                                        |
-| `ENCRYPTION_KEY` | Prod         | —                           | Verschlüsselungsschlüssel. Generieren: `openssl rand -base64 32`    |
+| `ENCRYPTION_KEY` | Prod         | —                           | Verschlüsselungsschlüssel. Generieren: `openssl rand -hex 32`    |
 | `PORT`           | Nein         | `3000`                      | Server-Port                                                          |
 | `CORS_ORIGIN`    | Prod         | `localhost:5173`            | Erlaubter CORS-Ursprung (**erforderlich** in Produktion)             |
 | `ADMIN_USERNAME` | Nein         | `admin`                     | Admin-Benutzername                                                   |
