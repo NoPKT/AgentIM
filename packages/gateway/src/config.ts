@@ -1,4 +1,14 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  unlinkSync,
+  openSync,
+  closeSync,
+  renameSync,
+  statSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { encryptToken, decryptToken } from './lib/crypto.js'
@@ -13,6 +23,9 @@ export interface GatewayConfig {
 
 const CONFIG_DIR = join(homedir(), '.agentim')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
+const CONFIG_LOCK = CONFIG_FILE + '.lock'
+const CONFIG_TMP = CONFIG_FILE + '.tmp'
+const LOCK_STALE_MS = 60_000
 
 interface RawConfigV1 {
   serverUrl: string
@@ -58,12 +71,41 @@ export function loadConfig(): GatewayConfig | null {
       refreshToken: raw.refreshToken,
       gatewayId: raw.gatewayId,
     }
-    saveConfig(config)
-    // eslint-disable-next-line no-console -- startup migration notice
-    console.info('Config migrated from v1 (plaintext) to v2 (encrypted)')
+    try {
+      saveConfig(config)
+      // eslint-disable-next-line no-console -- startup migration notice
+      console.info('Config migrated from v1 (plaintext) to v2 (encrypted)')
+    } catch {
+      // Lock contention during migration is non-fatal; v1 config still works,
+      // migration will be retried on next loadConfig() call.
+    }
     return config
   } catch {
     return null
+  }
+}
+
+function acquireLock(): number {
+  // Clean up stale lock files older than LOCK_STALE_MS (orphaned from crashed processes)
+  try {
+    const lockStats = statSync(CONFIG_LOCK)
+    if (Date.now() - lockStats.mtimeMs > LOCK_STALE_MS) {
+      unlinkSync(CONFIG_LOCK)
+    }
+  } catch {
+    // Lock file doesn't exist — normal case
+  }
+
+  // Atomic lock acquisition using O_EXCL (fails if lock already exists)
+  return openSync(CONFIG_LOCK, 'wx')
+}
+
+function releaseLock(lockFd: number): void {
+  closeSync(lockFd)
+  try {
+    unlinkSync(CONFIG_LOCK)
+  } catch {
+    /* already cleaned up */
   }
 }
 
@@ -77,7 +119,29 @@ export function saveConfig(config: GatewayConfig): void {
     refreshToken: encryptToken(config.refreshToken),
     gatewayId: config.gatewayId,
   }
-  writeFileSync(CONFIG_FILE, JSON.stringify(v2, null, 2), { mode: 0o600 })
+
+  // Write to temp file first
+  writeFileSync(CONFIG_TMP, JSON.stringify(v2, null, 2), { mode: 0o600 })
+
+  let lockFd: number
+  try {
+    lockFd = acquireLock()
+  } catch {
+    // Another process holds the lock — clean up temp and bail
+    try {
+      unlinkSync(CONFIG_TMP)
+    } catch {
+      /* best effort */
+    }
+    throw new Error('Config file is locked by another process')
+  }
+
+  try {
+    // Atomic rename: tmp → config
+    renameSync(CONFIG_TMP, CONFIG_FILE)
+  } finally {
+    releaseLock(lockFd)
+  }
 }
 
 export function getConfigPath(): string {
