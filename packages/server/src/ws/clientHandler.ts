@@ -162,14 +162,14 @@ export async function invalidateMembershipCache(userId: string, roomId: string):
 // impose an independent collection-size limit to cap memory allocation.
 
 async function isRateLimited(userId: string, roomId?: string): Promise<boolean> {
-  const window = getConfigSync<number>('rateLimit.client.window') || config.clientRateLimitWindow
-  const max = getConfigSync<number>('rateLimit.client.max') || config.clientRateLimitMax
+  const window = getConfigSync<number>('rateLimit.client.window') ?? config.clientRateLimitWindow
+  const max = getConfigSync<number>('rateLimit.client.max') ?? config.clientRateLimitMax
   const keySuffix = roomId ? `${userId}:${roomId}` : userId
   return isWsRateLimited(keySuffix, window, max)
 }
 
 export async function handleClientMessage(ws: WSContext, raw: string) {
-  const maxMessageSize = getConfigSync<number>('ws.maxMessageSize') || config.maxWsMessageSize
+  const maxMessageSize = getConfigSync<number>('ws.maxMessageSize') ?? config.maxWsMessageSize
   if (raw.length > maxMessageSize) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',

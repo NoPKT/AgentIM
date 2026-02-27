@@ -105,7 +105,8 @@ export class ConnectionManager {
     if (!existing || existing.userId !== userId) {
       const maxPerUser =
         userMaxConnections ??
-        (getConfigSync<number>('ws.maxConnectionsPerUser') || config.maxWsConnectionsPerUser)
+        getConfigSync<number>('ws.maxConnectionsPerUser') ??
+        config.maxWsConnectionsPerUser
       const currentCount = this.onlineUsers.get(userId) ?? 0
       if (currentCount >= maxPerUser) {
         log.warn(`User ${userId} exceeded max connections (${maxPerUser})`)
@@ -113,7 +114,7 @@ export class ConnectionManager {
       }
       // Enforce global connection limit (only for truly new connections)
       const maxTotal =
-        getConfigSync<number>('ws.maxTotalConnections') || config.maxTotalWsConnections
+        getConfigSync<number>('ws.maxTotalConnections') ?? config.maxTotalWsConnections
       if (!existing && this.clients.size >= maxTotal) {
         log.warn(`Global connection limit reached (${maxTotal})`)
         return { ok: false, error: 'Server at capacity' }
@@ -270,7 +271,8 @@ export class ConnectionManager {
     if (!existing || existing.userId !== userId) {
       const maxGateways =
         userMaxGateways ??
-        (getConfigSync<number>('ws.maxGatewaysPerUser') || config.maxGatewaysPerUser)
+        getConfigSync<number>('ws.maxGatewaysPerUser') ??
+        config.maxGatewaysPerUser
       const currentCount = this.userGatewayCount.get(userId) ?? 0
       if (currentCount >= maxGateways) {
         log.warn(`User ${userId} exceeded max gateways (${maxGateways})`)

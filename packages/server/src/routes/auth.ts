@@ -161,7 +161,7 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   const rtHash = await hash(refreshToken)
   const expiresAt = new Date(
     Date.now() +
-      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry),
   ).toISOString()
 
   // Limit refresh tokens per user: delete oldest when exceeded
@@ -196,7 +196,7 @@ authRoutes.post('/login', authRateLimit, async (c) => {
   // httpOnly cookie. This dual delivery is intentional for backward compatibility
   // with Gateway CLI clients that cannot use cookies.
   const cookieMaxAge = Math.floor(
-    parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+    parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry) / 1000,
   )
   setRefreshCookie(c, refreshToken, cookieMaxAge)
 
@@ -248,7 +248,7 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
   // Uses dynamic CORS config (same source as global CORS middleware) to stay
   // consistent when admins change allowed origins at runtime.
   if (usingCookie && config.isProduction) {
-    const allowed = getConfigSync<string>('cors.origin') || config.corsOrigin
+    const allowed = getConfigSync<string>('cors.origin') ?? config.corsOrigin
     if (allowed) {
       const origin = c.req.header('origin')
       if (origin) {
@@ -309,7 +309,7 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
       const rtHash = await hash(newRefreshToken)
       const expiresAt = new Date(
         Date.now() +
-          parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+          parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry),
       ).toISOString()
       await tx
         .insert(refreshTokens)
@@ -325,7 +325,7 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
 
     // Rotate Cookie for web clients
     const cookieMaxAge = Math.floor(
-      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry) / 1000,
     )
     setRefreshCookie(c, result.refreshToken, cookieMaxAge)
 
@@ -429,7 +429,7 @@ authRoutes.post('/verify-totp', authRateLimit, async (c) => {
     const rtHash = await hash(refreshToken)
     const expiresAt = new Date(
       Date.now() +
-        parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+        parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry),
     ).toISOString()
 
     // Limit refresh tokens per user
@@ -458,7 +458,7 @@ authRoutes.post('/verify-totp', authRateLimit, async (c) => {
     logAudit({ userId: user.id, action: 'login', ipAddress: ip })
 
     const cookieMaxAge = Math.floor(
-      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry) / 1000,
     )
     setRefreshCookie(c, refreshToken, cookieMaxAge)
 

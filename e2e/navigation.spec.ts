@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, ensureSidebarOpen } from './helpers'
 
 /**
  * Navigation E2E tests.
@@ -16,6 +16,7 @@ test.describe('App navigation', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 

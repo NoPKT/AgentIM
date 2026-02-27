@@ -25,7 +25,7 @@ When Redis is not configured, the server uses in-memory fallbacks:
 
 This mode is suitable for personal use, development, and small teams running a single server instance.
 
-> **Security note for single-process deployments**: While functional without Redis, be aware that token revocation is limited to the current process's lifetime. If the server restarts, the in-memory revocation cache is lost (the DB table persists, but there is a brief window during startup where recently-revoked tokens might not be re-loaded into the cache). For deployments where immediate token revocation is critical (e.g., compromised credentials), Redis is strongly recommended even for single instances.
+> **Security note for single-process deployments**: Without Redis, token revocations are persisted to the `revoked_tokens` database table and survive server restarts. The in-memory cache is rebuilt from DB lookups on demand, so there is no startup gap. However, multi-process deployments cannot propagate revocations across processes without Redis (each process checks its own memory cache first, then the DB). For high-availability or multi-process setups where immediate cross-process revocation is critical, Redis is strongly recommended.
 
 ### Multi-process / multi-container deployment (Redis required)
 

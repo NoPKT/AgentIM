@@ -12,7 +12,7 @@ const log = createLogger('RateLimit')
  * Falls back to socket remote address when not behind a proxy.
  */
 export function getClientIpFromRequest(c: Context): string {
-  const trustProxy = getConfigSync<boolean>('trust.proxy') || config.trustProxy
+  const trustProxy = getConfigSync<boolean>('trust.proxy') ?? config.trustProxy
   if (trustProxy) {
     return (
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, ensureSidebarOpen } from './helpers'
 
 /**
  * Room management E2E tests.
@@ -15,6 +15,7 @@ test.describe('Room management', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
   })
 
@@ -33,7 +34,8 @@ test.describe('Room management', () => {
     const createButton = page.getByRole('button', { name: /create/i })
     await createButton.click()
 
-    // Room should appear in the nav
+    // Room should appear in the nav (re-open sidebar on mobile — route change closes it)
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toContainText(testRoomName, {
       timeout: 5_000,
     })

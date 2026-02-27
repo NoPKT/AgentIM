@@ -96,7 +96,7 @@ curl http://localhost:3000/api/health   # → {"ok":true,...}
 
 ### 方式三：手动安装（开发环境）
 
-**前置要求**：Node.js 20+、pnpm 10+、PostgreSQL 16+、Redis 7+
+**前置要求**：Node.js 24+、pnpm 10+、PostgreSQL 18+、Redis 8+
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git

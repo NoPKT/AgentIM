@@ -13,7 +13,7 @@ const log = createLogger('GatewayCleanup')
  */
 async function cleanupZombieGateways(): Promise<void> {
   const maxOfflineDays =
-    getConfigSync<number>('cleanup.gatewayMaxOfflineDays') || config.gatewayMaxOfflineDays
+    getConfigSync<number>('cleanup.gatewayMaxOfflineDays') ?? config.gatewayMaxOfflineDays
   const cutoff = new Date(Date.now() - maxOfflineDays * 24 * 60 * 60 * 1000).toISOString()
 
   // Find zombie gateways: disconnected before cutoff

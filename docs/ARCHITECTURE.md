@@ -287,7 +287,7 @@ Critical variables required at startup (server will exit with code 1 if missing 
    └──────────┬──────────┘
               │
    ┌──────────▼──────────┐   ┌──────────────────┐
-   │    PostgreSQL 16     │   │    Redis 7        │
+   │    PostgreSQL 18     │   │    Redis 8        │
    │    :5432             │   │    :6379          │
    └─────────────────────┘   └──────────────────┘
 ```

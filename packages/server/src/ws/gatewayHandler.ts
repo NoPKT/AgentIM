@@ -1000,7 +1000,8 @@ async function routeAgentToAgent(
   // 1. Depth check — use room router config with env var fallback
   const maxDepth =
     routerCfg?.maxChainDepth ??
-    (getConfigSync<number>('router.maxChainDepth') || config.maxAgentChainDepth)
+    getConfigSync<number>('router.maxChainDepth') ??
+    config.maxAgentChainDepth
 
   if (depth >= maxDepth) {
     log.warn(

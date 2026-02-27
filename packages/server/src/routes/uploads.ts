@@ -108,7 +108,7 @@ uploadRoutes.post('/', async (c) => {
     return c.json({ ok: false, error: 'No file provided' }, 400)
   }
 
-  const maxFileSize = getConfigSync<number>('upload.maxFileSize') || config.maxFileSize
+  const maxFileSize = getConfigSync<number>('upload.maxFileSize') ?? config.maxFileSize
   if (file.size > maxFileSize) {
     return c.json(
       {

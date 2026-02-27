@@ -25,8 +25,8 @@ interface ProviderConfig {
 
 function getGithubConfig(): ProviderConfig {
   return {
-    clientId: getConfigSync('oauth.github.clientId'),
-    clientSecret: getConfigSync('oauth.github.clientSecret'),
+    clientId: getConfigSync('oauth.github.clientId') ?? '',
+    clientSecret: getConfigSync('oauth.github.clientSecret') ?? '',
     authUrl: 'https://github.com/login/oauth/authorize',
     tokenUrl: 'https://github.com/login/oauth/access_token',
     scopes: ['read:user', 'user:email'],
@@ -73,8 +73,8 @@ function getGithubConfig(): ProviderConfig {
 
 function getGoogleConfig(): ProviderConfig {
   return {
-    clientId: getConfigSync('oauth.google.clientId'),
-    clientSecret: getConfigSync('oauth.google.clientSecret'),
+    clientId: getConfigSync('oauth.google.clientId') ?? '',
+    clientSecret: getConfigSync('oauth.google.clientSecret') ?? '',
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     scopes: ['openid', 'email', 'profile'],
