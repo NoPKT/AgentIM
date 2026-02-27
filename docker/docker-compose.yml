@@ -25,6 +25,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -43,6 +50,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -93,12 +107,23 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '5'
+    networks:
+      - internal
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 2G
     restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
 
 volumes:
   pgdata:

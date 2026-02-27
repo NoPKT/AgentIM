@@ -13,7 +13,7 @@ AgentIM uses Drizzle Kit for forward-only migrations. Each `.sql` file in `drizz
 
 ## Rollback Coverage Policy
 
-Rollback scripts are maintained for **recent migrations** (0019 onwards, including 0027–0035). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
+Rollback scripts are maintained for **recent migrations** (0019 onwards, including 0027–0037). Migrations 0000–0018 established the foundational schema; rolling those back would effectively require dropping the entire database. For those, use a full database backup (see "Emergency restore" below).
 
 ## Rollback Files
 
@@ -38,6 +38,7 @@ Pre-written down migrations are in `drizzle/rollback/`:
 | `0033_rollback.sql` | `0033_add_revoked_tokens.sql` — drops `revoked_tokens` table and its indexes |
 | `0034_rollback.sql` | `0034_add_unique_name_indexes.sql` — drops unique composite indexes on `routers` and `service_agents` |
 | `0035_rollback.sql` | `0035_fix_timestamp_column_types.sql` — reverts `service_agents` and `bookmarks` timestamp columns from `timestamptz` back to `text` |
+| `0037_rollback.sql` | `0037_add_sender_created_idx_and_fix_fk.sql` — drops `messages_sender_created_idx` index and reverts `service_agents.created_by_id` FK back to no-action |
 
 ## Step-by-Step Rollback Procedure
 

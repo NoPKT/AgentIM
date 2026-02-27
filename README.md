@@ -68,8 +68,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # Set required secrets
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # Start everything (PostgreSQL + Redis + AgentIM)
@@ -125,11 +125,11 @@ The Web UI will be at **http://localhost:5173** and the API server at **http://l
 
 | Variable         | Required | Default                     | Description                                                     |
 | ---------------- | -------- | --------------------------- | --------------------------------------------------------------- |
-| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -base64 32`  |
+| `JWT_SECRET`     | Yes      | —                           | Secret key for JWT tokens. Generate: `openssl rand -hex 32`  |
 | `ADMIN_PASSWORD` | Yes      | —                           | Password for the admin account                                  |
 | `DATABASE_URL`   | Yes      | `postgresql://...localhost` | PostgreSQL connection string                                    |
 | `REDIS_URL`      | Yes      | `redis://localhost:6379`    | Redis connection string                                         |
-| `ENCRYPTION_KEY` | Prod     | —                           | Encryption key for secrets. Generate: `openssl rand -base64 32` |
+| `ENCRYPTION_KEY` | Prod     | —                           | Encryption key for secrets. Generate: `openssl rand -hex 32` |
 | `PORT`           | No       | `3000`                      | Server port                                                     |
 | `CORS_ORIGIN`    | Prod     | `localhost:5173`            | Allowed CORS origin (**required** in production)                |
 | `ADMIN_USERNAME` | No       | `admin`                     | Admin username                                                  |

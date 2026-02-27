@@ -22,7 +22,9 @@ export const config = {
   port: Math.max(1, Math.min(65535, intEnv('PORT', 3000))),
   host: env('HOST', '0.0.0.0'),
   databaseUrl: env('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/agentim'),
-  dbPoolSize: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : undefined,
+  dbPoolSize: process.env.DB_POOL_SIZE
+    ? Math.max(1, Math.min(100, parseInt(process.env.DB_POOL_SIZE, 10) || 10))
+    : undefined,
   redisUrl: process.env.REDIS_URL || '',
   redisEnabled: !!process.env.REDIS_URL,
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
@@ -109,7 +111,7 @@ export const config = {
 // Security check: refuse to start in production with weak JWT secret
 if (isProduction && (config.jwtSecret === 'dev-secret-change-me' || config.jwtSecret.length < 32)) {
   log.fatal(
-    'JWT_SECRET is missing or too short (min 32 chars). Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -base64 32)',
+    'JWT_SECRET is missing or too short (min 32 chars). Set a strong, random JWT_SECRET for production. Example: JWT_SECRET=$(openssl rand -hex 32)',
   )
   process.exit(1)
 }
@@ -217,21 +219,21 @@ export function getConfigSync<T extends string | number | boolean = string>(sett
 
 // Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;
 // crypto.ts derives a 32-byte AES key via SHA-256 so arbitrary strings work).
-// Prefer `openssl rand -base64 32` for maximum entropy.
+// Prefer `openssl rand -hex 32` for maximum entropy.
 if (process.env.ENCRYPTION_KEY) {
   if (isProduction && process.env.ENCRYPTION_KEY.length < 32) {
     log.fatal(
-      'ENCRYPTION_KEY is too short (< 32 chars) for production. Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
+      'ENCRYPTION_KEY is too short (< 32 chars) for production. Generate with: ENCRYPTION_KEY=$(openssl rand -hex 32)',
     )
     process.exit(1)
   } else if (process.env.ENCRYPTION_KEY.length < 16) {
     log.warn(
-      'ENCRYPTION_KEY is very short (< 16 chars). For production use, generate a secure key with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
+      'ENCRYPTION_KEY is very short (< 16 chars). For production use, generate a secure key with: ENCRYPTION_KEY=$(openssl rand -hex 32)',
     )
   }
 } else if (isProduction) {
   log.fatal(
-    'ENCRYPTION_KEY must be set in production — Router API keys cannot be stored securely without it. Generate with: ENCRYPTION_KEY=$(openssl rand -base64 32)',
+    'ENCRYPTION_KEY must be set in production — Router API keys cannot be stored securely without it. Generate with: ENCRYPTION_KEY=$(openssl rand -hex 32)',
   )
   process.exit(1)
 }

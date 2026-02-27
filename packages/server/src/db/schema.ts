@@ -119,7 +119,7 @@ export const serviceAgents = pgTable(
     avatarUrl: text('avatar_url'),
     createdById: text('created_by_id')
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: 'cascade' }),
     createdAt: ts('created_at').notNull(),
     updatedAt: ts('updated_at').notNull(),
   },
@@ -241,6 +241,7 @@ export const messages = pgTable(
     index('messages_room_idx').on(table.roomId),
     index('messages_room_created_idx').on(table.roomId, table.createdAt),
     index('messages_sender_idx').on(table.senderId),
+    index('messages_sender_created_idx').on(table.senderId, table.createdAt),
     index('messages_reply_to_idx').on(table.replyToId),
     index('messages_updated_at_idx').on(table.updatedAt),
   ],

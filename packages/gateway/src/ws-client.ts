@@ -150,7 +150,10 @@ export class GatewayWsClient {
   }
 
   private droppedCount = 0
-  private retryAttempts = new WeakMap<object, number>()
+  // Track retry attempts by message type + timestamp to ensure reliable counting.
+  // Using Map<string, number> instead of WeakMap<object> because WeakMap keys
+  // can be garbage-collected when no strong references remain, losing retry state.
+  private retryAttempts = new Map<string, number>()
 
   send(msg: GatewayMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
@@ -195,18 +198,23 @@ export class GatewayWsClient {
               this.sendQueue.push(msg)
             } else {
               // Queue is full of critical messages; retry with exponential backoff
-              const attempt = (this.retryAttempts.get(msg as object) ?? 0) + 1
+              const retryKey = `${msg.type}:${Date.now()}`
+              const attempt = (this.retryAttempts.get(retryKey) ?? 0) + 1
               const MAX_RETRY = 5
               if (attempt > MAX_RETRY) {
                 log.error(`Giving up on critical message after ${MAX_RETRY} retries`)
                 this.droppedCount++
+                this.retryAttempts.delete(retryKey)
                 this.logDroppedMessage(msg)
                 this.onDroppedMessage?.(msg)
               } else {
-                this.retryAttempts.set(msg as object, attempt)
+                this.retryAttempts.set(retryKey, attempt)
                 const delay = Math.min(1000 * Math.pow(2, attempt - 1), 16000)
                 log.warn(`Send queue full (all critical), retry #${attempt} in ${delay}ms`)
-                setTimeout(() => this.send(msg), delay)
+                setTimeout(() => {
+                  this.retryAttempts.delete(retryKey)
+                  this.send(msg)
+                }, delay)
               }
             }
           }
@@ -227,18 +235,23 @@ export class GatewayWsClient {
         } else {
           // Normal priority — drop it, but retry if it's a critical type
           if (GatewayWsClient.RETRY_ON_DROP_TYPES.has(msg.type)) {
-            const attempt = (this.retryAttempts.get(msg as object) ?? 0) + 1
+            const retryKey = `${msg.type}:${Date.now()}`
+            const attempt = (this.retryAttempts.get(retryKey) ?? 0) + 1
             const MAX_RETRY = 5
             if (attempt > MAX_RETRY) {
               log.error(`Giving up on retryable message "${msg.type}" after ${MAX_RETRY} retries`)
               this.droppedCount++
+              this.retryAttempts.delete(retryKey)
               this.logDroppedMessage(msg)
               this.onDroppedMessage?.(msg)
             } else {
-              this.retryAttempts.set(msg as object, attempt)
+              this.retryAttempts.set(retryKey, attempt)
               const delay = Math.min(1000 * Math.pow(2, attempt - 1), 16000)
               log.warn(`Retrying dropped message "${msg.type}", retry #${attempt} in ${delay}ms`)
-              setTimeout(() => this.send(msg), delay)
+              setTimeout(() => {
+                this.retryAttempts.delete(retryKey)
+                this.send(msg)
+              }, delay)
             }
           } else {
             this.droppedCount++

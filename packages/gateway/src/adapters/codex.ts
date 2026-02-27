@@ -63,8 +63,15 @@ export class CodexAdapter extends BaseAgentAdapter {
       // event for permission requests). Tracked as a known limitation.
       // In daemon mode (no tty), 'on-request' blocks indefinitely on stdin.
       // Fall back to 'never' when stdin is not interactive.
+      const isDaemonMode = !process.stdin.isTTY
       const approvalPolicy =
-        this.permissionLevel === 'bypass' || !process.stdin.isTTY ? 'never' : 'on-request'
+        this.permissionLevel === 'bypass' || isDaemonMode ? 'never' : 'on-request'
+      if (isDaemonMode && this.permissionLevel !== 'bypass') {
+        log.warn(
+          `Codex running in daemon mode (no TTY): overriding permission level "${this.permissionLevel}" → approvalPolicy="never" (auto-approve). ` +
+            'Set permissionLevel to "bypass" explicitly to suppress this warning.',
+        )
+      }
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId)
         log.info(`Resumed Codex thread: ${this.threadId}`)
