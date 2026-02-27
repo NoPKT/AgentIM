@@ -181,7 +181,7 @@ describe('registerSchema', () => {
   it('accepts valid input', () => {
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.equal(result.success, true)
   })
@@ -189,7 +189,7 @@ describe('registerSchema', () => {
   it('rejects short username', () => {
     const result = registerSchema.safeParse({
       username: 'ab',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.equal(result.success, false)
   })
@@ -197,7 +197,7 @@ describe('registerSchema', () => {
   it('rejects invalid username characters', () => {
     const result = registerSchema.safeParse({
       username: 'user name',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.equal(result.success, false)
   })
@@ -229,7 +229,7 @@ describe('registerSchema', () => {
   it('accepts optional displayName', () => {
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
       displayName: 'Test User',
     })
     assert.equal(result.success, true)
@@ -517,7 +517,7 @@ describe('adminCreateUserSchema', () => {
   it('accepts user creation with role', () => {
     const result = adminCreateUserSchema.safeParse({
       username: 'newuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
       role: 'admin',
     })
     assert.equal(result.success, true)
@@ -526,7 +526,7 @@ describe('adminCreateUserSchema', () => {
   it('defaults role to user', () => {
     const result = adminCreateUserSchema.safeParse({
       username: 'newuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.equal(result.success, true)
     if (result.success) {
@@ -904,13 +904,22 @@ describe('createServiceAgentSchema provider validation', () => {
     assert.strictEqual(result.success, false)
   })
 
-  it('accepts runway type with apiKey', () => {
+  it('accepts runway type with apiKey and model', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Runway',
+      type: 'runway',
+      config: { apiKey: 'rk-test', model: 'gen3a_turbo' },
+    })
+    assert.strictEqual(result.success, true)
+  })
+
+  it('rejects runway type without model', () => {
     const result = createServiceAgentSchema.safeParse({
       name: 'My Runway',
       type: 'runway',
       config: { apiKey: 'rk-test' },
     })
-    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.success, false)
   })
 
   it('rejects meshy type without apiKey', () => {
@@ -920,6 +929,15 @@ describe('createServiceAgentSchema provider validation', () => {
       config: {},
     })
     assert.strictEqual(result.success, false)
+  })
+
+  it('accepts meshy type with apiKey and model', () => {
+    const result = createServiceAgentSchema.safeParse({
+      name: 'My Meshy',
+      type: 'meshy',
+      config: { apiKey: 'mk-test', model: 'meshy-4' },
+    })
+    assert.strictEqual(result.success, true)
   })
 
   it('rejects stability-audio type without apiKey', () => {
@@ -1088,7 +1106,7 @@ describe('Password boundary tests', () => {
   it('accepts exactly 8 characters (valid boundary)', () => {
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Abcdef1x',
+      password: 'Xk9mPq2x',
     })
     assert.strictEqual(result.success, true)
   })
@@ -1102,8 +1120,8 @@ describe('Password boundary tests', () => {
   })
 
   it('accepts exactly 128 characters (valid boundary)', () => {
-    // 126 filler chars + 1 uppercase + 1 digit = 128 total
-    const password = 'A1' + 'a'.repeat(126)
+    // 126 filler chars + 1 uppercase + 1 digit = 128 total (avoid 4+ repeated)
+    const password = 'A1' + 'xz'.repeat(63)
     assert.strictEqual(password.length, 128)
     const result = registerSchema.safeParse({
       username: 'testuser',
@@ -1113,7 +1131,7 @@ describe('Password boundary tests', () => {
   })
 
   it('rejects exactly 129 characters (invalid boundary)', () => {
-    const password = 'A1' + 'a'.repeat(127)
+    const password = 'A1' + 'xz'.repeat(63) + 'x'
     assert.strictEqual(password.length, 129)
     const result = registerSchema.safeParse({
       username: 'testuser',
@@ -1125,7 +1143,7 @@ describe('Password boundary tests', () => {
   it('accepts password with special characters', () => {
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'P@$$w0rd!#%',
+      password: 'X@$$k0rD!#%',
     })
     assert.strictEqual(result.success, true)
   })
@@ -1142,7 +1160,7 @@ describe('Password boundary tests', () => {
     // Unicode chars are fine as long as min length, upper, lower, digit are satisfied
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Passw0rd\u00e9\u00fc',
+      password: 'Xk9#mP2v\u00e9\u00fc',
     })
     assert.strictEqual(result.success, true)
   })
@@ -1154,7 +1172,7 @@ describe('Username boundary tests', () => {
   it('accepts exactly 3 characters (valid boundary)', () => {
     const result = registerSchema.safeParse({
       username: 'abc',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, true)
   })
@@ -1162,7 +1180,7 @@ describe('Username boundary tests', () => {
   it('rejects exactly 2 characters (invalid boundary)', () => {
     const result = registerSchema.safeParse({
       username: 'ab',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, false)
   })
@@ -1172,7 +1190,7 @@ describe('Username boundary tests', () => {
     assert.strictEqual(username.length, 50)
     const result = registerSchema.safeParse({
       username,
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, true)
   })
@@ -1182,7 +1200,7 @@ describe('Username boundary tests', () => {
     assert.strictEqual(username.length, 51)
     const result = registerSchema.safeParse({
       username,
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, false)
   })
@@ -1190,7 +1208,7 @@ describe('Username boundary tests', () => {
   it('rejects username with dots', () => {
     const result = registerSchema.safeParse({
       username: 'user.name',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, false)
   })
@@ -1198,7 +1216,7 @@ describe('Username boundary tests', () => {
   it('rejects username with leading spaces', () => {
     const result = registerSchema.safeParse({
       username: ' username',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, false)
   })
@@ -1206,7 +1224,7 @@ describe('Username boundary tests', () => {
   it('rejects username with trailing spaces', () => {
     const result = registerSchema.safeParse({
       username: 'username ',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
     })
     assert.strictEqual(result.success, false)
   })
@@ -1220,7 +1238,7 @@ describe('DisplayName boundary tests', () => {
     assert.strictEqual(displayName.length, 100)
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
       displayName,
     })
     assert.strictEqual(result.success, true)
@@ -1231,7 +1249,7 @@ describe('DisplayName boundary tests', () => {
     assert.strictEqual(displayName.length, 101)
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
       displayName,
     })
     assert.strictEqual(result.success, false)
@@ -1240,7 +1258,7 @@ describe('DisplayName boundary tests', () => {
   it('rejects whitespace-only displayName', () => {
     const result = registerSchema.safeParse({
       username: 'testuser',
-      password: 'Password1',
+      password: 'Xk9#mPq2vL',
       displayName: '   ',
     })
     assert.strictEqual(result.success, false)
