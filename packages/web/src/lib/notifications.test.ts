@@ -114,7 +114,6 @@ describe('requestNotificationPermission', () => {
 
   it('returns false when Notification API is not available', async () => {
     const saved = window.Notification
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).Notification
     const result = await requestNotificationPermission()
     expect(result).toBe(false)

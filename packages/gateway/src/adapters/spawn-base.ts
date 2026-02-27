@@ -87,7 +87,7 @@ const SENSITIVE_ENV_PREFIXES = [
  * Server infrastructure secrets that must NEVER be passed to child agent processes,
  * regardless of any user-configured passEnv whitelist.
  */
-const NEVER_PASSABLE_KEYS = new Set([
+export const NEVER_PASSABLE_KEYS = new Set([
   'JWT_SECRET',
   'DATABASE_URL',
   'REDIS_URL',

@@ -394,7 +394,7 @@ export function isServerMessage(msg: unknown): msg is ServerMessage {
     msg !== null &&
     typeof type === 'string' &&
     type.startsWith('server:') &&
-    !SERVER_GATEWAY_MESSAGE_TYPES.has(type)
+    !SERVER_GATEWAY_ONLY_TYPES.has(type)
   )
 }
 
@@ -410,19 +410,17 @@ export function isGatewayMessage(msg: unknown): msg is GatewayMessage {
 }
 
 /**
- * All known ServerGatewayMessage type discriminants. Kept in sync with the
- * ServerGatewayMessage union above. When adding a new variant to the union,
- * add its type string here as well so the type guard stays correct.
+ * ServerGatewayMessage type discriminants that are exclusive to the gateway
+ * channel (i.e. NOT shared with ServerMessage). `server:pong` and
+ * `server:error` belong to BOTH unions, so they are intentionally omitted.
  */
-const SERVER_GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:gateway_auth_result',
   'server:send_to_agent',
   'server:stop_agent',
   'server:remove_agent',
   'server:room_context',
   'server:permission_response',
-  'server:pong',
-  'server:error',
 ])
 
 /** Type guard for ServerGatewayMessage */
@@ -432,6 +430,6 @@ export function isServerGatewayMessage(msg: unknown): msg is ServerGatewayMessag
     typeof msg === 'object' &&
     msg !== null &&
     typeof type === 'string' &&
-    SERVER_GATEWAY_MESSAGE_TYPES.has(type)
+    (SERVER_GATEWAY_ONLY_TYPES.has(type) || type === 'server:pong' || type === 'server:error')
   )
 }

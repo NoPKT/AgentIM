@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import { LazyMarkdown } from './LazyMarkdown.js'
@@ -383,6 +383,14 @@ export const MessageItem = memo(function MessageItem({
     [message.chunks],
   )
 
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
+      if (e.key === 'Escape') actions.handleEditCancel()
+    },
+    [actions.handleEditSave, actions.handleEditCancel],
+  )
+
   // System messages
   if (message.senderType === 'system') {
     return (
@@ -564,10 +572,7 @@ export const MessageItem = memo(function MessageItem({
             onEditChange={actions.setEditContent}
             onEditSave={actions.handleEditSave}
             onEditCancel={actions.handleEditCancel}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
-              if (e.key === 'Escape') actions.handleEditCancel()
-            }}
+            onKeyDown={handleEditKeyDown}
           />
 
           {/* Edit history */}

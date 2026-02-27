@@ -1,5 +1,5 @@
 export { BaseAgentAdapter, type PermissionRequestCallback } from './base.js'
-export { SpawnAgentAdapter, getSafeEnv } from './spawn-base.js'
+export { SpawnAgentAdapter, getSafeEnv, NEVER_PASSABLE_KEYS } from './spawn-base.js'
 export { ClaudeCodeAdapter } from './claude-code.js'
 export { CodexAdapter } from './codex.js'
 export { GeminiAdapter } from './gemini.js'
@@ -14,6 +14,7 @@ import { OpenCodeAdapter } from './opencode.js'
 import { GenericAdapter } from './generic.js'
 import type { BaseAgentAdapter } from './base.js'
 import { getCustomAdapter, getCustomAdaptersPath } from '../custom-adapters.js'
+import { NEVER_PASSABLE_KEYS } from './spawn-base.js'
 
 export function createAdapter(
   type: string,
@@ -42,7 +43,12 @@ export function createAdapter(
           command: custom.command,
           args: custom.args,
           promptVia: custom.promptVia,
-          env: { ...custom.env, ...opts.env },
+          env: {
+            ...Object.fromEntries(
+              Object.entries(custom.env ?? {}).filter(([k]) => !NEVER_PASSABLE_KEYS.has(k)),
+            ),
+            ...opts.env,
+          },
         })
       }
       throw new Error(
