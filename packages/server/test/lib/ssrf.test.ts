@@ -186,4 +186,13 @@ describe('resolvesToPrivateIp', () => {
   it('returns false for IPv6 literal addresses', async () => {
     assert.equal(await resolvesToPrivateIp('http://[::1]'), false)
   })
+
+  it('returns true when DNS resolution times out (fail-closed)', async () => {
+    // Use a syntactically valid but non-existent domain to exercise the DNS timeout path.
+    // The implementation should treat DNS timeouts or resolution failures as internal/blocked.
+    assert.equal(
+      await resolvesToPrivateIp('https://nonexistent-timeout-test.localdomain.invalid'),
+      true
+    )
+  })
 })
