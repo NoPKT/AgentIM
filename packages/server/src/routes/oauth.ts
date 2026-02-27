@@ -38,7 +38,8 @@ const memoryStates = new Map<string, { provider: OAuthProvider; expiresAt: numbe
 const MAX_PENDING_STATES = 1000
 
 // Periodically clean expired in-memory states
-let oauthStateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(
+let oauthStateCleanupTimer: ReturnType<typeof setInterval> | null = null
+oauthStateCleanupTimer = setInterval(
   () => {
     const now = Date.now()
     for (const [key, val] of memoryStates) {
