@@ -2,6 +2,9 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { rooms, routers } from '../db/schema.js'
 import { decryptSecret } from './crypto.js'
+import { createLogger } from './logger.js'
+
+const log = createLogger('RouterConfig')
 
 export function isRouterVisibleToUser(
   router: { scope: string; visibility: string; visibilityList: string[]; createdById: string },
@@ -61,7 +64,10 @@ export async function getRouterConfig(roomId: string): Promise<RouterConfig | nu
   }
 
   const llmApiKey = decryptSecret(router.llmApiKey)
-  if (!llmApiKey) return null
+  if (!llmApiKey) {
+    log.error(`Failed to decrypt API key for router in room ${roomId}. Check ENCRYPTION_KEY.`)
+    return null
+  }
 
   return {
     ...router,

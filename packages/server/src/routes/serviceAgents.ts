@@ -171,7 +171,9 @@ app.put('/:id', async (c) => {
       const decrypted = decryptSecret(existing.configEncrypted)
       if (decrypted) existingConfig = JSON.parse(decrypted)
     } catch {
-      /* use empty */
+      log.warn(
+        `Failed to decrypt config for service agent ${id} during update. Existing config will be lost.`,
+      )
     }
 
     const mergedConfig = { ...existingConfig, ...config }
