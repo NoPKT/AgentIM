@@ -517,6 +517,7 @@ export async function getSetting(key: string): Promise<string> {
   if (cached !== undefined) return cached
 
   // 2. Check DB
+  let decryptionFailed = false
   try {
     const [row] = await db.select().from(settings).where(eq(settings.key, key)).limit(1)
     if (row) {
@@ -525,10 +526,19 @@ export async function getSetting(key: string): Promise<string> {
       if (def?.sensitive && val.startsWith('enc:')) {
         const { decryptSecret } = await import('./crypto.js')
         const decrypted = decryptSecret(val)
-        if (decrypted !== null) val = decrypted
+        if (decrypted !== null) {
+          val = decrypted
+        } else {
+          log.warn(
+            `Failed to decrypt setting "${key}". Check ENCRYPTION_KEY. Falling back to env/default.`,
+          )
+          decryptionFailed = true
+        }
       }
-      setCache(key, val)
-      return val
+      if (!decryptionFailed) {
+        setCache(key, val)
+        return val
+      }
     }
   } catch (err) {
     log.warn(`Failed to read setting "${key}" from DB: ${(err as Error).message}`)
@@ -656,7 +666,12 @@ export async function getAllSettings(): Promise<
     if (def?.sensitive && val.startsWith('enc:')) {
       const { decryptSecret } = await import('./crypto.js')
       const decrypted = decryptSecret(val)
-      if (decrypted !== null) val = decrypted
+      if (decrypted !== null) {
+        val = decrypted
+      } else {
+        log.warn(`Failed to decrypt setting "${r.key}". Check ENCRYPTION_KEY.`)
+        continue // skip — let mapDef fall through to env/default
+      }
     }
     dbMap.set(r.key, val)
   }
@@ -773,7 +788,12 @@ export async function preloadSettings(): Promise<void> {
       if (def?.sensitive && val.startsWith('enc:')) {
         const { decryptSecret } = await import('./crypto.js')
         const decrypted = decryptSecret(val)
-        if (decrypted !== null) val = decrypted
+        if (decrypted !== null) {
+          val = decrypted
+        } else {
+          log.warn(`Failed to decrypt setting "${row.key}" during preload. Check ENCRYPTION_KEY.`)
+          continue // skip — do not cache the encrypted value
+        }
       }
       setCache(row.key, val)
     }
