@@ -152,7 +152,7 @@ describe('AgentIM Server API', () => {
         '/api/users/me/password',
         {
           currentPassword: 'TestPass123',
-          newPassword: 'NewPass12345',
+          newPassword: 'Nw8#kRq3zM',
         },
         user.accessToken,
       )
@@ -162,7 +162,7 @@ describe('AgentIM Server API', () => {
       // Can login with new password
       const login = await api('POST', '/api/auth/login', {
         username: 'pwchange1',
-        password: 'NewPass12345',
+        password: 'Nw8#kRq3zM',
       })
       assert.equal(login.status, 200)
       assert.equal(login.data.ok, true)
@@ -175,7 +175,7 @@ describe('AgentIM Server API', () => {
         '/api/users/me/password',
         {
           currentPassword: 'wrongpassword',
-          newPassword: 'NewPass12345',
+          newPassword: 'Nw8#kRq3zM',
         },
         user.accessToken,
       )
