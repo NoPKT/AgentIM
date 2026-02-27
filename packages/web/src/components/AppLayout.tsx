@@ -175,7 +175,11 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 flex flex-col overflow-hidden">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 flex flex-col overflow-hidden outline-none"
+      >
         {/* Mobile top bar */}
         <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
           <button

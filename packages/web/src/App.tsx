@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router'
 import { useAuthStore } from './stores/auth.js'
 import { useChatStore } from './stores/chat.js'
 import { useWebSocket } from './hooks/useWebSocket.js'
@@ -39,8 +39,16 @@ function AppInner() {
   const loadRooms = useChatStore((s) => s.loadRooms)
   const unreadCounts = useChatStore((s) => s.unreadCounts)
   const user = useAuthStore((s) => s.user)
+  const { pathname } = useLocation()
 
   useWebSocket()
+
+  // Scroll to top and move focus to main content on route change (WCAG 2.1 AA)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    const main = document.getElementById('main-content')
+    if (main) main.focus({ preventScroll: true })
+  }, [pathname])
 
   useEffect(() => {
     loadUser()
