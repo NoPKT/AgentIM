@@ -90,18 +90,8 @@ export const config = {
   routerLlmTimeoutMs: Math.max(1000, intEnv('ROUTER_LLM_TIMEOUT_MS', 15_000)),
   routerTestTimeoutMs: 10_000,
   maxRefreshTokensPerUser: 10,
-  // OAuth providers (optional)
-  oauth: {
-    github: {
-      clientId: process.env.OAUTH_GITHUB_CLIENT_ID || '',
-      clientSecret: process.env.OAUTH_GITHUB_CLIENT_SECRET || '',
-    },
-    google: {
-      clientId: process.env.OAUTH_GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.OAUTH_GOOGLE_CLIENT_SECRET || '',
-    },
-  },
-  totpIssuer: env('TOTP_ISSUER', 'AgentIM'),
+  // OAuth providers and TOTP issuer are now managed via admin settings
+  // (see packages/server/src/lib/settings.ts). Env vars serve as initial fallback.
   logLevel: env('LOG_LEVEL', 'info'),
   runMigrations: env('RUN_MIGRATIONS', 'true') === 'true',
   // When true, /api/metrics requires a valid JWT (any authenticated user).

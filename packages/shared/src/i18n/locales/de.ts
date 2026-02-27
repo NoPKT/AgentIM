@@ -629,6 +629,17 @@ export const de = {
     vapidSubject: 'VAPID-Betreff',
     vapidSubjectDesc:
       'Kontakt-URI für den Push-Dienst (z.B. mailto:admin@example.com). Vom Web-Push-Protokoll vorgeschrieben.',
+    oauthGithubClientId: 'GitHub Client-ID',
+    oauthGithubClientIdDesc: 'Client-ID Ihrer GitHub-OAuth-App.',
+    oauthGithubClientSecret: 'GitHub Client-Geheimnis',
+    oauthGithubClientSecretDesc: 'Client-Geheimnis Ihrer GitHub-OAuth-App.',
+    oauthGoogleClientId: 'Google Client-ID',
+    oauthGoogleClientIdDesc: 'Client-ID Ihrer Google-OAuth-App.',
+    oauthGoogleClientSecret: 'Google Client-Geheimnis',
+    oauthGoogleClientSecretDesc: 'Client-Geheimnis Ihrer Google-OAuth-App.',
+    totpIssuer: 'TOTP-Aussteller',
+    totpIssuerDesc:
+      'Ausstellername, der in Authenticator-Apps für die Zwei-Faktor-Authentifizierung angezeigt wird.',
     sourceDb: 'Datenbank',
     sourceEnv: 'Umgebungsvariable',
     sourceDefault: 'Standard',

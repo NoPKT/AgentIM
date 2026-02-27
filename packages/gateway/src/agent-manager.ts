@@ -22,6 +22,7 @@ interface PendingPermission {
   resolve: (decision: { behavior: 'allow' | 'deny' }) => void
   reject: (err: Error) => void
   timer: ReturnType<typeof setTimeout>
+  reminderTimer: ReturnType<typeof setTimeout> | null
 }
 
 /** Max age for unused room contexts before they are cleaned up. */
@@ -37,6 +38,8 @@ const MAX_AGENT_QUEUE_SIZE = 50
 
 export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
+  /** Session IDs reported by adapters for conversation continuity across restarts. */
+  private sessionIds = new Map<string, string>()
   private agentCapabilities = new Map<string, string[]>()
   private roomContexts = new Map<string, RoomContext>()
   /** Tracks when each room context was last accessed (set/get). */
@@ -115,7 +118,27 @@ export class AgentManager {
                     settled = true
                     resolve(decision)
                   }
+                  // Send a reminder at 75% of timeout so users know action is needed
+                  const reminderDelay = Math.min(timeoutMs * 0.75, timeoutMs - 10_000)
+                  const reminderTimer =
+                    reminderDelay > 5000
+                      ? setTimeout(() => {
+                          if (!settled && roomId) {
+                            this.wsClient.send({
+                              type: 'gateway:message_chunk',
+                              roomId,
+                              agentId,
+                              messageId: requestId,
+                              chunk: {
+                                type: 'text',
+                                content: `[Permission request pending — awaiting response for ${toolName}]`,
+                              },
+                            })
+                          }
+                        }, reminderDelay)
+                      : null
                   const timer = setTimeout(() => {
+                    if (reminderTimer) clearTimeout(reminderTimer)
                     this.pendingPermissions.delete(requestId)
                     log.warn(
                       `Permission request ${requestId} timed out after ${timeoutMs}ms (tool=${toolName}), auto-denying`,
@@ -129,14 +152,19 @@ export class AgentManager {
                         chunk: {
                           type: 'text',
                           content:
-                            '[Permission request timed out - automatically denied]' +
+                            '[Permission request timed out — automatically denied]' +
                             ` (tool=${toolName})`,
                         },
                       })
                     }
                     safeResolve({ behavior: 'deny' })
                   }, timeoutMs)
-                  this.pendingPermissions.set(requestId, { resolve: safeResolve, reject, timer })
+                  this.pendingPermissions.set(requestId, {
+                    resolve: safeResolve,
+                    reject,
+                    timer,
+                    reminderTimer,
+                  })
                   this.wsClient.send({
                     type: 'gateway:permission_request',
                     requestId,
@@ -200,6 +228,7 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
+      this.sessionIds.delete(agentId)
       this.messageQueues.delete(agentId)
       // Clean up room contexts for this agent (collect keys first to avoid mutating during iteration)
       const keysToDelete = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
@@ -264,6 +293,7 @@ export class AgentManager {
       return
     }
     clearTimeout(pending.timer)
+    if (pending.reminderTimer) clearTimeout(pending.reminderTimer)
     this.pendingPermissions.delete(msg.requestId)
     const behavior = msg.decision === 'allow' ? 'allow' : 'deny'
     pending.resolve({ behavior })
@@ -493,6 +523,7 @@ export class AgentManager {
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
+      this.sessionIds.delete(agentId)
       this.messageQueues.delete(agentId)
       const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToRemove) {
@@ -509,6 +540,28 @@ export class AgentManager {
       // Clear queued messages — the user explicitly wants to stop this agent
       this.messageQueues.delete(agentId)
       adapter.stop()
+    }
+  }
+
+  /** Record a session ID for an agent (called by adapters after establishing a session). */
+  setSessionId(agentId: string, sessionId: string) {
+    this.sessionIds.set(agentId, sessionId)
+  }
+
+  /** Get stored session ID for an agent. */
+  getSessionId(agentId: string): string | undefined {
+    return this.sessionIds.get(agentId)
+  }
+
+  /** Export session data for persistence across restarts. */
+  exportSessionData(): Record<string, string> {
+    return Object.fromEntries(this.sessionIds)
+  }
+
+  /** Import previously saved session data. */
+  importSessionData(data: Record<string, string>) {
+    for (const [agentId, sessionId] of Object.entries(data)) {
+      this.sessionIds.set(agentId, sessionId)
     }
   }
 
@@ -548,6 +601,7 @@ export class AgentManager {
     ])
     this.adapters.clear()
     this.agentCapabilities.clear()
+    this.sessionIds.clear()
     this.messageQueues.clear()
     this.roomContexts.clear()
     this.roomContextLastUsed.clear()
@@ -559,6 +613,7 @@ export class AgentManager {
     // Reject all pending permissions
     for (const [, pending] of this.pendingPermissions) {
       clearTimeout(pending.timer)
+      if (pending.reminderTimer) clearTimeout(pending.reminderTimer)
       pending.resolve({ behavior: 'deny' })
     }
     this.pendingPermissions.clear()

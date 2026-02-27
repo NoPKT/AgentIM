@@ -1,6 +1,6 @@
 import { TOTP, Secret } from 'otpauth'
 import { hash, verify } from 'argon2'
-import { config } from '../config.js'
+import { getConfigSync } from '../config.js'
 import { randomBytes } from 'node:crypto'
 
 /** Generate a random base32-encoded TOTP secret. */
@@ -12,7 +12,7 @@ export function generateTotpSecret(): string {
 /** Build an otpauth:// URI for QR code generation. */
 export function getTotpUri(secret: string, username: string): string {
   const totp = new TOTP({
-    issuer: config.totpIssuer,
+    issuer: getConfigSync<string>('totp.issuer') || 'AgentIM',
     label: username,
     algorithm: 'SHA1',
     digits: 6,
@@ -25,7 +25,7 @@ export function getTotpUri(secret: string, username: string): string {
 /** Verify a 6-digit TOTP code (window=1 to tolerate ±30s clock drift). */
 export function verifyTotpCode(secret: string, code: string): boolean {
   const totp = new TOTP({
-    issuer: config.totpIssuer,
+    issuer: getConfigSync<string>('totp.issuer') || 'AgentIM',
     algorithm: 'SHA1',
     digits: 6,
     period: 30,

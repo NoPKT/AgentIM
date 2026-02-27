@@ -9,9 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Server
+
+- **OAuth + TOTP admin settings**: OAuth provider credentials (`oauth.github.clientId`, `oauth.github.clientSecret`, `oauth.google.clientId`, `oauth.google.clientSecret`) and TOTP issuer (`totp.issuer`) are now configurable via the Admin Settings UI under the Security group — env vars serve as initial fallback, runtime changes take effect within 5 seconds without server restart
+
+#### Shared
+
+- **ServiceAgentWithConfig type**: New interface extending `ServiceAgent` with decrypted `config` field for single-resource GET endpoints
+- **SlashCommand type enhancement**: `SlashCommand.name` now uses `SlashCommandName` enum type; added `clientOnly` boolean field
+
 #### Gateway
 
 - **Codex prompt-based permission simulation**: In daemon mode (no TTY), the Codex adapter now injects a permission preamble into prompts that instructs the model to describe its plan and wait for user approval before executing file modifications, commands, or destructive operations — compensating for the Codex SDK's lack of a `canUseTool` callback
+- **Agent session persistence**: `AgentManager` now tracks session IDs per agent with `setSessionId`/`getSessionId`/`exportSessionData`/`importSessionData` methods for preserving session state across reconnections
+- **Permission reminder notification**: Permission requests now send a reminder message at 75% of the timeout duration to notify users of pending approval
+- **Machine key entropy enhancement**: `getMachineKey()` now includes platform-specific machine ID (Linux `/etc/machine-id`, macOS `IOPlatformUUID`) in key derivation material, with backward-compatible decryption fallback for tokens encrypted with prior key formats
+
+### Changed
+
+#### Web
+
+- **Thread cache LRU eviction**: Thread message cache now uses LRU (least recently used) eviction instead of FIFO for better cache hit rates
+- **Flush dedup improvement**: Pending message dedup on reconnect now checks sender identity in addition to content and timestamp, with a wider time window (10s vs 5s) for better reliability
+- **IDB write degradation**: IndexedDB cache writes are automatically disabled after `QuotaExceededError` to avoid repeated failures; re-enabled on store reset
+
+### Fixed
+
+#### Shared
+
+- **MessageReaction JSDoc**: Added documentation clarifying the parallel array constraint (`userIds` and `usernames` must have the same length)
+
+#### Web
+
+- **WS auth failure queue clearing**: Pending message queue is now discarded when WebSocket authentication fails, preventing stale messages from being replayed on subsequent connections
+
+#### Docs
+
+- **DEPLOYMENT.md env var completeness**: Added missing environment variable sections for Encryption, TOTP, S3-Compatible Storage, OAuth Providers, Proxy, and JWT Key Rotation
+- **DEPLOYMENT.md S3 accuracy**: Removed non-existent `S3_FORCE_PATH_STYLE` and `S3_PUBLIC_URL` env vars (path style is auto-detected from endpoint)
+- **README Gemini status**: Updated Gemini CLI references from "coming soon" to "awaiting SDK release" for accuracy
+- **README doc links**: Added Troubleshooting and Roadmap links to Documentation section
+
+#### Community & Tests
+
+- **ROADMAP.md**: New roadmap document covering v0.1.0 through v0.4.0+ planned features
+- **CONTRIBUTING.md improvements**: Added IDE setup guide, E2E test instructions, architecture overview, and Getting Help section
+- **Security test suite**: New `security.test.ts` covering XSS prevention, auth edge cases, input validation, RBAC authorization, secure headers, file upload security, rate limiting, password security, token security, and room access control
 
 ### Fixed
 

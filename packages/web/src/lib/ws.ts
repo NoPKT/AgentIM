@@ -107,14 +107,19 @@ export class WsClient {
           return
         }
         // Defer queue flush and reconnect handlers until auth succeeds
-        if (msg.type === 'server:auth_result' && msg.ok) {
-          this.flushQueue()
-          if (this.wasConnected) {
-            for (const handler of this.reconnectHandlers) {
-              handler()
+        if (msg.type === 'server:auth_result') {
+          if (msg.ok) {
+            this.flushQueue()
+            if (this.wasConnected) {
+              for (const handler of this.reconnectHandlers) {
+                handler()
+              }
             }
+            this.wasConnected = true
+          } else {
+            // Auth failed — discard queued messages since they would fail too
+            this.pendingQueue.length = 0
           }
-          this.wasConnected = true
         }
         for (const handler of this.handlers) {
           handler(msg)

@@ -203,6 +203,56 @@ agentim claude /path/to/project
 | ------------ | ------- | ------------------------- |
 | `SENTRY_DSN` | (empty) | Sentry error tracking DSN |
 
+### Encryption
+
+| Variable         | Default | Required       | Description                                          |
+| ---------------- | ------- | -------------- | ---------------------------------------------------- |
+| `ENCRYPTION_KEY` | (empty) | **Production** | AES encryption key for secrets at rest (≥ 32 chars). Key is derived via SHA-256. Generate: `openssl rand -hex 32` |
+
+### TOTP Two-Factor Authentication (Optional)
+
+TOTP issuer is configurable through the **Admin Settings UI** (Settings > Security). The environment variable below serves as the initial fallback value.
+
+| Variable      | Default    | Description                     |
+| ------------- | ---------- | ------------------------------- |
+| `TOTP_ISSUER` | `AgentIM`  | Initial issuer name shown in authenticator apps (overridable via Admin Settings) |
+
+### S3-Compatible Storage (Optional)
+
+S3 storage is configured through the **Admin Settings UI** (Settings > Storage). The environment variables below serve as initial fallback values and can be overridden at runtime via the admin panel.
+
+| Variable           | Default    | Description                        |
+| ------------------ | ---------- | ---------------------------------- |
+| `STORAGE_PROVIDER` | `local`    | Initial storage backend (`local` or `s3`) |
+| `S3_BUCKET`        | (empty)    | Initial S3 bucket name             |
+| `S3_REGION`        | `auto`     | Initial AWS region                 |
+| `S3_ENDPOINT`      | (empty)    | Initial custom endpoint URL (R2/MinIO) |
+| `S3_ACCESS_KEY_ID` | (empty)    | Initial AWS access key ID          |
+| `S3_SECRET_ACCESS_KEY` | (empty) | Initial AWS secret access key     |
+
+### OAuth Providers (Optional)
+
+OAuth credentials are configurable through the **Admin Settings UI** (Settings > Security). The environment variables below serve as initial fallback values and can be overridden at runtime via the admin panel.
+
+| Variable                     | Default | Description                     |
+| ---------------------------- | ------- | ------------------------------- |
+| `OAUTH_GITHUB_CLIENT_ID`    | (empty) | Initial GitHub OAuth app client ID (overridable via Admin Settings) |
+| `OAUTH_GITHUB_CLIENT_SECRET` | (empty) | Initial GitHub OAuth app client secret (overridable via Admin Settings) |
+| `OAUTH_GOOGLE_CLIENT_ID`    | (empty) | Initial Google OAuth app client ID (overridable via Admin Settings) |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | (empty) | Initial Google OAuth app client secret (overridable via Admin Settings) |
+
+### Proxy
+
+| Variable      | Default | Description                                                  |
+| ------------- | ------- | ------------------------------------------------------------ |
+| `TRUST_PROXY` | `false` | Set to `true` when behind a reverse proxy (reads `X-Forwarded-For`) |
+
+### JWT Key Rotation (Optional)
+
+| Variable              | Default | Description                                     |
+| --------------------- | ------- | ----------------------------------------------- |
+| `JWT_SECRET_PREVIOUS` | (empty) | Previous JWT secret for graceful key rotation   |
+
 ## Security Checklist
 
 - [ ] **`JWT_SECRET`**: Strong random value (`openssl rand -hex 32`)

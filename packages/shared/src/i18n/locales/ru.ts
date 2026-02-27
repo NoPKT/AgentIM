@@ -627,6 +627,17 @@ export const ru = {
     vapidSubject: 'Тема VAPID',
     vapidSubjectDesc:
       'URI контакта для push-сервиса (напр. mailto:admin@example.com). Требуется протоколом Web Push.',
+    oauthGithubClientId: 'GitHub Client ID',
+    oauthGithubClientIdDesc: 'ID клиента вашего GitHub OAuth-приложения.',
+    oauthGithubClientSecret: 'GitHub Client Secret',
+    oauthGithubClientSecretDesc: 'Секрет клиента вашего GitHub OAuth-приложения.',
+    oauthGoogleClientId: 'Google Client ID',
+    oauthGoogleClientIdDesc: 'ID клиента вашего Google OAuth-приложения.',
+    oauthGoogleClientSecret: 'Google Client Secret',
+    oauthGoogleClientSecretDesc: 'Секрет клиента вашего Google OAuth-приложения.',
+    totpIssuer: 'Издатель TOTP',
+    totpIssuerDesc:
+      'Имя издателя, отображаемое в приложениях-аутентификаторах для двухфакторной аутентификации.',
     sourceDb: 'База данных',
     sourceEnv: 'Переменная окружения',
     sourceDefault: 'По умолчанию',

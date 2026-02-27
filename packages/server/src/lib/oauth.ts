@@ -1,4 +1,4 @@
-import { config } from '../config.js'
+import { getConfigSync } from '../config.js'
 import { createLogger } from './logger.js'
 
 const log = createLogger('OAuth')
@@ -25,8 +25,8 @@ interface ProviderConfig {
 
 function getGithubConfig(): ProviderConfig {
   return {
-    clientId: config.oauth.github.clientId,
-    clientSecret: config.oauth.github.clientSecret,
+    clientId: getConfigSync('oauth.github.clientId'),
+    clientSecret: getConfigSync('oauth.github.clientSecret'),
     authUrl: 'https://github.com/login/oauth/authorize',
     tokenUrl: 'https://github.com/login/oauth/access_token',
     scopes: ['read:user', 'user:email'],
@@ -73,8 +73,8 @@ function getGithubConfig(): ProviderConfig {
 
 function getGoogleConfig(): ProviderConfig {
   return {
-    clientId: config.oauth.google.clientId,
-    clientSecret: config.oauth.google.clientSecret,
+    clientId: getConfigSync('oauth.google.clientId'),
+    clientSecret: getConfigSync('oauth.google.clientSecret'),
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     scopes: ['openid', 'email', 'profile'],
@@ -108,9 +108,13 @@ const PROVIDER_CONFIGS: Record<OAuthProvider, () => ProviderConfig> = {
 
 /** Check whether a given OAuth provider has been configured with client credentials. */
 export function isProviderConfigured(provider: OAuthProvider): boolean {
-  const cfg =
-    provider === 'github' ? config.oauth.github : provider === 'google' ? config.oauth.google : null
-  return !!cfg && !!cfg.clientId && !!cfg.clientSecret
+  if (provider === 'github') {
+    return !!getConfigSync('oauth.github.clientId') && !!getConfigSync('oauth.github.clientSecret')
+  }
+  if (provider === 'google') {
+    return !!getConfigSync('oauth.google.clientId') && !!getConfigSync('oauth.google.clientSecret')
+  }
+  return false
 }
 
 /** Build the authorization URL that the user's browser should be redirected to. */

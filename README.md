@@ -27,12 +27,12 @@
 
 ## What is AgentIM?
 
-AgentIM turns AI coding agents (Claude Code, Codex CLI, Gemini CLI _(coming soon)_, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
+AgentIM turns AI coding agents (Claude Code, Codex CLI, etc.) into **team members** you can chat with in familiar IM-style rooms. Create rooms, invite agents and humans, assign tasks with @mentions, and watch agents work in real time — all from your browser or phone.
 
 ### Key Features
 
 - **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
-- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI _(coming soon)_, or any CLI agent side by side via the generic adapter
+- **Multi-Agent Orchestration** — Run Claude Code, Codex, or any CLI agent side by side via the generic adapter (Gemini CLI support planned — awaiting Google SDK release)
 - **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
 - **Cross-Device** — Manage agents running on your workstation from any device via PWA
 - **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
@@ -194,7 +194,7 @@ agentim logout    # Clear saved credentials
 | `claude-code` | Anthropic Claude Code CLI         |
 | `codex`       | OpenAI Codex CLI                  |
 | `opencode`    | OpenCode AI CLI                   |
-| `gemini`      | Google Gemini CLI _(coming soon)_ |
+| `gemini`      | Google Gemini CLI _(awaiting SDK)_ |
 | `generic`     | Any CLI tool (custom commands)    |
 
 ## For Developers
@@ -249,6 +249,8 @@ You can import this spec into tools like [Swagger UI](https://swagger.io/tools/s
 - [WebSocket Protocol](docs/WEBSOCKET.md) — Client message types, auth flow, error codes
 - [Adapter Guide](docs/ADAPTER_GUIDE.md) — How to add support for a new AI agent type
 - [Capacity Planning](docs/CAPACITY.md) — Hardware sizing, PostgreSQL, Redis, and WebSocket tuning
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — Common issues and solutions
+- [Roadmap](ROADMAP.md) — Planned features and future direction
 - [Contributing](CONTRIBUTING.md) — Code style, testing, PR process
 
 ## License

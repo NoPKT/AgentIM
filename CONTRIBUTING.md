@@ -21,6 +21,32 @@ cp .env.example .env   # Edit .env with your database and Redis connection detai
 pnpm dev
 ```
 
+### IDE Setup
+
+**VS Code** (recommended):
+
+- Install the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extensions
+- The project includes `.vscode/settings.json` with format-on-save configuration
+- TypeScript strict mode is enforced — the editor will show type errors inline
+
+**Other editors**: Ensure your editor respects the `.prettierrc` and `tsconfig.json` files in the repository root. Run `pnpm build` periodically to catch cross-package type errors.
+
+### Architecture Overview
+
+```text
+packages/
+  shared/    — Types, WebSocket protocol, Zod validators, i18n (7 languages)
+               Imported by all other packages as @agentim/shared
+  server/    — Hono HTTP + WebSocket hub, Drizzle ORM, PostgreSQL + Redis
+               Handles auth, rooms, messages, routing, file uploads
+  gateway/   — CLI tool (agentim) that spawns AI agents as child processes
+               Adapters: Claude Code, Codex, OpenCode, Generic
+  web/       — React 19 SPA/PWA, Vite, TailwindCSS v4, Zustand state
+               Connects to server via WebSocket for real-time updates
+```
+
+**Data flow**: Web UI ↔ (WebSocket) ↔ Hub Server ↔ (WebSocket) ↔ Gateway CLI ↔ (child_process) ↔ AI Agent
+
 ## Code Style
 
 - **Formatter**: Prettier (no semicolons, single quotes, trailing commas).
@@ -80,13 +106,36 @@ pnpm --filter @agentim/shared test    # Shared package tests only
 pnpm --filter agentim test            # Gateway tests only
 ```
 
+### End-to-End (E2E) Tests
+
+E2E tests use [Playwright](https://playwright.dev/) and require a running server instance:
+
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install chromium
+
+# Start the server in one terminal
+pnpm dev
+
+# Run E2E tests in another terminal
+pnpm --filter @agentim/web test:e2e
+
+# Run a specific spec file
+npx playwright test e2e/chat.spec.ts
+
+# Run with UI mode for debugging
+npx playwright test --ui
+```
+
+E2E tests create temporary users and rooms, so they can run safely against a development database. They do **not** run in the pre-push hook (too slow) — they run in CI on PRs and daily schedules.
+
 ### Test framework
 
 Tests use Node.js built-in `node:test` runner with `node:assert/strict`. No external test frameworks.
 
 ### Test structure
 
-```
+```text
 packages/
   server/test/
     helpers.ts            — Shared utilities (startServer, stopServer, api, connectWs)
@@ -141,6 +190,7 @@ describe('My Feature', () => {
 ```
 
 Key helpers from `test/helpers.ts`:
+
 - `startServer()` / `stopServer()` — Spin up a real server with a temporary database
 - `api(method, path, body?, token?)` — HTTP helper returning `{ status, data }`
 - `registerUser(username)` — Create a user and return their tokens
@@ -167,6 +217,13 @@ All user-facing strings must use i18next translation keys. When adding or modify
 - `packages/shared/src/i18n/locales/ru.ts`
 
 Pull requests with missing locale updates will not be merged.
+
+## Getting Help
+
+- **Bug reports**: Use the [bug report template](https://github.com/NoPKT/AgentIM/issues/new?template=bug_report.yml)
+- **Feature requests**: Use the [feature request template](https://github.com/NoPKT/AgentIM/issues/new?template=feature_request.yml)
+- **Questions**: Open a [GitHub Discussion](https://github.com/NoPKT/AgentIM/discussions) or file an issue
+- **Documentation**: See [docs/](docs/) for deployment, WebSocket protocol, adapter guide, and troubleshooting
 
 ## License
 

@@ -148,6 +148,12 @@ let _loadingRooms = false
 // Guards to prevent concurrent mutating API calls (e.g. rapid double-click)
 const _pendingMutations = new Set<string>()
 
+// LRU tracking for thread cache eviction
+const _threadAccessTimes = new Map<string, number>()
+
+// Disable IDB writes after QuotaExceededError to avoid repeated failures
+let _idbDisabled = false
+
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
   currentRoomId: null,
@@ -339,13 +345,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ messages: msgs, hasMore, lastMessages, showingCachedMessages: false })
 
         // Write back to IndexedDB (first page only)
-        if (!cursor) {
+        if (!cursor && !_idbDisabled) {
           setCachedMessages(roomId, combined).catch((err) => {
-            const tag =
-              err instanceof DOMException && err.name === 'QuotaExceededError'
-                ? '[IDB QuotaExceeded]'
-                : '[IDB]'
-            console.warn(tag, 'setCachedMessages failed', err)
+            if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+              console.warn(
+                '[IDB QuotaExceeded] setCachedMessages failed, disabling IDB writes',
+                err,
+              )
+              _idbDisabled = true
+            } else {
+              console.warn('[IDB] setCachedMessages failed', err)
+            }
           })
         }
       }
@@ -436,13 +446,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ messages: msgs, lastMessages, unreadCounts })
 
-    addCachedMessage(message).catch((err) => {
-      const tag =
-        err instanceof DOMException && err.name === 'QuotaExceededError'
-          ? '[IDB QuotaExceeded]'
-          : '[IDB]'
-      console.warn(tag, 'addCachedMessage failed', err)
-    })
+    if (!_idbDisabled) {
+      addCachedMessage(message).catch((err) => {
+        if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+          console.warn('[IDB QuotaExceeded] addCachedMessage failed, disabling IDB writes', err)
+          _idbDisabled = true
+        } else {
+          console.warn('[IDB] addCachedMessage failed', err)
+        }
+      })
+    }
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
@@ -814,14 +827,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadThread: async (messageId) => {
     try {
       const replies = await getThread(messageId)
+      _threadAccessTimes.set(messageId, Date.now())
       set((state) => {
         const threadMessages = new Map(state.threadMessages)
         threadMessages.set(messageId, replies)
-        // Cap thread cache to prevent unbounded memory growth in long sessions
+        // Cap thread cache with LRU eviction to prevent unbounded memory growth
         const MAX_CACHED_THREADS = 50
         if (threadMessages.size > MAX_CACHED_THREADS) {
-          const oldest = threadMessages.keys().next().value!
-          threadMessages.delete(oldest)
+          let lruKey: string | null = null
+          let lruTime = Infinity
+          for (const key of threadMessages.keys()) {
+            const accessTime = _threadAccessTimes.get(key) ?? 0
+            if (accessTime < lruTime) {
+              lruTime = accessTime
+              lruKey = key
+            }
+          }
+          if (lruKey) {
+            threadMessages.delete(lruKey)
+            _threadAccessTimes.delete(lruKey)
+          }
         }
         return { threadMessages }
       })
@@ -834,15 +859,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const pending = await getPendingMessages()
     if (pending.length === 0) return
     const currentMessages = get().messages
+    const userId = useAuthStore.getState().user?.id
     for (const msg of pending) {
-      // Dedup: skip if a message with matching content and close timestamp
-      // was already delivered (use pending id as idempotency key).
+      // Dedup: skip if a message with matching content from the same sender
+      // was already delivered within a generous time window.
       const roomMsgs = currentMessages.get(msg.roomId) ?? []
       const alreadyDelivered = roomMsgs.some(
         (m) =>
           m.content === msg.content &&
-          m.senderType !== 'system' &&
-          Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000,
+          m.senderId === userId &&
+          Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 10_000,
       )
       if (!alreadyDelivered) {
         wsClient.send({
@@ -934,6 +960,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       pendingMessages: [],
       threadMessages: new Map(),
     })
+
+    _threadAccessTimes.clear()
+    _idbDisabled = false
 
     clearCache().catch((err) => {
       console.warn('[IDB] clearCache failed', err)

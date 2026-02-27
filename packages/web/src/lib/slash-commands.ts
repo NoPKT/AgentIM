@@ -29,7 +29,7 @@ export function parseSlashCommand(input: string): { name: string; args: string }
 
 // Register built-in commands
 registerCommand({
-  command: { name: 'clear', description: 'Clear the chat view', usage: '/clear' },
+  command: { name: 'clear', description: 'Clear the chat view', usage: '/clear', clientOnly: true },
   execute: () => {
     // Will be connected to chat store
     window.dispatchEvent(new CustomEvent('slash:clear'))
@@ -37,21 +37,36 @@ registerCommand({
 })
 
 registerCommand({
-  command: { name: 'help', description: 'Show available commands', usage: '/help' },
+  command: {
+    name: 'help',
+    description: 'Show available commands',
+    usage: '/help',
+    clientOnly: true,
+  },
   execute: () => {
     window.dispatchEvent(new CustomEvent('slash:help'))
   },
 })
 
 registerCommand({
-  command: { name: 'task', description: 'Create a new task', usage: '/task <title>' },
+  command: {
+    name: 'task',
+    description: 'Create a new task',
+    usage: '/task <title>',
+    clientOnly: false,
+  },
   execute: (args: string) => {
     window.dispatchEvent(new CustomEvent('slash:task', { detail: { title: args } }))
   },
 })
 
 registerCommand({
-  command: { name: 'status', description: 'Show connection status', usage: '/status' },
+  command: {
+    name: 'status',
+    description: 'Show connection status',
+    usage: '/status',
+    clientOnly: true,
+  },
   execute: () => {
     window.dispatchEvent(new CustomEvent('slash:status'))
   },
