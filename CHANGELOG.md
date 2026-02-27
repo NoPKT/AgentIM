@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Server
+
+- **OAuth + TOTP admin settings**: OAuth provider credentials (`oauth.github.clientId`, `oauth.github.clientSecret`, `oauth.google.clientId`, `oauth.google.clientSecret`) and TOTP issuer (`totp.issuer`) are now configurable via the Admin Settings UI under the Security group — env vars serve as initial fallback, runtime changes take effect within 5 seconds without server restart
+
 #### Shared
 
 - **ServiceAgentWithConfig type**: New interface extending `ServiceAgent` with decrypted `config` field for single-resource GET endpoints

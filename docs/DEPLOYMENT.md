@@ -211,9 +211,11 @@ agentim claude /path/to/project
 
 ### TOTP Two-Factor Authentication (Optional)
 
+TOTP issuer is configurable through the **Admin Settings UI** (Settings > Security). The environment variable below serves as the initial fallback value.
+
 | Variable      | Default    | Description                     |
 | ------------- | ---------- | ------------------------------- |
-| `TOTP_ISSUER` | `AgentIM`  | Issuer name shown in authenticator apps |
+| `TOTP_ISSUER` | `AgentIM`  | Initial issuer name shown in authenticator apps (overridable via Admin Settings) |
 
 ### S3-Compatible Storage (Optional)
 
@@ -230,12 +232,14 @@ S3 storage is configured through the **Admin Settings UI** (Settings > Storage).
 
 ### OAuth Providers (Optional)
 
+OAuth credentials are configurable through the **Admin Settings UI** (Settings > Security). The environment variables below serve as initial fallback values and can be overridden at runtime via the admin panel.
+
 | Variable                     | Default | Description                     |
 | ---------------------------- | ------- | ------------------------------- |
-| `OAUTH_GITHUB_CLIENT_ID`    | (empty) | GitHub OAuth app client ID      |
-| `OAUTH_GITHUB_CLIENT_SECRET` | (empty) | GitHub OAuth app client secret  |
-| `OAUTH_GOOGLE_CLIENT_ID`    | (empty) | Google OAuth app client ID      |
-| `OAUTH_GOOGLE_CLIENT_SECRET` | (empty) | Google OAuth app client secret  |
+| `OAUTH_GITHUB_CLIENT_ID`    | (empty) | Initial GitHub OAuth app client ID (overridable via Admin Settings) |
+| `OAUTH_GITHUB_CLIENT_SECRET` | (empty) | Initial GitHub OAuth app client secret (overridable via Admin Settings) |
+| `OAUTH_GOOGLE_CLIENT_ID`    | (empty) | Initial Google OAuth app client ID (overridable via Admin Settings) |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | (empty) | Initial Google OAuth app client secret (overridable via Admin Settings) |
 
 ### Proxy
 
