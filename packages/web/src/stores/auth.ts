@@ -165,6 +165,8 @@ setOnTokenRefresh(() => {
 // The logout() function writes a sentinel key; other tabs detect it via 'storage' event.
 const LOGOUT_KEY = 'agentim:logout'
 
+// Module-level singleton listener: this runs once when the module is imported.
+// In an SPA only one auth store instance exists, so a single global listener is correct.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key === LOGOUT_KEY && e.newValue) {
