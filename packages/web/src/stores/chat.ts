@@ -817,6 +817,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set((state) => {
         const threadMessages = new Map(state.threadMessages)
         threadMessages.set(messageId, replies)
+        // Cap thread cache to prevent unbounded memory growth in long sessions
+        const MAX_CACHED_THREADS = 50
+        if (threadMessages.size > MAX_CACHED_THREADS) {
+          const oldest = threadMessages.keys().next().value!
+          threadMessages.delete(oldest)
+        }
         return { threadMessages }
       })
     } catch (err) {

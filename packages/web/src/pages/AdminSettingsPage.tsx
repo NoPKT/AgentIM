@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAdminSettingsStore, type SettingItem } from '../stores/adminSettings.js'
 import { toast } from '../stores/toast.js'
@@ -48,17 +48,24 @@ export default function AdminSettingsPage() {
     setDirty(new Set())
   }, [groups])
 
+  // Pre-compute server values lookup to avoid O(n) search on every keystroke
+  const serverValues = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const items of Object.values(groups)) {
+      for (const item of items) {
+        map[item.key] = item.value
+      }
+    }
+    return map
+  }, [groups])
+
   const handleChange = useCallback(
     (key: string, value: string) => {
       setLocalValues((prev) => ({ ...prev, [key]: value }))
       setDirty((prev) => {
         const next = new Set(prev)
-        // Check if value differs from server value
-        const serverValue =
-          Object.values(groups)
-            .flat()
-            .find((item) => item.key === key)?.value ?? ''
-        if (value !== serverValue) {
+        const sv = serverValues[key] ?? ''
+        if (value !== sv) {
           next.add(key)
         } else {
           next.delete(key)
@@ -66,7 +73,7 @@ export default function AdminSettingsPage() {
         return next
       })
     },
-    [groups],
+    [serverValues],
   )
 
   const handleSaveGroup = useCallback(

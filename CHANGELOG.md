@@ -213,7 +213,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shared validator i18n**: Replaced hardcoded English error messages in Zod `superRefine` with i18n keys across all 7 locales
 - **Shared mentions performance**: Added regex compilation cache (500-entry cap) to `hasMention()` to avoid repeated `RegExp` construction
 - **Web chat store refactor**: Extracted streaming and presence logic from monolithic `chat.ts` (974 lines) into `chat-streaming.ts` and `chat-presence.ts` helper modules
-
 - **Shared JwtPayload type**: Added optional `iat` and `exp` fields to match the actual JWT claims set by jose during signing
 - **Shared isServerGatewayMessage**: Replaced fragile hardcoded type list with a `SERVER_GATEWAY_MESSAGE_TYPES` Set constant for easier maintenance when adding new message types
 - **Server SSRF protection**: Extended `isPrivateUrl()` with IPv6 private ranges (fe80::/10 link-local, fc00::/7 ULA, ::ffff:0:0/96 IPv4-mapped), blocks non-HTTP schemes, and blocks the 0.0.0.0/8 range
