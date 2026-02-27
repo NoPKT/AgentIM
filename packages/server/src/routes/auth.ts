@@ -4,8 +4,18 @@ import { hash, verify } from 'argon2'
 import { eq, sql, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { users, refreshTokens } from '../db/schema.js'
-import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js'
-import { loginSchema } from '@agentim/shared'
+import {
+  signAccessToken,
+  signRefreshToken,
+  signTotpChallengeToken,
+  verifyToken,
+} from '../lib/jwt.js'
+import {
+  loginSchema,
+  totpVerifyLoginSchema,
+  totpSetupVerifySchema,
+  disableTotpSchema,
+} from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { authRateLimit, rateLimitMiddleware } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
@@ -14,6 +24,13 @@ import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config, getConfigSync } from '../config.js'
 import { parseExpiryMs } from '../lib/time.js'
+import {
+  generateTotpSecret,
+  getTotpUri,
+  verifyTotpCode,
+  generateBackupCodes,
+  verifyBackupCode,
+} from '../lib/totp.js'
 
 const REFRESH_COOKIE_NAME = 'agentim_rt'
 const REFRESH_COOKIE_PATH = '/api/auth'
@@ -126,6 +143,15 @@ authRoutes.post('/login', authRateLimit, async (c) => {
     }
   }
 
+  // If TOTP 2FA is enabled, return a challenge token instead of real tokens
+  if (user.totpEnabled) {
+    const totpToken = await signTotpChallengeToken({ sub: user.id, username: user.username })
+    return c.json({
+      ok: true,
+      data: { totpRequired: true, totpToken },
+    })
+  }
+
   const accessToken = await signAccessToken({ sub: user.id, username: user.username })
   const refreshToken = await signRefreshToken({ sub: user.id, username: user.username })
 
@@ -183,6 +209,7 @@ authRoutes.post('/login', authRateLimit, async (c) => {
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         role: user.role,
+        totpEnabled: user.totpEnabled,
       },
       accessToken,
       refreshToken,
@@ -337,5 +364,216 @@ authRoutes.post('/logout', authMiddleware, async (c) => {
   // Clear the httpOnly refresh token Cookie for browser clients
   clearRefreshCookie(c)
   logAudit({ userId, action: 'logout', ipAddress: getClientIp(c) })
+  return c.json({ ok: true })
+})
+
+// ─── TOTP 2FA Endpoints ───
+
+/** Verify TOTP challenge (step 2 of login when 2FA is enabled). */
+authRoutes.post('/verify-totp', authRateLimit, async (c) => {
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const parsed = totpVerifyLoginSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
+  }
+
+  const { totpToken, code } = parsed.data
+  const ip = getClientIp(c)
+
+  try {
+    const payload = await verifyToken(totpToken)
+    if (payload.type !== 'totp_challenge') {
+      return c.json({ ok: false, error: 'Invalid token type' }, 401)
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1)
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      return c.json({ ok: false, error: 'Invalid TOTP state' }, 401)
+    }
+
+    // Try TOTP code first, then backup codes
+    let validCode = verifyTotpCode(user.totpSecret, code)
+    if (!validCode && user.totpBackupCodes) {
+      const hashedCodes: string[] = JSON.parse(user.totpBackupCodes)
+      const result = await verifyBackupCode(code, hashedCodes)
+      if (result.valid) {
+        validCode = true
+        // Remove used backup code
+        await db
+          .update(users)
+          .set({ totpBackupCodes: JSON.stringify(result.remainingCodes) })
+          .where(eq(users.id, user.id))
+      }
+    }
+
+    if (!validCode) {
+      logAudit({
+        userId: user.id,
+        action: 'totp_verify_failed',
+        ipAddress: ip,
+      })
+      return c.json({ ok: false, error: 'Invalid TOTP code' }, 401)
+    }
+
+    // Issue real tokens
+    const accessToken = await signAccessToken({ sub: user.id, username: user.username })
+    const refreshToken = await signRefreshToken({ sub: user.id, username: user.username })
+
+    const now = new Date().toISOString()
+    const { nanoid } = await import('nanoid')
+    const rtId = nanoid()
+    const rtHash = await hash(refreshToken)
+    const expiresAt = new Date(
+      Date.now() +
+        parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+    ).toISOString()
+
+    // Limit refresh tokens per user
+    const existingTokens = await db
+      .select({ id: refreshTokens.id, createdAt: refreshTokens.createdAt })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, user.id))
+      .orderBy(refreshTokens.createdAt)
+    if (existingTokens.length >= config.maxRefreshTokensPerUser) {
+      const toDelete = existingTokens.slice(
+        0,
+        existingTokens.length - config.maxRefreshTokensPerUser + 1,
+      )
+      await db.delete(refreshTokens).where(
+        inArray(
+          refreshTokens.id,
+          toDelete.map((t) => t.id),
+        ),
+      )
+    }
+
+    await db
+      .insert(refreshTokens)
+      .values({ id: rtId, userId: user.id, tokenHash: rtHash, expiresAt, createdAt: now })
+
+    logAudit({ userId: user.id, action: 'login', ipAddress: ip })
+
+    const cookieMaxAge = Math.floor(
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+    )
+    setRefreshCookie(c, refreshToken, cookieMaxAge)
+
+    return c.json({
+      ok: true,
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+          totpEnabled: user.totpEnabled,
+        },
+        accessToken,
+        refreshToken,
+      },
+    })
+  } catch {
+    return c.json({ ok: false, error: 'Invalid or expired TOTP token' }, 401)
+  }
+})
+
+/** Begin TOTP setup: generate secret and return otpauth URI. */
+authRoutes.post('/setup-totp', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return c.json({ ok: false, error: 'User not found' }, 404)
+  if (user.totpEnabled) return c.json({ ok: false, error: '2FA is already enabled' }, 400)
+
+  const secret = generateTotpSecret()
+  const uri = getTotpUri(secret, user.username)
+
+  // Store secret temporarily (not yet enabled until verified)
+  await db.update(users).set({ totpSecret: secret }).where(eq(users.id, userId))
+
+  logAudit({ userId, action: 'totp_setup', ipAddress: getClientIp(c) })
+
+  return c.json({ ok: true, data: { secret, uri } })
+})
+
+/** Confirm TOTP setup: verify code → enable 2FA → return backup codes. */
+authRoutes.post('/verify-totp-setup', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const parsed = totpSetupVerifySchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return c.json({ ok: false, error: 'User not found' }, 404)
+  if (user.totpEnabled) return c.json({ ok: false, error: '2FA is already enabled' }, 400)
+  if (!user.totpSecret) return c.json({ ok: false, error: 'No TOTP setup in progress' }, 400)
+
+  if (!verifyTotpCode(user.totpSecret, parsed.data.code)) {
+    return c.json({ ok: false, error: 'Invalid TOTP code' }, 400)
+  }
+
+  const { plainCodes, hashedCodes } = await generateBackupCodes()
+
+  await db
+    .update(users)
+    .set({
+      totpEnabled: true,
+      totpBackupCodes: JSON.stringify(hashedCodes),
+    })
+    .where(eq(users.id, userId))
+
+  logAudit({ userId, action: 'totp_enabled', ipAddress: getClientIp(c) })
+
+  return c.json({ ok: true, data: { backupCodes: plainCodes } })
+})
+
+/** Disable TOTP 2FA (requires password confirmation). */
+authRoutes.post('/disable-totp', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+  const parsed = disableTotpSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json(
+      { ok: false, error: 'Validation failed', fields: formatZodError(parsed.error) },
+      400,
+    )
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return c.json({ ok: false, error: 'User not found' }, 404)
+  if (!user.totpEnabled) return c.json({ ok: false, error: '2FA is not enabled' }, 400)
+
+  if (!user.passwordHash) {
+    return c.json({ ok: false, error: 'Password not set' }, 400)
+  }
+
+  const valid = await verify(user.passwordHash, parsed.data.password)
+  if (!valid) {
+    return c.json({ ok: false, error: 'Invalid password' }, 401)
+  }
+
+  await db
+    .update(users)
+    .set({
+      totpEnabled: false,
+      totpSecret: null,
+      totpBackupCodes: null,
+    })
+    .where(eq(users.id, userId))
+
+  logAudit({ userId, action: 'totp_disabled', ipAddress: getClientIp(c) })
+
   return c.json({ ok: true })
 })

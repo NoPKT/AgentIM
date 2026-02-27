@@ -3,6 +3,7 @@ import { api, setOnAuthExpired, setOnTokenRefresh } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { resetAllStores } from './reset.js'
 import { clearAllDrafts } from '../lib/message-cache.js'
+import { useTokenVersionStore } from './tokenVersion.js'
 import type { UserRole } from '@agentim/shared'
 
 interface AuthUser {
@@ -16,10 +17,11 @@ interface AuthUser {
 interface AuthState {
   user: AuthUser | null
   isLoading: boolean
-  /** Incremented each time the access token is set or refreshed.
-   *  Components can subscribe to this to reactively re-derive auth-gated URLs. */
-  tokenVersion: number
+  totpRequired: boolean
+  totpToken: string | null
   login: (username: string, password: string) => Promise<void>
+  verifyTotp: (code: string) => Promise<void>
+  clearTotpState: () => void
   logout: () => Promise<void>
   loadUser: () => Promise<void>
   updateUser: (data: Partial<AuthUser>) => void
@@ -30,23 +32,52 @@ let _logoutPromise: Promise<void> | null = null
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
-  // Force re-render counter: bumped on each token refresh so upload URL hooks re-derive
-  tokenVersion: 0,
+  totpRequired: false,
+  totpToken: null,
 
   login: async (username, password) => {
     const res = await api.post<{
-      user: AuthUser
-      accessToken: string
-      refreshToken: string
+      user?: AuthUser
+      accessToken?: string
+      refreshToken?: string
+      totpRequired?: boolean
+      totpToken?: string
     }>('/auth/login', { username, password })
 
     if (!res.ok || !res.data) throw new Error(res.error ?? 'Login failed')
 
+    // If 2FA is enabled, store the challenge token and wait for TOTP verification
+    if (res.data.totpRequired && res.data.totpToken) {
+      set({ totpRequired: true, totpToken: res.data.totpToken })
+      return
+    }
+
     // refreshToken is now stored as an httpOnly Cookie by the server.
     // We only keep the access token in memory.
+    api.setTokens(res.data.accessToken!)
+    set({ user: res.data.user!, totpRequired: false, totpToken: null })
+    wsClient.connect(res.data.accessToken!)
+  },
+
+  verifyTotp: async (code) => {
+    const totpToken = useAuthStore.getState().totpToken
+    if (!totpToken) throw new Error('No TOTP challenge in progress')
+
+    const res = await api.post<{
+      user: AuthUser
+      accessToken: string
+      refreshToken: string
+    }>('/auth/verify-totp', { totpToken, code })
+
+    if (!res.ok || !res.data) throw new Error(res.error ?? 'TOTP verification failed')
+
     api.setTokens(res.data.accessToken)
-    set({ user: res.data.user })
+    set({ user: res.data.user, totpRequired: false, totpToken: null })
     wsClient.connect(res.data.accessToken)
+  },
+
+  clearTotpState: () => {
+    set({ totpRequired: false, totpToken: null })
   },
 
   logout: async () => {
@@ -127,7 +158,7 @@ setOnAuthExpired(() => {
 // Bump tokenVersion whenever the access token is set/refreshed so that
 // components using useUploadUrl() re-render with a fresh token in the URL.
 setOnTokenRefresh(() => {
-  useAuthStore.setState((s) => ({ tokenVersion: s.tokenVersion + 1 }))
+  useTokenVersionStore.getState().bump()
 })
 
 // Cross-tab logout: when another tab logs out, sync the state here.

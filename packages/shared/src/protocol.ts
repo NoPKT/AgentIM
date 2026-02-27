@@ -397,13 +397,13 @@ export function isClientMessage(msg: unknown): msg is ClientMessage {
 
 /** Type guard for ServerMessage */
 export function isServerMessage(msg: unknown): msg is ServerMessage {
+  const type = (msg as { type?: string })?.type
   return (
     typeof msg === 'object' &&
     msg !== null &&
-    'type' in msg &&
-    typeof (msg as { type: unknown }).type === 'string' &&
-    (msg as { type: string }).type.startsWith('server:') &&
-    !(msg as { type: string }).type.startsWith('server:gateway_auth_result')
+    typeof type === 'string' &&
+    type.startsWith('server:') &&
+    !SERVER_GATEWAY_MESSAGE_TYPES.has(type)
   )
 }
 

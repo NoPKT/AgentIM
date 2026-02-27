@@ -64,6 +64,53 @@ export const toolInputSchema = z
 
 // ─── Password Complexity ───
 
+const COMMON_PASSWORD_WORDS = [
+  'password',
+  'qwerty',
+  'letmein',
+  'welcome',
+  'admin',
+  'login',
+  'master',
+  'dragon',
+  'monkey',
+  'shadow',
+  'sunshine',
+  'trustno1',
+  'iloveyou',
+  'football',
+  'baseball',
+  'soccer',
+  'hockey',
+  'batman',
+  'access',
+  'hello',
+  'charlie',
+  'donald',
+  'loveme',
+  'michael',
+  'mustang',
+  'passw0rd',
+]
+
+/** Detect 4+ sequential ascending/descending characters or 4+ repeated characters. */
+function hasSequentialPattern(pw: string): boolean {
+  const lower = pw.toLowerCase()
+  for (let i = 0; i <= lower.length - 4; i++) {
+    const c0 = lower.charCodeAt(i)
+    const c1 = lower.charCodeAt(i + 1)
+    const c2 = lower.charCodeAt(i + 2)
+    const c3 = lower.charCodeAt(i + 3)
+    // Ascending sequence
+    if (c1 === c0 + 1 && c2 === c0 + 2 && c3 === c0 + 3) return true
+    // Descending sequence
+    if (c1 === c0 - 1 && c2 === c0 - 2 && c3 === c0 - 3) return true
+    // Repeated characters
+    if (c0 === c1 && c1 === c2 && c2 === c3) return true
+  }
+  return false
+}
+
 const passwordSchema = z
   .string()
   .min(8, 'validation.passwordMinLength')
@@ -71,6 +118,11 @@ const passwordSchema = z
   .refine((p) => /[a-z]/.test(p), 'validation.passwordLowercase')
   .refine((p) => /[A-Z]/.test(p), 'validation.passwordUppercase')
   .refine((p) => /[0-9]/.test(p), 'validation.passwordDigit')
+  .refine(
+    (p) => !COMMON_PASSWORD_WORDS.some((w) => p.toLowerCase().includes(w)),
+    'validation.passwordCommonWord',
+  )
+  .refine((p) => !hasSequentialPattern(p), 'validation.passwordSequential')
 
 // ─── Auth ───
 
@@ -349,7 +401,14 @@ export const createServiceAgentSchema = z
       })
     }
     // Validate provider-specific required config fields
-    if (data.type === 'openai-chat' || data.type === 'openai-image' || data.type === 'perplexity') {
+    const MODEL_REQUIRED_TYPES: readonly string[] = [
+      'openai-chat',
+      'openai-image',
+      'perplexity',
+      'runway',
+      'meshy',
+    ]
+    if (MODEL_REQUIRED_TYPES.includes(data.type)) {
       if (!data.config.model) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -721,6 +780,7 @@ export const userSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.string().optional(),
   role: z.enum(USER_ROLES),
+  totpEnabled: z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -967,3 +1027,19 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverPongSchema,
   serverErrorSchema,
 ])
+
+// ─── TOTP Validators ───
+
+export const totpCodeSchema = z
+  .string()
+  .length(6)
+  .regex(/^\d{6}$/)
+
+export const totpSetupVerifySchema = z.object({ code: totpCodeSchema })
+
+export const totpVerifyLoginSchema = z.object({
+  totpToken: z.string().min(1).max(2000),
+  code: z.string().min(1).max(20),
+})
+
+export const disableTotpSchema = z.object({ password: z.string().min(1) })

@@ -31,6 +31,10 @@ export type AuditAction =
   | 'setting_update'
   | 'oauth_link'
   | 'oauth_unlink'
+  | 'totp_setup'
+  | 'totp_enabled'
+  | 'totp_disabled'
+  | 'totp_verify_failed'
 
 interface AuditOptions {
   userId?: string | null
