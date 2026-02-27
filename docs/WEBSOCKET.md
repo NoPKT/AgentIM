@@ -677,7 +677,7 @@ Error codes are sent via `server:error` messages. Defined in `@agentim/shared` a
 
 | Code | Description |
 |------|-------------|
-| `MESSAGE_TOO_LARGE` | Message exceeds the size limit (64 KB for clients, 256 KB for gateways) |
+| `MESSAGE_TOO_LARGE` | Message exceeds the size limit (128 KB for clients, 256 KB for gateways) |
 | `JSON_TOO_DEEP` | JSON nesting exceeds the maximum depth |
 | `INVALID_JSON` | Message is not valid JSON |
 | `INVALID_MESSAGE` | Message doesn't match the expected schema |
@@ -694,7 +694,7 @@ Error codes are sent via `server:error` messages. Defined in `@agentim/shared` a
 | Code | Description |
 |------|-------------|
 | `1008` | Policy violation — session revoked (logout / password change while connected) |
-| `4001` | Authentication timeout — client/gateway didn't authenticate within 10 seconds |
+| `4001` | Authentication timeout — client/gateway didn't authenticate within 5 seconds |
 
 ## Rate Limiting
 
@@ -715,13 +715,13 @@ Agent-to-agent message routing has separate rate limits controlled by `AGENT_RAT
 | Max total client connections | `MAX_TOTAL_WS_CONNECTIONS` | 5000 |
 | Max gateway connections per user | `MAX_GATEWAYS_PER_USER` | 20 |
 
-Per-user limits can be overridden in the database (`maxConnections` field on the user record).
+Per-user limits can be overridden in the database (`maxWsConnections` field on the user record).
 
 ## Message Size Limits
 
 | Limit | Value |
 |-------|-------|
-| Client messages | 64 KB |
+| Client messages | 128 KB |
 | Gateway messages | 256 KB |
 | Message content length | 100,000 characters |
 | Attachments per message | 20 |

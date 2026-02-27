@@ -431,6 +431,12 @@ export const zhCN = {
       serviceAgentVoiceIdRequired: 'ElevenLabs 类型的服务代理需要指定语音 ID',
       passwordCommonWord: '密码包含常见单词',
       passwordSequential: '密码包含连续或重复字符',
+      passwordMinLength: '密码至少需要 8 个字符',
+      passwordMaxLength: '密码不能超过 128 个字符',
+      toolInputTooLarge: '工具输入超出最大允许大小',
+      dateFromBeforeDateTo: '开始日期必须早于结束日期',
+      metadataTooManyKeys: '元数据键数过多',
+      metadataTooLarge: '元数据超出最大允许大小',
     },
   },
   a11y: {

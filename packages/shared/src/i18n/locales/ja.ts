@@ -436,6 +436,12 @@ export const ja = {
       serviceAgentVoiceIdRequired: 'ElevenLabsのサービスエージェントにはボイスIDが必要です',
       passwordCommonWord: 'パスワードに一般的な単語が含まれています',
       passwordSequential: 'パスワードに連続または繰り返しの文字が含まれています',
+      passwordMinLength: 'パスワードは8文字以上である必要があります',
+      passwordMaxLength: 'パスワードは128文字以下である必要があります',
+      toolInputTooLarge: 'ツール入力が最大許容サイズを超えています',
+      dateFromBeforeDateTo: '開始日は終了日より前である必要があります',
+      metadataTooManyKeys: 'メタデータのキーが多すぎます',
+      metadataTooLarge: 'メタデータが最大許容サイズを超えています',
     },
   },
   a11y: {

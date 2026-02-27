@@ -12,13 +12,38 @@ import type { Codex, Thread, ThreadItem } from '@openai/codex-sdk'
 
 const log = createLogger('Codex')
 
+// Prompt-based permission simulation for daemon mode.
+// The Codex SDK does not expose a permission-request callback (unlike Claude Code's
+// canUseTool), so we instruct the model itself to ask for approval before executing
+// dangerous operations. The agentic loop naturally pauses: the model outputs a
+// plan description (text turn), the user responds, and the model proceeds or stops.
+const CODEX_PERMISSION_PREAMBLE = [
+  '[AgentIM Permission Policy]',
+  'Before executing any of the following operations, you MUST first describe your',
+  'complete plan in a text message and wait for the user to approve:',
+  '- Modifying, creating, or deleting files',
+  '- Running shell commands that change system state (install, build, deploy, git push)',
+  '- Accessing external services or APIs',
+  '',
+  'Workflow: (1) Describe exactly what you plan to do, (2) End your message and',
+  'wait for the user to reply with approval, (3) Only execute after receiving',
+  'explicit approval. If the user declines, suggest alternatives without executing.',
+  '',
+  'Read-only operations (reading files, searching, listing) do not require approval.',
+].join('\n')
+
 export class CodexAdapter extends BaseAgentAdapter {
   private codex?: Codex
   private thread?: Thread
   private threadId?: string | null
+  /** Whether prompt-based permission simulation is active for this adapter. */
+  private readonly promptPermission: boolean
 
   constructor(opts: AdapterOptions) {
     super(opts)
+    // Enable prompt-based permissions when interactive mode is requested but the
+    // SDK cannot support it natively (i.e. daemon mode / no TTY).
+    this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
   }
 
   get type() {
@@ -49,40 +74,55 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async ensureThread() {
     await this.ensureCodex()
     if (!this.thread) {
-      // Codex SDK limitation: the SDK does not expose a permission-request callback
-      // or event in its streaming API. The only control is `approvalPolicy`:
-      //   - 'never' = auto-approve all tool executions (bypass mode)
-      //   - 'on-request' = SDK prompts for approval interactively (stdin-based)
+      // Codex SDK limitation: no permission-request callback or event in its API.
+      // The only control is `approvalPolicy`:
+      //   - 'never'      = auto-approve all tool executions
+      //   - 'on-request' = SDK prompts interactively via stdin (TTY only)
       //
-      // Unlike OpenCode (which emits 'permission.updated' SSE events that we relay
-      // through AgentIM's permission system), the Codex SDK manages permissions
-      // internally. In daemon mode this means 'on-request' may block on stdin —
-      // callers should use 'bypass' permission level for headless operation.
-      //
-      // This cannot be fixed without upstream SDK changes (exposing a callback or
-      // event for permission requests). Tracked as a known limitation.
-      // In daemon mode (no tty), 'on-request' blocks indefinitely on stdin.
-      // Fall back to 'never' when stdin is not interactive.
+      // In daemon mode (no TTY), 'on-request' blocks indefinitely on stdin, so we
+      // always fall back to 'never'. To compensate, prompt-based permission
+      // simulation injects instructions into the model prompt that make the AI ask
+      // for user approval through the chat before executing dangerous operations.
       const isDaemonMode = !process.stdin.isTTY
       const approvalPolicy =
         this.permissionLevel === 'bypass' || isDaemonMode ? 'never' : 'on-request'
       if (isDaemonMode && this.permissionLevel !== 'bypass') {
-        log.warn(
-          [
-            '',
-            '╔══════════════════════════════════════════════════════════════════╗',
-            '║  ⚠  CODEX DAEMON MODE — AUTO-APPROVE ENABLED                   ║',
-            '╠══════════════════════════════════════════════════════════════════╣',
-            '║  No TTY detected. The Codex SDK requires interactive stdin for  ║',
-            '║  permission prompts, so approvalPolicy has been set to "never"  ║',
-            '║  (all tool executions will be auto-approved).                   ║',
-            '║                                                                 ║',
-            '║  To suppress this warning, launch the gateway with:             ║',
-            '║    --permission-level bypass                                    ║',
-            '╚══════════════════════════════════════════════════════════════════╝',
-            '',
-          ].join('\n'),
-        )
+        if (this.promptPermission) {
+          log.info(
+            [
+              '',
+              '╔══════════════════════════════════════════════════════════════════╗',
+              '║  ℹ  CODEX DAEMON MODE — PROMPT-BASED PERMISSION ACTIVE         ║',
+              '╠══════════════════════════════════════════════════════════════════╣',
+              '║  No TTY detected. The Codex SDK auto-approves tool executions   ║',
+              '║  (approvalPolicy="never"), but prompt-based permission is       ║',
+              '║  enabled: the model is instructed to describe its plan and wait  ║',
+              '║  for your approval before executing operations.                 ║',
+              '║                                                                 ║',
+              '║  Note: This is a soft safeguard — the model generally follows   ║',
+              '║  the instruction but compliance is not guaranteed by the SDK.   ║',
+              '╚══════════════════════════════════════════════════════════════════╝',
+              '',
+            ].join('\n'),
+          )
+        } else {
+          log.warn(
+            [
+              '',
+              '╔══════════════════════════════════════════════════════════════════╗',
+              '║  ⚠  CODEX DAEMON MODE — AUTO-APPROVE ENABLED                   ║',
+              '╠══════════════════════════════════════════════════════════════════╣',
+              '║  No TTY detected. The Codex SDK requires interactive stdin for  ║',
+              '║  permission prompts, so approvalPolicy has been set to "never"  ║',
+              '║  (all tool executions will be auto-approved).                   ║',
+              '║                                                                 ║',
+              '║  To suppress this warning, launch the gateway with:             ║',
+              '║    --permission-level bypass                                    ║',
+              '╚══════════════════════════════════════════════════════════════════╝',
+              '',
+            ].join('\n'),
+          )
+        }
       }
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId)
@@ -95,6 +135,18 @@ export class CodexAdapter extends BaseAgentAdapter {
         log.info(`Started new Codex thread (approvalPolicy=${approvalPolicy})`)
       }
     }
+  }
+
+  /**
+   * Override buildPrompt to inject the permission preamble when prompt-based
+   * permission simulation is active. The preamble instructs the model to
+   * describe its plan and wait for user approval before executing operations.
+   */
+  protected override buildPrompt(content: string, context?: MessageContext): string {
+    const base = super.buildPrompt(content, context)
+    if (!this.promptPermission) return base
+    // Prepend the permission preamble so it appears as a system-level instruction
+    return `${CODEX_PERMISSION_PREAMBLE}\n\n${base}`
   }
 
   async sendMessage(
@@ -126,7 +178,8 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
 
         // Note: Codex SDK handles permissions via approvalPolicy parameter.
-        // Interactive approval is managed internally by the SDK.
+        // In daemon mode with interactive permission level, the model is prompted
+        // to describe its plan and wait for user approval (see CODEX_PERMISSION_PREAMBLE).
 
         if (event.type === 'item.completed') {
           const chunks = this.mapItemToChunks(event.item)

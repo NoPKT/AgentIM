@@ -435,6 +435,12 @@ export const en = {
       serviceAgentVoiceIdRequired: 'Voice ID is required for ElevenLabs service agents',
       passwordCommonWord: 'Password contains a common word',
       passwordSequential: 'Password contains sequential or repeated characters',
+      passwordMinLength: 'Password must be at least 8 characters',
+      passwordMaxLength: 'Password must be at most 128 characters',
+      toolInputTooLarge: 'Tool input exceeds the maximum allowed size',
+      dateFromBeforeDateTo: 'Start date must be before end date',
+      metadataTooManyKeys: 'Metadata has too many keys',
+      metadataTooLarge: 'Metadata exceeds the maximum allowed size',
     },
   },
   a11y: {

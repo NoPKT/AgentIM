@@ -445,6 +445,12 @@ export const fr = {
       serviceAgentVoiceIdRequired: "L'ID vocal est requis pour les agents de service ElevenLabs",
       passwordCommonWord: 'Le mot de passe contient un mot courant',
       passwordSequential: 'Le mot de passe contient des caractères séquentiels ou répétés',
+      passwordMinLength: 'Le mot de passe doit contenir au moins 8 caractères',
+      passwordMaxLength: 'Le mot de passe ne doit pas dépasser 128 caractères',
+      toolInputTooLarge: "L'entrée de l'outil dépasse la taille maximale autorisée",
+      dateFromBeforeDateTo: 'La date de début doit être antérieure à la date de fin',
+      metadataTooManyKeys: 'Les métadonnées contiennent trop de clés',
+      metadataTooLarge: 'Les métadonnées dépassent la taille maximale autorisée',
     },
   },
   a11y: {

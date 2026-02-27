@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Gateway
+
+- **Codex prompt-based permission simulation**: In daemon mode (no TTY), the Codex adapter now injects a permission preamble into prompts that instructs the model to describe its plan and wait for user approval before executing file modifications, commands, or destructive operations — compensating for the Codex SDK's lack of a `canUseTool` callback
+
+### Fixed
+
+#### Comprehensive Code Audit (Round 6)
+
+- **Shared i18n missing validation keys**: Added 6 missing `validation.*` i18n keys (`passwordMinLength`, `passwordMaxLength`, `toolInputTooLarge`, `dateFromBeforeDateTo`, `metadataTooManyKeys`, `metadataTooLarge`) to all 7 locale files — previously these Zod error messages displayed raw key strings instead of translated text
+- **Dead protocol definition**: Removed unused `ServerServiceAgentResponse` interface and Zod schema from `@agentim/shared` — service agent responses are delivered as standard `server:new_message`, this type was never sent by the server
+- **WEBSOCKET.md auth timeout**: Fixed contradictory "10 seconds" claim (line 697) to match actual `wsAuthTimeoutMs` of 5 seconds
+- **WEBSOCKET.md client message size**: Fixed "64 KB" to "128 KB" in error code table and size limits table to match actual `maxWsMessageSize` config
+- **WEBSOCKET.md field name**: Fixed `maxConnections` to `maxWsConnections` to match actual database schema column name
+- **CAPACITY.md pool size**: Fixed default connection pool size from "10" to "20" to match actual `dbPoolSize` config
+- **CAPACITY.md heartbeat claim**: Corrected misleading "server sends heartbeat pings every 30s / closes idle connections after 90s" — the server only responds to client-initiated `client:ping` messages
+- **Server auth.ts comment**: Fixed stale "10 req/min" comment to match actual `authRateLimit` of 20 req/min
+
+### Added
+
 #### Core Platform
 
 - Initial scaffolding of AgentIM

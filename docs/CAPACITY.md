@@ -23,7 +23,7 @@ For 200+ users, consider running PostgreSQL and Redis on dedicated instances.
 
 Key tuning tips:
 
-- Set `max_connections` slightly above the Hub server's pool size (default: 10).
+- Set `max_connections` slightly above the Hub server's pool size (default: 20).
 - Enable `pg_stat_statements` to identify slow queries.
 - Schedule periodic `VACUUM ANALYZE` (autovacuum is on by default).
 - Message history is the largest table — consider partitioning by `created_at` at scale.
@@ -61,7 +61,7 @@ Tuning checklist:
 - Increase file descriptor limits: `ulimit -n 65536` (or set in systemd unit).
 - Configure reverse proxy (Nginx) timeouts: `proxy_read_timeout 3600s` for long-lived WS.
 - Set `proxy_buffering off` for WebSocket routes.
-- The Hub server handles heartbeat pings every 30 s; connections idle beyond 90 s are closed.
+- The Hub server responds to application-level `client:ping` messages with `server:pong`. Clients (web and gateway) are responsible for initiating heartbeats — the server does not proactively ping or close idle connections.
 
 ## File Storage
 

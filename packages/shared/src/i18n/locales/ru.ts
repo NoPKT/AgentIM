@@ -442,6 +442,12 @@ export const ru = {
       serviceAgentVoiceIdRequired: 'ID голоса обязателен для сервисных агентов ElevenLabs',
       passwordCommonWord: 'Пароль содержит распространённое слово',
       passwordSequential: 'Пароль содержит последовательные или повторяющиеся символы',
+      passwordMinLength: 'Пароль должен содержать не менее 8 символов',
+      passwordMaxLength: 'Пароль должен содержать не более 128 символов',
+      toolInputTooLarge: 'Ввод инструмента превышает максимально допустимый размер',
+      dateFromBeforeDateTo: 'Дата начала должна быть раньше даты окончания',
+      metadataTooManyKeys: 'Слишком много ключей в метаданных',
+      metadataTooLarge: 'Метаданные превышают максимально допустимый размер',
     },
   },
   a11y: {
