@@ -64,6 +64,35 @@ export const toolInputSchema = z
 
 // ─── Password Complexity ───
 
+const COMMON_PASSWORD_WORDS = [
+  'password',
+  'qwerty',
+  'letmein',
+  'welcome',
+  'admin',
+  'login',
+  'monkey',
+  'dragon',
+  'master',
+  'abc123',
+]
+
+/** Detect 4+ sequential ascending/descending or 4+ repeated characters. */
+function hasSequentialPattern(s: string): boolean {
+  for (let i = 0; i <= s.length - 4; i++) {
+    const c0 = s.charCodeAt(i)
+    const c1 = s.charCodeAt(i + 1)
+    const c2 = s.charCodeAt(i + 2)
+    const c3 = s.charCodeAt(i + 3)
+    // Ascending or descending sequence
+    if (c1 - c0 === 1 && c2 - c1 === 1 && c3 - c2 === 1) return true
+    if (c0 - c1 === 1 && c1 - c2 === 1 && c2 - c3 === 1) return true
+    // 4+ repeated characters
+    if (c0 === c1 && c1 === c2 && c2 === c3) return true
+  }
+  return false
+}
+
 const passwordSchema = z
   .string()
   .min(8, 'validation.passwordMinLength')
@@ -71,6 +100,11 @@ const passwordSchema = z
   .refine((p) => /[a-z]/.test(p), 'validation.passwordLowercase')
   .refine((p) => /[A-Z]/.test(p), 'validation.passwordUppercase')
   .refine((p) => /[0-9]/.test(p), 'validation.passwordDigit')
+  .refine(
+    (p) => !COMMON_PASSWORD_WORDS.some((w) => p.toLowerCase().includes(w)),
+    'validation.passwordCommonWord',
+  )
+  .refine((p) => !hasSequentialPattern(p), 'validation.passwordSequential')
 
 // ─── Auth ───
 
@@ -327,6 +361,15 @@ export const serviceAgentConfigSchema = z
     'validation.configDangerousKey',
   )
 
+/** Service agent types that require a `model` field in config. */
+const MODEL_REQUIRED_TYPES: readonly string[] = [
+  'openai-chat',
+  'openai-image',
+  'perplexity',
+  'runway',
+  'meshy',
+]
+
 export const createServiceAgentSchema = z
   .object({
     name: z
@@ -349,7 +392,7 @@ export const createServiceAgentSchema = z
       })
     }
     // Validate provider-specific required config fields
-    if (data.type === 'openai-chat' || data.type === 'openai-image' || data.type === 'perplexity') {
+    if (MODEL_REQUIRED_TYPES.includes(data.type)) {
       if (!data.config.model) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -721,6 +764,7 @@ export const userSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.string().optional(),
   role: z.enum(USER_ROLES),
+  totpEnabled: z.boolean().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
@@ -967,3 +1011,23 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverPongSchema,
   serverErrorSchema,
 ])
+
+// ─── TOTP Validators ───
+
+export const totpCodeSchema = z
+  .string()
+  .length(6)
+  .regex(/^\d{6}$/)
+
+export const totpSetupVerifySchema = z.object({
+  code: totpCodeSchema,
+})
+
+export const totpVerifyLoginSchema = z.object({
+  totpToken: z.string().min(1).max(2000),
+  code: z.string().min(1).max(20),
+})
+
+export const disableTotpSchema = z.object({
+  password: z.string().min(1),
+})
