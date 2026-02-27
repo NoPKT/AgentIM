@@ -235,7 +235,9 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
       // (e.g. attacker sets victim's email on their GitHub account).
       // Users can link additional OAuth providers manually when logged in.
       userId = nanoid()
-      username = await generateUniqueUsername(userInfo.displayName || userInfo.email || provider)
+      username = await generateUniqueUsername(
+        userInfo.displayName || userInfo.email || 'oauth_user',
+      )
       const now = new Date().toISOString()
       await db.insert(users).values({
         id: userId,
