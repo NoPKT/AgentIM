@@ -256,7 +256,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     const response = result.behavior === 'allow' ? 'once' : 'reject'
 
     // Retry permission response delivery with backoff (network may be flaky)
-    const MAX_RETRIES = 2
+    const MAX_RETRIES = 5
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         await client.postSessionIdPermissionsPermissionId({
@@ -266,7 +266,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
         return
       } catch (err: unknown) {
         if (attempt < MAX_RETRIES) {
-          const delay = 500 * (attempt + 1)
+          const delay = Math.min(500 * Math.pow(2, attempt), 10_000)
           log.warn(
             `Permission response delivery failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${delay}ms`,
           )
