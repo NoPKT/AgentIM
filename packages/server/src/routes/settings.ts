@@ -4,6 +4,7 @@ import { getAllSettings, setSetting, getSettingDefinition } from '../lib/setting
 import { reinitSentry } from '../lib/sentry.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
 import { createLogger } from '../lib/logger.js'
+import { parseJsonBody } from '../lib/validation.js'
 
 const log = createLogger('SettingsRoute')
 
@@ -27,16 +28,18 @@ settingsRoutes.get('/', async (c) => {
 // PUT /api/admin/settings — batch update settings
 settingsRoutes.put('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json<{ changes: Record<string, string> }>()
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
 
-  if (!body.changes || typeof body.changes !== 'object') {
+  const { changes } = body as { changes?: Record<string, string> }
+  if (!changes || typeof changes !== 'object') {
     return c.json({ ok: false, error: 'Missing "changes" object' }, 400)
   }
 
   const errors: string[] = []
   const updated: string[] = []
 
-  for (const [key, value] of Object.entries(body.changes)) {
+  for (const [key, value] of Object.entries(changes)) {
     const def = getSettingDefinition(key)
     if (!def) {
       errors.push(`Unknown setting: ${key}`)

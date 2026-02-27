@@ -1,11 +1,19 @@
 const NOTIFICATION_PREF_KEY = 'agentim:notifications'
 
 export function getNotificationPreference(): boolean {
-  return localStorage.getItem(NOTIFICATION_PREF_KEY) !== 'off'
+  try {
+    return localStorage.getItem(NOTIFICATION_PREF_KEY) !== 'off'
+  } catch {
+    return true // Default to enabled when localStorage is unavailable
+  }
 }
 
 export function setNotificationPreference(enabled: boolean) {
-  localStorage.setItem(NOTIFICATION_PREF_KEY, enabled ? 'on' : 'off')
+  try {
+    localStorage.setItem(NOTIFICATION_PREF_KEY, enabled ? 'on' : 'off')
+  } catch {
+    // localStorage may be unavailable in private browsing or when storage is full
+  }
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {

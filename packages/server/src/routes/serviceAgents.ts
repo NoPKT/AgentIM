@@ -9,7 +9,7 @@ import { encryptSecret, decryptSecret } from '../lib/crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { getProvider, listProviders } from '../lib/providers/registry.js'
 import { zodToJsonSchema } from '../lib/providers/schema-utils.js'
-import { parseJsonBody } from '../lib/validation.js'
+import { parseJsonBody, validateIdParams } from '../lib/validation.js'
 
 const log = createLogger('ServiceAgents')
 
@@ -18,6 +18,7 @@ const app = new Hono<AuthEnv>()
 // All routes require authentication and admin role
 app.use('*', authMiddleware)
 app.use('*', adminMiddleware)
+app.use('/:id', validateIdParams)
 
 // GET /api/service-agents/providers - List available provider types
 app.get('/providers', (c) => {

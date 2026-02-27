@@ -47,6 +47,7 @@ export function ThinkingBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors w-full text-left group"
       >
         <svg
@@ -110,6 +111,7 @@ function EditToolBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs w-full text-left"
       >
         <svg
@@ -192,6 +194,7 @@ function WriteToolBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs w-full text-left"
       >
         <svg
@@ -289,6 +292,7 @@ function BashToolBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs w-full text-left"
       >
         <svg
@@ -365,6 +369,7 @@ export function ToolUseBlock({
     <div className="my-2">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 text-xs w-full text-left"
       >
         <svg
@@ -539,6 +544,7 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
     <div>
       <button
         onClick={() => file.diff && setExpanded(!expanded)}
+        aria-expanded={file.diff ? expanded : undefined}
         className="flex items-center gap-2 text-xs w-full text-left py-0.5 hover:bg-surface-hover rounded px-1"
       >
         <FileStatusIcon status={file.status} />
@@ -600,6 +606,7 @@ export function WorkspaceStatusBlock({ content }: { content: string }) {
     <div className="my-3 border border-border rounded-lg overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex items-center gap-2 w-full text-left px-3 py-2 bg-surface-secondary hover:bg-surface-hover transition-colors"
       >
         <svg
