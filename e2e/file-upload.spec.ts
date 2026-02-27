@@ -34,23 +34,23 @@ async function deleteRoom(page: import('@playwright/test').Page, token: string, 
   })
 }
 
-/** Helper: navigate to a room in the UI. Returns true if successful. */
-async function navigateToRoom(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
-  const roomNav = page.getByRole('navigation', { name: /rooms/i })
-  const firstRoom = roomNav.getByRole('listitem').first()
-  if (!(await firstRoom.isVisible())) {
-    return false
-  }
-  await firstRoom.click()
 
-  // Wait for the message input to appear
-  const messageInput = page.getByRole('textbox', { name: /message input|send a message/i })
-  await expect(messageInput).toBeVisible({ timeout: 10_000 })
-  return true
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 test.describe('File upload in chat', () => {
   test('file attach button is present in message input', async ({ page }) => {
