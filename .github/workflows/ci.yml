@@ -239,9 +239,9 @@ jobs:
       - name: Run E2E tests
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_call" ]; then
-            pnpm test:e2e --project=chromium --project=firefox
+            pnpm test:e2e --project=chromium --project=firefox --project=mobile-chrome
           else
-            pnpm test:e2e --project=chromium
+            pnpm test:e2e --project=chromium --project=mobile-chrome
           fi
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000

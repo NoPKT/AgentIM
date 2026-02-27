@@ -38,7 +38,7 @@ function parseDurationToSeconds(duration: string): number {
 
 /** Read at call time so admin UI changes take effect without restart */
 function getAccessTokenTTL(): number {
-  return parseDurationToSeconds(getConfigSync<string>('jwt.accessExpiry') || config.jwtAccessExpiry)
+  return parseDurationToSeconds(getConfigSync<string>('jwt.accessExpiry') ?? config.jwtAccessExpiry)
 }
 const MAX_MEMORY_REVOCATIONS = 10_000
 const MEMORY_REVOCATION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours

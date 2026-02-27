@@ -40,9 +40,10 @@ export async function isAgentRateLimited(
 ): Promise<boolean> {
   const windowSec =
     rateLimitWindow ??
-    (getConfigSync<number>('rateLimit.agent.window') || config.agentRateLimitWindow)
+    getConfigSync<number>('rateLimit.agent.window') ??
+    config.agentRateLimitWindow
   const max =
-    rateLimitMax ?? (getConfigSync<number>('rateLimit.agent.max') || config.agentRateLimitMax)
+    rateLimitMax ?? getConfigSync<number>('rateLimit.agent.max') ?? config.agentRateLimitMax
 
   if (!isRedisEnabled()) {
     const key = `ws:agent_rate:${agentId}`

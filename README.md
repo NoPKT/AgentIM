@@ -104,7 +104,7 @@ After deploy:
 
 ### Option 3: Manual Setup (Development)
 
-**Prerequisites**: Node.js 20+, pnpm 10+, PostgreSQL 16+, Redis 7+
+**Prerequisites**: Node.js 24+, pnpm 10+, PostgreSQL 18+, Redis 8+
 
 ```bash
 git clone https://github.com/NoPKT/AgentIM.git

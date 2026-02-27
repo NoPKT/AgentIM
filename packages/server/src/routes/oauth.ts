@@ -273,7 +273,7 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
     const rtHash = await hash(refreshToken)
     const expiresAt = new Date(
       Date.now() +
-        parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry),
+        parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry),
     ).toISOString()
 
     await db
@@ -282,7 +282,7 @@ oauthRoutes.get('/oauth/:provider/callback', async (c) => {
 
     // Set refresh token cookie
     const cookieMaxAge = Math.floor(
-      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry) / 1000,
+      parseExpiryMs(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry) / 1000,
     )
     setCookie(c, REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,

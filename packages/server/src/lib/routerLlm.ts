@@ -181,7 +181,7 @@ export async function selectAgents(
   const userContent = `Available agents:\n${agentDescriptions}\n\nUser message: "${content}"`
 
   try {
-    const routerTimeout = getConfigSync<number>('router.llm.timeout') || config.routerLlmTimeoutMs
+    const routerTimeout = getConfigSync<number>('router.llm.timeout') ?? config.routerLlmTimeoutMs
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), routerTimeout)
 

@@ -53,7 +53,7 @@ export async function signAccessToken(payload: { sub: string; username: string }
     .setIssuer('agentim')
     .setAudience('agentim')
     .setJti(nanoid())
-    .setExpirationTime(getConfigSync<string>('jwt.accessExpiry') || config.jwtAccessExpiry)
+    .setExpirationTime(getConfigSync<string>('jwt.accessExpiry') ?? config.jwtAccessExpiry)
     .setIssuedAt()
     .sign(getSecret())
 }
@@ -67,7 +67,7 @@ export async function signRefreshToken(payload: {
     .setIssuer('agentim')
     .setAudience('agentim')
     .setJti(nanoid())
-    .setExpirationTime(getConfigSync<string>('jwt.refreshExpiry') || config.jwtRefreshExpiry)
+    .setExpirationTime(getConfigSync<string>('jwt.refreshExpiry') ?? config.jwtRefreshExpiry)
     .setIssuedAt()
     .sign(getSecret())
 }

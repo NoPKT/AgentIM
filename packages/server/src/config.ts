@@ -211,15 +211,17 @@ export function _setSettingsModule(mod: typeof _settingsModule): void {
  * Read a DB-backed setting synchronously. Falls through to env var / default
  * when the settings module hasn't been injected yet (e.g. during early startup).
  *
- * Returns `'' as T` when the settings module is not yet injected. All call sites
- * use the `|| config.staticDefault` pattern (e.g. `getConfigSync<number>('ws.maxConnectionsPerUser') || config.maxWsConnectionsPerUser`)
- * so the empty-string falsy fallback always resolves to the static config value.
+ * Returns `null` when the settings module is not yet injected. All call sites
+ * must use the `?? config.staticDefault` pattern (NOT `||`) so that falsy DB
+ * values like `false` and `0` are not accidentally overridden by the fallback.
  */
-export function getConfigSync<T extends string | number | boolean = string>(settingKey: string): T {
+export function getConfigSync<T extends string | number | boolean = string>(
+  settingKey: string,
+): T | null {
   if (_settingsModule) {
     return _settingsModule.getSettingTypedSync<T>(settingKey)
   }
-  return '' as T
+  return null
 }
 
 // Validate ENCRYPTION_KEY: must be set in production (any non-empty string is accepted;

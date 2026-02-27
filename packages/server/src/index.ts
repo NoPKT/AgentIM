@@ -231,7 +231,7 @@ app.use(
   cors({
     origin: (requestOrigin) => {
       // Dynamic CORS: reads from DB settings cache (or env var fallback)
-      const allowed = getConfigSync<string>('cors.origin') || config.corsOrigin
+      const allowed = getConfigSync<string>('cors.origin') ?? config.corsOrigin
       if (!allowed) {
         // In development, reflect the request origin; in production, deny
         // (config.ts already enforces CORS_ORIGIN in production, so this is a
@@ -715,7 +715,7 @@ function startAuditCleanup() {
   auditCleanupTimer = setInterval(async () => {
     try {
       const retentionDays =
-        getConfigSync<number>('cleanup.auditRetentionDays') || config.auditLogRetentionDays
+        getConfigSync<number>('cleanup.auditRetentionDays') ?? config.auditLogRetentionDays
       const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString()
       const result = await db.delete(auditLogs).where(lte(auditLogs.createdAt, cutoff))
       const { getAffectedRowCount } = await import('./lib/drizzleUtils.js')

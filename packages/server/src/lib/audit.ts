@@ -99,7 +99,7 @@ export async function logAudit(opts: AuditOptions): Promise<void> {
 }
 
 export function getClientIp(c: Context): string {
-  const trustProxy = getConfigSync<boolean>('trust.proxy') || config.trustProxy
+  const trustProxy = getConfigSync<boolean>('trust.proxy') ?? config.trustProxy
   if (trustProxy) {
     return (
       c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
