@@ -1267,7 +1267,7 @@ describe('dangerousKeys in toolInput', () => {
     // check cannot reject it. This is safe because the key is effectively
     // dropped and never reaches downstream code.
     const obj = Object.create(null) as Record<string, unknown>
-    obj['__proto__'] = 'value'
+    Object.defineProperty(obj, '__proto__', { value: 'value', enumerable: true })
     const result = toolInputSchema.safeParse(obj)
     assert.strictEqual(result.success, true)
     if (result.success) {
