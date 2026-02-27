@@ -332,6 +332,15 @@ oauthRoutes.post('/oauth/:provider/link', authMiddleware, async (c) => {
     return c.json({ ok: false, error: storeResult.error }, 429)
   }
 
+  // Store state in a cookie so the callback can verify it
+  setCookie(c, 'oauth_state', state, {
+    path: '/api/auth/oauth',
+    httpOnly: true,
+    secure: config.trustProxy || c.req.url.startsWith('https://'),
+    sameSite: 'lax',
+    maxAge: Math.floor(parseExpiryMs('10m') / 1000),
+  })
+
   const fwdProto = config.trustProxy ? c.req.header('x-forwarded-proto') : undefined
   const baseUrl = fwdProto ? `${fwdProto}://${c.req.header('host')}` : new URL(c.req.url).origin
   const redirectUri = `${baseUrl}/api/auth/oauth/${provider}/callback`
