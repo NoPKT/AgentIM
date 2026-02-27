@@ -8,10 +8,10 @@ databases:
 services:
   - type: web
     name: agentim
-    runtime: docker
+    runtime: image
     plan: free
-    dockerfilePath: ./docker/Dockerfile
-    dockerContext: .
+    image:
+      url: ghcr.io/nopkt/agentim:latest
     envVars:
       - key: DATABASE_URL
         fromDatabase:
