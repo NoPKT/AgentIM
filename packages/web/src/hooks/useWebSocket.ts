@@ -92,7 +92,7 @@ export function useWebSocket() {
               const streamKey = `${msg.roomId}:${msg.agentId}`
               if (!truncationToasted.has(streamKey)) {
                 truncationToasted.add(streamKey)
-                toast.warning(i18next.t('chat.streamBufferOverflow'))
+                toast.info(i18next.t('chat.streamBufferOverflow'))
               }
             }
           } catch (err) {

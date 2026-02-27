@@ -36,7 +36,7 @@ function mockNotificationAPI(permission: NotificationPermission) {
     get: () => permission,
     configurable: true,
   })
-  NotificationMock.requestPermission = vi.fn()
+  ;(NotificationMock as unknown as Record<string, unknown>).requestPermission = vi.fn()
   Object.defineProperty(window, 'Notification', {
     value: NotificationMock,
     writable: true,
@@ -139,15 +139,17 @@ describe('requestNotificationPermission', () => {
 
   it('requests permission and returns true when granted', async () => {
     const { NotificationMock } = mockNotificationAPI('default')
-    NotificationMock.requestPermission.mockResolvedValueOnce('granted')
+    const reqPerm = NotificationMock as unknown as { requestPermission: ReturnType<typeof vi.fn> }
+    reqPerm.requestPermission.mockResolvedValueOnce('granted')
     const result = await requestNotificationPermission()
-    expect(NotificationMock.requestPermission).toHaveBeenCalled()
+    expect(reqPerm.requestPermission).toHaveBeenCalled()
     expect(result).toBe(true)
   })
 
   it('requests permission and returns false when denied', async () => {
     const { NotificationMock } = mockNotificationAPI('default')
-    NotificationMock.requestPermission.mockResolvedValueOnce('denied')
+    const reqPerm = NotificationMock as unknown as { requestPermission: ReturnType<typeof vi.fn> }
+    reqPerm.requestPermission.mockResolvedValueOnce('denied')
     const result = await requestNotificationPermission()
     expect(result).toBe(false)
   })
