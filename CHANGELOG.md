@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Northflank CORS auto-detection**: `CORS_ORIGIN` is now auto-detected from the `NF_HOSTS` environment variable on Northflank deployments, matching existing Render and Railway auto-detection
+
 ## [0.1.0] - 2026-02-27
 
 ### Added

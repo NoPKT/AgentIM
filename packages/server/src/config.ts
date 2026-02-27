@@ -146,6 +146,10 @@ if (!process.env.CORS_ORIGIN) {
   } else if (railwayDomain) {
     config.corsOrigin = `https://${railwayDomain}`
     log.info(`CORS_ORIGIN auto-detected from RAILWAY_PUBLIC_DOMAIN: https://${railwayDomain}`)
+  } else if (process.env.NF_HOSTS) {
+    const host = process.env.NF_HOSTS.split(',')[0].trim()
+    config.corsOrigin = `https://${host}`
+    log.info(`CORS_ORIGIN auto-detected from NF_HOSTS: https://${host}`)
   }
 }
 
