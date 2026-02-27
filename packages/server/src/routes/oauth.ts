@@ -325,7 +325,8 @@ oauthRoutes.post('/oauth/:provider/link', authMiddleware, async (c) => {
     return c.json({ ok: false, error: 'Already linked' }, 400)
   }
 
-  // Redirect to OAuth flow — the callback will detect the logged-in user and link
+  // Redirect to OAuth flow — the callback performs the standard OAuth handling;
+  // linking to the current user is completed by subsequent application logic
   const state = nanoid(32)
   const storeResult = await storeOAuthState(state, provider as OAuthProvider)
   if (!storeResult.ok) {
