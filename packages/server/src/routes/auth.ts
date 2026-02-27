@@ -61,7 +61,7 @@ const DUMMY_HASH =
 
 export const authRoutes = new Hono<AuthEnv>()
 
-// Rate limit login attempts: 10 req/min per IP (brute-force protection).
+// Rate limit login attempts: 20 req/min per IP (brute-force protection).
 // /refresh is intentionally excluded — it's cookie-gated and called frequently
 // by the web client on every page load/API request to restore sessions.
 // A separate, higher limit (60/min) is applied to /refresh to prevent DoS

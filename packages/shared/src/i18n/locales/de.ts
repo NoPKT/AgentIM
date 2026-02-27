@@ -445,6 +445,12 @@ export const de = {
       serviceAgentVoiceIdRequired: 'Stimmen-ID ist für ElevenLabs Service-Agents erforderlich',
       passwordCommonWord: 'Passwort enthält ein häufiges Wort',
       passwordSequential: 'Passwort enthält aufeinanderfolgende oder wiederholte Zeichen',
+      passwordMinLength: 'Passwort muss mindestens 8 Zeichen lang sein',
+      passwordMaxLength: 'Passwort darf höchstens 128 Zeichen lang sein',
+      toolInputTooLarge: 'Tool-Eingabe überschreitet die maximal zulässige Größe',
+      dateFromBeforeDateTo: 'Startdatum muss vor dem Enddatum liegen',
+      metadataTooManyKeys: 'Metadaten haben zu viele Schlüssel',
+      metadataTooLarge: 'Metadaten überschreiten die maximal zulässige Größe',
     },
   },
   a11y: {

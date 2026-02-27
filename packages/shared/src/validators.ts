@@ -846,14 +846,6 @@ export const serverMessageCompleteSchema = z.object({
   message: messageSchema,
 })
 
-export const serverServiceAgentResponseSchema = z.object({
-  type: z.literal('server:service_agent_response'),
-  roomId: z.string(),
-  serviceAgentId: z.string(),
-  serviceAgentName: z.string(),
-  message: messageSchema,
-})
-
 export const serverTypingSchema = z.object({
   type: z.literal('server:typing'),
   roomId: z.string(),
@@ -955,7 +947,6 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverNewMessageSchema,
   serverMessageChunkSchema,
   serverMessageCompleteSchema,
-  serverServiceAgentResponseSchema,
   serverMessageEditedSchema,
   serverMessageDeletedSchema,
   serverTypingSchema,
