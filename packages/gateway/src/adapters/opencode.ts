@@ -389,9 +389,13 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
 
     // Shut down the managed server
     if (this.serverClose) {
-      this.serverClose()
+      try {
+        this.serverClose()
+        log.info('OpenCode server shut down')
+      } catch (err) {
+        log.warn(`Failed to shut down OpenCode server: ${(err as Error).message}`)
+      }
       this.serverClose = undefined
-      log.info('OpenCode server shut down')
     }
   }
 }
