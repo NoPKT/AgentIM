@@ -78,18 +78,18 @@ describe('GatewayWsClient', () => {
   // ─── getMessagePriority ───
 
   describe('getMessagePriority', () => {
-    it('returns critical for auth and register_agent', () => {
+    it('returns critical for auth, register_agent, message_complete, and permission_request', () => {
       const client = createClient() as AnyClient
       assert.equal(client.getMessagePriority('gateway:auth'), 'critical')
       assert.equal(client.getMessagePriority('gateway:register_agent'), 'critical')
+      assert.equal(client.getMessagePriority('gateway:message_complete'), 'critical')
+      assert.equal(client.getMessagePriority('gateway:permission_request'), 'critical')
     })
 
-    it('returns high for chunk, complete, agent_status, permission_request', () => {
+    it('returns high for chunk and agent_status', () => {
       const client = createClient() as AnyClient
       assert.equal(client.getMessagePriority('gateway:message_chunk'), 'high')
-      assert.equal(client.getMessagePriority('gateway:message_complete'), 'high')
       assert.equal(client.getMessagePriority('gateway:agent_status'), 'high')
-      assert.equal(client.getMessagePriority('gateway:permission_request'), 'high')
     })
 
     it('returns normal for ping and other types', () => {
