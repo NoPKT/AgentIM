@@ -350,17 +350,6 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     descKey: 'adminSettings.routerLlmModelDesc',
   },
   {
-    key: 'router.maxChainDepth',
-    group: 'aiRouter',
-    type: 'number',
-    defaultValue: '5',
-    envKey: 'MAX_AGENT_CHAIN_DEPTH',
-    min: 1,
-    max: 100,
-    labelKey: 'adminSettings.maxChainDepth',
-    descKey: 'adminSettings.maxChainDepthDesc',
-  },
-  {
     key: 'router.llm.timeout',
     group: 'aiRouter',
     type: 'number',
@@ -370,6 +359,17 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     max: 120000,
     labelKey: 'adminSettings.routerLlmTimeout',
     descKey: 'adminSettings.routerLlmTimeoutDesc',
+  },
+  {
+    key: 'router.maxChainDepth',
+    group: 'aiRouter',
+    type: 'number',
+    defaultValue: '5',
+    envKey: 'MAX_AGENT_CHAIN_DEPTH',
+    min: 1,
+    max: 100,
+    labelKey: 'adminSettings.maxChainDepth',
+    descKey: 'adminSettings.maxChainDepthDesc',
   },
 
   // Push Notifications (VAPID)
@@ -399,7 +399,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     descKey: 'adminSettings.vapidSubjectDesc',
   },
 
-  // Maintenance
+  // Maintenance — cleanup tasks
   {
     key: 'cleanup.orphanFileInterval',
     group: 'maintenance',
@@ -421,15 +421,6 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     max: 86400000,
     labelKey: 'adminSettings.tokenInterval',
     descKey: 'adminSettings.tokenIntervalDesc',
-  },
-  {
-    key: 'sentry.dsn',
-    group: 'maintenance',
-    type: 'string',
-    defaultValue: '',
-    envKey: 'SENTRY_DSN',
-    labelKey: 'adminSettings.sentryDsn',
-    descKey: 'adminSettings.sentryDsnDesc',
   },
   {
     key: 'cleanup.auditRetentionDays',
@@ -474,6 +465,16 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     max: 365,
     labelKey: 'adminSettings.gatewayMaxOfflineDays',
     descKey: 'adminSettings.gatewayMaxOfflineDaysDesc',
+  },
+  // Maintenance — monitoring
+  {
+    key: 'sentry.dsn',
+    group: 'maintenance',
+    type: 'string',
+    defaultValue: '',
+    envKey: 'SENTRY_DSN',
+    labelKey: 'adminSettings.sentryDsn',
+    descKey: 'adminSettings.sentryDsnDesc',
   },
 ]
 
