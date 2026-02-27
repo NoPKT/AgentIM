@@ -71,7 +71,9 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
 
   // Only validate types we have signatures for (exact match only)
   const signatures = MAGIC_BYTES.filter(([type]) => type === declaredType)
-  if (signatures.length === 0) return true // No known signature — allow (MIME check already passed)
+  // Defense-in-depth: reject unknown binary types to prevent regressions
+  // when new MIME types are added to ALLOWED_MIME_TYPES without magic bytes.
+  if (signatures.length === 0) return false
 
   const matchesAny = signatures.some(([, bytes]) => {
     if (buffer.length < bytes.length) return false

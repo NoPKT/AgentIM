@@ -36,6 +36,8 @@ When running multiple server processes (e.g., PM2 cluster mode, Kubernetes repli
 - **Cache consistency**: Room membership and admin role caches are process-local without Redis.
 - **Pub/Sub**: Real-time event propagation across processes.
 
+> **Production recommendation**: For high-availability deployments, consider using Redis Sentinel or a managed Redis service (e.g., AWS ElastiCache, GCP Memorystore, Azure Cache) instead of a single Redis instance. A single Redis instance is a single point of failure — if it goes down, rate limiting, pub/sub, and token revocation sync all stop working until it recovers.
+
 Set `REDIS_URL` in your environment to enable Redis:
 
 ```bash

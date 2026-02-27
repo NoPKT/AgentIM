@@ -472,9 +472,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   completeStream: (message) => {
-    // Add message first, then clean up streaming state
-    get().addMessage(message)
-    set({ streaming: completeStreamAction(get().streaming, message) })
+    // Add message first, then always clean up streaming state even if addMessage throws
+    try {
+      get().addMessage(message)
+    } finally {
+      set({ streaming: completeStreamAction(get().streaming, message) })
+    }
   },
 
   addTerminalData: (agentId, agentName, data) => {
@@ -1013,8 +1016,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const unique = newMsgs.filter((m) => !existingIds.has(m.id))
         if (unique.length > 0) {
           const msgs = new Map(get().messages)
+          // Both arrays are already sorted ascending and unique items are
+          // guaranteed to be newer than existing (API uses `after: lastMsg.createdAt`),
+          // so a simple concat preserves order without re-sorting.
           const combined = [...existing, ...unique]
-          combined.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
           msgs.set(roomId, combined)
           set({ messages: msgs })
         }

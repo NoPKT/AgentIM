@@ -375,14 +375,63 @@ export type WsMessage = ClientMessage | ServerMessage | GatewayMessage | ServerG
 
 // ─── Type Guards ───
 
+/** All valid ClientMessage type discriminants */
+const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+  'client:auth',
+  'client:join_room',
+  'client:leave_room',
+  'client:send_message',
+  'client:typing',
+  'client:stop_generation',
+  'client:permission_response',
+  'client:ping',
+])
+
+/** All valid GatewayMessage type discriminants */
+const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+  'gateway:auth',
+  'gateway:register_agent',
+  'gateway:unregister_agent',
+  'gateway:message_chunk',
+  'gateway:message_complete',
+  'gateway:agent_status',
+  'gateway:terminal_data',
+  'gateway:task_update',
+  'gateway:permission_request',
+  'gateway:ping',
+])
+
+/** All valid ServerMessage type discriminants */
+const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+  'server:auth_result',
+  'server:new_message',
+  'server:message_chunk',
+  'server:message_complete',
+  'server:message_edited',
+  'server:message_deleted',
+  'server:typing',
+  'server:agent_status',
+  'server:task_update',
+  'server:room_update',
+  'server:room_removed',
+  'server:terminal_data',
+  'server:read_receipt',
+  'server:presence',
+  'server:reaction_update',
+  'server:permission_request',
+  'server:permission_request_expired',
+  'server:pong',
+  'server:error',
+])
+
 /** Type guard for ClientMessage */
 export function isClientMessage(msg: unknown): msg is ClientMessage {
+  const type = (msg as { type?: string })?.type
   return (
     typeof msg === 'object' &&
     msg !== null &&
-    'type' in msg &&
-    typeof (msg as { type: unknown }).type === 'string' &&
-    (msg as { type: string }).type.startsWith('client:')
+    typeof type === 'string' &&
+    CLIENT_MESSAGE_TYPES.has(type)
   )
 }
 
@@ -393,19 +442,18 @@ export function isServerMessage(msg: unknown): msg is ServerMessage {
     typeof msg === 'object' &&
     msg !== null &&
     typeof type === 'string' &&
-    type.startsWith('server:') &&
-    !SERVER_GATEWAY_ONLY_TYPES.has(type)
+    SERVER_MESSAGE_TYPES.has(type)
   )
 }
 
 /** Type guard for GatewayMessage */
 export function isGatewayMessage(msg: unknown): msg is GatewayMessage {
+  const type = (msg as { type?: string })?.type
   return (
     typeof msg === 'object' &&
     msg !== null &&
-    'type' in msg &&
-    typeof (msg as { type: unknown }).type === 'string' &&
-    (msg as { type: string }).type.startsWith('gateway:')
+    typeof type === 'string' &&
+    GATEWAY_MESSAGE_TYPES.has(type)
   )
 }
 
