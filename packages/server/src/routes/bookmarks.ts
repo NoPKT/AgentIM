@@ -1,14 +1,16 @@
 import { Hono } from 'hono'
-import { eq, and, desc, lt } from 'drizzle-orm'
+import { eq, and, desc, lt, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { db } from '../db/index.js'
-import { bookmarks, messages } from '../db/schema.js'
+import { bookmarks, messages, roomMembers } from '../db/schema.js'
 import { createBookmarkSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
+import { isRoomMember } from '../lib/roomAccess.js'
 
 const BOOKMARKS_DEFAULT_LIMIT = 50
 const BOOKMARKS_MAX_LIMIT = 100
+const MAX_BOOKMARKS_PER_USER = 500
 
 export const bookmarkRoutes = new Hono<AuthEnv>()
 
@@ -28,9 +30,9 @@ bookmarkRoutes.get('/', async (c) => {
     BOOKMARKS_MAX_LIMIT,
   )
 
-  const conditions = cursor
-    ? and(eq(bookmarks.userId, userId), lt(bookmarks.createdAt, cursor))
-    : eq(bookmarks.userId, userId)
+  // Only return bookmarks for messages in rooms the user is currently a member of
+  const baseConditions = [eq(bookmarks.userId, userId), eq(roomMembers.memberId, userId)]
+  if (cursor) baseConditions.push(lt(bookmarks.createdAt, cursor))
 
   const rows = await db
     .select({
@@ -47,7 +49,8 @@ bookmarkRoutes.get('/', async (c) => {
     })
     .from(bookmarks)
     .innerJoin(messages, eq(bookmarks.messageId, messages.id))
-    .where(conditions)
+    .innerJoin(roomMembers, eq(messages.roomId, roomMembers.roomId))
+    .where(and(...baseConditions))
     .orderBy(desc(bookmarks.createdAt))
     .limit(limit + 1)
 
@@ -92,15 +95,29 @@ bookmarkRoutes.post('/', async (c) => {
 
   const { messageId, note } = parsed.data
 
-  // Verify the message exists
+  // Verify the message exists and get its roomId
   const [msg] = await db
-    .select({ id: messages.id })
+    .select({ id: messages.id, roomId: messages.roomId })
     .from(messages)
     .where(eq(messages.id, messageId))
     .limit(1)
 
   if (!msg) {
     return c.json({ ok: false, error: 'Message not found' }, 404)
+  }
+
+  // Verify user is a member of the room the message belongs to
+  if (!(await isRoomMember(userId, msg.roomId))) {
+    return c.json({ ok: false, error: 'Not a member of this room' }, 403)
+  }
+
+  // Enforce per-user bookmark limit
+  const [{ count: bookmarkCount }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(bookmarks)
+    .where(eq(bookmarks.userId, userId))
+  if (bookmarkCount >= MAX_BOOKMARKS_PER_USER) {
+    return c.json({ ok: false, error: 'Maximum bookmarks reached' }, 400)
   }
 
   // Check for duplicate bookmark
