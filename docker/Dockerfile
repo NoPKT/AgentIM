@@ -41,8 +41,8 @@ COPY packages/web/package.json packages/web/
 # Create non-root user
 RUN addgroup --system app && adduser --system --ingroup app app
 
-# Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+# Install production dependencies only (ignore-scripts skips "prepare": "husky")
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy built artifacts
 COPY --from=build /app/packages/shared/dist packages/shared/dist
