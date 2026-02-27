@@ -40,13 +40,20 @@ export const getAccessToken = loginAsAdmin
  * On mobile viewports the sidebar is hidden behind a hamburger menu.
  * Call this helper before interacting with sidebar elements (room list,
  * nav links, logout button, etc.).  On desktop viewports the hamburger
- * button is not rendered, so this is a safe no-op.
+ * button is not rendered (`lg:hidden`), so the waitFor times out
+ * harmlessly and we skip the click.
  */
 export async function ensureSidebarOpen(page: Page): Promise<void> {
   const menuButton = page.getByRole('button', { name: /rooms|menu/i })
-  if (await menuButton.isVisible().catch(() => false)) {
+  try {
+    // Wait for the button to appear — covers the window where React is
+    // still hydrating after page.goto().  On desktop the button has
+    // `lg:hidden` so it never becomes visible and we fall into catch.
+    await menuButton.waitFor({ state: 'visible', timeout: 3000 })
     await menuButton.click()
-    // Wait for the sidebar slide-in animation (300ms transition)
+    // Wait for the sidebar slide-in animation (300ms CSS transition)
     await page.waitForTimeout(350)
+  } catch {
+    // Button not visible — desktop viewport, sidebar is always open
   }
 }
