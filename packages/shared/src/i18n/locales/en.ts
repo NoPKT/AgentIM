@@ -223,6 +223,8 @@ export const en = {
     reactions: 'Reactions',
     react: 'React with',
     streamBufferOverflow: 'Response is very long. Earlier content has been trimmed.',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Enter {{save}}',
   },
   agent: {
     agents: 'Agents',

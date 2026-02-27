@@ -225,6 +225,8 @@ export const de = {
     reactions: 'Reaktionen',
     react: 'Reagieren mit',
     streamBufferOverflow: 'Die Antwort ist sehr lang. Früherer Inhalt wurde gekürzt.',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Eingabe {{save}}',
   },
   agent: {
     agents: 'Agenten',

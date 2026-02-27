@@ -287,7 +287,11 @@ function MessageContent({
             {t('common.cancel')}
           </button>
           <span className="text-xs text-text-muted">
-            Esc {t('common.cancel')}, Cmd+Enter {t('common.save')}
+            {t('chat.editKeyboardHint', {
+              modifier: navigator.platform.includes('Mac') ? '⌘' : 'Ctrl',
+              cancel: t('common.cancel'),
+              save: t('common.save'),
+            })}
           </span>
         </div>
       </div>

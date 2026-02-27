@@ -464,7 +464,7 @@ function rotateLogIfNeeded(logFile: string) {
  * Spawn a detached daemon process for a single agent.
  * The parent (CLI) exits immediately after spawning.
  */
-function spawnDaemon(opts: {
+async function spawnDaemon(opts: {
   name: string
   type: string
   workDir: string
@@ -544,6 +544,27 @@ function spawnDaemon(opts: {
   if (child.pid) {
     // Update the reservation with the actual child PID
     writeDaemonInfo({ ...reservationInfo, pid: child.pid })
+
+    // Wait briefly to catch immediate startup failures
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        child.removeAllListeners('exit')
+        resolve()
+      }, 500)
+      timer.unref()
+      child.once('exit', (code) => {
+        clearTimeout(timer)
+        log.error(`Agent "${name}" exited immediately with code ${code}`)
+        removeDaemonInfo(name)
+        resolve()
+      })
+    })
+
+    if (child.exitCode !== null) {
+      // Already exited — error was logged above
+      process.exit(1)
+    }
+
     log.info(`Agent "${name}" (${type}) started in background (PID ${child.pid})`)
     log.info(`Working directory: ${workDir}`)
     log.info(`Log file: ${logFile}`)

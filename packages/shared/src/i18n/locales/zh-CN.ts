@@ -222,6 +222,8 @@ export const zhCN = {
     reactions: '表情回应',
     react: '回应',
     streamBufferOverflow: '响应内容过长，较早的内容已被截断。',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}，{{modifier}}+Enter {{save}}',
   },
   agent: {
     agents: '智能体',

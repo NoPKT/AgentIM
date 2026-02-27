@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { Room, RoomMember, Message, MessageReaction, ParsedChunk } from '@agentim/shared'
+import { MAX_CACHED_ROOMS } from '@agentim/shared'
 import { api, getThread } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
@@ -151,6 +152,9 @@ const _pendingMutations = new Set<string>()
 // LRU tracking for thread cache eviction
 const _threadAccessTimes = new Map<string, number>()
 
+// LRU tracking for cross-room message cache eviction
+const _roomAccessTimes = new Map<string, number>()
+
 // Disable IDB writes after QuotaExceededError to avoid repeated failures
 let _idbDisabled = false
 
@@ -269,6 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setCurrentRoom: (roomId) => {
     set({ currentRoomId: roomId })
+    _roomAccessTimes.set(roomId, Date.now())
     // Join the room if not already subscribed — keep previous rooms
     // subscribed so we receive real-time unread/notification updates.
     if (!get().joinedRooms.has(roomId)) {
@@ -342,6 +347,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
             })
           }
         }
+        // Evict least-recently-accessed rooms when cache exceeds threshold
+        if (msgs.size > MAX_CACHED_ROOMS) {
+          let lruKey: string | null = null
+          let lruTime = Infinity
+          for (const key of msgs.keys()) {
+            if (key === roomId) continue // Don't evict current room
+            const t = _roomAccessTimes.get(key) ?? 0
+            if (t < lruTime) {
+              lruTime = t
+              lruKey = key
+            }
+          }
+          if (lruKey) {
+            msgs.delete(lruKey)
+            _roomAccessTimes.delete(lruKey)
+          }
+        }
+
+        _roomAccessTimes.set(roomId, Date.now())
         set({ messages: msgs, hasMore, lastMessages, showingCachedMessages: false })
 
         // Write back to IndexedDB (first page only)
@@ -418,6 +442,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addMessage: (message) => {
     const MAX_CACHED_MESSAGES = 1000
+    _roomAccessTimes.set(message.roomId, Date.now())
     const msgs = new Map(get().messages)
     const roomMsgs = msgs.get(message.roomId) ?? []
     // Dedup: skip if message already exists (race between WS and REST)
@@ -965,6 +990,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
 
     _threadAccessTimes.clear()
+    _roomAccessTimes.clear()
     _idbDisabled = false
 
     clearCache().catch((err) => {

@@ -229,7 +229,7 @@ export default function ChatPage() {
           <button
             onClick={() => setSearchOpen(true)}
             className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            title={`${t('common.search')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+K)`}
+            title={`${t('common.search')} (${t('chat.searchShortcutHint', { modifier: navigator.platform.includes('Mac') ? '⌘' : 'Ctrl' })})`}
           >
             <SearchIcon className="w-5 h-5" />
           </button>

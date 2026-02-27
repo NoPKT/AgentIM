@@ -223,6 +223,8 @@ export const ja = {
     reactions: 'リアクション',
     react: 'リアクション',
     streamBufferOverflow: '応答が非常に長いため、以前の内容がトリミングされました。',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}、{{modifier}}+Enter {{save}}',
   },
   agent: {
     agents: 'エージェント',

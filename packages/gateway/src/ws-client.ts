@@ -115,14 +115,14 @@ export class GatewayWsClient {
   }
 
   private getMessagePriority(type: GatewayMessage['type']): 'critical' | 'high' | 'normal' {
-    if (type === 'gateway:auth' || type === 'gateway:register_agent') return 'critical'
     if (
-      type === 'gateway:message_chunk' ||
+      type === 'gateway:auth' ||
+      type === 'gateway:register_agent' ||
       type === 'gateway:message_complete' ||
-      type === 'gateway:agent_status' ||
       type === 'gateway:permission_request'
     )
-      return 'high'
+      return 'critical'
+    if (type === 'gateway:message_chunk' || type === 'gateway:agent_status') return 'high'
     return 'normal'
   }
 

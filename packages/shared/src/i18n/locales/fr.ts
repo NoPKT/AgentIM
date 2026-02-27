@@ -225,6 +225,8 @@ export const fr = {
     reactions: 'Réactions',
     react: 'Réagir avec',
     streamBufferOverflow: 'La réponse est très longue. Le contenu précédent a été tronqué.',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Entrée {{save}}',
   },
   agent: {
     agents: 'Agents',
