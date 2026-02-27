@@ -191,6 +191,14 @@ if (config.storageProvider === 'local') {
   }
 }
 
+if (config.storageProvider === 'local' && config.redisEnabled) {
+  log.warn(
+    'STORAGE_PROVIDER=local with Redis enabled: local file storage is not shared across instances. ' +
+      'Uploaded files will only be available on the instance that received them. ' +
+      'Consider switching to STORAGE_PROVIDER=s3 for multi-instance deployments.',
+  )
+}
+
 const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 

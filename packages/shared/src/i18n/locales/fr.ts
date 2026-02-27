@@ -421,6 +421,8 @@ export const fr = {
     wsReconnected: 'Connexion rétablie.',
     wsQueueFull:
       "La file d'attente des messages est pleine. Certains messages peuvent être perdus. Veuillez vérifier votre connexion.",
+    wsProtocolMismatch:
+      'Incompatibilité de version du protocole. Veuillez rafraîchir la page ou mettre à jour votre client vers la dernière version.',
     validation: {
       passwordLowercase: 'Le mot de passe doit contenir une lettre minuscule',
       passwordUppercase: 'Le mot de passe doit contenir une lettre majuscule',

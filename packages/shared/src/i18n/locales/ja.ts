@@ -414,6 +414,8 @@ export const ja = {
     wsReconnected: '接続が復元されました。',
     wsQueueFull:
       'メッセージキューが満杯です。一部のメッセージが失われる可能性があります。接続を確認してください。',
+    wsProtocolMismatch:
+      'プロトコルバージョンが一致しません。ページを更新するか、クライアントを最新バージョンに更新してください。',
     validation: {
       passwordLowercase: 'パスワードには小文字を含める必要があります',
       passwordUppercase: 'パスワードには大文字を含める必要があります',

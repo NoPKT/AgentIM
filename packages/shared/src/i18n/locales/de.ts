@@ -421,6 +421,8 @@ export const de = {
     wsReconnected: 'Verbindung wiederhergestellt.',
     wsQueueFull:
       'Nachrichtenwarteschlange voll. Einige Nachrichten gehen möglicherweise verloren. Bitte überprüfe deine Verbindung.',
+    wsProtocolMismatch:
+      'Protokollversionskonflikt. Bitte aktualisiere die Seite oder aktualisiere deinen Client auf die neueste Version.',
     validation: {
       passwordLowercase: 'Passwort muss einen Kleinbuchstaben enthalten',
       passwordUppercase: 'Passwort muss einen Großbuchstaben enthalten',

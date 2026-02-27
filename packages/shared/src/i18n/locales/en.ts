@@ -413,6 +413,8 @@ export const en = {
     wsDisconnected: 'Connection lost. Reconnecting...',
     wsReconnected: 'Connection restored.',
     wsQueueFull: 'Message queue full. Some messages may be lost. Please check your connection.',
+    wsProtocolMismatch:
+      'Protocol version mismatch. Please refresh the page or update your client to the latest version.',
     validation: {
       passwordLowercase: 'Password must contain a lowercase letter',
       passwordUppercase: 'Password must contain an uppercase letter',

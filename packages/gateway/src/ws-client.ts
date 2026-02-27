@@ -301,6 +301,15 @@ export class GatewayWsClient {
     this.ws?.close()
   }
 
+  /** Prevent any future reconnection attempts (e.g. after a fatal protocol mismatch). */
+  disableReconnect() {
+    this.shouldReconnect = false
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat()
     this.pingTimer = setInterval(() => {

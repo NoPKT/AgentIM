@@ -327,6 +327,21 @@ async function handleAuth(ws: WSContext, token: string, protocolVersion?: string
       })
       return
     }
+    // Reject incompatible protocol versions before registering the client
+    if (protocolVersion && protocolVersion !== CURRENT_PROTOCOL_VERSION) {
+      log.warn('Client protocol version mismatch', {
+        clientVersion: protocolVersion,
+        serverVersion: CURRENT_PROTOCOL_VERSION,
+        userId: payload.sub,
+      })
+      connectionManager.sendToClient(ws, {
+        type: 'server:error',
+        code: WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH,
+        message: `Protocol version mismatch: client=${protocolVersion}, server=${CURRENT_PROTOCOL_VERSION}. Please update your client.`,
+      })
+      ws.close(1008, 'Protocol version mismatch')
+      return
+    }
     // Fetch per-user connection limit override
     const [user] = await db
       .select({ maxWsConnections: users.maxWsConnections })
@@ -348,13 +363,6 @@ async function handleAuth(ws: WSContext, token: string, protocolVersion?: string
         error: result.error ?? 'Connection limit exceeded',
       })
       return
-    }
-    if (protocolVersion && protocolVersion !== CURRENT_PROTOCOL_VERSION) {
-      log.warn('Client protocol version mismatch', {
-        clientVersion: protocolVersion,
-        serverVersion: CURRENT_PROTOCOL_VERSION,
-        userId: payload.sub,
-      })
     }
     connectionManager.sendToClient(ws, {
       type: 'server:auth_result',

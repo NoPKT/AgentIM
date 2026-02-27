@@ -6,6 +6,7 @@ import {
   parseMentions,
   TASK_STATUSES,
   CURRENT_PROTOCOL_VERSION,
+  WS_ERROR_CODES,
   PERMISSION_TIMEOUT_MS,
   MAX_FULL_CONTENT_SIZE,
   MAX_JSON_DEPTH,
@@ -237,6 +238,23 @@ async function handleAuth(
       )
       return
     }
+    // Reject incompatible protocol versions before registering the gateway
+    if (msg.protocolVersion && msg.protocolVersion !== CURRENT_PROTOCOL_VERSION) {
+      log.warn('Gateway protocol version mismatch', {
+        gatewayVersion: msg.protocolVersion,
+        serverVersion: CURRENT_PROTOCOL_VERSION,
+        gatewayId: msg.gatewayId,
+      })
+      ws.send(
+        JSON.stringify({
+          type: 'server:error',
+          code: WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH,
+          message: `Protocol version mismatch: gateway=${msg.protocolVersion}, server=${CURRENT_PROTOCOL_VERSION}. Please update your gateway.`,
+        }),
+      )
+      ws.close(1008, 'Protocol version mismatch')
+      return
+    }
 
     // Fetch per-user gateway limit override
     const [gwUser] = await db
@@ -301,13 +319,6 @@ async function handleAuth(
       return
     }
 
-    if (msg.protocolVersion && msg.protocolVersion !== CURRENT_PROTOCOL_VERSION) {
-      log.warn('Gateway protocol version mismatch', {
-        gatewayVersion: msg.protocolVersion,
-        serverVersion: CURRENT_PROTOCOL_VERSION,
-        gatewayId: msg.gatewayId,
-      })
-    }
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
   } catch (err) {
     // Roll back in-memory gateway registration to avoid phantom authenticated sockets
