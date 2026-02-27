@@ -30,7 +30,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: '/offline.html',
+        navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/ws/],
         // Strip the `token` query parameter from upload URLs before using them
         // as cache keys. This prevents access tokens from being stored in the
