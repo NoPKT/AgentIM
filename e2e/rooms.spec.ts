@@ -44,6 +44,7 @@ test.describe('Room management', () => {
     const roomNav = page.getByRole('navigation', { name: /rooms/i })
     const firstRoom = roomNav.getByRole('listitem').first()
     if (!(await firstRoom.isVisible())) {
+      console.warn('[E2E] No rooms visible — skipping')
       test.skip()
       return
     }

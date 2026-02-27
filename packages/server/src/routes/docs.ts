@@ -517,6 +517,15 @@ const spec = {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         responses: { '200': { description: 'Agent updated' } },
       },
+      delete: {
+        tags: ['Agents'],
+        summary: 'Delete agent',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Agent deleted' },
+          '404': { description: 'Agent not found' },
+        },
+      },
     },
     '/agents/gateways/list': {
       get: {
@@ -642,6 +651,270 @@ const spec = {
         responses: { '200': { description: 'Connection test result' } },
       },
     },
+    // ─── TOTP 2FA ───
+    '/auth/verify-totp': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Verify TOTP code (step 2 of login)',
+        security: [],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['totpToken', 'code'],
+                properties: {
+                  totpToken: { type: 'string' },
+                  code: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'TOTP verified, returns tokens' },
+          '401': { description: 'Invalid or expired TOTP code' },
+        },
+      },
+    },
+    '/auth/setup-totp': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Begin TOTP setup (returns QR URI)',
+        responses: {
+          '200': { description: 'TOTP secret and otpauth URI for QR code' },
+        },
+      },
+    },
+    '/auth/verify-totp-setup': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Confirm TOTP setup with verification code',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['code'],
+                properties: { code: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'TOTP enabled successfully' },
+          '400': { description: 'Invalid verification code' },
+        },
+      },
+    },
+    '/auth/disable-totp': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Disable TOTP 2FA',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['code'],
+                properties: { code: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'TOTP disabled' },
+          '400': { description: 'Invalid code' },
+        },
+      },
+    },
+    // ─── OAuth ───
+    '/auth/oauth/providers': {
+      get: {
+        tags: ['Auth'],
+        summary: 'List configured OAuth providers',
+        security: [],
+        responses: { '200': { description: 'Array of provider names' } },
+      },
+    },
+    '/auth/oauth/{provider}': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Redirect to OAuth authorization',
+        security: [],
+        parameters: [{ name: 'provider', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '302': { description: 'Redirect to OAuth provider' } },
+      },
+    },
+    '/auth/oauth/{provider}/callback': {
+      get: {
+        tags: ['Auth'],
+        summary: 'OAuth callback handler',
+        security: [],
+        parameters: [{ name: 'provider', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '302': { description: 'Redirect to app with tokens' },
+          '400': { description: 'OAuth error' },
+        },
+      },
+    },
+    // ─── Push Notifications ───
+    '/push/vapid-key': {
+      get: {
+        tags: ['Push'],
+        summary: 'Get VAPID public key',
+        security: [],
+        responses: { '200': { description: 'VAPID public key string' } },
+      },
+    },
+    '/push/subscribe': {
+      post: {
+        tags: ['Push'],
+        summary: 'Save push subscription',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['subscription'],
+                properties: { subscription: { type: 'object' } },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Subscription saved' } },
+      },
+    },
+    '/push/unsubscribe': {
+      post: {
+        tags: ['Push'],
+        summary: 'Remove push subscription',
+        responses: { '200': { description: 'Subscription removed' } },
+      },
+    },
+    // ─── Service Agents ───
+    '/service-agents/providers': {
+      get: {
+        tags: ['ServiceAgents'],
+        summary: 'List available provider types',
+        responses: { '200': { description: 'Provider type list' } },
+      },
+    },
+    '/service-agents': {
+      get: {
+        tags: ['ServiceAgents'],
+        summary: 'List service agents (admin)',
+        responses: {
+          '200': { description: 'Service agent list' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+      post: {
+        tags: ['ServiceAgents'],
+        summary: 'Create service agent (admin)',
+        responses: {
+          '201': { description: 'Service agent created' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+    },
+    '/service-agents/{id}': {
+      get: {
+        tags: ['ServiceAgents'],
+        summary: 'Get service agent (admin)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Service agent details' },
+          '403': { description: 'Admin access required' },
+          '404': { description: 'Not found' },
+        },
+      },
+      put: {
+        tags: ['ServiceAgents'],
+        summary: 'Update service agent (admin)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Service agent updated' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+      delete: {
+        tags: ['ServiceAgents'],
+        summary: 'Delete service agent (admin)',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Service agent deleted' },
+          '403': { description: 'Admin access required' },
+        },
+      },
+    },
+    // ─── Bookmarks ───
+    '/bookmarks': {
+      get: {
+        tags: ['Bookmarks'],
+        summary: 'List user bookmarks (cursor-based)',
+        parameters: [
+          { name: 'cursor', in: 'query', schema: { type: 'string' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+        ],
+        responses: { '200': { description: 'Paginated bookmark list' } },
+      },
+      post: {
+        tags: ['Bookmarks'],
+        summary: 'Create bookmark',
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['messageId'],
+                properties: {
+                  messageId: { type: 'string' },
+                  note: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '201': { description: 'Bookmark created' } },
+      },
+    },
+    '/bookmarks/{id}': {
+      put: {
+        tags: ['Bookmarks'],
+        summary: 'Update bookmark',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Bookmark updated' } },
+      },
+      delete: {
+        tags: ['Bookmarks'],
+        summary: 'Delete bookmark',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Bookmark deleted' } },
+      },
+    },
+    // ─── User OAuth accounts ───
+    '/users/me/oauth-accounts': {
+      get: {
+        tags: ['Users'],
+        summary: 'List linked OAuth accounts',
+        responses: { '200': { description: 'OAuth account list' } },
+      },
+    },
+    // ─── OpenAPI spec meta ───
+    '/docs/openapi.json': {
+      get: {
+        tags: ['System'],
+        summary: 'This OpenAPI specification',
+        security: [],
+        responses: {
+          '200': {
+            description: 'OpenAPI 3.0.3 JSON specification',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+        },
+      },
+    },
   },
   tags: [
     { name: 'System', description: 'System endpoints' },
@@ -654,6 +927,9 @@ const spec = {
     { name: 'Tasks', description: 'Task management' },
     { name: 'Upload', description: 'File uploads' },
     { name: 'Routers', description: 'AI router configuration' },
+    { name: 'Push', description: 'Push notification management' },
+    { name: 'ServiceAgents', description: 'Server-side AI service agents' },
+    { name: 'Bookmarks', description: 'Message bookmarks' },
   ],
 }
 

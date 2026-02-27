@@ -33,7 +33,7 @@ function ErrorFallback({
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-surface-secondary px-4">
       <div className="text-center max-w-md" role="alert">
         <div className="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
           <svg
@@ -51,12 +51,8 @@ function ErrorFallback({
             />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          {t('error.generic')}
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          {error?.message || t('error.network')}
-        </p>
+        <h1 className="text-xl font-semibold text-text-primary mb-2">{t('error.generic')}</h1>
+        <p className="text-sm text-text-secondary mb-4">{error?.message || t('error.network')}</p>
         <div className="flex gap-3 justify-center">
           <Button onClick={onRetry}>{t('common.retry')}</Button>
           <Button variant="secondary" onClick={onGoHome}>

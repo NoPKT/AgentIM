@@ -35,7 +35,7 @@ export function PwaUpdateBanner() {
       </button>
       <button
         onClick={() => setNeedRefresh(false)}
-        aria-label="Dismiss"
+        aria-label={t('common.close')}
         className="ml-1 text-white/70 hover:text-white transition-colors"
       >
         ✕

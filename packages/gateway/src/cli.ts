@@ -10,7 +10,7 @@ import { loadConfig, saveConfig, getConfigPath, clearConfig } from './config.js'
 
 const require = createRequire(import.meta.url)
 const { version } = require('../package.json')
-import { getSafeEnv } from './adapters/spawn-base.js'
+import { getSafeEnv, NEVER_PASSABLE_KEYS } from './adapters/spawn-base.js'
 import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
 import { prompt, promptPassword, promptSelect } from './interactive.js'
@@ -41,7 +41,12 @@ function parsePassEnv(raw?: string): string[] | undefined {
     .split(',')
     .map((k) => k.trim())
     .filter(Boolean)
-  return keys.length > 0 ? keys : undefined
+  if (keys.length === 0) return undefined
+  const blocked = keys.filter((k) => NEVER_PASSABLE_KEYS.has(k))
+  if (blocked.length > 0) {
+    log.warn(`--pass-env contains blocked keys that will be ignored: ${blocked.join(', ')}`)
+  }
+  return keys
 }
 
 program
