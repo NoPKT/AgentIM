@@ -131,7 +131,12 @@ describe('slash-commands', () => {
   describe('registerCommand', () => {
     it('registers a new custom command', () => {
       registerCommand({
-        command: { name: 'custom-test', description: 'A test command', usage: '/custom-test' },
+        command: {
+          name: 'custom-test' as any,
+          description: 'A test command',
+          usage: '/custom-test',
+          clientOnly: true,
+        },
         execute: vi.fn(),
       })
 
@@ -145,9 +150,10 @@ describe('slash-commands', () => {
       const newExecute = vi.fn()
       registerCommand({
         command: {
-          name: 'custom-test',
+          name: 'custom-test' as any,
           description: 'Overridden command',
           usage: '/custom-test',
+          clientOnly: true,
         },
         execute: newExecute,
       })
