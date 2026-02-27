@@ -147,9 +147,12 @@ if (!process.env.CORS_ORIGIN) {
     config.corsOrigin = `https://${railwayDomain}`
     log.info(`CORS_ORIGIN auto-detected from RAILWAY_PUBLIC_DOMAIN: https://${railwayDomain}`)
   } else if (process.env.NF_HOSTS) {
-    const host = process.env.NF_HOSTS.split(',')[0].trim()
-    config.corsOrigin = `https://${host}`
-    log.info(`CORS_ORIGIN auto-detected from NF_HOSTS: https://${host}`)
+    const origins = process.env.NF_HOSTS.split(',')
+      .map((h) => h.trim())
+      .filter(Boolean)
+      .map((h) => `https://${h}`)
+    config.corsOrigin = origins.join(',')
+    log.info(`CORS_ORIGIN auto-detected from NF_HOSTS: ${config.corsOrigin}`)
   }
 }
 
@@ -162,27 +165,33 @@ if (isProduction && (!config.corsOrigin || config.corsOrigin === '*')) {
 }
 
 // Validate CORS_ORIGIN is a properly-formed origin in production.
-// An HTTP origin must be scheme + host (+ optional port) with no path component.
-// Catches typos like "https//example.com" or "https://app.example.com/".
+// Supports comma-separated multiple origins (e.g. "https://a.com,https://b.com").
+// Each origin must be scheme + host (+ optional port) with no path component.
 if (isProduction && config.corsOrigin) {
-  let corsUrl: URL
-  try {
-    corsUrl = new URL(config.corsOrigin)
-  } catch {
-    log.fatal(
-      `CORS_ORIGIN is not a valid URL: "${config.corsOrigin}". Example: https://app.example.com`,
-    )
-    process.exit(1)
-  }
-  if (corsUrl!.pathname !== '/' && corsUrl!.pathname !== '') {
-    log.fatal(
-      `CORS_ORIGIN must not include a path component. Got: "${config.corsOrigin}". Use: "${corsUrl!.origin}"`,
-    )
-    process.exit(1)
-  }
-  if (corsUrl!.protocol !== 'https:' && corsUrl!.protocol !== 'http:') {
-    log.fatal(`CORS_ORIGIN must use https:// or http:// scheme. Got: "${config.corsOrigin}"`)
-    process.exit(1)
+  const origins = config.corsOrigin
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  for (const origin of origins) {
+    let corsUrl: URL
+    try {
+      corsUrl = new URL(origin)
+    } catch {
+      log.fatal(
+        `CORS_ORIGIN contains an invalid URL: "${origin}". Example: https://app.example.com`,
+      )
+      process.exit(1)
+    }
+    if (corsUrl!.pathname !== '/' && corsUrl!.pathname !== '') {
+      log.fatal(
+        `CORS_ORIGIN must not include a path component. Got: "${origin}". Use: "${corsUrl!.origin}"`,
+      )
+      process.exit(1)
+    }
+    if (corsUrl!.protocol !== 'https:' && corsUrl!.protocol !== 'http:') {
+      log.fatal(`CORS_ORIGIN must use https:// or http:// scheme. Got: "${origin}"`)
+      process.exit(1)
+    }
   }
 }
 
