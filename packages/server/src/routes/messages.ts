@@ -30,6 +30,10 @@ import { logAudit, getClientIp } from '../lib/audit.js'
 
 const log = createLogger('Messages')
 
+const MAX_REACTIONS_PER_USER_PER_MESSAGE = 20
+const THREAD_DEFAULT_LIMIT = 50
+const THREAD_MAX_LIMIT = 100
+
 // Helper: attach attachments to a list of messages
 async function attachAttachments(msgs: { id: string; [k: string]: unknown }[]) {
   if (msgs.length === 0) return msgs
@@ -378,7 +382,7 @@ messageRoutes.post('/:id/reactions', async (c) => {
       .select({ count: sql<number>`count(*)::int` })
       .from(messageReactions)
       .where(and(eq(messageReactions.messageId, messageId), eq(messageReactions.userId, userId)))
-    if (reactionCount >= 20) {
+    if (reactionCount >= MAX_REACTIONS_PER_USER_PER_MESSAGE) {
       return c.json({ ok: false, error: 'Maximum reactions per message reached' }, 400)
     }
 
@@ -759,7 +763,10 @@ messageRoutes.get('/:id/thread', async (c) => {
 
   // Pagination: cursor-based using createdAt
   const cursor = c.req.query('cursor')
-  const limitParam = Math.min(Number(c.req.query('limit') || 50), 100)
+  const limitParam = Math.min(
+    Number(c.req.query('limit') || THREAD_DEFAULT_LIMIT),
+    THREAD_MAX_LIMIT,
+  )
 
   const conditions = [eq(messages.replyToId, messageId)]
   if (cursor) {
