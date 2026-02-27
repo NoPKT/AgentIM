@@ -122,6 +122,25 @@ describe('sanitizeContent', () => {
     assert.ok(!result.includes('data:text/html'), 'data: scheme should be removed')
   })
 
+  // Unquoted dangerous URL scheme stripping
+  it('neutralizes unquoted javascript: URLs in href', () => {
+    const input = '<a href=javascript:alert(1)>link</a>'
+    const result = sanitizeContent(input)
+    assert.ok(!result.includes('javascript:'), 'unquoted javascript: scheme should be removed')
+  })
+
+  it('neutralizes unquoted data: URLs in src', () => {
+    const input = '<img src=data:text/html,<script>alert(1)</script>>'
+    const result = sanitizeContent(input)
+    assert.ok(!result.includes('data:text/html'), 'unquoted data: scheme should be removed')
+  })
+
+  it('neutralizes unquoted vbscript: URLs in href', () => {
+    const input = '<a href=vbscript:msgbox(1)>link</a>'
+    const result = sanitizeContent(input)
+    assert.ok(!result.includes('vbscript:'), 'unquoted vbscript: scheme should be removed')
+  })
+
   // Legitimate content preservation
   it('preserves legitimate code content like Array<string>', () => {
     const input = 'Use `Array<string>` for typed arrays'

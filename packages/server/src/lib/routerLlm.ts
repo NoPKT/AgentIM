@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { config, getConfigSync } from '../config.js'
 import { createLogger } from './logger.js'
+import { getRedis, isRedisEnabled } from './redis.js'
 import type { RouterConfig } from './routerConfig.js'
 
 const log = createLogger('RouterLLM')
@@ -14,8 +15,14 @@ const MAX_ROUTER_AGENTS = Math.max(1, parseInt(process.env.ROUTER_LLM_MAX_AGENTS
 // (return null) without hitting the upstream. After the window expires, one
 // probe request is allowed through (half-open). If it succeeds the circuit
 // closes; if it fails it re-opens.
+//
+// State is persisted to Redis (when available) so that all server processes
+// share the same circuit state. Without Redis, each process maintains its
+// own in-memory state (acceptable for single-process deployments).
 const CB_FAILURE_THRESHOLD = 5
 const CB_OPEN_DURATION_MS = 60_000 // 1 minute
+const CB_REDIS_PREFIX = 'cb:'
+const CB_REDIS_TTL_SEC = Math.ceil((CB_OPEN_DURATION_MS / 1000) * 2) // 2x open duration
 
 interface CircuitState {
   failures: number
@@ -34,7 +41,43 @@ function getCircuit(key: string): CircuitState {
   return c
 }
 
-function shouldAllowRequest(key: string): boolean {
+async function syncCircuitToRedis(key: string, c: CircuitState): Promise<void> {
+  if (!isRedisEnabled()) return
+  try {
+    const redis = getRedis()
+    await redis.set(
+      `${CB_REDIS_PREFIX}${key}`,
+      JSON.stringify({ failures: c.failures, state: c.state, openedAt: c.openedAt }),
+      'EX',
+      CB_REDIS_TTL_SEC,
+    )
+  } catch {
+    // Redis unavailable — circuit breaker continues with in-memory state
+  }
+}
+
+async function loadCircuitFromRedis(key: string): Promise<CircuitState | null> {
+  if (!isRedisEnabled()) return null
+  try {
+    const redis = getRedis()
+    const raw = await redis.get(`${CB_REDIS_PREFIX}${key}`)
+    if (!raw) return null
+    return JSON.parse(raw) as CircuitState
+  } catch {
+    return null
+  }
+}
+
+async function shouldAllowRequest(key: string): Promise<boolean> {
+  // Merge remote state from Redis for cross-process consistency
+  const remote = await loadCircuitFromRedis(key)
+  if (remote) {
+    const local = circuits.get(key)
+    if (!local || remote.openedAt > local.openedAt) {
+      circuits.set(key, remote)
+    }
+  }
+
   const c = getCircuit(key)
   if (c.state === 'closed') return true
   if (c.state === 'open') {
@@ -48,13 +91,14 @@ function shouldAllowRequest(key: string): boolean {
   return false
 }
 
-function recordSuccess(key: string): void {
+async function recordSuccess(key: string): Promise<void> {
   const c = getCircuit(key)
   c.failures = 0
   c.state = 'closed'
+  await syncCircuitToRedis(key, c)
 }
 
-function recordFailure(key: string): void {
+async function recordFailure(key: string): Promise<void> {
   const c = getCircuit(key)
   c.failures++
   if (c.failures >= CB_FAILURE_THRESHOLD || c.state === 'half-open') {
@@ -62,6 +106,7 @@ function recordFailure(key: string): void {
     c.openedAt = Date.now()
     log.warn(`Circuit breaker opened for LLM endpoint "${key}" after ${c.failures} failures`)
   }
+  await syncCircuitToRedis(key, c)
 }
 
 const llmResponseSchema = z.object({
@@ -144,7 +189,7 @@ export async function selectAgents(
 
   // Circuit breaker check: fail fast when the LLM endpoint is known to be down
   const cbKey = routerConfig.llmBaseUrl
-  if (!shouldAllowRequest(cbKey)) {
+  if (!(await shouldAllowRequest(cbKey))) {
     log.debug(`Circuit breaker open for ${cbKey}, skipping LLM call`)
     return null
   }
@@ -211,7 +256,7 @@ export async function selectAgents(
       log.warn(
         `Router LLM ${isTimeout ? 'timeout' : 'network error'}: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
       )
-      recordFailure(cbKey)
+      await recordFailure(cbKey)
       return null
     } finally {
       clearTimeout(timeout)
@@ -219,7 +264,7 @@ export async function selectAgents(
 
     if (!res.ok) {
       log.warn(`Router LLM HTTP error: status ${res.status} ${res.statusText}`)
-      recordFailure(cbKey)
+      await recordFailure(cbKey)
       return null
     }
 
@@ -265,10 +310,10 @@ export async function selectAgents(
 
     // Validate that returned IDs exist in the agent list
     const validIds = new Set(agents.map((a) => a.id))
-    recordSuccess(cbKey)
+    await recordSuccess(cbKey)
     return parsed.agentIds.filter((id) => validIds.has(id))
   } catch (err) {
-    recordFailure(cbKey)
+    await recordFailure(cbKey)
     log.warn(`Router LLM unexpected error: ${err instanceof Error ? err.message : String(err)}`)
     return null
   }

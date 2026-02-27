@@ -6,7 +6,7 @@ Thank you for your interest in contributing to AgentIM. This guide covers the pr
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - pnpm 10+
 - PostgreSQL 16+
 - Redis 7+
@@ -224,6 +224,28 @@ Pull requests with missing locale updates will not be merged.
 - **Feature requests**: Use the [feature request template](https://github.com/NoPKT/AgentIM/issues/new?template=feature_request.yml)
 - **Questions**: Open a [GitHub Discussion](https://github.com/NoPKT/AgentIM/discussions) or file an issue
 - **Documentation**: See [docs/](docs/) for deployment, WebSocket protocol, adapter guide, and troubleshooting
+
+## Release Process
+
+AgentIM follows [Semantic Versioning](https://semver.org/) (0.x.y during pre-1.0 development).
+
+### How releases work
+
+1. **Development**: All changes accumulate under `[Unreleased]` in `CHANGELOG.md`.
+2. **Prepare release**: When ready to release, move `[Unreleased]` content into a versioned section (e.g. `[0.1.0] - 2026-02-27`) and update `version` fields in all `package.json` files.
+3. **Tag and push**: Create a signed git tag matching the version (`git tag v0.1.0`) and push it (`git push origin v0.1.0`).
+4. **CI pipeline**: Pushing a `v*` tag triggers the release workflow which:
+   - Runs the full CI pipeline (build, test, E2E)
+   - Builds and pushes multi-arch Docker images to GHCR
+   - Publishes `@agentim/shared` and `agentim` CLI to npm (via OIDC)
+   - Creates a GitHub Release with auto-generated notes
+   - Scans the Docker image with Trivy
+
+### Important notes
+
+- **Only maintainers** create git tags and trigger releases.
+- **Never** create tags without explicit approval from a maintainer.
+- **External deployment templates** (Railway template `9S4Cvc`, Northflank template `6992c4abb87da316695ce04f`) must be manually updated when a release introduces new required environment variables or infrastructure changes. Render (`render.yaml`) and Docker (`docker-compose.yml`) auto-sync with the repository.
 
 ## License
 

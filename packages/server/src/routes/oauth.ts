@@ -37,7 +37,7 @@ const STATE_TTL_SEC = Math.ceil(STATE_TTL_MS / 1000)
 const memoryStates = new Map<string, { provider: OAuthProvider; expiresAt: number }>()
 const MAX_PENDING_STATES = 1000
 
-// Periodically clean expired in-memory states
+// Periodically clean expired in-memory states (every 2 minutes for tighter TTL enforcement)
 let oauthStateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(
   () => {
     const now = Date.now()
@@ -45,7 +45,7 @@ let oauthStateCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(
       if (val.expiresAt < now) memoryStates.delete(key)
     }
   },
-  5 * 60 * 1000,
+  2 * 60 * 1000,
 )
 oauthStateCleanupTimer.unref()
 
