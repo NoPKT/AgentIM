@@ -14,7 +14,7 @@ function getEncryptionKey(): Buffer | null {
   if (b64.length === 32) return b64
   // Accept any string by deriving a 32-byte AES key via SHA-256.
   // ENCRYPTION_KEY is designed to be a machine-generated high-entropy random
-  // value (e.g. `openssl rand -base64 32`), not a user-supplied password.
+  // value (e.g. `openssl rand -hex 32`), not a user-supplied password.
   // SHA-256 is safe for length-normalising high-entropy keys — a KDF such as
   // PBKDF2 or scrypt is only needed when the input has low entropy (e.g. a
   // human-chosen passphrase). config.ts already enforces a minimum of 32

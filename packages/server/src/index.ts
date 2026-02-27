@@ -106,7 +106,7 @@ async function seedAdmin() {
     if (pwNoDigit) missing.push('a digit')
     if (pwNoSpecial) missing.push('a special character')
     log.fatal(
-      `ADMIN_PASSWORD does not meet minimum complexity requirements: ${missing.join(', ')}. Example: ADMIN_PASSWORD=$(openssl rand -base64 16)`,
+      `ADMIN_PASSWORD does not meet minimum complexity requirements: ${missing.join(', ')}. Example: ADMIN_PASSWORD=$(openssl rand -hex 16)`,
     )
     process.exit(1)
   } else if (config.adminPassword.length < 8) {

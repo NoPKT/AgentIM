@@ -18,7 +18,7 @@ else
   PORT="${PORT:-3000}"
   JWT_SECRET=$(openssl rand -hex 32)
   ENCRYPTION_KEY=$(openssl rand -hex 32)
-  POSTGRES_PASSWORD=$(openssl rand -base64 16)
+  POSTGRES_PASSWORD=$(openssl rand -hex 16)
   ADMIN_PASSWORD=$(generate_password)
 
   cat > "$ENV_FILE" <<EOF

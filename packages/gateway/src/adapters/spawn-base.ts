@@ -11,15 +11,18 @@ import { createLogger } from '../lib/logger.js'
 
 const envLog = createLogger('EnvFilter')
 
-const PROCESS_TIMEOUT_MS = Math.max(
-  30_000,
-  parseInt(process.env.AGENTIM_PROCESS_TIMEOUT_MS ?? '', 10) || 5 * 60 * 1000,
-) // default 5 minutes, minimum 30 seconds
+const MAX_PROCESS_TIMEOUT_MS = 2 * 60 * 60 * 1000 // 2 hours hard cap
+const MAX_ABSOLUTE_TIMEOUT_MS = 4 * 60 * 60 * 1000 // 4 hours hard cap
 
-const ABSOLUTE_TIMEOUT_MS = Math.max(
-  60_000,
-  parseInt(process.env.AGENTIM_ABSOLUTE_TIMEOUT_MS ?? '', 10) || 15 * 60 * 1000,
-) // default 15 minutes, minimum 1 minute
+const PROCESS_TIMEOUT_MS = Math.min(
+  MAX_PROCESS_TIMEOUT_MS,
+  Math.max(30_000, parseInt(process.env.AGENTIM_PROCESS_TIMEOUT_MS ?? '', 10) || 5 * 60 * 1000),
+) // default 5 minutes, min 30s, max 2h
+
+const ABSOLUTE_TIMEOUT_MS = Math.min(
+  MAX_ABSOLUTE_TIMEOUT_MS,
+  Math.max(60_000, parseInt(process.env.AGENTIM_ABSOLUTE_TIMEOUT_MS ?? '', 10) || 15 * 60 * 1000),
+) // default 15 minutes, min 1m, max 4h
 const STDERR_MAX_BUFFER_SIZE = 5 * 1024 * 1024 // 5 MB
 
 /**

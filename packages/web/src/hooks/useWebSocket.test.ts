@@ -117,7 +117,6 @@ function captureMessageHandler(): (msg: ServerMessage) => void {
 /** Capture the onReconnect handler. */
 function captureReconnectHandler(): () => void {
   let handler: (() => void) | null = null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockOnReconnect.mockImplementation(((h: () => void) => {
     handler = h
     return vi.fn()

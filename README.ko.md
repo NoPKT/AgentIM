@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # 필수 시크릿 설정
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # 원클릭 시작 (PostgreSQL + Redis + AgentIM)
@@ -117,11 +117,11 @@ Web UI는 **http://localhost:5173**, API 서버는 **http://localhost:3000**.
 
 | 변수             | 필수   | 기본값                      | 설명                                                    |
 | ---------------- | ------ | --------------------------- | ------------------------------------------------------- |
-| `JWT_SECRET`     | 예     | —                           | JWT 토큰 시크릿. 생성 방법: `openssl rand -base64 32`   |
+| `JWT_SECRET`     | 예     | —                           | JWT 토큰 시크릿. 생성 방법: `openssl rand -hex 32`   |
 | `ADMIN_PASSWORD` | 예     | —                           | 관리자 계정 비밀번호                                    |
 | `DATABASE_URL`   | 예     | `postgresql://...localhost` | PostgreSQL 연결 문자열                                  |
 | `REDIS_URL`      | 예     | `redis://localhost:6379`    | Redis 연결 문자열                                       |
-| `ENCRYPTION_KEY` | 프로덕션 | —                         | 암호화 키. 생성 방법: `openssl rand -base64 32`         |
+| `ENCRYPTION_KEY` | 프로덕션 | —                         | 암호화 키. 생성 방법: `openssl rand -hex 32`         |
 | `PORT`           | 아니오 | `3000`                      | 서버 포트                                               |
 | `CORS_ORIGIN`    | 프로덕션 | `localhost:5173`          | 허용된 CORS 오리진 (프로덕션에서 **필수**)              |
 | `ADMIN_USERNAME` | 아니오 | `admin`                     | 관리자 사용자 이름                                      |

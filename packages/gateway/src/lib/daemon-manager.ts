@@ -66,6 +66,17 @@ function isAgentimProcess(pid: number): boolean {
           (arg.includes('agentim') && arg.includes('daemon')),
       )
     }
+    if (platform() === 'win32') {
+      // Windows: use WMIC to query process command line by PID
+      const output = execSync(
+        `wmic process where "ProcessId=${pid}" get CommandLine /format:list`,
+        {
+          encoding: 'utf-8',
+          timeout: 5000,
+        },
+      ).trim()
+      return /\bagentim\b/i.test(output) || /cli\.[jt]s\b.*\bdaemon\b/i.test(output)
+    }
     // macOS / other Unix: use ps with full argument list
     const output = execSync(`ps -p ${pid} -o args=`, {
       encoding: 'utf-8',

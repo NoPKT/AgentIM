@@ -60,8 +60,8 @@ git clone https://github.com/NoPKT/AgentIM.git
 cd AgentIM/docker
 
 # 必要なシークレットを設定
-export JWT_SECRET=$(openssl rand -base64 32)
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
+export JWT_SECRET=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
 export ADMIN_PASSWORD='YourStrongPassword!'
 
 # ワンクリックで起動（PostgreSQL + Redis + AgentIM）
@@ -117,11 +117,11 @@ Web UI は **http://localhost:5173**、API サーバーは **http://localhost:30
 
 | 変数             | 必須   | デフォルト                  | 説明                                                          |
 | ---------------- | ------ | --------------------------- | ------------------------------------------------------------- |
-| `JWT_SECRET`     | はい   | —                           | JWT トークンシークレット。生成方法：`openssl rand -base64 32` |
+| `JWT_SECRET`     | はい   | —                           | JWT トークンシークレット。生成方法：`openssl rand -hex 32` |
 | `ADMIN_PASSWORD` | はい   | —                           | 管理者アカウントのパスワード                                  |
 | `DATABASE_URL`   | はい   | `postgresql://...localhost` | PostgreSQL 接続文字列                                         |
 | `REDIS_URL`      | はい   | `redis://localhost:6379`    | Redis 接続文字列                                              |
-| `ENCRYPTION_KEY` | 本番   | —                           | 暗号化キー。生成方法：`openssl rand -base64 32`              |
+| `ENCRYPTION_KEY` | 本番   | —                           | 暗号化キー。生成方法：`openssl rand -hex 32`              |
 | `PORT`           | いいえ | `3000`                      | サーバーポート                                                |
 | `CORS_ORIGIN`    | 本番   | `localhost:5173`            | 許可する CORS オリジン（本番環境では**必須**）                |
 | `ADMIN_USERNAME` | いいえ | `admin`                     | 管理者ユーザー名                                              |

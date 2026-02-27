@@ -114,12 +114,16 @@ authRoutes.post('/login', authRateLimit, async (c) => {
     return c.json({ ok: false, error: 'Invalid credentials' }, 401)
   }
 
-  // Reset failed attempts on successful login
+  // Reset failed attempts on successful login (best-effort; login succeeds regardless)
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-    await db
-      .update(users)
-      .set({ failedLoginAttempts: 0, lockedUntil: null })
-      .where(eq(users.id, user.id))
+    try {
+      await db
+        .update(users)
+        .set({ failedLoginAttempts: 0, lockedUntil: null })
+        .where(eq(users.id, user.id))
+    } catch {
+      // Non-critical: login still succeeds; counter resets on next successful login
+    }
   }
 
   const accessToken = await signAccessToken({ sub: user.id, username: user.username })

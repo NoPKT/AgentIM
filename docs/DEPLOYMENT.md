@@ -56,8 +56,8 @@ cp .env.example .env
 Edit `.env` — **required** variables:
 
 ```bash
-JWT_SECRET=$(openssl rand -base64 32)
-ENCRYPTION_KEY=$(openssl rand -base64 32)
+JWT_SECRET=$(openssl rand -hex 32)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
 ADMIN_PASSWORD=YourStrongPassword123
 CORS_ORIGIN=https://your-domain.com
 ```
@@ -162,7 +162,7 @@ agentim claude /path/to/project
 
 | Variable             | Default                | Required       | Description                                                               |
 | -------------------- | ---------------------- | -------------- | ------------------------------------------------------------------------- |
-| `JWT_SECRET`         | `dev-secret-change-me` | **Production** | Server refuses to start with default value. Use `openssl rand -base64 32` |
+| `JWT_SECRET`         | `dev-secret-change-me` | **Production** | Server refuses to start with default value. Use `openssl rand -hex 32` |
 | `JWT_ACCESS_EXPIRY`  | `15m`                  | No             | Access token TTL                                                          |
 | `JWT_REFRESH_EXPIRY` | `7d`                   | No             | Refresh token TTL                                                         |
 | `ADMIN_USERNAME`     | `admin`                | No             | Admin user (auto-created on startup)                                      |
@@ -205,8 +205,8 @@ agentim claude /path/to/project
 
 ## Security Checklist
 
-- [ ] **`JWT_SECRET`**: Strong random value (`openssl rand -base64 32`)
-- [ ] **`ENCRYPTION_KEY`**: Strong random value (`openssl rand -base64 32`)
+- [ ] **`JWT_SECRET`**: Strong random value (`openssl rand -hex 32`)
+- [ ] **`ENCRYPTION_KEY`**: Strong random value (`openssl rand -hex 32`)
 - [ ] **`ADMIN_PASSWORD`**: Complex password
 - [ ] **`CORS_ORIGIN`**: Set to your frontend domain (e.g. `https://app.example.com`)
 - [ ] **`DATABASE_URL`**: Dedicated user with strong password
@@ -223,7 +223,7 @@ Changing `JWT_SECRET` invalidates **all existing access and refresh tokens** —
 
 ```bash
 # 1. Generate a new secret
-NEW_JWT_SECRET=$(openssl rand -base64 32)
+NEW_JWT_SECRET=$(openssl rand -hex 32)
 
 # 2. Update your .env or environment configuration
 # Replace the old JWT_SECRET value with the new one
@@ -443,15 +443,56 @@ pm2 restart agentim-server                 # 4. Restart (auto-migrates)
 - Orphan upload files are cleaned periodically
 - Agent rate limit keys auto-expire via Redis TTL
 
+## Fresh Installation Verification
+
+Use this checklist to verify that a brand-new (from-zero) deployment is fully functional.
+
+### 1. Cold-start database migration test
+
+Destroy all data and re-create the environment to confirm migrations apply cleanly from scratch:
+
+```bash
+# Docker Compose (WARNING: destroys ALL data including uploads)
+docker compose down -v
+docker compose up -d
+
+# Verify the server is healthy
+curl http://localhost:3000/api/health
+# Expected: {"ok":true,"checks":{"database":true,"redis":true}}
+```
+
+### 2. Admin user verification
+
+Confirm the admin account was seeded correctly by logging in:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"YOUR_ADMIN_PASSWORD"}'
+# Expected: 200 response with access and refresh tokens
+```
+
+Replace `YOUR_ADMIN_PASSWORD` with the value of your `ADMIN_PASSWORD` environment variable.
+
+### 3. First-run deployment checklist
+
+After starting a new instance for the first time, verify each item:
+
+- [ ] **Migrations applied** — server logs contain `Migrations applied` (or `No pending migrations`). Confirm via `/api/health` returning `"database": true`.
+- [ ] **Admin user exists** — login succeeds with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults to `admin` / value from env).
+- [ ] **CORS_ORIGIN is correct** — set to your production frontend URL (not `*`, which causes a fatal exit in production).
+- [ ] **Upload directory writable** — `UPLOAD_DIR` (default `./uploads`) exists and is writable by the server process. Docker Compose mounts this as a named volume automatically.
+- [ ] **WebSocket connectivity** — open the web UI in a browser, then check the browser console for a successful WS connection (`WebSocket connected` or equivalent). If using a reverse proxy, ensure upgrade headers are forwarded (see the Nginx config above).
+
 ## Troubleshooting
 
 ### Server won't start
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `JWT_SECRET is missing or too short` | Missing or weak JWT secret in production | Set `JWT_SECRET=$(openssl rand -base64 32)` |
+| `JWT_SECRET is missing or too short` | Missing or weak JWT secret in production | Set `JWT_SECRET=$(openssl rand -hex 32)` |
 | `CORS_ORIGIN must be set` | Empty or wildcard CORS in production | Set `CORS_ORIGIN=https://your-domain.com` |
-| `ENCRYPTION_KEY must be exactly 32 bytes` | Invalid key length | Regenerate: `ENCRYPTION_KEY=$(openssl rand -base64 32)` |
+| `ENCRYPTION_KEY must be exactly 32 bytes` | Invalid key length | Regenerate: `ENCRYPTION_KEY=$(openssl rand -hex 32)` |
 | `DATABASE_URL must be set in production` | Missing database config | Set `DATABASE_URL=postgresql://user:pass@host:5432/agentim` |
 | `Upload directory is not writable` | Permission issue on upload dir | `chmod 755 ./uploads` or check Docker volume mount |
 
