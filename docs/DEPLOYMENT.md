@@ -522,7 +522,7 @@ docker compose ps redis
 - **Behind a reverse proxy**: Ensure WebSocket upgrade headers are forwarded (see Nginx config above)
 - **CORS mismatch**: The `CORS_ORIGIN` must match the browser's origin exactly
 - **`TRUST_PROXY`**: Set to `true` when behind a reverse proxy so the server reads `X-Forwarded-For` headers correctly
-- **Auth timeout**: Clients must authenticate within 10 seconds of connecting or the server closes the connection (code `4001`)
+- **Auth timeout**: Clients must authenticate within 5 seconds of connecting or the server closes the connection (code `4001`)
 
 ### Agent not receiving messages
 

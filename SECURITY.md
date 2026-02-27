@@ -339,8 +339,6 @@ Error tracking via Sentry is supported when `SENTRY_DSN` is configured. Unhandle
 
 ### Current Limitations
 
-- **No OAuth/OIDC**: Authentication is username/password only. OAuth 2.0 / OpenID Connect integration is planned for a future release.
-- **No Multi-Factor Authentication (MFA)**: There is currently no TOTP, WebAuthn, or SMS-based second factor.
 - **No IP Allowlisting**: There is no mechanism to restrict API access to specific IP ranges.
 - **Redis recommended but not enforced**: Redis is strongly recommended for production but not required. Without Redis:
   - Token revocation is process-local only (cross-process revocations are stored in PostgreSQL but checked asynchronously).
@@ -350,7 +348,6 @@ Error tracking via Sentry is supported when `SENTRY_DSN` is configured. Unhandle
 
 ### Planned Improvements
 
-- OAuth 2.0 / OIDC provider support (Google, GitHub, etc.)
-- TOTP-based MFA
+- Full OAuth 2.0 / OIDC provider support (Google, GitHub, etc.) — partial implementation exists
 - IP allowlisting for admin endpoints
 - Hardware security key (WebAuthn) support
