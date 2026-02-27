@@ -67,23 +67,28 @@ export function sanitizeContent(input: string): string {
     result = result.replace(pattern, '')
   }
 
-  // Within each HTML opening tag, strip two classes of dangerous content:
+  // Within each HTML opening tag, strip three classes of dangerous content:
   //   1. Event-handler attributes (onclick=…, onload=…, onerror=…, …)
-  //   2. Dangerous URL schemes in href/src/action/formaction attributes
+  //   2. Dangerous URL schemes in quoted href/src/action/formaction attributes
   //      (javascript:, vbscript:, data: — covers stored-XSS via pseudo-protocols)
+  //   3. Dangerous URL schemes in unquoted href/src/action/formaction attributes
+  //      (defense-in-depth — browsers normalize these to quoted form, but strip
+  //      server-side as well to protect non-browser API consumers)
   //
   // URL-scheme stripping notes:
   //   • Requires \s+ before the attribute name so that substrings like `data-href`
   //     (word boundary after `-` would also satisfy \b) are NOT matched.
-  //   • Only matches quoted attribute values ("…" / '…') to avoid false positives
-  //     from attribute values that happen to contain the text `href=javascript:…`
-  //     (e.g. title="see href=javascript:bad").  Unquoted dangerous URIs are rare
-  //     in practice and are caught by client-side rehype-sanitize.
+  //   • Quoted and unquoted values are handled in separate passes to avoid
+  //     false positives from prose containing `href=javascript:…`.
   result = result.replace(/<[a-zA-Z][^>]*>/g, (tag) =>
     tag
       .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
       .replace(
         /(\s+(?:href|src|action|formaction)\s*=\s*)(?:"(?:javascript|vbscript|data):[^"]*"|'(?:javascript|vbscript|data):[^']*')/gi,
+        '$1""',
+      )
+      .replace(
+        /(\s+(?:href|src|action|formaction)\s*=\s*)(?:javascript|vbscript|data):[^\s>"']*/gi,
         '$1""',
       ),
   )

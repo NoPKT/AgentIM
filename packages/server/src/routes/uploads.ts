@@ -195,12 +195,28 @@ uploadRoutes.post('/avatar', async (c) => {
   const ext = MIME_TO_EXT[file.type] || extname(file.name) || '.jpg'
   const storedFilename = `avatar_${userId}_${Date.now()}${ext}`
 
-  // Remove previous avatar files with different extensions to prevent storage leakage
+  // Write new file first (safe — worst case is a temporary orphan)
+  await getStorage().write(storedFilename, buffer, file.type)
+
+  const avatarUrl = `/uploads/${storedFilename}`
+  const now = new Date().toISOString()
+
+  // Update DB to point to the new file
+  await db.update(users).set({ avatarUrl, updatedAt: now }).where(eq(users.id, userId))
+
+  // Clean up old avatar files. Re-read the DB to get the winning URL in case of
+  // concurrent uploads — only delete files that don't match the DB-confirmed URL.
   const prefix = `avatar_${userId}`
   try {
+    const [current] = await db
+      .select({ avatarUrl: users.avatarUrl })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    const currentFilename = current?.avatarUrl?.replace(/^\/uploads\//, '')
     const files = await getStorage().list(prefix)
     for (const f of files) {
-      if (f !== storedFilename) {
+      if (f !== currentFilename) {
         await getStorage()
           .delete(f)
           .catch((err: unknown) => {
@@ -211,15 +227,8 @@ uploadRoutes.post('/avatar', async (c) => {
       }
     }
   } catch {
-    // Storage may not be initialized yet; write below will create the file
+    // Storage cleanup is best-effort; orphan cleanup will catch any leftovers
   }
-
-  await getStorage().write(storedFilename, buffer, file.type)
-
-  const avatarUrl = `/uploads/${storedFilename}`
-  const now = new Date().toISOString()
-
-  await db.update(users).set({ avatarUrl, updatedAt: now }).where(eq(users.id, userId))
 
   return c.json({ ok: true, data: { avatarUrl } })
 })
