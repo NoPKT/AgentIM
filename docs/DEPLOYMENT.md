@@ -6,8 +6,8 @@
 | ---------------- | --------------- | --------------------------------------------------- |
 | Node.js          | >= 20           | Runtime                                             |
 | pnpm             | 10.29.3         | Package manager (locked via `packageManager` field) |
-| PostgreSQL       | 16              | Primary database                                    |
-| Redis            | 7               | Cache and real-time messaging                       |
+| PostgreSQL       | 18              | Primary database                                    |
+| Redis            | 8               | Cache and real-time messaging                       |
 | Docker + Compose | Latest stable   | Docker deployment only                              |
 
 ## Redis Requirements
