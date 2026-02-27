@@ -1,4 +1,6 @@
-import { homedir, hostname, userInfo } from 'node:os'
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { homedir, hostname, platform, userInfo } from 'node:os'
 import { createHash, createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from 'node:crypto'
 
 // Application-specific fixed salt for PBKDF2 key derivation.
@@ -15,23 +17,66 @@ const PBKDF2_ITERATIONS = 600_000
 
 // Module-level cache for the expensive PBKDF2 key derivation.
 let _cachedMachineKey: Buffer | null = null
+let _cachedCompatKey: Buffer | null = null
 
 /**
- * Derive a machine-scoped 256-bit key using PBKDF2 from stable host identifiers.
- * This key is NOT secret but binds the stored tokens to this specific machine/user.
+ * Read a platform-specific stable machine identifier to add entropy beyond
+ * hostname/username/homedir (which are publicly discoverable).
+ *
+ * - Linux: `/etc/machine-id` (systemd, 128-bit hex)
+ * - macOS: `IOPlatformUUID` from IORegistry
+ * - Other: returns empty string (falls back to base material only)
+ */
+function getPlatformMachineId(): string {
+  try {
+    const os = platform()
+    if (os === 'linux') {
+      return readFileSync('/etc/machine-id', 'utf8').trim()
+    }
+    if (os === 'darwin') {
+      const output = execFileSync('ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], {
+        encoding: 'utf8',
+        timeout: 5000,
+      })
+      const match = output.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/)
+      return match?.[1] ?? ''
+    }
+    return ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Derive a machine-scoped 256-bit key using PBKDF2 from stable host identifiers
+ * including a platform-specific machine ID when available.
  *
  * Uses PBKDF2 with a fixed application-specific salt to make brute-force
  * enumeration of machine identifiers computationally expensive.
  *
- * The result is cached after the first call since the inputs (hostname, username,
- * homedir) are stable for the lifetime of a process.
+ * The result is cached after the first call since the inputs are stable
+ * for the lifetime of a process.
  */
 export function getMachineKey(): Buffer {
   if (_cachedMachineKey) return _cachedMachineKey
   const info = userInfo()
-  const material = `${hostname()}:${info.username}:${homedir()}`
+  const machineId = getPlatformMachineId()
+  const base = `${hostname()}:${info.username}:${homedir()}`
+  const material = machineId ? `${base}:${machineId}` : base
   _cachedMachineKey = pbkdf2Sync(material, PBKDF2_SALT, PBKDF2_ITERATIONS, 32, 'sha256')
   return _cachedMachineKey
+}
+
+/**
+ * Derive the backward-compatible PBKDF2 key (without platform machine ID).
+ * Used for decrypting tokens encrypted before the machine-ID enhancement.
+ */
+function getCompatMachineKey(): Buffer {
+  if (_cachedCompatKey) return _cachedCompatKey
+  const info = userInfo()
+  const material = `${hostname()}:${info.username}:${homedir()}`
+  _cachedCompatKey = pbkdf2Sync(material, PBKDF2_SALT, PBKDF2_ITERATIONS, 32, 'sha256')
+  return _cachedCompatKey
 }
 
 /**
@@ -91,9 +136,13 @@ export function decryptToken(encoded: string): string | null {
     const buf = Buffer.from(encoded, 'base64')
     if (buf.length < 28) return null // iv(12) + tag(16) minimum
 
-    // Try PBKDF2-derived key first (current)
+    // Try PBKDF2-derived key with machine ID first (current)
     const result = tryDecrypt(buf, getMachineKey())
     if (result !== null) return result
+
+    // Fall back to PBKDF2 key without machine ID (pre-machine-ID upgrade)
+    const compat = tryDecrypt(buf, getCompatMachineKey())
+    if (compat !== null) return compat
 
     // Fall back to legacy SHA-256 key for backward compatibility
     return tryDecrypt(buf, getLegacyMachineKey())

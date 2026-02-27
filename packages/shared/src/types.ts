@@ -19,6 +19,7 @@ import type {
   ServiceAgentType,
   ServiceAgentCategory,
   ServiceAgentStatus,
+  SlashCommandName,
 } from './constants.js'
 
 // ─── Core Entities ───
@@ -141,6 +142,11 @@ export interface MessageAttachment {
   url: string
 }
 
+/**
+ * Aggregated reaction on a message. The `userIds` and `usernames` arrays
+ * MUST have the same length — index i of each array corresponds to the
+ * same user.
+ */
 export interface MessageReaction {
   emoji: string
   userIds: string[]
@@ -264,6 +270,11 @@ export interface ServiceAgent {
   updatedAt: string
 }
 
+/** ServiceAgent with decrypted configuration, returned by single-resource GET endpoints. */
+export interface ServiceAgentWithConfig extends ServiceAgent {
+  config: Record<string, unknown>
+}
+
 // ─── OAuth ───
 
 export type OAuthProvider = 'github' | 'google'
@@ -282,8 +293,11 @@ export interface OAuthAccount {
 
 // ─── Slash Commands ───
 
+/** Client-side slash command definition. */
 export interface SlashCommand {
-  name: string
+  name: SlashCommandName
   description: string
   usage: string
+  /** Whether this command is handled purely on the client (true) or sent to the server (false). */
+  clientOnly: boolean
 }
