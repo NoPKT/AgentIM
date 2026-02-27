@@ -1472,13 +1472,23 @@ describe('WebSocket protocol boundary tests', () => {
   })
 
   it('validates CHUNK_TYPES contains expected values', () => {
-    assert.ok(CHUNK_TYPES.includes('text'))
-    assert.ok(CHUNK_TYPES.includes('thinking'))
-    assert.ok(CHUNK_TYPES.includes('tool_use'))
-    assert.ok(CHUNK_TYPES.includes('tool_result'))
-    assert.ok(CHUNK_TYPES.includes('error'))
-    assert.ok(CHUNK_TYPES.includes('workspace_status'))
-    assert.strictEqual(CHUNK_TYPES.length, 6)
+    const expectedChunkTypes = [
+      'text',
+      'thinking',
+      'tool_use',
+      'tool_result',
+      'error',
+      'workspace_status',
+    ]
+    // Ensure all expected types are present
+    for (const type of expectedChunkTypes) {
+      assert.ok(CHUNK_TYPES.includes(type))
+    }
+    // Ensure no unexpected types are present
+    assert.ok(
+      CHUNK_TYPES.every(type => expectedChunkTypes.includes(type)),
+      'CHUNK_TYPES contains unexpected values',
+    )
   })
 })
 
