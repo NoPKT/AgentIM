@@ -279,11 +279,12 @@ describe('Security', () => {
 
   describe('Rate limiting', () => {
     it('enforces login rate limit', async () => {
-      // Attempt many rapid login attempts
+      // Use a dedicated user to avoid rate-limiting admin for later tests
+      await registerUser('rate-limit-target')
       const results = []
       for (let i = 0; i < 25; i++) {
         const res = await api('POST', '/api/auth/login', {
-          username: 'admin',
+          username: 'rate-limit-target',
           password: 'WrongPass' + i,
         })
         results.push(res.status)
