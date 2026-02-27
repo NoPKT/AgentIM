@@ -38,6 +38,15 @@ describe('parseExpiryMs', () => {
     assert.equal(parseExpiryMs('10 s'), 10_000)
   })
 
+  it('returns default for negative values', () => {
+    assert.equal(parseExpiryMs('-5d'), DEFAULT_MS)
+    assert.equal(parseExpiryMs('-10s'), DEFAULT_MS)
+  })
+
+  it('returns default for very large values', () => {
+    assert.equal(parseExpiryMs('9999999999d'), DEFAULT_MS)
+  })
+
   it('returns 0 for zero value', () => {
     assert.equal(parseExpiryMs('0s'), 0)
   })
