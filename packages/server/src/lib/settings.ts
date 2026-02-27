@@ -61,6 +61,15 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     labelKey: 'adminSettings.logLevel',
     descKey: 'adminSettings.logLevelDesc',
   },
+  {
+    key: 'metrics.authEnabled',
+    group: 'general',
+    type: 'boolean',
+    defaultValue: process.env.NODE_ENV === 'production' ? 'true' : 'false',
+    envKey: 'METRICS_AUTH_ENABLED',
+    labelKey: 'adminSettings.metricsAuthEnabled',
+    descKey: 'adminSettings.metricsAuthEnabledDesc',
+  },
 
   // Security
   {
@@ -351,6 +360,17 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     labelKey: 'adminSettings.maxChainDepth',
     descKey: 'adminSettings.maxChainDepthDesc',
   },
+  {
+    key: 'router.llm.timeout',
+    group: 'aiRouter',
+    type: 'number',
+    defaultValue: '15000',
+    envKey: 'ROUTER_LLM_TIMEOUT_MS',
+    min: 1000,
+    max: 120000,
+    labelKey: 'adminSettings.routerLlmTimeout',
+    descKey: 'adminSettings.routerLlmTimeoutDesc',
+  },
 
   // Push Notifications (VAPID)
   {
@@ -410,6 +430,50 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     envKey: 'SENTRY_DSN',
     labelKey: 'adminSettings.sentryDsn',
     descKey: 'adminSettings.sentryDsnDesc',
+  },
+  {
+    key: 'cleanup.auditRetentionDays',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '90',
+    envKey: 'AUDIT_LOG_RETENTION_DAYS',
+    min: 1,
+    max: 3650,
+    labelKey: 'adminSettings.auditRetentionDays',
+    descKey: 'adminSettings.auditRetentionDaysDesc',
+  },
+  {
+    key: 'cleanup.auditInterval',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '86400000',
+    envKey: 'AUDIT_LOG_CLEANUP_INTERVAL',
+    min: 60000,
+    max: 86400000,
+    labelKey: 'adminSettings.auditCleanupInterval',
+    descKey: 'adminSettings.auditCleanupIntervalDesc',
+  },
+  {
+    key: 'cleanup.gatewayInterval',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '86400000',
+    envKey: 'GATEWAY_CLEANUP_INTERVAL',
+    min: 60000,
+    max: 86400000,
+    labelKey: 'adminSettings.gatewayCleanupInterval',
+    descKey: 'adminSettings.gatewayCleanupIntervalDesc',
+  },
+  {
+    key: 'cleanup.gatewayMaxOfflineDays',
+    group: 'maintenance',
+    type: 'number',
+    defaultValue: '30',
+    envKey: 'GATEWAY_MAX_OFFLINE_DAYS',
+    min: 1,
+    max: 365,
+    labelKey: 'adminSettings.gatewayMaxOfflineDays',
+    descKey: 'adminSettings.gatewayMaxOfflineDaysDesc',
   },
 ]
 

@@ -627,6 +627,23 @@ export const fr = {
       'Intervalle en millisecondes entre les exécutions de nettoyage des jetons expirés.',
     sentryDsn: 'DSN Sentry',
     sentryDsnDesc: 'DSN de suivi des erreurs Sentry. Laisser vide pour désactiver.',
+    auditRetentionDays: "Rétention des journaux d'audit (jours)",
+    auditRetentionDaysDesc:
+      "Nombre de jours de conservation des entrées du journal d'audit avant suppression automatique.",
+    auditCleanupInterval: "Nettoyage des journaux d'audit (ms)",
+    auditCleanupIntervalDesc:
+      "Intervalle en millisecondes entre les exécutions de nettoyage des journaux d'audit.",
+    gatewayCleanupInterval: 'Nettoyage des passerelles (ms)',
+    gatewayCleanupIntervalDesc:
+      'Intervalle en millisecondes entre les exécutions de nettoyage des passerelles zombies.',
+    gatewayMaxOfflineDays: 'Passerelle max hors ligne (jours)',
+    gatewayMaxOfflineDaysDesc:
+      'Les passerelles hors ligne depuis plus de ce nombre de jours sont automatiquement supprimées.',
+    routerLlmTimeout: 'Délai du routeur LLM (ms)',
+    routerLlmTimeoutDesc: "Délai d'expiration en millisecondes pour les requêtes de routage LLM.",
+    metricsAuthEnabled: 'Auth. des métriques activée',
+    metricsAuthEnabledDesc:
+      "Lorsqu'activé, /api/metrics nécessite un JWT valide. Activé par défaut en production.",
     vapidPublicKey: 'Clé publique VAPID',
     vapidPublicKeyDesc:
       'Clé publique pour Web Push (VAPID). Générer avec : npx web-push generate-vapid-keys',

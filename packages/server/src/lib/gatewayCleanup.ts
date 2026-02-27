@@ -1,7 +1,7 @@
 import { lt, and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { gateways, agents, roomMembers } from '../db/schema.js'
-import { config } from '../config.js'
+import { config, getConfigSync } from '../config.js'
 import { createLogger } from './logger.js'
 import { broadcastRoomUpdate, sendRoomContextToAllAgents } from '../ws/gatewayHandler.js'
 
@@ -12,9 +12,9 @@ const log = createLogger('GatewayCleanup')
  * Agents are cascade-deleted via the FK constraint. Orphaned roomMembers are cleaned up.
  */
 async function cleanupZombieGateways(): Promise<void> {
-  const cutoff = new Date(
-    Date.now() - config.gatewayMaxOfflineDays * 24 * 60 * 60 * 1000,
-  ).toISOString()
+  const maxOfflineDays =
+    getConfigSync<number>('cleanup.gatewayMaxOfflineDays') || config.gatewayMaxOfflineDays
+  const cutoff = new Date(Date.now() - maxOfflineDays * 24 * 60 * 60 * 1000).toISOString()
 
   // Find zombie gateways: disconnected before cutoff
   const zombies = await db

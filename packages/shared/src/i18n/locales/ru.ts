@@ -619,6 +619,21 @@ export const ru = {
     tokenIntervalDesc: 'Интервал в миллисекундах между запусками очистки истёкших токенов.',
     sentryDsn: 'DSN Sentry',
     sentryDsnDesc: 'DSN для отслеживания ошибок Sentry. Оставьте пустым для отключения.',
+    auditRetentionDays: 'Хранение журнала аудита (дни)',
+    auditRetentionDaysDesc:
+      'Количество дней хранения записей журнала аудита перед автоматическим удалением.',
+    auditCleanupInterval: 'Очистка журнала аудита (мс)',
+    auditCleanupIntervalDesc: 'Интервал в миллисекундах между запусками очистки журнала аудита.',
+    gatewayCleanupInterval: 'Очистка шлюзов (мс)',
+    gatewayCleanupIntervalDesc: 'Интервал в миллисекундах между запусками очистки зомби-шлюзов.',
+    gatewayMaxOfflineDays: 'Макс. время офлайна шлюза (дни)',
+    gatewayMaxOfflineDaysDesc:
+      'Шлюзы, находящиеся в офлайне дольше указанного количества дней, автоматически удаляются.',
+    routerLlmTimeout: 'Таймаут LLM маршрутизатора (мс)',
+    routerLlmTimeoutDesc: 'Таймаут в миллисекундах для запросов LLM-маршрутизации.',
+    metricsAuthEnabled: 'Аутентификация метрик',
+    metricsAuthEnabledDesc:
+      'При включении /api/metrics требует действительный JWT. По умолчанию включено в продакшене.',
     vapidPublicKey: 'Публичный ключ VAPID',
     vapidPublicKeyDesc:
       'Публичный ключ для Web Push (VAPID). Сгенерируйте: npx web-push generate-vapid-keys',

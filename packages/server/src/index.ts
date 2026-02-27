@@ -342,7 +342,8 @@ setActiveRoomsGetter(() => connectionManager.getStats().activeRooms)
 // to true in production). Set METRICS_AUTH_ENABLED=false explicitly to allow
 // unauthenticated Prometheus scrapes.
 app.get('/api/metrics', async (c) => {
-  if (config.metricsAuthEnabled) {
+  const metricsAuth = getConfigSync<boolean>('metrics.authEnabled') ?? config.metricsAuthEnabled
+  if (metricsAuth) {
     const authHeader = c.req.header('Authorization')
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!token) {
@@ -713,14 +714,14 @@ let auditCleanupTimer: ReturnType<typeof setInterval> | null = null
 function startAuditCleanup() {
   auditCleanupTimer = setInterval(async () => {
     try {
-      const cutoff = new Date(Date.now() - config.auditLogRetentionDays * 86400000).toISOString()
+      const retentionDays =
+        getConfigSync<number>('cleanup.auditRetentionDays') || config.auditLogRetentionDays
+      const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString()
       const result = await db.delete(auditLogs).where(lte(auditLogs.createdAt, cutoff))
       const { getAffectedRowCount } = await import('./lib/drizzleUtils.js')
       const deleted = getAffectedRowCount(result)
       if (deleted > 0) {
-        log.info(
-          `Purged ${deleted} audit log entries older than ${config.auditLogRetentionDays} days`,
-        )
+        log.info(`Purged ${deleted} audit log entries older than ${retentionDays} days`)
       }
     } catch (err) {
       log.error(`Failed to clean up audit logs: ${(err as Error).message}`)
