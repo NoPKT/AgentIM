@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Infrastructure & Deployment
 
 - Docker and Docker Compose deployment
+- **One-click deploy image-based**: Render, Railway, and Northflank templates now deploy from the pre-built `ghcr.io/nopkt/agentim:latest` Docker image instead of building from source — faster, more reliable, and uses the same CI-tested image
 - CI pipeline with GitHub Actions
 - Git pre-push hook for local CI validation before pushing
 - **PWA Offline Page**: Static offline fallback page for PWA
