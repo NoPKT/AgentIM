@@ -1,6 +1,6 @@
 # Multi-stage build: Build web + server, serve together
-FROM node:20.19-alpine AS base
-RUN npm install -g pnpm@10.29.3
+FROM node:24.14-alpine AS base
+RUN npm install -g pnpm@10.30.3
 
 # ── Build stage ──
 FROM base AS build
@@ -25,11 +25,11 @@ COPY packages/web/ packages/web/
 RUN pnpm build
 
 # ── Production stage ──
-FROM node:20.19-alpine AS production
+FROM node:24.14-alpine AS production
 LABEL org.opencontainers.image.source="https://github.com/nopkt/agentim"
 LABEL org.opencontainers.image.description="AgentIM - AI Agent Management Platform"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
-RUN npm install -g pnpm@10.29.3
+RUN npm install -g pnpm@10.30.3
 WORKDIR /app
 
 # Copy package files (include web stub so pnpm-workspace.yaml resolves cleanly)

@@ -4,10 +4,10 @@
 
 | Component        | Minimum Version | Notes                                               |
 | ---------------- | --------------- | --------------------------------------------------- |
-| Node.js          | >= 20           | Runtime                                             |
-| pnpm             | 10.29.3         | Package manager (locked via `packageManager` field) |
-| PostgreSQL       | 16              | Primary database                                    |
-| Redis            | 7               | Cache and real-time messaging                       |
+| Node.js          | >= 24           | Runtime                                             |
+| pnpm             | 10.30.3         | Package manager (locked via `packageManager` field) |
+| PostgreSQL       | 18              | Primary database                                    |
+| Redis            | 8               | Cache and real-time messaging                       |
 | Docker + Compose | Latest stable   | Docker deployment only                              |
 
 ## Redis Requirements
@@ -92,7 +92,7 @@ curl http://localhost:3000/api/health
 
 ```bash
 corepack enable
-corepack prepare pnpm@10.29.3 --activate
+corepack prepare pnpm@10.30.3 --activate
 
 git clone https://github.com/NoPKT/AgentIM.git agentim && cd agentim
 pnpm install

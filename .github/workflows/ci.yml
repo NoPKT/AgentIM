@@ -24,8 +24,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
-  PNPM_VERSION: '10.29.3'
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.30.3'
 
 jobs:
   build:
@@ -76,7 +76,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16.8-alpine
+        image: postgres:18.3-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -90,7 +90,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7.4-alpine
+        image: redis:8.0-alpine
         ports:
           - 6379:6379
         options: >-
@@ -147,7 +147,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16.8-alpine
+        image: postgres:18.3-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -161,7 +161,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7.4-alpine
+        image: redis:8.0-alpine
         ports:
           - 6379:6379
         options: >-
