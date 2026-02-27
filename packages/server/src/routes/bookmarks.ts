@@ -7,6 +7,9 @@ import { createBookmarkSchema } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
 
+const BOOKMARKS_DEFAULT_LIMIT = 50
+const BOOKMARKS_MAX_LIMIT = 100
+
 export const bookmarkRoutes = new Hono<AuthEnv>()
 
 bookmarkRoutes.use('*', authMiddleware)
@@ -16,7 +19,14 @@ bookmarkRoutes.use('/:id', validateIdParams)
 bookmarkRoutes.get('/', async (c) => {
   const userId = c.get('userId')
   const cursor = c.req.query('cursor')
-  const limit = Math.min(Math.max(parseInt(c.req.query('limit') ?? '50', 10) || 50, 1), 100)
+  const limit = Math.min(
+    Math.max(
+      parseInt(c.req.query('limit') ?? String(BOOKMARKS_DEFAULT_LIMIT), 10) ||
+        BOOKMARKS_DEFAULT_LIMIT,
+      1,
+    ),
+    BOOKMARKS_MAX_LIMIT,
+  )
 
   const conditions = cursor
     ? and(eq(bookmarks.userId, userId), lt(bookmarks.createdAt, cursor))

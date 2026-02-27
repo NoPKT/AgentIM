@@ -386,6 +386,9 @@ oauthRoutes.delete('/oauth/:provider/unlink', authMiddleware, async (c) => {
   return c.json({ ok: true })
 })
 
+const USERNAME_BASE_MAX_LENGTH = 40
+const USERNAME_MAX_SEQUENTIAL_ATTEMPTS = 100
+
 /** Generate a unique username from a display name or email prefix. */
 async function generateUniqueUsername(source: string): Promise<string> {
   // Sanitize: keep only alphanumeric and underscores, lowercase
@@ -393,7 +396,7 @@ async function generateUniqueUsername(source: string): Promise<string> {
     .split('@')[0]
     .replace(/[^a-zA-Z0-9_]/g, '')
     .toLowerCase()
-    .slice(0, 40)
+    .slice(0, USERNAME_BASE_MAX_LENGTH)
   if (!base) base = 'user'
 
   let username = base
@@ -407,7 +410,7 @@ async function generateUniqueUsername(source: string): Promise<string> {
     if (!existing) return username
     attempt++
     username = `${base}${attempt}`
-    if (attempt > 100) {
+    if (attempt > USERNAME_MAX_SEQUENTIAL_ATTEMPTS) {
       // Fallback to nanoid suffix
       return `${base}_${nanoid(6)}`
     }
