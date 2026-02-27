@@ -16,6 +16,7 @@ import { Button, Input, FormField } from '../components/ui.js'
 import { RouterFormDialog } from '../components/RouterFormDialog.js'
 import type { Router } from '@agentim/shared'
 import { OAUTH_PROVIDERS } from '@agentim/shared'
+import QRCode from 'qrcode'
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -43,6 +44,31 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  // 2FA state
+  const [totpSetupStep, setTotpSetupStep] = useState<'idle' | 'qr' | 'verify' | 'backup'>('idle')
+  const [totpSecret, setTotpSecret] = useState('')
+  const [totpQrDataUrl, setTotpQrDataUrl] = useState('')
+  const [totpVerifyCode, setTotpVerifyCode] = useState('')
+  const [totpBackupCodes, setTotpBackupCodes] = useState<string[]>([])
+  const [totpDisablePassword, setTotpDisablePassword] = useState('')
+  const [isTogglingTotp, setIsTogglingTotp] = useState(false)
+  const [totpEnabled, setTotpEnabled] = useState(false)
+
+  // Initialize 2FA status from user
+  useEffect(() => {
+    const loadTotpStatus = async () => {
+      try {
+        const res = await api.get<{ totpEnabled: boolean }>('/users/me')
+        if (res.ok && res.data) {
+          setTotpEnabled(!!res.data.totpEnabled)
+        }
+      } catch {
+        // Ignore — not critical
+      }
+    }
+    loadTotpStatus()
+  }, [])
 
   // Router state
   const routers = useRouterStore((s) => s.routers)
@@ -249,6 +275,64 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSetupTotp = async () => {
+    setIsTogglingTotp(true)
+    try {
+      const res = await api.post<{ secret: string; uri: string }>('/auth/setup-totp')
+      if (res.ok && res.data) {
+        setTotpSecret(res.data.secret)
+        const dataUrl = await QRCode.toDataURL(res.data.uri, { width: 256 })
+        setTotpQrDataUrl(dataUrl)
+        setTotpSetupStep('qr')
+      } else {
+        toast.error(res.error || t('common.error'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setIsTogglingTotp(false)
+    }
+  }
+
+  const handleVerifyTotpSetup = async () => {
+    setIsTogglingTotp(true)
+    try {
+      const res = await api.post<{ backupCodes: string[] }>('/auth/verify-totp-setup', {
+        code: totpVerifyCode,
+      })
+      if (res.ok && res.data) {
+        setTotpBackupCodes(res.data.backupCodes)
+        setTotpSetupStep('backup')
+        setTotpEnabled(true)
+        toast.success(t('settings.twoFactorEnabled'))
+      } else {
+        toast.error(res.error || t('auth.totpFailed'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setIsTogglingTotp(false)
+    }
+  }
+
+  const handleDisableTotp = async () => {
+    setIsTogglingTotp(true)
+    try {
+      const res = await api.post('/auth/disable-totp', { password: totpDisablePassword })
+      if (res.ok) {
+        setTotpEnabled(false)
+        setTotpDisablePassword('')
+        toast.success(t('settings.twoFactorDisabled'))
+      } else {
+        toast.error(res.error || t('common.error'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setIsTogglingTotp(false)
+    }
+  }
+
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode)
     localStorage.setItem('agentim_language', langCode)
@@ -438,6 +522,112 @@ export default function SettingsPage() {
                     : t('settings.changePassword')}
                 </Button>
               </div>
+            </div>
+          </div>
+
+          {/* Two-Factor Authentication Section */}
+          <div className="bg-surface rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('settings.twoFactorAuth')}
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">{t('settings.twoFactorAuthDesc')}</p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {totpEnabled && totpSetupStep === 'idle' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent">
+                      {t('settings.twoFactorEnabled')}
+                    </span>
+                  </div>
+                  <FormField label={t('settings.confirmDisable2fa')} htmlFor="totpDisablePassword">
+                    <Input
+                      id="totpDisablePassword"
+                      type="password"
+                      value={totpDisablePassword}
+                      onChange={(e) => setTotpDisablePassword(e.target.value)}
+                      autoComplete="current-password"
+                    />
+                  </FormField>
+                  <Button
+                    variant="danger"
+                    onClick={handleDisableTotp}
+                    disabled={isTogglingTotp || !totpDisablePassword}
+                  >
+                    {t('settings.disable2fa')}
+                  </Button>
+                </div>
+              ) : totpSetupStep === 'qr' ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-text-secondary">{t('settings.scanQrCode')}</p>
+                  <div className="flex justify-center">
+                    <img src={totpQrDataUrl} alt="TOTP QR Code" className="w-64 h-64" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-text-muted">{t('settings.orEnterManually')}</p>
+                    <code className="block text-sm bg-surface-secondary px-3 py-2 rounded-md font-mono break-all select-all">
+                      {totpSecret}
+                    </code>
+                  </div>
+                  <FormField label={t('settings.enterVerificationCode')} htmlFor="totpSetupCode">
+                    <Input
+                      id="totpSetupCode"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={totpVerifyCode}
+                      onChange={(e) => setTotpVerifyCode(e.target.value.replace(/\D/g, ''))}
+                      autoComplete="one-time-code"
+                      autoFocus
+                    />
+                  </FormField>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleVerifyTotpSetup}
+                      disabled={isTogglingTotp || totpVerifyCode.length !== 6}
+                    >
+                      {t('auth.verifyTotp')}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setTotpSetupStep('idle')
+                        setTotpVerifyCode('')
+                      }}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              ) : totpSetupStep === 'backup' ? (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    {t('settings.backupCodesTitle')}
+                  </h3>
+                  <p className="text-sm text-text-secondary">{t('settings.backupCodesDesc')}</p>
+                  <div className="bg-surface-secondary rounded-md p-4 grid grid-cols-2 gap-2">
+                    {totpBackupCodes.map((code) => (
+                      <code key={code} className="text-sm font-mono text-text-primary select-all">
+                        {code}
+                      </code>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setTotpSetupStep('idle')
+                      setTotpBackupCodes([])
+                      setTotpVerifyCode('')
+                    }}
+                  >
+                    {t('settings.backupCodesSaved')}
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={handleSetupTotp} disabled={isTogglingTotp}>
+                  {t('settings.enable2fa')}
+                </Button>
+              )}
             </div>
           </div>
 

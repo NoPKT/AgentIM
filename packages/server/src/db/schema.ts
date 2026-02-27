@@ -26,6 +26,10 @@ export const users = pgTable(
     role: text('role').notNull().default('user'), // 'admin' | 'user'
     failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
     lockedUntil: ts('locked_until'),
+    // TOTP 2FA
+    totpSecret: text('totp_secret'),
+    totpEnabled: boolean('totp_enabled').notNull().default(false),
+    totpBackupCodes: text('totp_backup_codes'), // JSON array of argon2 hashes
     // Per-user connection limits (null = use global default from config)
     maxWsConnections: integer('max_ws_connections'),
     maxGateways: integer('max_gateways'),

@@ -31,21 +31,22 @@ export function addStreamChunkAction(
   agentName: string,
   messageId: string,
   chunk: ParsedChunk,
-): Map<string, StreamingMessage> {
+): { streaming: Map<string, StreamingMessage>; truncated: boolean } {
   const next = new Map(streaming)
   const key = `${roomId}:${agentId}`
   const existing = next.get(key)
   const now = Date.now()
+  let truncated = false
   if (existing) {
-    const chunks =
-      existing.chunks.length >= MAX_CHUNKS_PER_STREAM
-        ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
-        : [...existing.chunks, chunk]
+    truncated = existing.chunks.length >= MAX_CHUNKS_PER_STREAM
+    const chunks = truncated
+      ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
+      : [...existing.chunks, chunk]
     next.set(key, { ...existing, chunks, lastChunkAt: now })
   } else {
     next.set(key, { messageId, agentId, agentName, chunks: [chunk], lastChunkAt: now })
   }
-  return next
+  return { streaming: next, truncated }
 }
 
 export function completeStreamAction(

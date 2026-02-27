@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
@@ -8,6 +9,9 @@ import { useAuthStore } from '../stores/auth.js'
 import { showNotification } from '../lib/notifications.js'
 import { toast } from '../stores/toast.js'
 import type { ServerMessage } from '@agentim/shared'
+
+/** Track stream keys that have already shown a buffer-overflow toast. */
+const truncationToasted = new Set<string>()
 
 export function useWebSocket() {
   const { t } = useTranslation()
@@ -77,7 +81,20 @@ export function useWebSocket() {
         }
         case 'server:message_chunk':
           try {
-            chat.addStreamChunk(msg.roomId, msg.agentId, msg.agentName, msg.messageId, msg.chunk)
+            const { truncated } = chat.addStreamChunk(
+              msg.roomId,
+              msg.agentId,
+              msg.agentName,
+              msg.messageId,
+              msg.chunk,
+            )
+            if (truncated) {
+              const streamKey = `${msg.roomId}:${msg.agentId}`
+              if (!truncationToasted.has(streamKey)) {
+                truncationToasted.add(streamKey)
+                toast.info(i18next.t('chat.streamBufferOverflow'))
+              }
+            }
           } catch (err) {
             console.error('[WS] Error handling message:', msg.type, err)
           }
@@ -85,6 +102,8 @@ export function useWebSocket() {
         case 'server:message_complete': {
           try {
             chat.completeStream(msg.message)
+            // Clean up truncation toast tracking for this completed stream
+            truncationToasted.delete(`${msg.message.roomId}:${msg.message.senderId}`)
             // Notify for completed agent messages in non-current rooms
             const currentRoomId = chat.currentRoomId
             if (msg.message.roomId !== currentRoomId) {

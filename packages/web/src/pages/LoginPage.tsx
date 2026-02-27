@@ -40,6 +40,9 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const login = useAuthStore((state) => state.login)
+  const verifyTotp = useAuthStore((state) => state.verifyTotp)
+  const totpRequired = useAuthStore((state) => state.totpRequired)
+  const clearTotpState = useAuthStore((state) => state.clearTotpState)
   const user = useAuthStore((state) => state.user)
 
   // Redirect already-authenticated users away from login page
@@ -49,6 +52,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [oauthProviders, setOauthProviders] = useState<string[]>([])
@@ -79,6 +83,11 @@ export default function LoginPage() {
     fetchProviders()
   }, [])
 
+  // Clean up TOTP state on unmount
+  useEffect(() => {
+    return () => clearTotpState()
+  }, [clearTotpState])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -91,7 +100,9 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await login(username, password)
-      navigate('/')
+      if (!useAuthStore.getState().totpRequired) {
+        navigate('/')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.loginFailed'))
     } finally {
@@ -99,8 +110,85 @@ export default function LoginPage() {
     }
   }
 
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!totpCode) return
+
+    setIsLoading(true)
+    try {
+      await verifyTotp(totpCode)
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.totpFailed'))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleOAuthLogin = (provider: string) => {
     window.location.href = `/api/auth/oauth/${provider}`
+  }
+
+  // TOTP verification step
+  if (totpRequired) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-surface-secondary px-4">
+        <div className="w-full max-w-md">
+          <div className="bg-surface rounded-lg border border-border shadow-sm p-8">
+            <div className="mb-8 text-center">
+              <h1 className="text-2xl font-semibold text-text-primary mb-2">
+                {t('auth.totpRequired')}
+              </h1>
+              <p className="text-sm text-text-secondary">{t('auth.enterTotpCode')}</p>
+            </div>
+
+            <form onSubmit={handleTotpSubmit} className="space-y-5">
+              {error && (
+                <div
+                  role="alert"
+                  className="bg-danger-subtle border border-danger/20 text-danger-text px-4 py-3 rounded-md text-sm"
+                >
+                  {error}
+                </div>
+              )}
+
+              <FormField label={t('auth.enterTotpCode')} htmlFor="totpCode">
+                <Input
+                  id="totpCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={20}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                  placeholder={t('auth.backupCodePlaceholder')}
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </FormField>
+
+              <Button type="submit" disabled={isLoading || !totpCode} size="lg" className="w-full">
+                {isLoading ? t('auth.verifying') : t('auth.verifyTotp')}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  clearTotpState()
+                  setError('')
+                  setTotpCode('')
+                }}
+                className="w-full text-sm text-text-muted hover:text-text-primary transition-colors"
+              >
+                {t('common.back')}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

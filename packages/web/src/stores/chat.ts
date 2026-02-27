@@ -89,7 +89,7 @@ interface ChatState {
     agentName: string,
     messageId: string,
     chunk: ParsedChunk,
-  ) => void
+  ) => { truncated: boolean }
   completeStream: (message: Message) => void
   addTerminalData: (agentId: string, agentName: string, data: string) => void
   clearTerminalBuffer: (agentId: string) => void
@@ -446,16 +446,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {
-    set({
-      streaming: addStreamChunkAction(
-        get().streaming,
-        roomId,
-        agentId,
-        agentName,
-        messageId,
-        chunk,
-      ),
-    })
+    const { streaming, truncated } = addStreamChunkAction(
+      get().streaming,
+      roomId,
+      agentId,
+      agentName,
+      messageId,
+      chunk,
+    )
+    set({ streaming })
+    return { truncated }
   },
 
   completeStream: (message) => {

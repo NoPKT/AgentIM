@@ -1,4 +1,4 @@
-import { useAuthStore } from '../stores/auth.js'
+import { useTokenVersionStore } from '../stores/tokenVersion.js'
 import { api } from '../lib/api.js'
 
 /**
@@ -20,7 +20,7 @@ import { api } from '../lib/api.js'
  */
 export function useUploadUrl(url: string | undefined | null): string {
   // Subscribe to tokenVersion — triggers re-render on every token refresh
-  useAuthStore((s) => s.tokenVersion)
+  useTokenVersionStore((s) => s.version)
   if (!url?.startsWith('/uploads/')) return url ?? ''
   const token = api.getToken()
   if (!token) return url
@@ -31,7 +31,7 @@ export function useUploadUrl(url: string | undefined | null): string {
  * Batch version of useUploadUrl for arrays (e.g. lightbox image galleries).
  */
 export function useUploadUrls(urls: string[]): string[] {
-  useAuthStore((s) => s.tokenVersion)
+  useTokenVersionStore((s) => s.version)
   const token = api.getToken()
   if (!token) return urls
   return urls.map((url) =>

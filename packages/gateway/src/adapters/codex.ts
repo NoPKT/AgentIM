@@ -68,8 +68,20 @@ export class CodexAdapter extends BaseAgentAdapter {
         this.permissionLevel === 'bypass' || isDaemonMode ? 'never' : 'on-request'
       if (isDaemonMode && this.permissionLevel !== 'bypass') {
         log.warn(
-          `Codex running in daemon mode (no TTY): overriding permission level "${this.permissionLevel}" → approvalPolicy="never" (auto-approve). ` +
-            'Set permissionLevel to "bypass" explicitly to suppress this warning.',
+          [
+            '',
+            '╔══════════════════════════════════════════════════════════════════╗',
+            '║  ⚠  CODEX DAEMON MODE — AUTO-APPROVE ENABLED                   ║',
+            '╠══════════════════════════════════════════════════════════════════╣',
+            '║  No TTY detected. The Codex SDK requires interactive stdin for  ║',
+            '║  permission prompts, so approvalPolicy has been set to "never"  ║',
+            '║  (all tool executions will be auto-approved).                   ║',
+            '║                                                                 ║',
+            '║  To suppress this warning, launch the gateway with:             ║',
+            '║    --permission-level bypass                                    ║',
+            '╚══════════════════════════════════════════════════════════════════╝',
+            '',
+          ].join('\n'),
         )
       }
       if (this.threadId) {

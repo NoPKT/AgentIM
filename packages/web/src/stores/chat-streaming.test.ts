@@ -46,7 +46,8 @@ describe('addStreamChunkAction', () => {
     const chunk: ParsedChunk = { type: 'text', content: 'Hello' }
     const result = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', chunk)
 
-    const entry = result.get('room-1:agent-1')
+    expect(result.truncated).toBe(false)
+    const entry = result.streaming.get('room-1:agent-1')
     expect(entry).toBeDefined()
     expect(entry!.messageId).toBe('sm-1')
     expect(entry!.agentId).toBe('agent-1')
@@ -63,7 +64,8 @@ describe('addStreamChunkAction', () => {
     const chunk: ParsedChunk = { type: 'text', content: ' Second' }
     const result = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', chunk)
 
-    const entry = result.get('room-1:agent-1')!
+    expect(result.truncated).toBe(false)
+    const entry = result.streaming.get('room-1:agent-1')!
     expect(entry.chunks).toHaveLength(2)
     expect(entry.chunks[0].content).toBe('First')
     expect(entry.chunks[1].content).toBe(' Second')
@@ -74,7 +76,7 @@ describe('addStreamChunkAction', () => {
     const chunk: ParsedChunk = { type: 'thinking', content: 'Reasoning...' }
     const result = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', chunk)
 
-    const entry = result.get('room-1:agent-1')!
+    const entry = result.streaming.get('room-1:agent-1')!
     expect(entry.chunks).toHaveLength(1)
     expect(entry.chunks[0].type).toBe('thinking')
     expect(entry.chunks[0].content).toBe('Reasoning...')
@@ -85,25 +87,25 @@ describe('addStreamChunkAction', () => {
     const chunk: ParsedChunk = { type: 'tool_use', content: 'tool_call(...)' }
     const result = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', chunk)
 
-    const entry = result.get('room-1:agent-1')!
+    const entry = result.streaming.get('room-1:agent-1')!
     expect(entry.chunks).toHaveLength(1)
     expect(entry.chunks[0].type).toBe('tool_use')
   })
 
   it('accumulates content from multiple chunks', () => {
     let streaming = new Map<string, StreamingMessage>()
-    streaming = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
+    ;({ streaming } = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
       type: 'text',
       content: 'Hello',
-    })
-    streaming = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
+    }))
+    ;({ streaming } = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
       type: 'text',
       content: ' World',
-    })
-    streaming = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
+    }))
+    ;({ streaming } = addStreamChunkAction(streaming, 'room-1', 'agent-1', 'Agent A', 'sm-1', {
       type: 'text',
       content: '!',
-    })
+    }))
 
     const entry = streaming.get('room-1:agent-1')!
     expect(entry.chunks).toHaveLength(3)
@@ -125,7 +127,8 @@ describe('addStreamChunkAction', () => {
       content: 'overflow',
     })
 
-    const entry = result.get('room-1:agent-1')!
+    expect(result.truncated).toBe(true)
+    const entry = result.streaming.get('room-1:agent-1')!
     expect(entry.chunks).toHaveLength(2000)
     expect(entry.chunks[0].content).toBe('chunk-1')
     expect(entry.chunks[entry.chunks.length - 1].content).toBe('overflow')
@@ -141,7 +144,8 @@ describe('addStreamChunkAction', () => {
       content: 'second',
     })
 
-    expect(result.get('room-1:agent-1')!.chunks).toHaveLength(2)
+    expect(result.truncated).toBe(false)
+    expect(result.streaming.get('room-1:agent-1')!.chunks).toHaveLength(2)
   })
 
   it('does not mutate the original map', () => {
@@ -163,7 +167,7 @@ describe('addStreamChunkAction', () => {
       type: 'text',
       content: 'x',
     })
-    expect(result.get('room-1:agent-1')!.lastChunkAt).toBeGreaterThan(oldTime)
+    expect(result.streaming.get('room-1:agent-1')!.lastChunkAt).toBeGreaterThan(oldTime)
   })
 })
 

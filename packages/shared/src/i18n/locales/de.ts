@@ -73,6 +73,13 @@ export const de = {
     accountLinked: 'Konto erfolgreich verknupft',
     accountUnlinked: 'Konto erfolgreich getrennt',
     cannotUnlinkLast: 'Die letzte Authentifizierungsmethode kann nicht getrennt werden',
+    totpRequired: 'Zwei-Faktor-Authentifizierung erforderlich',
+    enterTotpCode: 'Gib den 6-stelligen Code aus deiner Authenticator-App ein',
+    verifyTotp: 'Bestätigen',
+    verifying: 'Wird überprüft...',
+    totpFailed: 'Ungültiger Code. Bitte versuche es erneut.',
+    useBackupCode: 'Backup-Code verwenden',
+    backupCodePlaceholder: 'Backup-Code eingeben',
   },
   chat: {
     rooms: 'Räume',
@@ -217,6 +224,7 @@ export const de = {
     replyToMessage: 'Auf Nachricht antworten',
     reactions: 'Reaktionen',
     react: 'Reagieren mit',
+    streamBufferOverflow: 'Die Antwort ist sehr lang. Früherer Inhalt wurde gekürzt.',
   },
   agent: {
     agents: 'Agenten',
@@ -335,6 +343,21 @@ export const de = {
     pushFailed: 'Konfiguration der Push-Benachrichtigungen fehlgeschlagen',
     about: 'Über',
     version: 'Version',
+    twoFactorAuth: 'Zwei-Faktor-Authentifizierung',
+    twoFactorAuthDesc: 'Füge deinem Konto eine zusätzliche Sicherheitsebene hinzu',
+    enable2fa: '2FA aktivieren',
+    disable2fa: '2FA deaktivieren',
+    scanQrCode: 'Scanne diesen QR-Code mit deiner Authenticator-App',
+    orEnterManually: 'Oder gib diesen Code manuell ein',
+    enterVerificationCode: 'Gib den 6-stelligen Bestätigungscode ein',
+    backupCodesTitle: 'Backup-Codes',
+    backupCodesDesc:
+      'Bewahre diese Codes an einem sicheren Ort auf. Jeder Code kann nur einmal verwendet werden.',
+    backupCodesSaved: 'Ich habe diese Codes gespeichert',
+    twoFactorEnabled: 'Zwei-Faktor-Authentifizierung aktiviert',
+    twoFactorDisabled: 'Zwei-Faktor-Authentifizierung deaktiviert',
+    confirmDisable2fa:
+      'Gib dein Passwort ein, um die Zwei-Faktor-Authentifizierung zu deaktivieren',
   },
   router: {
     routers: 'Router',
@@ -420,6 +443,8 @@ export const de = {
         'API-Schlüssel ist für nicht-benutzerdefinierte Service-Agent-Typen erforderlich',
       serviceAgentModelRequired: 'Modell ist für OpenAI-basierte Service-Agents erforderlich',
       serviceAgentVoiceIdRequired: 'Stimmen-ID ist für ElevenLabs Service-Agents erforderlich',
+      passwordCommonWord: 'Passwort enthält ein häufiges Wort',
+      passwordSequential: 'Passwort enthält aufeinanderfolgende oder wiederholte Zeichen',
     },
   },
   a11y: {

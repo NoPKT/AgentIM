@@ -58,7 +58,7 @@ describe('AgentIM Server API', () => {
         '/api/users',
         {
           username: 'alice',
-          password: 'Password123',
+          password: 'Xk9#mPq2vL',
         },
         adminToken,
       )
@@ -80,7 +80,7 @@ describe('AgentIM Server API', () => {
         '/api/users',
         {
           username: 'alice',
-          password: 'Password123',
+          password: 'Xk9#mPq2vL',
         },
         adminToken,
       )
@@ -95,7 +95,7 @@ describe('AgentIM Server API', () => {
         '/api/users',
         {
           username: 'shouldfail',
-          password: 'Password123',
+          password: 'Xk9#mPq2vL',
         },
         user.accessToken,
       )
@@ -105,7 +105,7 @@ describe('AgentIM Server API', () => {
     it('logs in with valid credentials', async () => {
       const res = await api('POST', '/api/auth/login', {
         username: 'alice',
-        password: 'Password123',
+        password: 'Xk9#mPq2vL',
       })
       assert.equal(res.status, 200)
       assert.equal(res.data.ok, true)
@@ -124,7 +124,7 @@ describe('AgentIM Server API', () => {
     it('refreshes tokens', async () => {
       const login = await api('POST', '/api/auth/login', {
         username: 'alice',
-        password: 'Password123',
+        password: 'Xk9#mPq2vL',
       })
       const refreshToken = login.data.data.refreshToken
 
@@ -152,7 +152,7 @@ describe('AgentIM Server API', () => {
         '/api/users/me/password',
         {
           currentPassword: 'TestPass123',
-          newPassword: 'NewPass12345',
+          newPassword: 'Nw8#kRq3zM',
         },
         user.accessToken,
       )
@@ -162,7 +162,7 @@ describe('AgentIM Server API', () => {
       // Can login with new password
       const login = await api('POST', '/api/auth/login', {
         username: 'pwchange1',
-        password: 'NewPass12345',
+        password: 'Nw8#kRq3zM',
       })
       assert.equal(login.status, 200)
       assert.equal(login.data.ok, true)
@@ -175,7 +175,7 @@ describe('AgentIM Server API', () => {
         '/api/users/me/password',
         {
           currentPassword: 'wrongpassword',
-          newPassword: 'NewPass12345',
+          newPassword: 'Nw8#kRq3zM',
         },
         user.accessToken,
       )
@@ -397,7 +397,7 @@ describe('AgentIM Server API', () => {
         '/api/users',
         {
           username: 'todelete',
-          password: 'Password123',
+          password: 'Xk9#mPq2vL',
         },
         adminToken,
       )

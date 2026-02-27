@@ -29,6 +29,7 @@ export interface User {
   displayName: string
   avatarUrl?: string
   role: UserRole
+  totpEnabled?: boolean
   createdAt: string
   updatedAt: string
 }

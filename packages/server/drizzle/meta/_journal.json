@@ -267,6 +267,13 @@
       "when": 1773000000000,
       "tag": "0037_add_sender_created_idx_and_fix_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773100000000,
+      "tag": "0038_add_totp",
+      "breakpoints": true
     }
   ]
 }

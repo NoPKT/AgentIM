@@ -73,6 +73,13 @@ export const fr = {
     accountLinked: 'Compte lie avec succes',
     accountUnlinked: 'Compte delie avec succes',
     cannotUnlinkLast: "Impossible de delier la derniere methode d'authentification",
+    totpRequired: "L'authentification à deux facteurs est requise",
+    enterTotpCode: "Entrez le code à 6 chiffres de votre application d'authentification",
+    verifyTotp: 'Vérifier',
+    verifying: 'Vérification...',
+    totpFailed: 'Code invalide. Veuillez réessayer.',
+    useBackupCode: 'Utiliser un code de secours',
+    backupCodePlaceholder: 'Entrez le code de secours',
   },
   chat: {
     rooms: 'Salons',
@@ -217,6 +224,7 @@ export const fr = {
     replyToMessage: 'Répondre au message',
     reactions: 'Réactions',
     react: 'Réagir avec',
+    streamBufferOverflow: 'La réponse est très longue. Le contenu précédent a été tronqué.',
   },
   agent: {
     agents: 'Agents',
@@ -334,6 +342,21 @@ export const fr = {
     pushFailed: 'Échec de la configuration des notifications push',
     about: 'À propos',
     version: 'Version',
+    twoFactorAuth: 'Authentification à deux facteurs',
+    twoFactorAuthDesc: 'Ajoutez une couche de sécurité supplémentaire à votre compte',
+    enable2fa: 'Activer la 2FA',
+    disable2fa: 'Désactiver la 2FA',
+    scanQrCode: "Scannez ce QR code avec votre application d'authentification",
+    orEnterManually: 'Ou entrez ce code manuellement',
+    enterVerificationCode: 'Entrez le code de vérification à 6 chiffres',
+    backupCodesTitle: 'Codes de secours',
+    backupCodesDesc:
+      "Conservez ces codes en lieu sûr. Chaque code ne peut être utilisé qu'une seule fois.",
+    backupCodesSaved: "J'ai sauvegardé ces codes",
+    twoFactorEnabled: 'Authentification à deux facteurs activée',
+    twoFactorDisabled: 'Authentification à deux facteurs désactivée',
+    confirmDisable2fa:
+      "Entrez votre mot de passe pour désactiver l'authentification à deux facteurs",
   },
   router: {
     routers: 'Routeurs',
@@ -420,6 +443,8 @@ export const fr = {
         'La clé API est requise pour les agents de service non personnalisés',
       serviceAgentModelRequired: 'Le modèle est requis pour les agents de service basés sur OpenAI',
       serviceAgentVoiceIdRequired: "L'ID vocal est requis pour les agents de service ElevenLabs",
+      passwordCommonWord: 'Le mot de passe contient un mot courant',
+      passwordSequential: 'Le mot de passe contient des caractères séquentiels ou répétés',
     },
   },
   a11y: {

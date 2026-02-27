@@ -160,11 +160,10 @@ describe('updateUser', () => {
 
 describe('initial state', () => {
   it('has correct default values', () => {
-    useAuthStore.setState({ user: null, isLoading: true, tokenVersion: 0 })
+    useAuthStore.setState({ user: null, isLoading: true })
     const state = useAuthStore.getState()
     expect(state.user).toBeNull()
     expect(state.isLoading).toBe(true)
-    expect(state.tokenVersion).toBe(0)
   })
 })
 

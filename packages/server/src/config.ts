@@ -28,6 +28,7 @@ export const config = {
   redisUrl: process.env.REDIS_URL || '',
   redisEnabled: !!process.env.REDIS_URL,
   jwtSecret: env('JWT_SECRET', 'dev-secret-change-me'),
+  jwtSecretPrevious: process.env.JWT_SECRET_PREVIOUS || '',
   jwtAccessExpiry: env('JWT_ACCESS_EXPIRY', '15m'),
   jwtRefreshExpiry: env('JWT_REFRESH_EXPIRY', '7d'),
   corsOrigin: env('CORS_ORIGIN', isProduction ? '' : 'http://localhost:5173'),
@@ -100,6 +101,7 @@ export const config = {
       clientSecret: process.env.OAUTH_GOOGLE_CLIENT_SECRET || '',
     },
   },
+  totpIssuer: env('TOTP_ISSUER', 'AgentIM'),
   logLevel: env('LOG_LEVEL', 'info'),
   runMigrations: env('RUN_MIGRATIONS', 'true') === 'true',
   // When true, /api/metrics requires a valid JWT (any authenticated user).
@@ -141,6 +143,19 @@ if (config.storageProvider === 's3') {
   if (missing.length > 0) {
     log.fatal(`STORAGE_PROVIDER=s3 requires: ${missing.join(', ')}`)
     process.exit(1)
+  }
+}
+
+// Auto-detect CORS_ORIGIN from platform environment variables
+if (!process.env.CORS_ORIGIN) {
+  const renderUrl = process.env.RENDER_EXTERNAL_URL
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN
+  if (renderUrl) {
+    config.corsOrigin = renderUrl
+    log.info(`CORS_ORIGIN auto-detected from RENDER_EXTERNAL_URL: ${renderUrl}`)
+  } else if (railwayDomain) {
+    config.corsOrigin = `https://${railwayDomain}`
+    log.info(`CORS_ORIGIN auto-detected from RAILWAY_PUBLIC_DOMAIN: https://${railwayDomain}`)
   }
 }
 
