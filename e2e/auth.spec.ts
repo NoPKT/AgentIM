@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { ensureSidebarOpen } from './helpers'
 
 /**
  * Authentication E2E tests.
@@ -62,18 +63,14 @@ test.describe('Authenticated session', () => {
   })
 
   test('shows main chat layout after login', async ({ page }) => {
-    // The room list nav should be present
+    // The room list nav should be present (open sidebar on mobile first)
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 10_000 })
   })
 
   test('can log out', async ({ page }) => {
-    // On mobile viewports the logout button is inside the sidebar which is
-    // hidden by default.  Open it via the hamburger menu first.
-    const menuButton = page.getByRole('button', { name: /rooms|menu/i })
-    if (await menuButton.isVisible()) {
-      await menuButton.click()
-    }
-
+    // On mobile viewports the logout button is inside the hidden sidebar
+    await ensureSidebarOpen(page)
     const logoutButton = page.getByRole('button', { name: /log.?out|sign.?out/i })
     await logoutButton.click()
     await expect(page).toHaveURL(/\/login/, { timeout: 5_000 })

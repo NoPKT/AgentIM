@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, authHeaders } from './helpers'
+import { loginAsAdmin, authHeaders, ensureSidebarOpen } from './helpers'
 
 /**
  * File upload E2E tests.
@@ -41,6 +41,7 @@ test.describe('File upload in chat', () => {
 
     try {
       await page.goto('/')
+      await ensureSidebarOpen(page)
       await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({
         timeout: 15_000,
       })
@@ -68,6 +69,7 @@ test.describe('File upload in chat', () => {
 
     try {
       await page.goto('/')
+      await ensureSidebarOpen(page)
       await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({
         timeout: 15_000,
       })

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin } from './helpers'
+import { loginAsAdmin, ensureSidebarOpen } from './helpers'
 import { interceptWs, waitForFrame, getFramesByType } from './ws-helpers'
 
 /**
@@ -17,6 +17,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Verify client sent auth message
@@ -38,6 +39,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Wait for WS auth to complete
@@ -62,6 +64,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Wait for WS auth
@@ -108,6 +111,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Wait for auth
@@ -168,6 +172,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Wait for initial auth
@@ -208,6 +213,7 @@ test.describe('WebSocket protocol', () => {
     await loginAsAdmin(page)
     const capture = interceptWs(page)
     await page.goto('/')
+    await ensureSidebarOpen(page)
     await expect(page.getByRole('navigation', { name: /rooms/i })).toBeVisible({ timeout: 15_000 })
 
     // Wait for auth

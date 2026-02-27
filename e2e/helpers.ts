@@ -35,3 +35,18 @@ export function authHeaders(token: string) {
  * Alias for loginAsAdmin — kept for backward compatibility.
  */
 export const getAccessToken = loginAsAdmin
+
+/**
+ * On mobile viewports the sidebar is hidden behind a hamburger menu.
+ * Call this helper before interacting with sidebar elements (room list,
+ * nav links, logout button, etc.).  On desktop viewports the hamburger
+ * button is not rendered, so this is a safe no-op.
+ */
+export async function ensureSidebarOpen(page: Page): Promise<void> {
+  const menuButton = page.getByRole('button', { name: /rooms|menu/i })
+  if (await menuButton.isVisible().catch(() => false)) {
+    await menuButton.click()
+    // Wait for the sidebar slide-in animation (300ms transition)
+    await page.waitForTimeout(350)
+  }
+}
