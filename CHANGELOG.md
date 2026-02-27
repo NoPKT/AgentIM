@@ -27,52 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Permission reminder notification**: Permission requests now send a reminder message at 75% of the timeout duration to notify users of pending approval
 - **Machine key entropy enhancement**: `getMachineKey()` now includes platform-specific machine ID (Linux `/etc/machine-id`, macOS `IOPlatformUUID`) in key derivation material, with backward-compatible decryption fallback for tokens encrypted with prior key formats
 
-### Changed
-
-#### Web
-
-- **Thread cache LRU eviction**: Thread message cache now uses LRU (least recently used) eviction instead of FIFO for better cache hit rates
-- **Flush dedup improvement**: Pending message dedup on reconnect now checks sender identity in addition to content and timestamp, with a wider time window (10s vs 5s) for better reliability
-- **IDB write degradation**: IndexedDB cache writes are automatically disabled after `QuotaExceededError` to avoid repeated failures; re-enabled on store reset
-
-### Fixed
-
-#### Shared
-
-- **MessageReaction JSDoc**: Added documentation clarifying the parallel array constraint (`userIds` and `usernames` must have the same length)
-
-#### Web
-
-- **WS auth failure queue clearing**: Pending message queue is now discarded when WebSocket authentication fails, preventing stale messages from being replayed on subsequent connections
-
-#### Docs
-
-- **DEPLOYMENT.md env var completeness**: Added missing environment variable sections for Encryption, TOTP, S3-Compatible Storage, OAuth Providers, Proxy, and JWT Key Rotation
-- **DEPLOYMENT.md S3 accuracy**: Removed non-existent `S3_FORCE_PATH_STYLE` and `S3_PUBLIC_URL` env vars (path style is auto-detected from endpoint)
-- **README Gemini status**: Updated Gemini CLI references from "coming soon" to "awaiting SDK release" for accuracy
-- **README doc links**: Added Troubleshooting and Roadmap links to Documentation section
-
-#### Community & Tests
-
-- **ROADMAP.md**: New roadmap document covering v0.1.0 through v0.4.0+ planned features
-- **CONTRIBUTING.md improvements**: Added IDE setup guide, E2E test instructions, architecture overview, and Getting Help section
-- **Security test suite**: New `security.test.ts` covering XSS prevention, auth edge cases, input validation, RBAC authorization, secure headers, file upload security, rate limiting, password security, token security, and room access control
-
-### Fixed
-
-#### Comprehensive Code Audit (Round 6)
-
-- **Shared i18n missing validation keys**: Added 6 missing `validation.*` i18n keys (`passwordMinLength`, `passwordMaxLength`, `toolInputTooLarge`, `dateFromBeforeDateTo`, `metadataTooManyKeys`, `metadataTooLarge`) to all 7 locale files — previously these Zod error messages displayed raw key strings instead of translated text
-- **Dead protocol definition**: Removed unused `ServerServiceAgentResponse` interface and Zod schema from `@agentim/shared` — service agent responses are delivered as standard `server:new_message`, this type was never sent by the server
-- **WEBSOCKET.md auth timeout**: Fixed contradictory "10 seconds" claim (line 697) to match actual `wsAuthTimeoutMs` of 5 seconds
-- **WEBSOCKET.md client message size**: Fixed "64 KB" to "128 KB" in error code table and size limits table to match actual `maxWsMessageSize` config
-- **WEBSOCKET.md field name**: Fixed `maxConnections` to `maxWsConnections` to match actual database schema column name
-- **CAPACITY.md pool size**: Fixed default connection pool size from "10" to "20" to match actual `dbPoolSize` config
-- **CAPACITY.md heartbeat claim**: Corrected misleading "server sends heartbeat pings every 30s / closes idle connections after 90s" — the server only responds to client-initiated `client:ping` messages
-- **Server auth.ts comment**: Fixed stale "10 req/min" comment to match actual `authRateLimit` of 20 req/min
-
-### Added
-
 #### Core Platform
 
 - Initial scaffolding of AgentIM
@@ -146,6 +100,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### Web
+
+- **Thread cache LRU eviction**: Thread message cache now uses LRU (least recently used) eviction instead of FIFO for better cache hit rates
+- **Flush dedup improvement**: Pending message dedup on reconnect now checks sender identity in addition to content and timestamp, with a wider time window (10s vs 5s) for better reliability
+- **IDB write degradation**: IndexedDB cache writes are automatically disabled after `QuotaExceededError` to avoid repeated failures; re-enabled on store reset
+- **Date formatting**: Replaced hardcoded `timeAgo()` with `Intl.RelativeTimeFormat` for proper i18n
+- **API auth retry**: Extracted `withAuthRetry()` shared function to deduplicate 401 handling in `request()` and `uploadFile()`
+- **IndexedDB timeout**: Added 5-second timeout wrapper for all IDB operations
+- **WS queue overflow notification**: Dispatches `ws:queue_full` CustomEvent and shows toast notification
+- **Accessibility**: Added ARIA labels, roles, and keyboard navigation to message actions, reaction panel, mention menu, and mobile sidebar (aria-modal, auto-focus)
+- **Store reset**: Extracted `resetAllStores()` into separate module with dynamic imports to avoid circular dependencies
+- **Logout dedup**: Replaced boolean flag with shared Promise to prevent duplicate logout calls
+- Stricter CSS class name regex in markdown sanitizer
+
 #### Server
 
 - Server tests: upload artifacts now use a temp directory and are auto-cleaned after each test run
@@ -162,17 +130,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit log metadata truncated at 4KB to prevent DB row bloat
 - Error handler status code restricted to valid 400-599 range (prevents leaking internal codes)
 - Docker Compose: added TRUST_PROXY environment variable pass-through
-
-#### Web
-
-- **Date formatting**: Replaced hardcoded `timeAgo()` with `Intl.RelativeTimeFormat` for proper i18n
-- **API auth retry**: Extracted `withAuthRetry()` shared function to deduplicate 401 handling in `request()` and `uploadFile()`
-- **IndexedDB timeout**: Added 5-second timeout wrapper for all IDB operations
-- **WS queue overflow notification**: Dispatches `ws:queue_full` CustomEvent and shows toast notification
-- **Accessibility**: Added ARIA labels, roles, and keyboard navigation to message actions, reaction panel, mention menu, and mobile sidebar (aria-modal, auto-focus)
-- **Store reset**: Extracted `resetAllStores()` into separate module with dynamic imports to avoid circular dependencies
-- **Logout dedup**: Replaced boolean flag with shared Promise to prevent duplicate logout calls
-- Stricter CSS class name regex in markdown sanitizer
 
 #### Gateway
 
@@ -209,6 +166,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced custom adapter documentation in ADAPTER_GUIDE.md with practical examples (Ollama, Aider, Python script), architecture explanation, and security notes
 
 ### Fixed
+
+#### Shared
+
+- **MessageReaction JSDoc**: Added documentation clarifying the parallel array constraint (`userIds` and `usernames` must have the same length)
+
+#### Web
+
+- **WS auth failure queue clearing**: Pending message queue is now discarded when WebSocket authentication fails, preventing stale messages from being replayed on subsequent connections
+
+#### Docs
+
+- **DEPLOYMENT.md env var completeness**: Added missing environment variable sections for Encryption, TOTP, S3-Compatible Storage, OAuth Providers, Proxy, and JWT Key Rotation
+- **DEPLOYMENT.md S3 accuracy**: Removed non-existent `S3_FORCE_PATH_STYLE` and `S3_PUBLIC_URL` env vars (path style is auto-detected from endpoint)
+- **README Gemini status**: Updated Gemini CLI references from "coming soon" to "awaiting SDK release" for accuracy
+- **README doc links**: Added Troubleshooting and Roadmap links to Documentation section
+
+#### Community & Tests
+
+- **ROADMAP.md**: New roadmap document covering v0.1.0 through v0.4.0+ planned features
+- **CONTRIBUTING.md improvements**: Added IDE setup guide, E2E test instructions, architecture overview, and Getting Help section
+- **Security test suite**: New `security.test.ts` covering XSS prevention, auth edge cases, input validation, RBAC authorization, secure headers, file upload security, rate limiting, password security, token security, and room access control
+
+#### Comprehensive Code Audit (Round 6)
+
+- **Shared i18n missing validation keys**: Added 6 missing `validation.*` i18n keys (`passwordMinLength`, `passwordMaxLength`, `toolInputTooLarge`, `dateFromBeforeDateTo`, `metadataTooManyKeys`, `metadataTooLarge`) to all 7 locale files — previously these Zod error messages displayed raw key strings instead of translated text
+- **Dead protocol definition**: Removed unused `ServerServiceAgentResponse` interface and Zod schema from `@agentim/shared` — service agent responses are delivered as standard `server:new_message`, this type was never sent by the server
+- **WEBSOCKET.md auth timeout**: Fixed contradictory "10 seconds" claim (line 697) to match actual `wsAuthTimeoutMs` of 5 seconds
+- **WEBSOCKET.md client message size**: Fixed "64 KB" to "128 KB" in error code table and size limits table to match actual `maxWsMessageSize` config
+- **WEBSOCKET.md field name**: Fixed `maxConnections` to `maxWsConnections` to match actual database schema column name
+- **CAPACITY.md pool size**: Fixed default connection pool size from "10" to "20" to match actual `dbPoolSize` config
+- **CAPACITY.md heartbeat claim**: Corrected misleading "server sends heartbeat pings every 30s / closes idle connections after 90s" — the server only responds to client-initiated `client:ping` messages
+- **Server auth.ts comment**: Fixed stale "10 req/min" comment to match actual `authRateLimit` of 20 req/min
 
 - **Audit log unbounded growth**: Added periodic cleanup with configurable retention (`AUDIT_LOG_RETENTION_DAYS`, default 90 days) and cleanup interval (`AUDIT_LOG_CLEANUP_INTERVAL`, default 24h)
 - **[SECURITY] updateServiceAgentSchema config validation**: Replaced bare `z.record()` with `serviceAgentConfigSchema` to enforce dangerous key name checks on service agent updates (prototype pollution prevention)

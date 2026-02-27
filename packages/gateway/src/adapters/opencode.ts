@@ -196,7 +196,12 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
             }
             if (perm.sessionID === sessionId && this.onPermissionRequest) {
               this.handlePermission(client, sessionId, perm).catch((err: unknown) => {
-                log.warn(`Permission handling failed: ${(err as Error).message}`)
+                log.error(`Permission handling failed: ${(err as Error).message}`)
+                // Notify user in chat UI about the failure
+                onChunk({
+                  type: 'text',
+                  content: `⚠️ Permission delivery failed: ${(err as Error).message}. The agent may be waiting for approval that was not received.`,
+                })
               })
             }
           }

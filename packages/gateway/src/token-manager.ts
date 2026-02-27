@@ -39,7 +39,12 @@ export class TokenManager {
         })
 
         if (!res.ok) {
-          lastError = new Error(`Token refresh failed: ${res.status}`)
+          const status = res.status
+          // Client errors (except timeout/rate-limit) are permanent — don't retry
+          if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            throw new Error(`Token refresh failed permanently: ${status}`)
+          }
+          lastError = new Error(`Token refresh failed: ${status}`)
           continue
         }
 

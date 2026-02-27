@@ -223,6 +223,8 @@ export const ko = {
     reactions: '반응',
     react: '반응하기',
     streamBufferOverflow: '응답이 매우 깁니다. 이전 내용이 잘렸습니다.',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Enter {{save}}',
   },
   agent: {
     agents: '에이전트',

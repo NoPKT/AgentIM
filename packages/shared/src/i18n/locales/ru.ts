@@ -223,6 +223,8 @@ export const ru = {
     reactions: 'Реакции',
     react: 'Реагировать',
     streamBufferOverflow: 'Ответ очень длинный. Более ранний контент был обрезан.',
+    searchShortcutHint: '{{modifier}}+K',
+    editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Enter {{save}}',
   },
   agent: {
     agents: 'Агенты',

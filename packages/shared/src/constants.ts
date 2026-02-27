@@ -186,4 +186,5 @@ export const MAX_WS_QUEUE_SIZE = 500
 export const MAX_CACHED_MESSAGES = 1000
 export const MAX_CHUNKS_PER_STREAM = 2000
 export const MAX_MESSAGES_PER_ROOM_CACHE = 200
+export const MAX_CACHED_ROOMS = 20
 export const MAX_RECONNECT_ATTEMPTS = 50
