@@ -12,7 +12,7 @@ import type {
   ServerRoomContext,
   ServerPermissionResponse,
 } from '@agentim/shared'
-import { CURRENT_PROTOCOL_VERSION } from '@agentim/shared'
+import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
 const log = createLogger('GatewaySession')
 
@@ -115,7 +115,18 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
           }
         }
       } else if (msg.type === 'server:error') {
-        log.warn(`Server error: [${msg.code}] ${msg.message}`)
+        if (msg.code === WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH) {
+          log.error(
+            '══════════════════════════════════════════════════════════════\n' +
+              `  PROTOCOL VERSION MISMATCH — ${msg.message}\n` +
+              '  Please update your AgentIM CLI: npm install -g agentim@latest\n' +
+              '══════════════════════════════════════════════════════════════',
+          )
+          wsClient.disableReconnect()
+          setTimeout(() => process.exit(1), 500).unref()
+        } else {
+          log.warn(`Server error: [${msg.code}] ${msg.message}`)
+        }
       } else if (
         msg.type === 'server:send_to_agent' ||
         msg.type === 'server:stop_agent' ||

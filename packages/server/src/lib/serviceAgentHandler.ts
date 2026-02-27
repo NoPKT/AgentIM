@@ -12,6 +12,24 @@ import { downloadAndStoreMedia, createMediaAttachment } from './providers/media-
 
 const log = createLogger('ServiceAgentHandler')
 
+/** Broadcast a system message to the room when a service agent encounters an error. */
+function notifyServiceAgentError(roomId: string, agentName: string, reason: string) {
+  connectionManager.broadcastToRoom(roomId, {
+    type: 'server:new_message',
+    message: {
+      id: nanoid(),
+      roomId,
+      senderId: 'system',
+      senderType: 'system' as const,
+      senderName: 'System',
+      type: 'system' as const,
+      content: `@${agentName}: ${reason}`,
+      mentions: [],
+      createdAt: new Date().toISOString(),
+    },
+  })
+}
+
 /**
  * Handle a @mention of a service agent in a room message.
  * Dispatches to the appropriate provider based on agent type.
@@ -30,12 +48,14 @@ export async function handleServiceAgentMention(
 
   if (!sa || sa.status !== 'active') {
     log.warn(`Service agent ${serviceAgentId} not found or inactive`)
+    notifyServiceAgentError(roomId, serviceAgentId, 'Service agent is not available.')
     return
   }
 
   const provider = getProvider(sa.type)
   if (!provider) {
     log.error(`No provider found for service agent type: ${sa.type}`)
+    notifyServiceAgentError(roomId, sa.name, 'Unsupported service agent type.')
     return
   }
 
@@ -44,11 +64,13 @@ export async function handleServiceAgentMention(
     const decrypted = decryptSecret(sa.configEncrypted)
     if (!decrypted) {
       log.error(`Failed to decrypt config for service agent ${serviceAgentId}`)
+      notifyServiceAgentError(roomId, sa.name, 'Configuration error.')
       return
     }
     config = JSON.parse(decrypted)
   } catch (err) {
     log.error(`Invalid config for service agent ${serviceAgentId}: ${(err as Error).message}`)
+    notifyServiceAgentError(roomId, sa.name, 'Configuration error.')
     return
   }
 
@@ -63,6 +85,7 @@ export async function handleServiceAgentMention(
       case 'text': {
         if (!result.content) {
           log.warn(`Service agent ${serviceAgentId} returned empty response`)
+          notifyServiceAgentError(roomId, sa.name, 'Returned an empty response.')
           return
         }
 
@@ -172,6 +195,7 @@ export async function handleServiceAgentMention(
     }
   } catch (err) {
     log.error(`Service agent ${serviceAgentId} error: ${(err as Error).message}`)
+    notifyServiceAgentError(roomId, sa.name, 'Failed to generate a response.')
     // Update agent status to error
     await db
       .update(serviceAgents)

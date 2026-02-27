@@ -412,6 +412,8 @@ export const ko = {
     wsReconnected: '연결이 복원되었습니다.',
     wsQueueFull:
       '메시지 대기열이 가득 찼습니다. 일부 메시지가 손실될 수 있습니다. 연결을 확인해 주세요.',
+    wsProtocolMismatch:
+      '프로토콜 버전이 일치하지 않습니다. 페이지를 새로고침하거나 클라이언트를 최신 버전으로 업데이트해 주세요.',
     validation: {
       passwordLowercase: '비밀번호에 소문자가 포함되어야 합니다',
       passwordUppercase: '비밀번호에 대문자가 포함되어야 합니다',

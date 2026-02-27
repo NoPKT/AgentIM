@@ -1,5 +1,11 @@
 import type { ClientMessage, ServerMessage } from '@agentim/shared'
-import { serverMessageSchema, MAX_WS_QUEUE_SIZE, MAX_RECONNECT_ATTEMPTS } from '@agentim/shared'
+import {
+  serverMessageSchema,
+  MAX_WS_QUEUE_SIZE,
+  MAX_RECONNECT_ATTEMPTS,
+  CURRENT_PROTOCOL_VERSION,
+  WS_ERROR_CODES,
+} from '@agentim/shared'
 
 type MessageHandler = (msg: ServerMessage) => void
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting'
@@ -86,7 +92,11 @@ export class WsClient {
       this.reconnectAttempts = 0
       // Use this._token (not the closure 'token') so that if updateToken() was called
       // between connect() and the WebSocket opening, the freshest token is used.
-      this.send({ type: 'client:auth', token: this._token ?? token })
+      this.send({
+        type: 'client:auth',
+        token: this._token ?? token,
+        protocolVersion: CURRENT_PROTOCOL_VERSION,
+      })
       this.setStatus('connected')
       this.startHeartbeat()
       // Queue flush and reconnect handlers are deferred until server:auth_result
@@ -105,6 +115,10 @@ export class WsClient {
         if (msg.type === 'server:pong') {
           this.clearPongTimeout()
           return
+        }
+        // Stop reconnecting on fatal protocol mismatch
+        if (msg.type === 'server:error' && msg.code === WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH) {
+          this.shouldReconnect = false
         }
         // Defer queue flush and reconnect handlers until auth succeeds
         if (msg.type === 'server:auth_result') {

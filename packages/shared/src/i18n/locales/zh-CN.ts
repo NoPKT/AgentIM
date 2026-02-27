@@ -409,6 +409,7 @@ export const zhCN = {
     wsDisconnected: '连接已断开，正在重连...',
     wsReconnected: '连接已恢复。',
     wsQueueFull: '消息队列已满，部分消息可能丢失。请检查网络连接。',
+    wsProtocolMismatch: '协议版本不匹配。请刷新页面或将客户端更新到最新版本。',
     validation: {
       passwordLowercase: '密码必须包含小写字母',
       passwordUppercase: '密码必须包含大写字母',

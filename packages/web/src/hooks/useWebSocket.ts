@@ -8,6 +8,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useAuthStore } from '../stores/auth.js'
 import { showNotification } from '../lib/notifications.js'
 import { toast } from '../stores/toast.js'
+import { WS_ERROR_CODES } from '@agentim/shared'
 import type { ServerMessage } from '@agentim/shared'
 
 /** Track stream keys that have already shown a buffer-overflow toast. */
@@ -226,6 +227,9 @@ export function useWebSocket() {
           break
         case 'server:error':
           console.warn('[WS Server Error]', msg.code, msg.message)
+          if (msg.code === WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH) {
+            toast.error(t('error.wsProtocolMismatch'))
+          }
           break
       }
     })
