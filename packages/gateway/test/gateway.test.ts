@@ -660,7 +660,7 @@ describe('AgentManager message queue', () => {
   })
 
   it('reports queueDepth in agent_status messages', () => {
-    const { manager, adapter, sentMessages, makeSendMsg } = createManagerWithControllable()
+    const { manager, sentMessages, makeSendMsg } = createManagerWithControllable()
     manager.handleServerMessage(makeSendMsg('m1'))
 
     sentMessages.length = 0
