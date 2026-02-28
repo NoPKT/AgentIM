@@ -14,15 +14,15 @@ const SUBSCRIPTION_LABELS: Record<string, string> = {
 
 const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
   'claude-code': {
-    cmd: 'npx claude setup-token',
+    cmd: 'claude setup-token',
     description: 'Claude Code subscription login',
   },
   codex: {
-    cmd: 'npx codex login',
+    cmd: 'codex login',
     description: 'Codex subscription login',
   },
   opencode: {
-    cmd: 'npx opencode auth login',
+    cmd: 'opencode auth login',
     description: 'OpenCode subscription login',
   },
   gemini: {
