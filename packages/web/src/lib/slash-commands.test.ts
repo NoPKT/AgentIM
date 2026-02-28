@@ -34,7 +34,13 @@ vi.mock('../stores/toast.js', () => ({
   },
 }))
 
-import { parseSlashCommand, getCommand, getAllCommands, registerCommand } from './slash-commands.js'
+import {
+  parseSlashCommand,
+  getCommand,
+  getAllCommands,
+  registerCommand,
+  getAgentCommands,
+} from './slash-commands.js'
 import { useChatStore } from '../stores/chat.js'
 import { wsClient } from './ws.js'
 import { toast } from '../stores/toast.js'
@@ -192,6 +198,43 @@ describe('slash-commands', () => {
       expect(toast.error).toHaveBeenCalled()
       expect(wsClient.send).not.toHaveBeenCalled()
     })
+
+    it('/clear does nothing when no current room', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: null,
+        messages: new Map(),
+        streaming: new Map(),
+      } as ReturnType<typeof useChatStore.getState>)
+
+      const cmd = getCommand('clear')
+      cmd?.execute('')
+      expect(useChatStore.setState).not.toHaveBeenCalled()
+    })
+
+    it('/stop does nothing when no current room', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: null,
+        messages: new Map(),
+        streaming: new Map(),
+      } as ReturnType<typeof useChatStore.getState>)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('@TestAgent')
+      expect(wsClient.send).not.toHaveBeenCalled()
+    })
+
+    it('/stop shows no-active-streams message when no streaming', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: 'room-1',
+        messages: new Map(),
+        streaming: new Map(),
+      } as ReturnType<typeof useChatStore.getState>)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('')
+      expect(wsClient.send).not.toHaveBeenCalled()
+      expect(toast.info).toHaveBeenCalled()
+    })
   })
 
   describe('registerCommand', () => {
@@ -226,6 +269,80 @@ describe('slash-commands', () => {
 
       const cmd = getCommand('custom-test')
       expect(cmd!.command.description).toBe('Overridden command')
+    })
+  })
+
+  describe('getAgentCommands', () => {
+    it('returns empty array for agents without slash commands', () => {
+      const agents = [
+        { id: 'a1', name: 'Agent1', type: 'codex' },
+        { id: 'a2', name: 'Agent2', type: 'generic' },
+      ] as any[]
+      expect(getAgentCommands(agents)).toEqual([])
+    })
+
+    it('returns commands from agents with slashCommands', () => {
+      const agents = [
+        {
+          id: 'a1',
+          name: 'Claude',
+          type: 'claude-code',
+          slashCommands: [
+            { name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' },
+            {
+              name: 'compact',
+              description: 'Compact context',
+              usage: '/compact',
+              source: 'builtin',
+            },
+          ],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(2)
+      expect(result[0]).toEqual({
+        agentId: 'a1',
+        agentName: 'Claude',
+        agentType: 'claude-code',
+        command: agents[0].slashCommands[0],
+      })
+    })
+
+    it('skips agents with empty slashCommands array', () => {
+      const agents = [
+        { id: 'a1', name: 'Agent1', type: 'codex', slashCommands: [] },
+        {
+          id: 'a2',
+          name: 'Agent2',
+          type: 'claude-code',
+          slashCommands: [
+            { name: 'clear', description: 'Reset', usage: '/clear', source: 'builtin' },
+          ],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(1)
+      expect(result[0].agentId).toBe('a2')
+    })
+
+    it('gathers commands from multiple agents', () => {
+      const agents = [
+        {
+          id: 'a1',
+          name: 'Agent1',
+          type: 'claude-code',
+          slashCommands: [{ name: 'cmd1', description: 'd1', usage: '/cmd1', source: 'builtin' }],
+        },
+        {
+          id: 'a2',
+          name: 'Agent2',
+          type: 'codex',
+          slashCommands: [{ name: 'cmd2', description: 'd2', usage: '/cmd2', source: 'builtin' }],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(2)
+      expect(result.map((r) => r.agentId)).toEqual(['a1', 'a2'])
     })
   })
 })

@@ -142,4 +142,105 @@ describe('message-cache', () => {
       expect(mockDb.delete).toHaveBeenCalled()
     })
   })
+
+  describe('getDraft / setDraft', () => {
+    it('stores and retrieves a draft', async () => {
+      const { setDraft } = await import('./message-cache.js')
+      await setDraft('room-1', 'hello draft')
+      expect(mockDb.put).toHaveBeenCalledWith(
+        'drafts',
+        expect.objectContaining({ roomId: 'room-1', content: 'hello draft' }),
+      )
+    })
+
+    it('getDraft returns null when no draft exists', async () => {
+      mockDb.get.mockResolvedValueOnce(undefined)
+      const { getDraft } = await import('./message-cache.js')
+      const result = await getDraft('room-missing')
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getCachedRooms', () => {
+    it('returns rooms from cache', async () => {
+      mockDb.getAll.mockResolvedValueOnce([{ id: 'r1', name: 'Room 1' }])
+      const { getCachedRooms } = await import('./message-cache.js')
+      const rooms = await getCachedRooms()
+      expect(rooms).toEqual([{ id: 'r1', name: 'Room 1' }])
+    })
+  })
+
+  describe('getCachedRoomMeta / setCachedRoomMeta', () => {
+    it('stores and retrieves room metadata', async () => {
+      const { setCachedRoomMeta } = await import('./message-cache.js')
+      const meta = {
+        lastMessage: { content: 'hi', senderName: 'Alice', createdAt: '2026-01-01' },
+        unread: 3,
+      }
+      await setCachedRoomMeta('room-1', meta)
+      expect(mockDb.put).toHaveBeenCalledWith(
+        'room-meta',
+        expect.objectContaining({ roomId: 'room-1' }),
+      )
+    })
+  })
+
+  describe('updateCachedMessage', () => {
+    it('updates a message in the cache', async () => {
+      const { updateCachedMessage } = await import('./message-cache.js')
+      const msg = {
+        id: 'msg-1',
+        roomId: 'room-1',
+        senderId: 'user-1',
+        senderType: 'user' as const,
+        senderName: 'Alice',
+        type: 'text' as const,
+        content: 'Updated',
+        createdAt: new Date().toISOString(),
+        mentions: [],
+        reactions: [],
+      }
+      await updateCachedMessage(msg)
+      expect(mockDb.put).toHaveBeenCalledWith('messages', msg)
+    })
+  })
+
+  describe('removeCachedMessage', () => {
+    it('removes a message from the cache', async () => {
+      const { removeCachedMessage } = await import('./message-cache.js')
+      await removeCachedMessage('room-1', 'msg-1')
+      expect(mockDb.delete).toHaveBeenCalledWith('messages', 'msg-1')
+    })
+  })
+
+  describe('getPendingMessages', () => {
+    it('returns all pending messages', async () => {
+      mockDb.getAll.mockResolvedValueOnce([{ id: 'p1', roomId: 'room-1', content: 'Pending' }])
+      const { getPendingMessages } = await import('./message-cache.js')
+      const result = await getPendingMessages()
+      expect(result).toEqual([{ id: 'p1', roomId: 'room-1', content: 'Pending' }])
+    })
+  })
+
+  describe('setCachedMessages', () => {
+    it('clears old messages and sets new ones', async () => {
+      const { setCachedMessages } = await import('./message-cache.js')
+      const msgs = [
+        {
+          id: 'msg-1',
+          roomId: 'room-1',
+          senderId: 'user-1',
+          senderType: 'user' as const,
+          senderName: 'Alice',
+          type: 'text' as const,
+          content: 'Hello',
+          createdAt: new Date().toISOString(),
+          mentions: [],
+          reactions: [],
+        },
+      ]
+      await setCachedMessages('room-1', msgs)
+      expect(mockDb.transaction).toHaveBeenCalled()
+    })
+  })
 })
