@@ -1,4 +1,9 @@
+import i18next from 'i18next'
 import type { SlashCommand, Agent, AgentSlashCommand } from '@agentim/shared'
+import { useChatStore } from '../stores/chat.js'
+import { useAgentStore } from '../stores/agents.js'
+import { wsClient } from './ws.js'
+import { toast } from '../stores/toast.js'
 
 export interface SlashCommandHandler {
   command: SlashCommand
@@ -60,7 +65,12 @@ export function getAgentCommands(roomAgents: Agent[]): AgentCommandItem[] {
 registerCommand({
   command: { name: 'clear', description: 'Clear the chat view', usage: '/clear', clientOnly: true },
   execute: () => {
-    window.dispatchEvent(new CustomEvent('slash:clear'))
+    const { currentRoomId, messages } = useChatStore.getState()
+    if (!currentRoomId) return
+    const msgs = new Map(messages)
+    msgs.set(currentRoomId, [])
+    useChatStore.setState({ messages: msgs })
+    toast.success(i18next.t('slashCommand.chatCleared'))
   },
 })
 
@@ -72,7 +82,9 @@ registerCommand({
     clientOnly: true,
   },
   execute: () => {
-    window.dispatchEvent(new CustomEvent('slash:help'))
+    const commands = getAllCommands()
+    const lines = commands.map((c) => `/${c.command.name} — ${c.command.description}`)
+    toast.info(lines.join('\n'))
   },
 })
 
@@ -84,18 +96,44 @@ registerCommand({
     clientOnly: false,
   },
   execute: (args: string) => {
-    window.dispatchEvent(new CustomEvent('slash:stop', { detail: { args } }))
-  },
-})
+    const { currentRoomId, streaming } = useChatStore.getState()
+    if (!currentRoomId) return
 
-registerCommand({
-  command: {
-    name: 'agents',
-    description: 'Show agents in room',
-    usage: '/agents',
-    clientOnly: true,
-  },
-  execute: () => {
-    window.dispatchEvent(new CustomEvent('slash:agents'))
+    // If an agent name is specified (e.g., "@agentname"), stop only that agent
+    const agentName = args.replace(/^@/, '').trim()
+    if (agentName) {
+      const agents = useAgentStore.getState().agents
+      const agent = agents.find((a) => a.name.toLowerCase() === agentName.toLowerCase())
+      if (!agent) {
+        toast.error(i18next.t('slashCommand.noAgentFound', { name: agentName }))
+        return
+      }
+      wsClient.send({
+        type: 'client:stop_generation',
+        roomId: currentRoomId,
+        agentId: agent.id,
+      })
+      toast.info(i18next.t('slashCommand.stopSent', { name: agent.name }))
+      return
+    }
+
+    // No agent specified — stop all streaming agents in the current room
+    const prefix = `${currentRoomId}:`
+    let stopped = 0
+    for (const [key, stream] of streaming.entries()) {
+      if (key.startsWith(prefix)) {
+        wsClient.send({
+          type: 'client:stop_generation',
+          roomId: currentRoomId,
+          agentId: stream.agentId,
+        })
+        stopped++
+      }
+    }
+    if (stopped > 0) {
+      toast.info(i18next.t('slashCommand.stopSent', { name: `${stopped} agent(s)` }))
+    } else {
+      toast.info(i18next.t('slashCommand.noActiveStreams'))
+    }
   },
 })

@@ -1,7 +1,49 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock dependencies before importing the module under test
+vi.mock('../stores/chat.js', () => ({
+  useChatStore: {
+    getState: vi.fn(() => ({
+      currentRoomId: 'room-1',
+      messages: new Map([['room-1', [{ id: 'msg-1', content: 'hello' }]]]),
+      streaming: new Map(),
+    })),
+    setState: vi.fn(),
+  },
+}))
+
+vi.mock('../stores/agents.js', () => ({
+  useAgentStore: {
+    getState: vi.fn(() => ({
+      agents: [{ id: 'agent-1', name: 'TestAgent', type: 'claude-code', status: 'online' }],
+    })),
+  },
+}))
+
+vi.mock('./ws.js', () => ({
+  wsClient: {
+    send: vi.fn(),
+  },
+}))
+
+vi.mock('../stores/toast.js', () => ({
+  toast: {
+    success: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+}))
+
 import { parseSlashCommand, getCommand, getAllCommands, registerCommand } from './slash-commands.js'
+import { useChatStore } from '../stores/chat.js'
+import { wsClient } from './ws.js'
+import { toast } from '../stores/toast.js'
 
 describe('slash-commands', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('parseSlashCommand', () => {
     it('returns null for non-slash input', () => {
       expect(parseSlashCommand('hello')).toBeNull()
@@ -14,9 +56,9 @@ describe('slash-commands', () => {
     })
 
     it('parses command with args', () => {
-      expect(parseSlashCommand('/task Create a new feature')).toEqual({
-        name: 'task',
-        args: 'Create a new feature',
+      expect(parseSlashCommand('/stop @TestAgent')).toEqual({
+        name: 'stop',
+        args: '@TestAgent',
       })
     })
 
@@ -33,15 +75,15 @@ describe('slash-commands', () => {
     })
 
     it('trims args whitespace', () => {
-      expect(parseSlashCommand('/task   hello world  ')).toEqual({
-        name: 'task',
-        args: 'hello world',
+      expect(parseSlashCommand('/stop   @agent  ')).toEqual({
+        name: 'stop',
+        args: '@agent',
       })
     })
 
     it('handles special characters in args', () => {
-      expect(parseSlashCommand('/task @user #tag $var')).toEqual({
-        name: 'task',
+      expect(parseSlashCommand('/stop @user #tag $var')).toEqual({
+        name: 'stop',
         args: '@user #tag $var',
       })
     })
@@ -54,8 +96,8 @@ describe('slash-commands', () => {
     })
 
     it('handles unicode characters in args', () => {
-      expect(parseSlashCommand('/task 你好世界')).toEqual({
-        name: 'task',
+      expect(parseSlashCommand('/stop 你好世界')).toEqual({
+        name: 'stop',
         args: '你好世界',
       })
     })
@@ -66,7 +108,6 @@ describe('slash-commands', () => {
       expect(getCommand('help')).toBeDefined()
       expect(getCommand('clear')).toBeDefined()
       expect(getCommand('stop')).toBeDefined()
-      expect(getCommand('agents')).toBeDefined()
     })
 
     it('returns undefined for unknown commands', () => {
@@ -77,54 +118,79 @@ describe('slash-commands', () => {
   describe('getAllCommands', () => {
     it('returns all registered commands', () => {
       const commands = getAllCommands()
-      expect(commands.length).toBeGreaterThanOrEqual(4)
+      expect(commands.length).toBeGreaterThanOrEqual(3)
       const names = commands.map((c) => c.command.name)
       expect(names).toContain('help')
       expect(names).toContain('clear')
       expect(names).toContain('stop')
-      expect(names).toContain('agents')
     })
   })
 
   describe('command execution', () => {
-    it('dispatches CustomEvent for clear command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:clear', handler)
+    it('/clear clears messages for the current room', () => {
       const cmd = getCommand('clear')
       cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:clear', handler)
-    })
-
-    it('dispatches CustomEvent for help command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:help', handler)
-      const cmd = getCommand('help')
-      cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:help', handler)
-    })
-
-    it('dispatches CustomEvent for stop command with args', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:stop', handler)
-      const cmd = getCommand('stop')
-      cmd?.execute('@myagent')
-      expect(handler).toHaveBeenCalledWith(
+      expect(useChatStore.setState).toHaveBeenCalledWith(
         expect.objectContaining({
-          detail: { args: '@myagent' },
+          messages: expect.any(Map),
         }),
       )
-      window.removeEventListener('slash:stop', handler)
+      // The new messages map should have an empty array for room-1
+      const callArgs = vi.mocked(useChatStore.setState).mock.calls[0][0] as {
+        messages: Map<string, unknown[]>
+      }
+      expect(callArgs.messages.get('room-1')).toEqual([])
     })
 
-    it('dispatches CustomEvent for agents command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:agents', handler)
-      const cmd = getCommand('agents')
+    it('/help shows a toast with command list', () => {
+      const cmd = getCommand('help')
       cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:agents', handler)
+      expect(toast.info).toHaveBeenCalled()
+    })
+
+    it('/stop with @agent sends stop_generation for that agent', () => {
+      const cmd = getCommand('stop')
+      cmd?.execute('@TestAgent')
+      expect(wsClient.send).toHaveBeenCalledWith({
+        type: 'client:stop_generation',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+      })
+    })
+
+    it('/stop without args stops all streaming agents', () => {
+      // Mock streaming state with an active stream
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: 'room-1',
+        messages: new Map(),
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              messageId: 'msg-1',
+              chunks: [],
+              lastChunkAt: Date.now(),
+            },
+          ],
+        ]),
+      } as ReturnType<typeof useChatStore.getState>)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('')
+      expect(wsClient.send).toHaveBeenCalledWith({
+        type: 'client:stop_generation',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+      })
+    })
+
+    it('/stop shows error for unknown agent name', () => {
+      const cmd = getCommand('stop')
+      cmd?.execute('@nonexistent')
+      expect(toast.error).toHaveBeenCalled()
+      expect(wsClient.send).not.toHaveBeenCalled()
     })
   })
 

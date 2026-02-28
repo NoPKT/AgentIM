@@ -247,6 +247,8 @@ export function MessageList({ onImageClick }: MessageListProps) {
           <StreamingMessage
             key={streamMsg.messageId}
             agentName={streamMsg.agentName}
+            agentId={streamMsg.agentId}
+            roomId={currentRoomId!}
             chunks={streamMsg.chunks}
           />
         ))}

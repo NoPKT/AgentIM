@@ -3,13 +3,16 @@ import { useTranslation } from 'react-i18next'
 import type { ParsedChunk } from '@agentim/shared'
 import { getAvatarGradient } from '../lib/avatars.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+import { wsClient } from '../lib/ws.js'
 
 interface StreamingMessageProps {
   agentName: string
+  agentId: string
+  roomId: string
   chunks: ParsedChunk[]
 }
 
-export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
+export function StreamingMessage({ agentName, agentId, roomId, chunks }: StreamingMessageProps) {
   const { t, i18n } = useTranslation()
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -34,6 +37,14 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
           ? t('chat.agentResponding')
           : t('chat.agentWorking')
     : t('chat.agentWorking')
+
+  const handleStop = () => {
+    wsClient.send({
+      type: 'client:stop_generation',
+      roomId,
+      agentId,
+    })
+  }
 
   return (
     <div className="px-6 py-4" role="status" aria-busy="true">
@@ -65,7 +76,7 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
             <ChunkGroupRenderer groups={groups} isStreaming />
           </div>
 
-          {/* Status line */}
+          {/* Status line with stop button */}
           <div className="mt-2 flex items-center gap-2 text-xs text-info-text">
             <div className="flex space-x-1">
               <span
@@ -82,6 +93,13 @@ export function StreamingMessage({ agentName, chunks }: StreamingMessageProps) {
               />
             </div>
             <span>{statusText}</span>
+            <button
+              onClick={handleStop}
+              className="ml-auto px-2 py-0.5 text-xs font-medium text-danger-text bg-danger-subtle border border-danger/20 rounded hover:bg-danger/20 transition-colors"
+              aria-label={t('chat.stopGeneration')}
+            >
+              {t('chat.stopGeneration')}
+            </button>
           </div>
         </div>
       </div>
