@@ -181,7 +181,7 @@ describe('slash-commands', () => {
             },
           ],
         ]),
-      } as ReturnType<typeof useChatStore.getState>)
+      } as any)
 
       const cmd = getCommand('stop')
       cmd?.execute('')
@@ -204,7 +204,7 @@ describe('slash-commands', () => {
         currentRoomId: null,
         messages: new Map(),
         streaming: new Map(),
-      } as ReturnType<typeof useChatStore.getState>)
+      } as any)
 
       const cmd = getCommand('clear')
       cmd?.execute('')
@@ -216,7 +216,7 @@ describe('slash-commands', () => {
         currentRoomId: null,
         messages: new Map(),
         streaming: new Map(),
-      } as ReturnType<typeof useChatStore.getState>)
+      } as any)
 
       const cmd = getCommand('stop')
       cmd?.execute('@TestAgent')
@@ -228,7 +228,7 @@ describe('slash-commands', () => {
         currentRoomId: 'room-1',
         messages: new Map(),
         streaming: new Map(),
-      } as ReturnType<typeof useChatStore.getState>)
+      } as any)
 
       const cmd = getCommand('stop')
       cmd?.execute('')

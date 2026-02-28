@@ -18,7 +18,16 @@ import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
 import { ImageLightbox } from '../components/ImageLightbox.js'
 import { useLightbox } from '../hooks/useLightbox.js'
 import { ErrorBoundary } from '../components/ErrorBoundary.js'
-import { TerminalIcon, SearchIcon, SettingsIcon, ChatBubbleIcon } from '../components/icons.js'
+import { MemberListPanel } from '../components/MemberListPanel.js'
+import { AddAgentDialog } from '../components/AddAgentDialog.js'
+import { toast } from '../stores/toast.js'
+import {
+  TerminalIcon,
+  SearchIcon,
+  SettingsIcon,
+  ChatBubbleIcon,
+  UsersIcon,
+} from '../components/icons.js'
 
 export default function ChatPage() {
   const { t } = useTranslation()
@@ -30,11 +39,14 @@ export default function ChatPage() {
   const loadRoomMembers = useChatStore((state) => state.loadRoomMembers)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [membersOpen, setMembersOpen] = useState(false)
+  const [addAgentOpen, setAddAgentOpen] = useState(false)
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
   const loadAgents = useAgentStore((s) => s.loadAgents)
+  const removeRoomMember = useChatStore((s) => s.removeRoomMember)
   const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
   const showingCachedMessages = useChatStore((s) => s.showingCachedMessages)
@@ -205,6 +217,21 @@ export default function ChatPage() {
     return Array.from(permissionRequests.values()).filter((r) => r.roomId === currentRoomId)
   }, [currentRoomId, permissionRequests])
 
+  const existingMemberIds = useMemo(() => new Set(members.map((m) => m.memberId)), [members])
+
+  const handleRemoveMember = useCallback(
+    async (memberId: string) => {
+      if (!currentRoomId) return
+      try {
+        await removeRoomMember(currentRoomId, memberId)
+        toast.success(t('chat.agentRemoved'))
+      } catch {
+        toast.error(t('common.error'))
+      }
+    },
+    [currentRoomId, removeRoomMember, t],
+  )
+
   if (!currentRoomId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface-secondary">
@@ -299,6 +326,17 @@ export default function ChatPage() {
             <SearchIcon className="w-5 h-5" />
           </button>
           <button
+            onClick={() => setMembersOpen((prev) => !prev)}
+            className={`p-2 rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              membersOpen
+                ? 'bg-surface-hover text-text-primary'
+                : 'hover:bg-surface-hover text-text-muted hover:text-text-secondary'
+            }`}
+            title={t('chat.members')}
+          >
+            <UsersIcon className="w-5 h-5" />
+          </button>
+          <button
             onClick={() => setSettingsOpen(true)}
             className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title={t('chat.roomSettings')}
@@ -308,112 +346,129 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Cached data banner */}
-      {showingCachedMessages && <CachedDataBanner type="messages" />}
+      {/* Content area: chat + optional member panel */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat content */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Cached data banner */}
+          {showingCachedMessages && <CachedDataBanner type="messages" />}
 
-      {/* Messages */}
-      <MessageList onImageClick={lightbox.openLightbox} />
+          {/* Messages */}
+          <MessageList onImageClick={lightbox.openLightbox} />
 
-      {/* Permission request cards */}
-      {activePermissionRequests.length > 0 && (
-        <div className="border-t border-border">
-          {activePermissionRequests.map((req) => (
-            <PermissionCard
-              key={req.requestId}
-              request={req}
-              onResolved={handlePermissionResolved}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Routing indicator (broadcast mode) */}
-      {showRouting && (
-        <div
-          className="px-6 py-1.5 text-xs text-info-text bg-info-subtle flex items-center gap-1.5"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex space-x-0.5">
-            <span
-              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-              style={{ animationDelay: '0ms' }}
-            />
-            <span
-              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-              style={{ animationDelay: '150ms' }}
-            />
-            <span
-              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-              style={{ animationDelay: '300ms' }}
-            />
-          </div>
-          <span>{t('chat.routingToAgents')}</span>
-        </div>
-      )}
-
-      {/* Typing indicator */}
-      {typingNames.length > 0 && (
-        <div
-          className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex space-x-0.5">
-            <span
-              className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-              style={{ animationDelay: '0ms' }}
-            />
-            <span
-              className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-              style={{ animationDelay: '150ms' }}
-            />
-            <span
-              className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-              style={{ animationDelay: '300ms' }}
-            />
-          </div>
-          <span>
-            {typingNames.length === 1
-              ? t('chat.typing', { name: typingNames[0] })
-              : t('chat.typingMultiple', { names: typingNames.join(', ') })}
-          </span>
-        </div>
-      )}
-
-      {/* Terminal Viewer */}
-      {terminalAgentId && (
-        <ErrorBoundary
-          fallback={(_err, retry) => (
-            <div className="border-t border-border bg-surface-secondary px-4 py-3 flex items-center justify-between">
-              <p className="text-sm text-text-secondary">{t('chat.terminalUnavailable')}</p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={retry}
-                  className="text-xs text-accent hover:text-accent-hover font-medium"
-                >
-                  {t('common.retry')}
-                </button>
-                <button
-                  onClick={() => setTerminalAgentId(null)}
-                  className="text-xs text-text-muted hover:text-text-primary"
-                >
-                  {t('common.close')}
-                </button>
-              </div>
+          {/* Permission request cards */}
+          {activePermissionRequests.length > 0 && (
+            <div className="border-t border-border">
+              {activePermissionRequests.map((req) => (
+                <PermissionCard
+                  key={req.requestId}
+                  request={req}
+                  onResolved={handlePermissionResolved}
+                />
+              ))}
             </div>
           )}
-        >
-          <TerminalViewer
-            agentId={terminalAgentId}
-            agentName={terminalAgent?.agentName ?? terminalAgentId}
-            onClose={() => setTerminalAgentId(null)}
-          />
-        </ErrorBoundary>
-      )}
 
-      {/* Input */}
-      <MessageInput />
+          {/* Routing indicator (broadcast mode) */}
+          {showRouting && (
+            <div
+              className="px-6 py-1.5 text-xs text-info-text bg-info-subtle flex items-center gap-1.5"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex space-x-0.5">
+                <span
+                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </div>
+              <span>{t('chat.routingToAgents')}</span>
+            </div>
+          )}
+
+          {/* Typing indicator */}
+          {typingNames.length > 0 && (
+            <div
+              className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex space-x-0.5">
+                <span
+                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </div>
+              <span>
+                {typingNames.length === 1
+                  ? t('chat.typing', { name: typingNames[0] })
+                  : t('chat.typingMultiple', { names: typingNames.join(', ') })}
+              </span>
+            </div>
+          )}
+
+          {/* Terminal Viewer */}
+          {terminalAgentId && (
+            <ErrorBoundary
+              fallback={(_err, retry) => (
+                <div className="border-t border-border bg-surface-secondary px-4 py-3 flex items-center justify-between">
+                  <p className="text-sm text-text-secondary">{t('chat.terminalUnavailable')}</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={retry}
+                      className="text-xs text-accent hover:text-accent-hover font-medium"
+                    >
+                      {t('common.retry')}
+                    </button>
+                    <button
+                      onClick={() => setTerminalAgentId(null)}
+                      className="text-xs text-text-muted hover:text-text-primary"
+                    >
+                      {t('common.close')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            >
+              <TerminalViewer
+                agentId={terminalAgentId}
+                agentName={terminalAgent?.agentName ?? terminalAgentId}
+                onClose={() => setTerminalAgentId(null)}
+              />
+            </ErrorBoundary>
+          )}
+
+          {/* Input */}
+          <MessageInput />
+        </div>
+
+        {/* Member list side panel */}
+        {membersOpen && (
+          <MemberListPanel
+            roomId={currentRoomId}
+            members={members}
+            onClose={() => setMembersOpen(false)}
+            onAddAgent={() => setAddAgentOpen(true)}
+            onRemoveMember={handleRemoveMember}
+          />
+        )}
+      </div>
 
       {/* Room Settings Drawer */}
       <RoomSettingsDrawer
@@ -424,6 +479,15 @@ export default function ChatPage() {
 
       {/* Search Dialog */}
       <SearchDialog isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Add Agent Dialog */}
+      <AddAgentDialog
+        roomId={currentRoomId}
+        existingMemberIds={existingMemberIds}
+        isOpen={addAgentOpen}
+        onClose={() => setAddAgentOpen(false)}
+        onAdded={() => loadRoomMembers(currentRoomId)}
+      />
 
       {/* Image Lightbox */}
       {lightbox.isOpen && (
