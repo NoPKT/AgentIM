@@ -23,7 +23,10 @@ export default function AgentsPage() {
 
   if (isLoading && agents.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
+      <div
+        data-testid="agents-loading"
+        className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6"
+      >
         <div className="max-w-7xl mx-auto">
           <div className="mb-6 animate-pulse">
             <div className="h-8 w-32 bg-skeleton rounded" />
@@ -53,7 +56,10 @@ export default function AgentsPage() {
 
   if (loadError && agents.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
+      <div
+        data-testid="agents-error"
+        className="flex-1 flex items-center justify-center bg-surface-secondary px-4"
+      >
         <div className="text-center max-w-md">
           <svg
             className="mx-auto h-12 w-12 text-text-muted"
@@ -81,7 +87,10 @@ export default function AgentsPage() {
 
   if (agents.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
+      <div
+        data-testid="agents-empty"
+        className="flex-1 flex items-center justify-center bg-surface-secondary px-4"
+      >
         <div className="text-center max-w-md">
           <svg
             className="mx-auto h-16 w-16 text-text-muted"

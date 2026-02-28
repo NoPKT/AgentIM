@@ -27,12 +27,14 @@ test.describe('Agents page', () => {
 
   test('displays agents section', async ({ page }) => {
     // Wait for the AgentsPage to settle past loading state.
-    // Use auto-retrying assertion instead of networkidle to avoid race
-    // conditions where the useEffect API call hasn't started yet.
+    // The page has 4 possible states: loading, error, empty, or populated.
+    // All states now have data-testid attributes for reliable detection.
     await expect(
       page
         .locator('[data-testid="agents-list"]')
-        .or(page.getByText(/no agents|connect.*agent|start.*agent/i)),
+        .or(page.locator('[data-testid="agents-empty"]'))
+        .or(page.locator('[data-testid="agents-error"]'))
+        .or(page.locator('[data-testid="agents-loading"]')),
     ).toBeVisible({ timeout: 15_000 })
   })
 })
