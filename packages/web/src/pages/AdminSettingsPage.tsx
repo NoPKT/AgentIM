@@ -107,49 +107,51 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">{t('adminSettings.title')}</h1>
-        <p className="mt-1 text-sm text-text-secondary">{t('adminSettings.description')}</p>
+    <div className="flex-1 overflow-y-auto bg-surface-secondary px-6 py-6">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">{t('adminSettings.title')}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t('adminSettings.description')}</p>
+        </div>
+
+        {/* Setting Groups */}
+        {GROUP_ORDER.map((groupKey) => {
+          const items = groups[groupKey]
+          if (!items || items.length === 0) return null
+          const groupDirty = items.some((item) => dirty.has(item.key))
+
+          return (
+            <div key={groupKey} className="bg-surface rounded-lg border border-border shadow-sm">
+              <div className="px-6 py-4 border-b border-border">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {t(GROUP_LABEL_KEYS[groupKey])}
+                </h2>
+              </div>
+              <div className="px-6 py-5 space-y-5">
+                {items.map((item) => (
+                  <SettingField
+                    key={item.key}
+                    item={item}
+                    value={localValues[item.key] ?? item.value}
+                    isDirty={dirty.has(item.key)}
+                    onChange={(v) => handleChange(item.key, v)}
+                  />
+                ))}
+              </div>
+              <div className="px-6 py-3 border-t border-border flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!groupDirty || saving}
+                  onClick={() => handleSaveGroup(groupKey)}
+                >
+                  {saving ? t('common.saving') : t('common.save')}
+                </Button>
+              </div>
+            </div>
+          )
+        })}
       </div>
-
-      {/* Setting Groups */}
-      {GROUP_ORDER.map((groupKey) => {
-        const items = groups[groupKey]
-        if (!items || items.length === 0) return null
-        const groupDirty = items.some((item) => dirty.has(item.key))
-
-        return (
-          <div key={groupKey} className="bg-surface rounded-lg border border-border shadow-sm">
-            <div className="px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-text-primary">
-                {t(GROUP_LABEL_KEYS[groupKey])}
-              </h2>
-            </div>
-            <div className="px-6 py-5 space-y-5">
-              {items.map((item) => (
-                <SettingField
-                  key={item.key}
-                  item={item}
-                  value={localValues[item.key] ?? item.value}
-                  isDirty={dirty.has(item.key)}
-                  onChange={(v) => handleChange(item.key, v)}
-                />
-              ))}
-            </div>
-            <div className="px-6 py-3 border-t border-border flex justify-end">
-              <Button
-                size="sm"
-                disabled={!groupDirty || saving}
-                onClick={() => handleSaveGroup(groupKey)}
-              >
-                {saving ? t('common.saving') : t('common.save')}
-              </Button>
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }
