@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, readdirSync } from 'fs'
+import { join } from 'path'
 import type { ParsedChunk } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
@@ -246,8 +248,6 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Discover custom slash commands from .claude/commands/
     if (this.workingDirectory) {
       try {
-        const { readdirSync } = require('fs')
-        const { join } = require('path')
         const commandsDir = join(this.workingDirectory, '.claude', 'commands')
         const files: string[] = readdirSync(commandsDir).filter((f: string) => f.endsWith('.md'))
         for (const file of files) {
@@ -269,9 +269,6 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
   override getMcpServers(): string[] {
     if (!this.workingDirectory) return []
-
-    const { existsSync, readFileSync } = require('fs')
-    const { join } = require('path')
 
     // Try .claude/settings.json first, then .claude.json
     const candidates = [
