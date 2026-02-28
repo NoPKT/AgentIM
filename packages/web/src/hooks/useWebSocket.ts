@@ -297,6 +297,21 @@ export function useWebSocket() {
     return () => clearInterval(timer)
   }, [])
 
+  // Sync missed messages when the page becomes visible again (e.g. mobile tab switch)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        const { currentRoomId, syncMissedMessages, loadRooms } = useChatStore.getState()
+        if (currentRoomId) {
+          syncMissedMessages(currentRoomId)
+        }
+        loadRooms()
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    return () => document.removeEventListener('visibilitychange', handler)
+  }, [])
+
   // Notify user when WebSocket send queue overflows
   useEffect(() => {
     const handler = () => {

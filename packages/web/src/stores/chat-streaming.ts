@@ -79,17 +79,24 @@ export function addTerminalDataAction(
   return next
 }
 
+export interface StaleStreamEntry extends StreamingMessage {
+  roomId: string
+}
+
 export function cleanupStaleStreamsAction(
   streaming: Map<string, StreamingMessage>,
-): Map<string, StreamingMessage> | null {
+): { next: Map<string, StreamingMessage>; stale: StaleStreamEntry[] } | null {
   const now = Date.now()
   const next = new Map(streaming)
-  let changed = false
+  const stale: StaleStreamEntry[] = []
   for (const [key, stream] of next) {
     if (now - stream.lastChunkAt > STALE_TIMEOUT) {
+      // Key format is "roomId:agentId" — extract roomId
+      const separatorIdx = key.indexOf(':')
+      const roomId = separatorIdx > 0 ? key.slice(0, separatorIdx) : key
+      stale.push({ ...stream, roomId })
       next.delete(key)
-      changed = true
     }
   }
-  return changed ? next : null
+  return stale.length > 0 ? { next, stale } : null
 }

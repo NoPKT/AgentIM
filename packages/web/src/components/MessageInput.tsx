@@ -547,7 +547,7 @@ export function MessageInput() {
             id="mention-listbox"
             role="listbox"
             aria-label={t('chat.mentionHint')}
-            className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64"
+            className="absolute bottom-full mb-2 left-4 bg-surface border border-border rounded-xl shadow-xl max-h-48 overflow-y-auto z-dropdown w-64 max-w-[calc(100vw-2rem)]"
           >
             <div className="p-2.5 border-b border-border">
               <p className="text-xs text-text-muted">{t('chat.mentionHint')}</p>

@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/shallow'
 import type { ServerMessage } from '@agentim/shared'
 import { useChatStore, selectTypingNames } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
+import { useAgentStore } from '../stores/agents.js'
 import { wsClient } from '../lib/ws.js'
 import { MessageList } from '../components/MessageList.js'
 import { MessageInput } from '../components/MessageInput.js'
@@ -33,6 +34,7 @@ export default function ChatPage() {
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
+  const loadAgents = useAgentStore((s) => s.loadAgents)
   const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
   const showingCachedMessages = useChatStore((s) => s.showingCachedMessages)
@@ -67,6 +69,11 @@ export default function ChatPage() {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Ensure agents are loaded for @ mention popup (may not have visited AgentsPage)
+  useEffect(() => {
+    loadAgents()
+  }, [loadAgents])
 
   // Sync route param -> store
   useEffect(() => {

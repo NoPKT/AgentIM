@@ -30,6 +30,7 @@ import {
   addTerminalDataAction,
   cleanupStaleStreamsAction,
   type StreamingMessage,
+  type StaleStreamEntry,
   type TerminalBuffer,
 } from './chat-streaming.js'
 import {
@@ -157,6 +158,23 @@ const _roomAccessTimes = new Map<string, number>()
 
 // Disable IDB writes after QuotaExceededError to avoid repeated failures
 let _idbDisabled = false
+
+/** Build a synthetic Message from a stale streaming entry so the user still sees the streamed content. */
+function buildSyntheticMessage(stale: StaleStreamEntry): Message {
+  const textChunks = stale.chunks.filter((c) => c.type === 'text').map((c) => c.content)
+  return {
+    id: stale.messageId,
+    roomId: stale.roomId,
+    senderId: stale.agentId,
+    senderType: 'agent',
+    senderName: stale.agentName,
+    type: 'agent_response',
+    content: textChunks.join('') || '(streaming incomplete)',
+    mentions: [],
+    chunks: stale.chunks,
+    createdAt: new Date().toISOString(),
+  }
+}
 
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
@@ -519,6 +537,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   completeStream: (message) => {
+    const streamKey = `${message.roomId}:${message.senderId}`
+    const streamEntry = get().streaming.get(streamKey)
+    // Preserve streaming chunks if the completed message doesn't have them
+    if (streamEntry?.chunks?.length && !message.chunks?.length) {
+      message = { ...message, chunks: streamEntry.chunks }
+    }
     // Add message first, then always clean up streaming state even if addMessage throws
     try {
       get().addMessage(message)
@@ -545,7 +569,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   cleanupStaleStreams: () => {
     const result = cleanupStaleStreamsAction(get().streaming)
-    if (result) set({ streaming: result })
+    if (!result) return
+    set({ streaming: result.next })
+    // Recover messages from stale streams instead of silently discarding
+    for (const stale of result.stale) {
+      const { roomId } = stale
+      // Try to sync from server first — if message was persisted, this picks it up
+      get()
+        .syncMissedMessages(roomId)
+        .then(() => {
+          // After sync, check if the message now exists
+          const msgs = get().messages.get(roomId) ?? []
+          if (!msgs.some((m) => m.id === stale.messageId) && stale.chunks.length > 0) {
+            // Server didn't have it yet — construct synthetic message from streaming chunks
+            get().addMessage(buildSyntheticMessage(stale))
+          }
+        })
+        .catch(() => {
+          // If sync fails, still preserve the streamed content
+          if (stale.chunks.length > 0) {
+            get().addMessage(buildSyntheticMessage(stale))
+          }
+        })
+    }
   },
 
   createRoom: async (name, type, broadcastMode, systemPrompt?, routerId?) => {

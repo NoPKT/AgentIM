@@ -11,6 +11,8 @@ interface TerminalViewerProps {
   onClose: () => void
 }
 
+const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
 export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -19,9 +21,11 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   const writtenTotalRef = useRef(0)
   const [collapsed, setCollapsed] = useState(false)
   const [initError, setInitError] = useState<string | null>(null)
+  const [useTextFallback] = useState(isTouchDevice)
   const lines = useChatStore((s) => s.terminalBuffers.get(agentId)?.lines)
   const totalPushed = useChatStore((s) => s.terminalBuffers.get(agentId)?.totalPushed ?? 0)
   const clearTerminalBuffer = useChatStore((s) => s.clearTerminalBuffer)
+  const preRef = useRef<HTMLPreElement>(null)
 
   // Initialize xterm
   useEffect(() => {
@@ -127,31 +131,73 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
     }
   }, [collapsed])
 
-  if (initError) {
+  // Auto-scroll text fallback when new lines arrive
+  useEffect(() => {
+    if (useTextFallback && preRef.current) {
+      preRef.current.scrollTop = preRef.current.scrollHeight
+    }
+  }, [useTextFallback, lines])
+
+  if (initError || useTextFallback) {
+    // Render a simple scrollable <pre> for touch devices or when xterm fails
     return (
       <div className="border-t border-border bg-terminal-bg flex flex-col">
         <div className="flex items-center justify-between px-3 py-1.5 bg-terminal-header text-terminal-text text-xs">
           <span className="font-medium">
             {t('common.terminal')} — {agentName}
           </span>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
-            aria-label={t('common.close')}
+          <div className="flex items-center gap-1">
+            {useTextFallback && (
+              <button
+                onClick={() => {
+                  clearTerminalBuffer(agentId)
+                }}
+                className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
+                title={t('common.clear')}
+                aria-label={t('common.clear')}
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
+              aria-label={t('common.close')}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {initError && !useTextFallback ? (
+          <div className="px-4 py-3 text-xs text-text-muted">{t('chat.terminalUnavailable')}</div>
+        ) : (
+          <pre
+            ref={preRef}
+            className="h-48 overflow-auto px-3 py-2 text-xs text-terminal-text font-mono whitespace-pre-wrap break-all"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <div className="px-4 py-3 text-xs text-text-muted">
-          {t('common.terminalUnavailable', { error: initError })}
-        </div>
+            {lines?.join('') ?? ''}
+          </pre>
+        )}
       </div>
     )
   }

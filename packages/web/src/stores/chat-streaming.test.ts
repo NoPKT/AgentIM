@@ -288,8 +288,11 @@ describe('cleanupStaleStreamsAction', () => {
     const result = cleanupStaleStreamsAction(streaming)
 
     expect(result).not.toBeNull()
-    expect(result!.has('room-1:agent-stale')).toBe(false)
-    expect(result!.has('room-1:agent-fresh')).toBe(true)
+    expect(result!.next.has('room-1:agent-stale')).toBe(false)
+    expect(result!.next.has('room-1:agent-fresh')).toBe(true)
+    expect(result!.stale).toHaveLength(1)
+    expect(result!.stale[0].agentId).toBe('agent-stale')
+    expect(result!.stale[0].roomId).toBe('room-1')
   })
 
   it('returns null when no streams are stale', () => {
@@ -316,7 +319,8 @@ describe('cleanupStaleStreamsAction', () => {
     const result = cleanupStaleStreamsAction(streaming)
 
     expect(result).not.toBeNull()
-    expect(result!.size).toBe(0)
+    expect(result!.next.size).toBe(0)
+    expect(result!.stale).toHaveLength(2)
   })
 
   it('does not mutate the original map', () => {
