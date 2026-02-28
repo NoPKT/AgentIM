@@ -26,11 +26,13 @@ test.describe('Agents page', () => {
   })
 
   test('displays agents section', async ({ page }) => {
-    // Wait for page to fully load
-    await page.waitForLoadState('networkidle')
-    // Page should contain either an agents list or an empty-state message
-    const hasAgents = await page.locator('[data-testid="agents-list"]').count()
-    const hasEmpty = await page.getByText(/no agents|connect.*agent|start.*agent/i).count()
-    expect(hasAgents + hasEmpty).toBeGreaterThan(0)
+    // Wait for the AgentsPage to settle past loading state.
+    // Use auto-retrying assertion instead of networkidle to avoid race
+    // conditions where the useEffect API call hasn't started yet.
+    await expect(
+      page
+        .locator('[data-testid="agents-list"]')
+        .or(page.getByText(/no agents|connect.*agent|start.*agent/i)),
+    ).toBeVisible({ timeout: 15_000 })
   })
 })
