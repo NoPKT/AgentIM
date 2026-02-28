@@ -87,7 +87,28 @@ export function AppLayout() {
         {t('a11y.skipToContent')}
       </a>
 
-      {/* Mobile overlay */}
+      {/* Main Content — rendered before sidebar in DOM so sidebar paints on top */}
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0 outline-none">
+        {/* Mobile top bar */}
+        <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
+          <button
+            className="p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            onClick={() => setSidebarOpen(true)}
+            aria-label={t('chat.rooms')}
+            aria-expanded={sidebarOpen}
+          >
+            <MenuIcon className="w-6 h-6" aria-hidden="true" />
+          </button>
+          <h2 className="ml-4 text-lg font-semibold text-text-primary">{t('common.appName')}</h2>
+        </div>
+
+        {/* Route content */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <Outlet />
+        </div>
+      </main>
+
+      {/* Mobile overlay — rendered after main so it paints on top */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-backdrop backdrop-blur-sm z-overlay lg:hidden"
@@ -98,11 +119,12 @@ export function AppLayout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — rendered after main in DOM for correct mobile stacking;
+          lg:order-first restores left-side position on desktop flex layout */}
       <aside
         ref={sidebarRef}
         className={`
-          fixed lg:static inset-y-0 left-0 z-sidebar
+          fixed lg:static inset-y-0 left-0 z-sidebar lg:order-first
           w-72 bg-surface border-r border-border shadow-sm
           flex flex-col
           ${swipe.isSwiping ? '' : 'transform transition-transform duration-300 ease-in-out'}
@@ -173,27 +195,6 @@ export function AppLayout() {
           </button>
         </nav>
       </aside>
-
-      {/* Main Content */}
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0 outline-none">
-        {/* Mobile top bar */}
-        <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
-          <button
-            className="p-2 rounded-md hover:bg-surface-hover text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            onClick={() => setSidebarOpen(true)}
-            aria-label={t('chat.rooms')}
-            aria-expanded={sidebarOpen}
-          >
-            <MenuIcon className="w-6 h-6" aria-hidden="true" />
-          </button>
-          <h2 className="ml-4 text-lg font-semibold text-text-primary">{t('common.appName')}</h2>
-        </div>
-
-        {/* Route content */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <Outlet />
-        </div>
-      </main>
     </div>
   )
 }
