@@ -30,7 +30,6 @@ import {
   addTerminalDataAction,
   cleanupStaleStreamsAction,
   type StreamingMessage,
-  type StaleStreamEntry,
   type TerminalBuffer,
 } from './chat-streaming.js'
 import {
@@ -158,23 +157,6 @@ const _roomAccessTimes = new Map<string, number>()
 
 // Disable IDB writes after QuotaExceededError to avoid repeated failures
 let _idbDisabled = false
-
-/** Build a synthetic Message from a stale streaming entry so the user still sees the streamed content. */
-function buildSyntheticMessage(stale: StaleStreamEntry): Message {
-  const textChunks = stale.chunks.filter((c) => c.type === 'text').map((c) => c.content)
-  return {
-    id: stale.messageId,
-    roomId: stale.roomId,
-    senderId: stale.agentId,
-    senderType: 'agent',
-    senderName: stale.agentName,
-    type: 'agent_response',
-    content: textChunks.join('') || '(streaming incomplete)',
-    mentions: [],
-    chunks: stale.chunks,
-    createdAt: new Date().toISOString(),
-  }
-}
 
 export const useChatStore = create<ChatState>((set, get) => ({
   rooms: [],
@@ -537,17 +519,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   completeStream: (message) => {
+    const MAX_CACHED_MESSAGES = 1000
     const streamKey = `${message.roomId}:${message.senderId}`
     const streamEntry = get().streaming.get(streamKey)
     // Preserve streaming chunks if the completed message doesn't have them
     if (streamEntry?.chunks?.length && !message.chunks?.length) {
       message = { ...message, chunks: streamEntry.chunks }
     }
-    // Add message first, then always clean up streaming state even if addMessage throws
-    try {
-      get().addMessage(message)
-    } finally {
-      set({ streaming: completeStreamAction(get().streaming, message) })
+
+    const msgs = new Map(get().messages)
+    const roomMsgs = msgs.get(message.roomId) ?? []
+
+    // Add-or-update: if message exists, update it; if not, add it
+    const existingIdx = roomMsgs.findIndex((m) => m.id === message.id)
+    if (existingIdx >= 0) {
+      const updated = [...roomMsgs]
+      updated[existingIdx] = message
+      msgs.set(message.roomId, updated)
+    } else {
+      let updated = [...roomMsgs, message]
+      if (updated.length > MAX_CACHED_MESSAGES) {
+        updated = updated.slice(-MAX_CACHED_MESSAGES)
+      }
+      msgs.set(message.roomId, updated)
+    }
+
+    _roomAccessTimes.set(message.roomId, Date.now())
+
+    const lastMessages = new Map(get().lastMessages)
+    lastMessages.set(message.roomId, {
+      content: message.content,
+      senderName: message.senderName,
+      createdAt: message.createdAt,
+    })
+
+    const unreadCounts = new Map(get().unreadCounts)
+    if (message.roomId !== get().currentRoomId) {
+      unreadCounts.set(message.roomId, (unreadCounts.get(message.roomId) || 0) + 1)
+    }
+
+    // Atomic: update messages AND remove streaming entry in single set()
+    const nextStreaming = completeStreamAction(get().streaming, message)
+    set({ messages: msgs, lastMessages, unreadCounts, streaming: nextStreaming })
+
+    // IDB cache
+    if (!_idbDisabled) {
+      addCachedMessage(message).catch((err) => {
+        if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+          console.warn('[IDB QuotaExceeded] addCachedMessage failed, disabling IDB writes', err)
+          _idbDisabled = true
+        } else {
+          console.warn('[IDB] addCachedMessage failed', err)
+        }
+      })
     }
   },
 
@@ -571,26 +595,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const result = cleanupStaleStreamsAction(get().streaming)
     if (!result) return
     set({ streaming: result.next })
-    // Recover messages from stale streams instead of silently discarding
     for (const stale of result.stale) {
-      const { roomId } = stale
-      // Try to sync from server first — if message was persisted, this picks it up
       get()
-        .syncMissedMessages(roomId)
-        .then(() => {
-          // After sync, check if the message now exists
-          const msgs = get().messages.get(roomId) ?? []
-          if (!msgs.some((m) => m.id === stale.messageId) && stale.chunks.length > 0) {
-            // Server didn't have it yet — construct synthetic message from streaming chunks
-            get().addMessage(buildSyntheticMessage(stale))
-          }
-        })
-        .catch(() => {
-          // If sync fails, still preserve the streamed content
-          if (stale.chunks.length > 0) {
-            get().addMessage(buildSyntheticMessage(stale))
-          }
-        })
+        .syncMissedMessages(stale.roomId)
+        .catch(() => {})
     }
   },
 
@@ -1095,7 +1103,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const existing = get().messages.get(roomId) ?? []
       const lastMsg = existing[existing.length - 1]
       if (!lastMsg) {
-        // No messages loaded — do a full load
         await get().loadMessages(roomId)
         return
       }
@@ -1106,14 +1113,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       )
       if (res.ok && res.data && res.data.items.length > 0) {
         const newMsgs = res.data.items.reverse()
-        const existingIds = new Set(existing.map((m) => m.id))
-        const unique = newMsgs.filter((m) => !existingIds.has(m.id))
+        // Re-read CURRENT state after await to avoid TOCTOU race —
+        // completeStream() may have added messages during the fetch.
+        const current = get().messages.get(roomId) ?? []
+        const currentIds = new Set(current.map((m) => m.id))
+        const unique = newMsgs.filter((m) => !currentIds.has(m.id))
         if (unique.length > 0) {
           const msgs = new Map(get().messages)
-          // Both arrays are already sorted ascending and unique items are
-          // guaranteed to be newer than existing (API uses `after: lastMsg.createdAt`),
-          // so a simple concat preserves order without re-sorting.
-          const combined = [...existing, ...unique]
+          const combined = [...current, ...unique]
           msgs.set(roomId, combined)
           set({ messages: msgs })
         }

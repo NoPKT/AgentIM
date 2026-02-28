@@ -619,19 +619,31 @@ async function handleMessageComplete(
     }
   }
 
-  // Persist agent's full message with structured chunks
-  await db.insert(messages).values({
-    id: msg.messageId,
-    roomId: msg.roomId,
-    senderId: msg.agentId,
-    senderType: 'agent',
-    senderName: agentName,
-    type: 'agent_response',
-    content: msg.fullContent,
-    mentions: [],
-    chunks: chunksValue,
-    createdAt: now,
-  })
+  // Persist agent's full message with structured chunks.
+  // Use onConflictDoUpdate to handle gateway retries (duplicate messageId)
+  // gracefully — ensures the broadcast always happens and latest content wins.
+  await db
+    .insert(messages)
+    .values({
+      id: msg.messageId,
+      roomId: msg.roomId,
+      senderId: msg.agentId,
+      senderType: 'agent',
+      senderName: agentName,
+      type: 'agent_response',
+      content: msg.fullContent,
+      mentions: [],
+      chunks: chunksValue,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: messages.id,
+      set: {
+        content: msg.fullContent,
+        chunks: chunksValue,
+        updatedAt: now,
+      },
+    })
 
   const message = {
     id: msg.messageId,

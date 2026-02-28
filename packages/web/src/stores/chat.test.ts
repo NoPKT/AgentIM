@@ -526,8 +526,8 @@ describe('useChatStore', () => {
   // ── cleanupStaleStreams() ─────────────────────────────────────────────────
 
   describe('cleanupStaleStreams()', () => {
-    it('removes streams older than STALE_TIMEOUT (2 minutes)', () => {
-      const twoMinutesAgo = Date.now() - 121_000
+    it('removes streams older than STALE_TIMEOUT (5 minutes)', () => {
+      const fiveMinutesAgo = Date.now() - 301_000
       useChatStore.setState({
         streaming: new Map([
           [
@@ -537,7 +537,7 @@ describe('useChatStore', () => {
               agentId: 'agent-stale',
               agentName: 'Stale',
               chunks: [{ type: 'text', content: 'old' }],
-              lastChunkAt: twoMinutesAgo,
+              lastChunkAt: fiveMinutesAgo,
             },
           ],
           [
@@ -587,7 +587,7 @@ describe('useChatStore', () => {
     })
 
     it('removes all streams when all are stale', () => {
-      const longAgo = Date.now() - 300_000
+      const longAgo = Date.now() - 301_000
       useChatStore.setState({
         streaming: new Map([
           [

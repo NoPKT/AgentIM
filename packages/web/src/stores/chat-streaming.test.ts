@@ -271,8 +271,8 @@ describe('addTerminalDataAction', () => {
 })
 
 describe('cleanupStaleStreamsAction', () => {
-  it('removes streams older than 2 minutes', () => {
-    const staleTime = Date.now() - 121_000
+  it('removes streams older than 5 minutes', () => {
+    const staleTime = Date.now() - 301_000
     const freshTime = Date.now()
     const streaming = new Map<string, StreamingMessage>([
       [
@@ -310,7 +310,7 @@ describe('cleanupStaleStreamsAction', () => {
   })
 
   it('removes all streams when all are stale', () => {
-    const longAgo = Date.now() - 300_000
+    const longAgo = Date.now() - 301_000
     const streaming = new Map<string, StreamingMessage>([
       ['room-1:agent-1', makeStreamingMessage({ lastChunkAt: longAgo })],
       ['room-2:agent-2', makeStreamingMessage({ agentId: 'agent-2', lastChunkAt: longAgo })],
