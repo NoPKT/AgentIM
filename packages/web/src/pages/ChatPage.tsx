@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/shallow'
@@ -16,6 +16,7 @@ import { CachedDataBanner } from '../components/CachedDataBanner.js'
 import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
 import { ImageLightbox } from '../components/ImageLightbox.js'
 import { useLightbox } from '../hooks/useLightbox.js'
+import { ErrorBoundary } from '../components/ErrorBoundary.js'
 import { TerminalIcon, SearchIcon, SettingsIcon, ChatBubbleIcon } from '../components/icons.js'
 
 export default function ChatPage() {
@@ -46,6 +47,11 @@ export default function ChatPage() {
   const currentRoom = rooms.find((r) => r.id === currentRoomId)
   const members = currentRoomId ? (roomMembers.get(currentRoomId) ?? []) : []
   const agentMembers = useMemo(() => members.filter((m) => m.memberType === 'agent'), [members])
+
+  // Routing indicator for broadcast mode
+  const [showRouting, setShowRouting] = useState(false)
+  const routingTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const streaming = useChatStore((s) => s.streaming)
 
   // Get the terminal agent name from buffer
   const terminalAgent = terminalAgentId ? terminalBuffers.get(terminalAgentId) : null
@@ -82,6 +88,32 @@ export default function ChatPage() {
     }
   }, [currentRoomId, loadRoomMembers])
 
+  // Hide routing indicator once any streaming response starts for the current room
+  useEffect(() => {
+    if (!showRouting || !currentRoomId) return
+    const hasStreamForRoom = Array.from(streaming.keys()).some((k) =>
+      k.startsWith(`${currentRoomId}:`),
+    )
+    if (hasStreamForRoom) {
+      setShowRouting(false)
+      if (routingTimerRef.current) {
+        clearTimeout(routingTimerRef.current)
+        routingTimerRef.current = null
+      }
+    }
+  }, [streaming, showRouting, currentRoomId])
+
+  // Clean up routing timer on unmount or room change
+  useEffect(() => {
+    return () => {
+      if (routingTimerRef.current) {
+        clearTimeout(routingTimerRef.current)
+        routingTimerRef.current = null
+      }
+      setShowRouting(false)
+    }
+  }, [currentRoomId])
+
   // Flush offline pending messages on reconnect
   useEffect(() => {
     const unsub = wsClient.onReconnect(() => {
@@ -89,6 +121,32 @@ export default function ChatPage() {
     })
     return unsub
   }, [flushPendingMessages])
+
+  // Show routing indicator when the current user sends a message in broadcast mode
+  useEffect(() => {
+    const unsub = wsClient.onMessage((msg: ServerMessage) => {
+      if (
+        msg.type === 'server:new_message' &&
+        msg.message.roomId === useChatStore.getState().currentRoomId &&
+        msg.message.senderId === useAuthStore.getState().user?.id
+      ) {
+        const room = useChatStore.getState().rooms.find((r) => r.id === msg.message.roomId)
+        if (room?.broadcastMode) {
+          if (routingTimerRef.current) clearTimeout(routingTimerRef.current)
+          routingTimerRef.current = setTimeout(() => {
+            // Only show if no streaming has started for this room
+            const st = useChatStore.getState().streaming
+            const hasStream = Array.from(st.keys()).some((k) =>
+              k.startsWith(`${msg.message.roomId}:`),
+            )
+            if (!hasStream) setShowRouting(true)
+            routingTimerRef.current = null
+          }, 2000)
+        }
+      }
+    })
+    return unsub
+  }, [])
 
   // Handle permission request WS messages
   useEffect(() => {
@@ -262,6 +320,31 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Routing indicator (broadcast mode) */}
+      {showRouting && (
+        <div
+          className="px-6 py-1.5 text-xs text-info-text bg-info-subtle flex items-center gap-1.5"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex space-x-0.5">
+            <span
+              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+              style={{ animationDelay: '0ms' }}
+            />
+            <span
+              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+              style={{ animationDelay: '150ms' }}
+            />
+            <span
+              className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+              style={{ animationDelay: '300ms' }}
+            />
+          </div>
+          <span>{t('chat.routingToAgents')}</span>
+        </div>
+      )}
+
       {/* Typing indicator */}
       {typingNames.length > 0 && (
         <div
@@ -293,11 +376,33 @@ export default function ChatPage() {
 
       {/* Terminal Viewer */}
       {terminalAgentId && (
-        <TerminalViewer
-          agentId={terminalAgentId}
-          agentName={terminalAgent?.agentName ?? terminalAgentId}
-          onClose={() => setTerminalAgentId(null)}
-        />
+        <ErrorBoundary
+          fallback={(_err, retry) => (
+            <div className="border-t border-border bg-surface-secondary px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-text-secondary">{t('chat.terminalUnavailable')}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={retry}
+                  className="text-xs text-accent hover:text-accent-hover font-medium"
+                >
+                  {t('common.retry')}
+                </button>
+                <button
+                  onClick={() => setTerminalAgentId(null)}
+                  className="text-xs text-text-muted hover:text-text-primary"
+                >
+                  {t('common.close')}
+                </button>
+              </div>
+            </div>
+          )}
+        >
+          <TerminalViewer
+            agentId={terminalAgentId}
+            agentName={terminalAgent?.agentName ?? terminalAgentId}
+            onClose={() => setTerminalAgentId(null)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Input */}

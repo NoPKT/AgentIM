@@ -303,7 +303,7 @@ function MessageContent({
   }
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none">
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-hidden">
       <LazyMarkdown
         components={{
           code({ className, children, ...props }) {
@@ -431,7 +431,7 @@ export const MessageItem = memo(function MessageItem({
       {/* Action buttons */}
       <div
         ref={actions.actionsRef}
-        className={`absolute right-4 top-2 flex items-center gap-1 transition-all ${actions.showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
+        className={`absolute right-4 top-2 flex items-center gap-1 bg-surface/90 backdrop-blur-sm border border-border rounded-lg px-1 py-0.5 shadow-sm transition-all ${actions.showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
       >
         <div className="relative">
           <button
@@ -526,7 +526,7 @@ export const MessageItem = memo(function MessageItem({
         )}
 
         {/* Message content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           {/* Sender and time — only for first message in group */}
           {showHeader && (
             <div className="flex items-center space-x-2 mb-1">

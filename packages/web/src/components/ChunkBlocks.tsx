@@ -88,6 +88,16 @@ function parseToolInput(content: string): Record<string, unknown> | null {
   try {
     return JSON.parse(content)
   } catch {
+    // Try to extract file_path from non-JSON content (e.g. raw text arguments)
+    const fileMatch = content.match(/(?:file_path|path|file)["\s:=]+["']?([^\s"',}]+)/i)
+    if (fileMatch) {
+      return { file_path: fileMatch[1] }
+    }
+    // Try to extract a command from non-JSON content
+    const cmdMatch = content.match(/(?:command)["\s:=]+["']?(.+)/i)
+    if (cmdMatch) {
+      return { command: cmdMatch[1].replace(/["']$/, '') }
+    }
     return null
   }
 }
@@ -252,7 +262,7 @@ function ReadToolBlock({ content }: { content: string }) {
   return (
     <div className="my-1 flex items-center gap-2 text-xs text-text-muted">
       <svg
-        className="w-3.5 h-3.5 text-blue-400"
+        className="w-3.5 h-3.5 text-blue-400 flex-shrink-0"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -270,7 +280,69 @@ function ReadToolBlock({ content }: { content: string }) {
           d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
         />
       </svg>
-      <span>{t('chat.readingFile', { file: fileName })}</span>
+      <span className="truncate">
+        {fileName ? t('chat.readingFile', { file: fileName }) : t('chat.readingFileGeneric')}
+      </span>
+    </div>
+  )
+}
+
+/** Collapse N consecutive ReadToolBlocks into a single summary */
+function ReadToolBlockGroup({ contents }: { contents: string[] }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const files = contents
+    .map((c) => {
+      const input = parseToolInput(c)
+      const filePath = (input?.file_path as string) || ''
+      return filePath.split('/').pop() || filePath
+    })
+    .filter(Boolean)
+
+  return (
+    <div className="my-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
+      >
+        <svg
+          className="w-3.5 h-3.5 text-blue-400 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          />
+        </svg>
+        <span>{t('chat.readingFiles', { count: contents.length })}</span>
+        <svg
+          className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="ml-5 mt-1 space-y-0.5">
+          {files.map((f, i) => (
+            <div key={i} className="text-xs text-text-muted font-mono truncate">
+              {f}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -364,6 +436,20 @@ export function ToolUseBlock({
       return <BashToolBlock content={content} isStreaming={isStreaming} />
   }
 
+  // Extract a short preview from tool input for the collapsed state
+  const input = parseToolInput(content)
+  const toolPreview = (() => {
+    if (!input) return ''
+    // Common patterns: file_path, command, query, url, pattern
+    const filePath = input.file_path as string
+    if (filePath) return filePath.split('/').pop() || filePath
+    const command = input.command as string
+    if (command) return command.length > 60 ? command.slice(0, 60) + '...' : command
+    const query = (input.query ?? input.pattern ?? input.url) as string
+    if (query) return query.length > 60 ? query.slice(0, 60) + '...' : query
+    return ''
+  })()
+
   // Generic tool block (fallback)
   return (
     <div className="my-2">
@@ -410,11 +496,14 @@ export function ToolUseBlock({
           </svg>
           <span className="font-medium text-info-text">{toolName}</span>
         </span>
+        {!expanded && toolPreview && (
+          <span className="text-text-muted truncate flex-1 font-mono">{toolPreview}</span>
+        )}
       </button>
 
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-info-border">
-          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto">
+          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
             {content}
           </pre>
         </div>
@@ -506,7 +595,7 @@ export function TextBlock({
   )
 
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert">
+    <div className="prose prose-sm max-w-none dark:prose-invert break-words overflow-hidden">
       {truncated && (
         <div className="not-prose text-xs text-text-muted italic mb-1">
           {t('chat.streamingTruncated')}
@@ -662,6 +751,36 @@ export function WorkspaceStatusBlock({ content }: { content: string }) {
   )
 }
 
+/** Collapse consecutive Read tool_use groups into batched renders */
+function collapseReadGroups(
+  groups: ChunkGroup[],
+): (ChunkGroup | { type: 'read_batch'; contents: string[] })[] {
+  const result: (ChunkGroup | { type: 'read_batch'; contents: string[] })[] = []
+  let readBuffer: string[] = []
+
+  const flushReads = () => {
+    if (readBuffer.length > 3) {
+      result.push({ type: 'read_batch', contents: [...readBuffer] })
+    } else {
+      for (const content of readBuffer) {
+        result.push({ type: 'tool_use', content, metadata: { toolName: 'Read' } })
+      }
+    }
+    readBuffer = []
+  }
+
+  for (const group of groups) {
+    if (group.type === 'tool_use' && (group.metadata?.toolName as string) === 'Read') {
+      readBuffer.push(group.content)
+    } else {
+      if (readBuffer.length > 0) flushReads()
+      result.push(group)
+    }
+  }
+  if (readBuffer.length > 0) flushReads()
+  return result
+}
+
 /** Render an array of chunk groups */
 export function ChunkGroupRenderer({
   groups,
@@ -670,31 +789,44 @@ export function ChunkGroupRenderer({
   groups: ChunkGroup[]
   isStreaming?: boolean
 }) {
+  const collapsed = useMemo(() => collapseReadGroups(groups), [groups])
+
   return (
     <>
-      {groups.map((group, i) => {
+      {collapsed.map((group, i) => {
         const key = `${group.type}-${i}`
-        const isLast = isStreaming && i === groups.length - 1
-        switch (group.type) {
+        const isLast = isStreaming && i === collapsed.length - 1
+
+        if (group.type === 'read_batch') {
+          return (
+            <ReadToolBlockGroup
+              key={key}
+              contents={(group as { type: 'read_batch'; contents: string[] }).contents}
+            />
+          )
+        }
+
+        const g = group as ChunkGroup
+        switch (g.type) {
           case 'thinking':
-            return <ThinkingBlock key={key} content={group.content} isStreaming={isLast} />
+            return <ThinkingBlock key={key} content={g.content} isStreaming={isLast} />
           case 'tool_use':
             return (
               <ToolUseBlock
                 key={key}
-                content={group.content}
-                metadata={group.metadata}
+                content={g.content}
+                metadata={g.metadata}
                 isStreaming={isLast}
               />
             )
           case 'tool_result':
-            return <ToolResultBlock key={key} content={group.content} metadata={group.metadata} />
+            return <ToolResultBlock key={key} content={g.content} metadata={g.metadata} />
           case 'error':
-            return <ErrorBlock key={key} content={group.content} />
+            return <ErrorBlock key={key} content={g.content} />
           case 'workspace_status':
-            return <WorkspaceStatusBlock key={key} content={group.content} />
+            return <WorkspaceStatusBlock key={key} content={g.content} />
           case 'text':
-            return <TextBlock key={key} content={group.content} isStreaming={isLast} />
+            return <TextBlock key={key} content={g.content} isStreaming={isLast} />
           default:
             return null
         }

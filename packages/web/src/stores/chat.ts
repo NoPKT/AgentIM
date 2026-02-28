@@ -325,7 +325,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Messages come newest first, reverse for display
         const MAX_CACHED_MESSAGES = 1000
         const newMsgs = res.data.items.reverse()
-        let combined = cursor ? [...newMsgs, ...existing] : newMsgs
+        let combined: Message[]
+        if (cursor) {
+          combined = [...newMsgs, ...existing]
+        } else {
+          // Server data takes precedence, but preserve any WS messages that
+          // arrived after the server snapshot to prevent message loss on refresh
+          const serverIds = new Set(newMsgs.map((m) => m.id))
+          const serverNewest = newMsgs[newMsgs.length - 1]?.createdAt ?? ''
+          const wsOnlyMsgs = existing.filter(
+            (m) => m.createdAt > serverNewest && !serverIds.has(m.id),
+          )
+          combined = [...newMsgs, ...wsOnlyMsgs]
+        }
         if (combined.length > MAX_CACHED_MESSAGES) {
           combined = combined.slice(-MAX_CACHED_MESSAGES)
         }
@@ -469,7 +481,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       unreadCounts.set(message.roomId, (unreadCounts.get(message.roomId) || 0) + 1)
     }
 
-    set({ messages: msgs, lastMessages, unreadCounts })
+    // If this is an agent message, clean up any lingering streaming state
+    // (handles the case where server:message_complete was missed)
+    const streamKey = `${message.roomId}:${message.senderId}`
+    const streaming = get().streaming
+    if (message.senderType === 'agent' && streaming.has(streamKey)) {
+      const nextStreaming = new Map(streaming)
+      nextStreaming.delete(streamKey)
+      set({ messages: msgs, lastMessages, unreadCounts, streaming: nextStreaming })
+    } else {
+      set({ messages: msgs, lastMessages, unreadCounts })
+    }
 
     if (!_idbDisabled) {
       addCachedMessage(message).catch((err) => {
