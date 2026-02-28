@@ -461,7 +461,6 @@ export default function ChatPage() {
         {/* Member list side panel */}
         {membersOpen && (
           <MemberListPanel
-            roomId={currentRoomId}
             members={members}
             onClose={() => setMembersOpen(false)}
             onAddAgent={() => setAddAgentOpen(true)}
