@@ -259,7 +259,7 @@ function AgentCard({ agent }: { agent: Agent }) {
             aria-checked={isShared}
             aria-label={t('agent.visibility')}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-              isShared ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+              isShared ? 'bg-accent' : 'bg-surface-hover'
             }`}
             title={t('agent.visibilityDesc')}
           >
