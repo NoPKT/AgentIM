@@ -65,8 +65,8 @@ describe('slash-commands', () => {
     it('returns built-in commands', () => {
       expect(getCommand('help')).toBeDefined()
       expect(getCommand('clear')).toBeDefined()
-      expect(getCommand('task')).toBeDefined()
-      expect(getCommand('status')).toBeDefined()
+      expect(getCommand('stop')).toBeDefined()
+      expect(getCommand('agents')).toBeDefined()
     })
 
     it('returns undefined for unknown commands', () => {
@@ -81,8 +81,8 @@ describe('slash-commands', () => {
       const names = commands.map((c) => c.command.name)
       expect(names).toContain('help')
       expect(names).toContain('clear')
-      expect(names).toContain('task')
-      expect(names).toContain('status')
+      expect(names).toContain('stop')
+      expect(names).toContain('agents')
     })
   })
 
@@ -105,26 +105,26 @@ describe('slash-commands', () => {
       window.removeEventListener('slash:help', handler)
     })
 
-    it('dispatches CustomEvent for task command with args', () => {
+    it('dispatches CustomEvent for stop command with args', () => {
       const handler = vi.fn()
-      window.addEventListener('slash:task', handler)
-      const cmd = getCommand('task')
-      cmd?.execute('My task title')
+      window.addEventListener('slash:stop', handler)
+      const cmd = getCommand('stop')
+      cmd?.execute('@myagent')
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
-          detail: { title: 'My task title' },
+          detail: { args: '@myagent' },
         }),
       )
-      window.removeEventListener('slash:task', handler)
+      window.removeEventListener('slash:stop', handler)
     })
 
-    it('dispatches CustomEvent for status command', () => {
+    it('dispatches CustomEvent for agents command', () => {
       const handler = vi.fn()
-      window.addEventListener('slash:status', handler)
-      const cmd = getCommand('status')
+      window.addEventListener('slash:agents', handler)
+      const cmd = getCommand('agents')
       cmd?.execute('')
       expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:status', handler)
+      window.removeEventListener('slash:agents', handler)
     })
   })
 
