@@ -771,14 +771,14 @@ describe('useWebSocket', () => {
       expect(mockClearExpiredTyping).toHaveBeenCalledTimes(2)
     })
 
-    it('calls cleanupStaleStreams every 30 seconds', () => {
+    it('calls cleanupStaleStreams every 15 seconds', () => {
       renderHook(() => useWebSocket())
       expect(mockCleanupStaleStreams).not.toHaveBeenCalled()
 
-      vi.advanceTimersByTime(30_000)
+      vi.advanceTimersByTime(15_000)
       expect(mockCleanupStaleStreams).toHaveBeenCalledTimes(1)
 
-      vi.advanceTimersByTime(30_000)
+      vi.advanceTimersByTime(15_000)
       expect(mockCleanupStaleStreams).toHaveBeenCalledTimes(2)
     })
 
