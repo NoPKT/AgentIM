@@ -54,9 +54,16 @@ export class AgentManager {
   private permissionLevel: PermissionLevel
   private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor(wsClient: GatewayWsClient, permissionLevel: PermissionLevel = 'interactive') {
+  private onEmpty?: () => void
+
+  constructor(
+    wsClient: GatewayWsClient,
+    permissionLevel: PermissionLevel = 'interactive',
+    onEmpty?: () => void,
+  ) {
     this.wsClient = wsClient
     this.permissionLevel = permissionLevel
+    this.onEmpty = onEmpty
     // Periodically clean up stale room contexts to prevent unbounded growth
     this.contextCleanupTimer = setInterval(
       () => this.cleanupStaleContexts(),
@@ -545,6 +552,10 @@ export class AgentManager {
         this.roomContextLastUsed.delete(key)
       }
       log.info(`Agent ${agentId} removed by server`)
+
+      if (this.adapters.size === 0 && this.onEmpty) {
+        this.onEmpty()
+      }
     }
   }
 

@@ -493,6 +493,15 @@ async function spawnDaemon(opts: {
     }
   }
 
+  // Map built-in agent types to their CLI command names
+  const TYPE_TO_COMMAND: Record<string, string> = {
+    'claude-code': 'claude',
+    codex: 'codex',
+    opencode: 'opencode',
+  }
+
+  const cliCommand = TYPE_TO_COMMAND[type]
+
   // Atomically reserve the daemon name before spawning to prevent TOCTOU races.
   // Uses exclusive create ('wx' flag) so a parallel spawner with the same name
   // will fail with EEXIST rather than silently overwriting.
@@ -502,7 +511,7 @@ async function spawnDaemon(opts: {
     type,
     workDir,
     startedAt: new Date().toISOString(),
-    gatewayId: config.gatewayId,
+    gatewayId: cliCommand ? 'ephemeral' : config.gatewayId,
   }
   try {
     writeDaemonInfo(reservationInfo, true)
@@ -522,11 +531,32 @@ async function spawnDaemon(opts: {
   const logFile = join(logDir, `${name}.log`)
   rotateLogIfNeeded(logFile)
   const logFd = openSync(logFile, 'a')
-
-  const agentSpec = `${name}:${type}:${workDir}`
-  const daemonArgs = [...process.execArgv, ...getEntryArgs(), 'daemon', '--agent', agentSpec]
-  if (permissionLevel === 'bypass') {
-    daemonArgs.push('--yes')
+  let daemonArgs: string[]
+  if (cliCommand) {
+    // Built-in agent type: spawn as foreground command with its own ephemeral gateway
+    daemonArgs = [
+      ...process.execArgv,
+      ...getEntryArgs(),
+      cliCommand,
+      '--foreground',
+      '--name',
+      name,
+      '--no-security-warning',
+    ]
+    if (permissionLevel === 'bypass') {
+      daemonArgs.push('--yes')
+    }
+    if (passEnv?.length) {
+      daemonArgs.push('--pass-env', passEnv.join(','))
+    }
+    daemonArgs.push(workDir)
+  } else {
+    // Custom adapter: fall back to daemon --agent approach (no foreground command exists)
+    const agentSpec = `${name}:${type}:${workDir}`
+    daemonArgs = [...process.execArgv, ...getEntryArgs(), 'daemon', '--agent', agentSpec]
+    if (permissionLevel === 'bypass') {
+      daemonArgs.push('--yes')
+    }
   }
   // Build safe env, applying passEnv whitelist if provided
   const passEnvSet = passEnv?.length ? new Set(passEnv) : undefined
