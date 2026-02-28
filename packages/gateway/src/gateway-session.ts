@@ -72,6 +72,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
       gatewayId,
       protocolVersion: CURRENT_PROTOCOL_VERSION,
       deviceInfo,
+      ...(opts.exitOnEmpty ? { ephemeral: true } : {}),
     })
   }
 

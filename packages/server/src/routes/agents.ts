@@ -232,10 +232,13 @@ agentRoutes.delete('/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-// List gateways
+// List gateways (excludes ephemeral gateways)
 agentRoutes.get('/gateways/list', async (c) => {
   const userId = c.get('userId')
-  const gwList = await db.select().from(gateways).where(eq(gateways.userId, userId))
+  const gwList = await db
+    .select()
+    .from(gateways)
+    .where(and(eq(gateways.userId, userId), eq(gateways.ephemeral, false)))
   return c.json({ ok: true, data: gwList })
 })
 

@@ -65,6 +65,18 @@ export function MessageList({ onImageClick }: MessageListProps) {
         msg.senderType === 'system' ||
         new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
       const baseHeight = hasHeader ? 80 : 24
+
+      // Agent messages with chunks (thinking + tool_use + text) are much taller
+      if (msg.chunks?.length) {
+        const chunksText = msg.chunks.reduce(
+          (acc: number, c: { content?: string; input?: string }) =>
+            acc + (c.content?.length ?? c.input?.length ?? 0),
+          0,
+        )
+        const lineEstimate = Math.ceil(chunksText / 80)
+        return baseHeight + Math.max(60, lineEstimate * 22)
+      }
+
       const contentLength = msg.content?.length ?? 0
       const lineEstimate = Math.ceil(contentLength / 80)
       const contentHeight = Math.max(20, lineEstimate * 22)
@@ -79,6 +91,12 @@ export function MessageList({ onImageClick }: MessageListProps) {
     estimateSize,
     overscan: 5,
   })
+
+  // Invalidate virtualizer measurements when messages change
+  // (e.g. stream completes, new message added, reorder after sort)
+  useEffect(() => {
+    virtualizer.measure()
+  }, [currentMessages, virtualizer])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)

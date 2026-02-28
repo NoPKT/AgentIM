@@ -75,6 +75,7 @@ export const gateways = pgTable(
     nodeVersion: text('node_version'),
     connectedAt: ts('connected_at'),
     disconnectedAt: ts('disconnected_at'),
+    ephemeral: boolean('ephemeral').default(false).notNull(),
     createdAt: ts('created_at').notNull(),
   },
   (table) => [index('gateways_user_idx').on(table.userId)],

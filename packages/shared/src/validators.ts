@@ -616,6 +616,7 @@ export const gatewayAuthSchema = z.object({
     nodeVersion: z.string(),
     agentimVersion: z.string().optional(),
   }),
+  ephemeral: z.boolean().optional(),
 })
 
 export const gatewayRegisterAgentSchema = z.object({

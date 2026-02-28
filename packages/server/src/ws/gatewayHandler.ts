@@ -220,6 +220,7 @@ async function handleAuth(
     gatewayId: string
     protocolVersion?: string
     deviceInfo: Record<string, string>
+    ephemeral?: boolean
   },
 ) {
   try {
@@ -296,6 +297,7 @@ async function handleAuth(
         arch: msg.deviceInfo.arch,
         nodeVersion: msg.deviceInfo.nodeVersion,
         connectedAt: now,
+        ephemeral: msg.ephemeral ?? false,
         createdAt: now,
       })
       .onConflictDoUpdate({

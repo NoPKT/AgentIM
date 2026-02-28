@@ -257,6 +257,7 @@ export interface GatewayAuth {
   gatewayId: string
   protocolVersion?: string
   deviceInfo: DeviceInfo
+  ephemeral?: boolean
 }
 
 export interface GatewayRegisterAgent {

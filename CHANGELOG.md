@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CRITICAL: Gateway WS crash** — replaced reserved WebSocket close code `1006` with `ws.terminate()` in ping/pong timeout handlers, preventing uncaught exceptions and process exit
+- **CRITICAL: Chat message display** — messages are now sorted by `createdAt` after insertion in `addMessage()`, `completeStream()`, and `syncMissedMessages()` to prevent misattribution under out-of-order WS delivery
+- **Optimistic message dedup** — `replaceOptimisticMessage()` now handles the case where the real message already exists (from sync/load) by removing the orphaned optimistic entry instead of duplicating
+- **Virtualizer re-measurement** — `virtualizer.measure()` is now called when `currentMessages` changes, fixing incorrect row heights after streaming completes
+- **Virtualizer estimate for chunked messages** — `estimateSize` now accounts for agent messages with thinking/tool_use chunks, producing more accurate initial height estimates
+- **Table scroll on mobile** — removed `overflow-hidden` from prose container and added `not-prose` class to table wrapper to allow horizontal scrolling of wide markdown tables
+- **MCP servers not detected** — Claude Code adapter now reads MCP server configs from both project-level and global (`~/.claude/settings.json`) config files, merging results
+- **Ephemeral gateways hidden** — ephemeral (per-agent) gateway records are now filtered out of the web UI gateway list via a new `ephemeral` boolean column (migration 0041)
+
 ## [0.1.0] - 2026-02-27
 
 ### Added

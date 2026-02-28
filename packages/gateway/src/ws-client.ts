@@ -323,7 +323,7 @@ export class GatewayWsClient {
           this.stopHeartbeat()
           if (this.ws) {
             this.ws.removeAllListeners()
-            this.ws.close(1006, 'ping failed')
+            this.ws.terminate()
             this.ws = null
           }
           this.onDisconnected()
@@ -336,7 +336,7 @@ export class GatewayWsClient {
           this.pongTimeoutReconnect = true
           if (this.ws) {
             this.ws.removeAllListeners()
-            this.ws.close(1006, 'pong timeout')
+            this.ws.terminate()
             this.ws = null
           }
           this.onDisconnected()
