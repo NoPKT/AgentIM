@@ -824,14 +824,14 @@ export default function SettingsPage() {
                     )
                   }}
                   className={`
-                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                    flex-shrink-0 relative inline-flex h-6 w-12 items-center rounded-full transition-colors
                     ${notificationsEnabled ? 'bg-accent' : 'bg-surface-hover'}
                   `}
                 >
                   <span
                     className={`
                       inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
-                      ${notificationsEnabled ? 'translate-x-6' : 'translate-x-1'}
+                      ${notificationsEnabled ? 'translate-x-7' : 'translate-x-1'}
                     `}
                   />
                 </button>
@@ -863,7 +863,7 @@ export default function SettingsPage() {
                       }
                     }}
                     className={`
-                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                      flex-shrink-0 relative inline-flex h-6 w-12 items-center rounded-full transition-colors
                       ${pushSubscribed ? 'bg-accent' : 'bg-surface-hover'}
                       ${pushLoading ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
@@ -871,7 +871,7 @@ export default function SettingsPage() {
                     <span
                       className={`
                         inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
-                        ${pushSubscribed ? 'translate-x-6' : 'translate-x-1'}
+                        ${pushSubscribed ? 'translate-x-7' : 'translate-x-1'}
                       `}
                     />
                   </button>
