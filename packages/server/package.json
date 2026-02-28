@@ -23,6 +23,7 @@
     "@aws-sdk/client-s3": "^3.997.0",
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.0",
+    "@sentry/node": "^10.40.0",
     "argon2": "^0.44.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.2",
