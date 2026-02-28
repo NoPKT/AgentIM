@@ -5,6 +5,7 @@ import { MAX_CACHED_ROOMS } from '@agentim/shared'
 import { api, getThread } from '../lib/api.js'
 import { wsClient } from '../lib/ws.js'
 import { useAuthStore } from './auth.js'
+import { useAgentStore } from './agents.js'
 import { toast } from './toast.js'
 import { registerStoreReset } from './reset.js'
 import {
@@ -592,7 +593,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   cleanupStaleStreams: () => {
-    const result = cleanupStaleStreamsAction(get().streaming)
+    // Build set of online/busy agent IDs so we don't prematurely clean up
+    // streams for agents that are still working (e.g. waiting for CI/builds).
+    const onlineAgentIds = new Set(
+      useAgentStore
+        .getState()
+        .agents.filter((a) => a.status === 'online' || a.status === 'busy')
+        .map((a) => a.id),
+    )
+    const result = cleanupStaleStreamsAction(get().streaming, onlineAgentIds)
     if (!result) return
     set({ streaming: result.next })
     for (const stale of result.stale) {
