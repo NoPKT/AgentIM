@@ -11,7 +11,11 @@ import {
   parseQueryInt,
 } from '../lib/validation.js'
 import { connectionManager } from '../ws/connections.js'
-import { sendRoomContextToAllAgents, broadcastRoomUpdate } from '../ws/gatewayHandler.js'
+import {
+  sendRoomContextToAllAgents,
+  broadcastRoomUpdate,
+  broadcastAgentStatus,
+} from '../ws/gatewayHandler.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('AgentRoutes')
@@ -31,6 +35,9 @@ function enrichAgents(
     return {
       ...agent,
       capabilities: agent.capabilities ?? undefined,
+      slashCommands: agent.slashCommands ?? undefined,
+      mcpServers: agent.mcpServers ?? undefined,
+      model: agent.model ?? undefined,
       deviceInfo: gw
         ? {
             hostname: gw.hostname ?? '',
@@ -141,6 +148,10 @@ agentRoutes.put('/:id', async (c) => {
 
   const [updated] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
   const [enriched] = enrichAgents([updated], [gw])
+
+  // Broadcast updated agent status to all rooms (e.g. after rename)
+  await broadcastAgentStatus(agentId)
+
   return c.json({ ok: true, data: enriched })
 })
 

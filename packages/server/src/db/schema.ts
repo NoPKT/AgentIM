@@ -96,6 +96,14 @@ export const agents = pgTable(
     workingDirectory: text('working_directory'),
     capabilities: jsonb('capabilities').$type<string[] | null>(),
     connectionType: text('connection_type').notNull().default('cli'), // 'cli' | 'api'
+    slashCommands: jsonb('slash_commands').$type<Array<{
+      name: string
+      description: string
+      usage: string
+      source: string
+    }> | null>(),
+    mcpServers: jsonb('mcp_servers').$type<string[] | null>(),
+    model: text('model'),
     lastSeenAt: ts('last_seen_at'),
     createdAt: ts('created_at').notNull(),
     updatedAt: ts('updated_at').notNull(),

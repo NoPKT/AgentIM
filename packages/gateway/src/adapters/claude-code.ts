@@ -217,6 +217,103 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
   }
 
+  override getSlashCommands(): Array<{
+    name: string
+    description: string
+    usage: string
+    source: 'builtin' | 'skill'
+  }> {
+    const commands: Array<{
+      name: string
+      description: string
+      usage: string
+      source: 'builtin' | 'skill'
+    }> = [
+      {
+        name: 'clear',
+        description: 'Reset conversation session',
+        usage: '/clear',
+        source: 'builtin',
+      },
+      {
+        name: 'compact',
+        description: 'Compact conversation and reset session',
+        usage: '/compact',
+        source: 'builtin',
+      },
+    ]
+
+    // Discover custom slash commands from .claude/commands/
+    if (this.workingDirectory) {
+      try {
+        const { readdirSync } = require('fs')
+        const { join } = require('path')
+        const commandsDir = join(this.workingDirectory, '.claude', 'commands')
+        const files: string[] = readdirSync(commandsDir).filter((f: string) => f.endsWith('.md'))
+        for (const file of files) {
+          const name = file.replace(/\.md$/, '')
+          commands.push({
+            name,
+            description: `Custom command from .claude/commands/${file}`,
+            usage: `/${name}`,
+            source: 'skill',
+          })
+        }
+      } catch {
+        // Directory doesn't exist or not readable — skip
+      }
+    }
+
+    return commands
+  }
+
+  override getMcpServers(): string[] {
+    if (!this.workingDirectory) return []
+
+    const { existsSync, readFileSync } = require('fs')
+    const { join } = require('path')
+
+    // Try .claude/settings.json first, then .claude.json
+    const candidates = [
+      join(this.workingDirectory, '.claude', 'settings.json'),
+      join(this.workingDirectory, '.claude.json'),
+    ]
+
+    for (const filePath of candidates) {
+      try {
+        if (!existsSync(filePath)) continue
+        const raw = JSON.parse(readFileSync(filePath, 'utf-8'))
+        const mcpServers = raw?.mcpServers
+        if (mcpServers && typeof mcpServers === 'object') {
+          return Object.keys(mcpServers)
+        }
+      } catch {
+        // Malformed JSON or unreadable — skip
+      }
+    }
+
+    return []
+  }
+
+  override getModel(): string | undefined {
+    return this.env.ANTHROPIC_MODEL || this.env.CLAUDE_MODEL || undefined
+  }
+
+  override async handleSlashCommand(
+    command: string,
+    _args: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    if (command === 'clear') {
+      this.sessionId = undefined
+      return { success: true, message: 'Session cleared' }
+    }
+    if (command === 'compact') {
+      this.sessionId = undefined
+      return { success: true, message: 'Session compacted (reset)' }
+    }
+    return { success: false, message: `Unknown command: ${command}` }
+  }
+
   stop() {
     this.currentQuery?.interrupt()
     this.currentQuery = undefined

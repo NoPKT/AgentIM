@@ -7,6 +7,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useRouterStore } from '../stores/routers.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { AddAgentDialog } from './AddAgentDialog.js'
+import { AgentInfoModal } from './AgentInfoModal.js'
 import { toast } from '../stores/toast.js'
 import { Button, Input, Textarea, Select } from './ui.js'
 import { CloseIcon, PencilIcon, PlusIcon } from './icons.js'
@@ -152,6 +153,7 @@ interface MemberListSectionProps {
   roleLabel: (role: string) => string
   onRemoveMember: (memberId: string) => void
   onAddAgent: () => void
+  onAgentClick: (agentId: string) => void
 }
 
 function MemberListSection({
@@ -164,6 +166,7 @@ function MemberListSection({
   roleLabel,
   onRemoveMember,
   onAddAgent,
+  onAgentClick,
 }: MemberListSectionProps) {
   return (
     <div className="px-5 py-4">
@@ -218,9 +221,18 @@ function MemberListSection({
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-text-primary truncate">
-                    {displayName}
-                  </span>
+                  {agent ? (
+                    <button
+                      onClick={() => onAgentClick(agent.id)}
+                      className="text-sm font-medium text-text-primary truncate hover:text-accent transition-colors text-left"
+                    >
+                      {displayName}
+                    </button>
+                  ) : (
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {displayName}
+                    </span>
+                  )}
                   {status && (
                     <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
                   )}
@@ -286,6 +298,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [promptValue, setPromptValue] = useState('')
   const [showAddAgent, setShowAddAgent] = useState(false)
+  const [showAgentInfo, setShowAgentInfo] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [pinLoading, setPinLoading] = useState(false)
@@ -614,6 +627,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               roleLabel={roleLabel}
               onRemoveMember={handleRemoveMember}
               onAddAgent={() => setShowAddAgent(true)}
+              onAgentClick={(id) => setShowAgentInfo(id)}
             />
           </div>
 
@@ -699,6 +713,14 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
         isOpen={showAddAgent}
         onClose={() => setShowAddAgent(false)}
         onAdded={() => loadRoomMembers(roomId)}
+      />
+
+      {/* Agent Info Modal */}
+      <AgentInfoModal
+        agentId={showAgentInfo}
+        isOpen={!!showAgentInfo}
+        onClose={() => setShowAgentInfo(null)}
+        isOwner
       />
     </>
   )

@@ -369,6 +369,26 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     return []
   }
 
+  override getSlashCommands(): Array<{
+    name: string
+    description: string
+    usage: string
+    source: 'builtin' | 'skill'
+  }> {
+    return [{ name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' }]
+  }
+
+  override async handleSlashCommand(
+    command: string,
+    _args: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    if (command === 'clear') {
+      this.sessionId = undefined
+      return { success: true, message: 'Session cleared' }
+    }
+    return { success: false, message: `Unknown command: ${command}` }
+  }
+
   stop() {
     log.info('OpenCode stop requested')
     this.isRunning = false

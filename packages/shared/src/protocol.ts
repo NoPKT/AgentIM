@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentSlashCommand,
   DeviceInfo,
   Message,
   MessageReaction,
@@ -62,6 +63,19 @@ export interface ClientPermissionResponse {
   decision: Extract<PermissionDecision, 'allow' | 'deny'>
 }
 
+export interface ClientAgentCommand {
+  type: 'client:agent_command'
+  agentId: string
+  roomId: string
+  command: string
+  args: string
+}
+
+export interface ClientQueryAgentInfo {
+  type: 'client:query_agent_info'
+  agentId: string
+}
+
 export interface ClientPing {
   type: 'client:ping'
   ts: number
@@ -75,6 +89,8 @@ export type ClientMessage =
   | ClientTyping
   | ClientStopGeneration
   | ClientPermissionResponse
+  | ClientAgentCommand
+  | ClientQueryAgentInfo
   | ClientPing
 
 // ─── Server → Client Messages ───
@@ -114,7 +130,21 @@ export interface ServerTyping {
 
 export interface ServerAgentStatus {
   type: 'server:agent_status'
-  agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'>
+  agent: Pick<Agent, 'id' | 'name' | 'type' | 'status' | 'slashCommands' | 'mcpServers' | 'model'>
+}
+
+export interface ServerAgentCommandResult {
+  type: 'server:agent_command_result'
+  agentId: string
+  roomId: string
+  command: string
+  success: boolean
+  message?: string
+}
+
+export interface ServerAgentInfo {
+  type: 'server:agent_info'
+  agent: Agent
 }
 
 export interface ServerTaskUpdate {
@@ -205,6 +235,8 @@ export type ServerMessage =
   | ServerMessageDeleted
   | ServerTyping
   | ServerAgentStatus
+  | ServerAgentCommandResult
+  | ServerAgentInfo
   | ServerTaskUpdate
   | ServerRoomUpdate
   | ServerRoomRemoved
@@ -235,6 +267,9 @@ export interface GatewayRegisterAgent {
     type: AgentType
     workingDirectory?: string
     capabilities?: string[]
+    slashCommands?: AgentSlashCommand[]
+    mcpServers?: string[]
+    model?: string
   }
 }
 
@@ -293,6 +328,23 @@ export interface GatewayPermissionRequest {
   timeoutMs: number
 }
 
+export interface GatewayAgentCommandResult {
+  type: 'gateway:agent_command_result'
+  agentId: string
+  roomId: string
+  command: string
+  success: boolean
+  message?: string
+}
+
+export interface GatewayAgentInfo {
+  type: 'gateway:agent_info'
+  agentId: string
+  slashCommands: AgentSlashCommand[]
+  mcpServers: string[]
+  model?: string
+}
+
 export interface GatewayPing {
   type: 'gateway:ping'
   ts: number
@@ -308,6 +360,8 @@ export type GatewayMessage =
   | GatewayTerminalData
   | GatewayTaskUpdate
   | GatewayPermissionRequest
+  | GatewayAgentCommandResult
+  | GatewayAgentInfo
   | GatewayPing
 
 // ─── Server → Gateway Messages ───
@@ -347,6 +401,20 @@ export interface ServerRemoveAgent {
   agentId: string
 }
 
+export interface ServerAgentCommand {
+  type: 'server:agent_command'
+  agentId: string
+  roomId: string
+  command: string
+  args: string
+  userId: string
+}
+
+export interface ServerQueryAgentInfo {
+  type: 'server:query_agent_info'
+  agentId: string
+}
+
 export interface ServerPermissionResponse {
   type: 'server:permission_response'
   requestId: string
@@ -366,6 +434,8 @@ export type ServerGatewayMessage =
   | ServerRemoveAgent
   | ServerRoomContext
   | ServerPermissionResponse
+  | ServerAgentCommand
+  | ServerQueryAgentInfo
   | ServerPong
   | ServerError
 
@@ -384,6 +454,8 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'client:typing',
   'client:stop_generation',
   'client:permission_response',
+  'client:agent_command',
+  'client:query_agent_info',
   'client:ping',
 ])
 
@@ -398,6 +470,8 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:terminal_data',
   'gateway:task_update',
   'gateway:permission_request',
+  'gateway:agent_command_result',
+  'gateway:agent_info',
   'gateway:ping',
 ])
 
@@ -411,6 +485,8 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:message_deleted',
   'server:typing',
   'server:agent_status',
+  'server:agent_command_result',
+  'server:agent_info',
   'server:task_update',
   'server:room_update',
   'server:room_removed',
@@ -469,6 +545,8 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:remove_agent',
   'server:room_context',
   'server:permission_response',
+  'server:agent_command',
+  'server:query_agent_info',
 ])
 
 /** Type guard for ServerGatewayMessage */

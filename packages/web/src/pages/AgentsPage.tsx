@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
+import { AgentInfoModal } from '../components/AgentInfoModal.js'
 import { toast } from '../stores/toast.js'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 
@@ -76,6 +77,8 @@ export default function AgentsPage() {
     )
   }
 
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
   if (agents.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface-secondary px-4">
@@ -112,9 +115,20 @@ export default function AgentsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              onInfoClick={() => setSelectedAgentId(agent.id)}
+            />
           ))}
         </div>
+
+        <AgentInfoModal
+          agentId={selectedAgentId}
+          isOpen={!!selectedAgentId}
+          onClose={() => setSelectedAgentId(null)}
+          isOwner
+        />
 
         {/* Gateways Section */}
         {gateways.length > 0 && (
@@ -135,7 +149,7 @@ export default function AgentsPage() {
   )
 }
 
-function AgentCard({ agent }: { agent: Agent }) {
+function AgentCard({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => void }) {
   const { t, i18n } = useTranslation()
   const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
 
@@ -157,7 +171,7 @@ function AgentCard({ agent }: { agent: Agent }) {
     <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3 min-w-0">
+        <button onClick={onInfoClick} className="flex items-center gap-3 min-w-0 text-left group">
           <div
             className={`w-10 h-10 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
           >
@@ -166,14 +180,16 @@ function AgentCard({ agent }: { agent: Agent }) {
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-text-primary truncate">{agent.name}</h3>
+            <h3 className="font-semibold text-text-primary truncate group-hover:text-accent transition-colors">
+              {agent.name}
+            </h3>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}
             >
               {type.label}
             </span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Status */}

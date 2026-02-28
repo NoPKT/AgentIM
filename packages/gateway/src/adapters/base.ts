@@ -94,4 +94,32 @@ export abstract class BaseAgentAdapter {
   get running(): boolean {
     return this.isRunning
   }
+
+  /** Return the list of slash commands this agent supports. */
+  getSlashCommands(): Array<{
+    name: string
+    description: string
+    usage: string
+    source: 'builtin' | 'skill'
+  }> {
+    return []
+  }
+
+  /** Return MCP server names this agent is configured with. */
+  getMcpServers(): string[] {
+    return []
+  }
+
+  /** Return the model this agent is using, if known. */
+  getModel(): string | undefined {
+    return undefined
+  }
+
+  /** Handle a slash command from a user. */
+  async handleSlashCommand(
+    _command: string,
+    _args: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    return { success: false, message: 'Command not supported by this agent' }
+  }
 }

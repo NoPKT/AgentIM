@@ -274,6 +274,13 @@
       "when": 1773100000000,
       "tag": "0038_add_totp",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1773200000000,
+      "tag": "0039_add_agent_slash_commands",
+      "breakpoints": true
     }
   ]
 }
