@@ -22,7 +22,7 @@ export interface TerminalBuffer {
 
 const MAX_CHUNKS_PER_STREAM = 2000
 const MAX_TERMINAL_LINES = 500
-const STALE_TIMEOUT = 120_000 // 2 minutes
+const STALE_TIMEOUT = 60_000 // 1 minute
 
 export function addStreamChunkAction(
   streaming: Map<string, StreamingMessage>,

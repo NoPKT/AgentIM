@@ -10,15 +10,15 @@ export async function initSentry(): Promise<void> {
   if (!config.sentryDsn) return
 
   try {
-    // @ts-expect-error — @sentry/node is an optional peer dependency
     const sentry = await import('@sentry/node')
     sentry.init({
       dsn: config.sentryDsn,
       environment: config.isProduction ? 'production' : 'development',
       tracesSampleRate: config.isProduction ? 0.1 : 1.0,
     })
-    sentryCaptureException = sentry.captureException
-    sentryCaptureMessage = sentry.captureMessage
+    sentryCaptureException = (err: unknown) => sentry.captureException(err)
+    sentryCaptureMessage = (msg: string, level?: string) =>
+      sentry.captureMessage(msg, level as Parameters<typeof sentry.captureMessage>[1])
     log.info('Sentry initialized')
   } catch {
     log.warn('Sentry SDK not installed. Run: pnpm add @sentry/node')
@@ -38,15 +38,15 @@ export async function reinitSentry(dsn: string): Promise<void> {
   }
 
   try {
-    // @ts-expect-error — @sentry/node is an optional peer dependency
     const sentry = await import('@sentry/node')
     sentry.init({
       dsn,
       environment: config.isProduction ? 'production' : 'development',
       tracesSampleRate: config.isProduction ? 0.1 : 1.0,
     })
-    sentryCaptureException = sentry.captureException
-    sentryCaptureMessage = sentry.captureMessage
+    sentryCaptureException = (err: unknown) => sentry.captureException(err)
+    sentryCaptureMessage = (msg: string, level?: string) =>
+      sentry.captureMessage(msg, level as Parameters<typeof sentry.captureMessage>[1])
     log.info('Sentry re-initialized with new DSN')
   } catch {
     log.warn('Sentry SDK not installed. Run: pnpm add @sentry/node')

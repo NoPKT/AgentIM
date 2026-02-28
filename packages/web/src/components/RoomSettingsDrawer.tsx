@@ -187,7 +187,7 @@ function MemberListSection({
             ? statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
             : null
           const type = agent ? typeConfig[agent.type] || typeConfig.generic : null
-          const displayName = agent ? agent.name : member.memberId
+          const displayName = agent ? agent.name : (member.displayName ?? member.memberId)
 
           return (
             <div

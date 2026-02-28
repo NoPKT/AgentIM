@@ -598,10 +598,38 @@ roomRoutes.get('/:id/members', async (c) => {
   const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 100 : rawLimit, 1), 500)
   const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0)
 
-  const [members, [{ total }]] = await Promise.all([
+  const [memberRows, [{ total }]] = await Promise.all([
     db.select().from(roomMembers).where(eq(roomMembers.roomId, roomId)).limit(limit).offset(offset),
     db.select({ total: count() }).from(roomMembers).where(eq(roomMembers.roomId, roomId)),
   ])
+
+  // Enrich user members with displayName from the users table
+  const userMemberIds = memberRows.filter((m) => m.memberType === 'user').map((m) => m.memberId)
+  let userDisplayNames = new Map<string, string>()
+  if (userMemberIds.length > 0) {
+    const userRows = await db
+      .select({ id: users.id, displayName: users.displayName })
+      .from(users)
+      .where(inArray(users.id, userMemberIds))
+    userDisplayNames = new Map(userRows.map((u) => [u.id, u.displayName]))
+  }
+
+  // Enrich agent members with name from the agents table
+  const agentMemberIds = memberRows.filter((m) => m.memberType === 'agent').map((m) => m.memberId)
+  let agentNames = new Map<string, string>()
+  if (agentMemberIds.length > 0) {
+    const agentRows = await db
+      .select({ id: agents.id, name: agents.name })
+      .from(agents)
+      .where(inArray(agents.id, agentMemberIds))
+    agentNames = new Map(agentRows.map((a) => [a.id, a.name]))
+  }
+
+  const members = memberRows.map((m) => ({
+    ...m,
+    displayName:
+      m.memberType === 'user' ? userDisplayNames.get(m.memberId) : agentNames.get(m.memberId),
+  }))
 
   return c.json({
     ok: true,

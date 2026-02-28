@@ -110,6 +110,7 @@ export interface RoomMember {
   role: MemberRole
   roleDescription?: string
   notificationPref?: NotificationPref
+  displayName?: string
   pinnedAt?: string
   archivedAt?: string
   lastReadAt?: string
