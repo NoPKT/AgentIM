@@ -293,7 +293,7 @@ export function useWebSocket() {
   useEffect(() => {
     const timer = setInterval(() => {
       useChatStore.getState().cleanupStaleStreams()
-    }, 30_000)
+    }, 15_000)
     return () => clearInterval(timer)
   }, [])
 

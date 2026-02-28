@@ -258,14 +258,14 @@ function AgentCard({ agent }: { agent: Agent }) {
             role="switch"
             aria-checked={isShared}
             aria-label={t('agent.visibility')}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+            className={`relative inline-flex h-5 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
               isShared ? 'bg-accent' : 'bg-surface-hover'
             }`}
             title={t('agent.visibilityDesc')}
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                isShared ? 'translate-x-4.5' : 'translate-x-0.5'
+                isShared ? 'translate-x-5' : 'translate-x-0.5'
               }`}
             />
           </button>

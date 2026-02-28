@@ -18,6 +18,7 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   const fitAddonRef = useRef<FitAddon | null>(null)
   const writtenTotalRef = useRef(0)
   const [collapsed, setCollapsed] = useState(false)
+  const [initError, setInitError] = useState<string | null>(null)
   const lines = useChatStore((s) => s.terminalBuffers.get(agentId)?.lines)
   const totalPushed = useChatStore((s) => s.terminalBuffers.get(agentId)?.totalPushed ?? 0)
   const clearTerminalBuffer = useChatStore((s) => s.clearTerminalBuffer)
@@ -26,57 +27,62 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Read CSS custom property for terminal background
-    const style = getComputedStyle(document.documentElement)
-    const termBg = style.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
-    const termFg = style.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
+    try {
+      // Read CSS custom property for terminal background
+      const style = getComputedStyle(document.documentElement)
+      const termBg = style.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
+      const termFg = style.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
 
-    const term = new Terminal({
-      cursorBlink: false,
-      disableStdin: true,
-      fontSize: 13,
-      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-      theme: {
-        background: termBg,
-        foreground: termFg,
-        cursor: termFg,
-      },
-      scrollback: 5000,
-      convertEol: true,
-    })
+      const term = new Terminal({
+        cursorBlink: false,
+        disableStdin: true,
+        fontSize: 13,
+        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+        theme: {
+          background: termBg,
+          foreground: termFg,
+          cursor: termFg,
+        },
+        scrollback: 5000,
+        convertEol: true,
+      })
 
-    const fitAddon = new FitAddon()
-    term.loadAddon(fitAddon)
-    term.open(containerRef.current)
-    fitAddon.fit()
-
-    termRef.current = term
-    fitAddonRef.current = fitAddon
-    writtenTotalRef.current = 0
-
-    const observer = new ResizeObserver(() => {
+      const fitAddon = new FitAddon()
+      term.loadAddon(fitAddon)
+      term.open(containerRef.current)
       fitAddon.fit()
-    })
-    observer.observe(containerRef.current)
 
-    // Update xterm theme when dark/light mode toggles
-    const themeObserver = new MutationObserver(() => {
-      const s = getComputedStyle(document.documentElement)
-      const bg = s.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
-      const fg = s.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
-      term.options.theme = { background: bg, foreground: fg, cursor: fg }
-    })
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    })
+      termRef.current = term
+      fitAddonRef.current = fitAddon
+      writtenTotalRef.current = 0
 
-    return () => {
-      themeObserver.disconnect()
-      observer.disconnect()
-      term.dispose()
-      termRef.current = null
-      fitAddonRef.current = null
+      const observer = new ResizeObserver(() => {
+        fitAddon.fit()
+      })
+      observer.observe(containerRef.current)
+
+      // Update xterm theme when dark/light mode toggles
+      const themeObserver = new MutationObserver(() => {
+        const s = getComputedStyle(document.documentElement)
+        const bg = s.getPropertyValue('--color-terminal-bg').trim() || '#1e1e1e'
+        const fg = s.getPropertyValue('--color-terminal-text').trim() || '#d4d4d4'
+        term.options.theme = { background: bg, foreground: fg, cursor: fg }
+      })
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      })
+
+      return () => {
+        themeObserver.disconnect()
+        observer.disconnect()
+        term.dispose()
+        termRef.current = null
+        fitAddonRef.current = null
+      }
+    } catch (err) {
+      console.error('[TerminalViewer] Failed to initialize xterm:', err)
+      setInitError(err instanceof Error ? err.message : String(err))
     }
   }, [])
 
@@ -120,6 +126,35 @@ export function TerminalViewer({ agentId, agentName, onClose }: TerminalViewerPr
       setTimeout(() => fitAddonRef.current?.fit(), 0)
     }
   }, [collapsed])
+
+  if (initError) {
+    return (
+      <div className="border-t border-border bg-terminal-bg flex flex-col">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-terminal-header text-terminal-text text-xs">
+          <span className="font-medium">
+            {t('common.terminal')} — {agentName}
+          </span>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-terminal-btn-hover rounded transition-colors"
+            aria-label={t('common.close')}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="px-4 py-3 text-xs text-text-muted">
+          {t('common.terminalUnavailable', { error: initError })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="border-t border-border bg-terminal-bg flex flex-col">

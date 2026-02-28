@@ -492,7 +492,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   onClick={handleToggleBroadcast}
                   disabled={updating}
                   className={`
-                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                    relative inline-flex h-6 w-12 flex-shrink-0 items-center rounded-full transition-colors
                     ${room?.broadcastMode ? 'bg-accent' : 'bg-surface-hover'}
                     disabled:opacity-50
                   `}
@@ -500,7 +500,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
                   <span
                     className={`
                       inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
-                      ${room?.broadcastMode ? 'translate-x-6' : 'translate-x-1'}
+                      ${room?.broadcastMode ? 'translate-x-7' : 'translate-x-1'}
                     `}
                   />
                 </button>

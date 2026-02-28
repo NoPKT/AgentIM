@@ -86,7 +86,19 @@ export function ThinkingBlock({
 
 function parseToolInput(content: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(content)
+    const parsed = JSON.parse(content)
+    // Gateway wraps tool input as {name, id, input: {actual_params}}.
+    // Unwrap to return only the actual tool parameters.
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      typeof parsed.input === 'object' &&
+      parsed.input !== null &&
+      parsed.name
+    ) {
+      return parsed.input as Record<string, unknown>
+    }
+    return parsed
   } catch {
     // Try to extract file_path from non-JSON content (e.g. raw text arguments)
     const fileMatch = content.match(/(?:file_path|path|file)["\s:=]+["']?([^\s"',}]+)/i)
@@ -411,6 +423,84 @@ function BashToolBlock({
   )
 }
 
+function GrepToolBlock({
+  content,
+  isStreaming = false,
+}: {
+  content: string
+  isStreaming?: boolean
+}) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const input = parseToolInput(content)
+  const pattern = (input?.pattern as string) || ''
+  const path = (input?.path as string) || ''
+  const preview = pattern
+    ? `${pattern}${path ? ` in ${path.split('/').pop() || path}` : ''}`
+    : content.slice(0, 80)
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {isStreaming && (
+          <span className="relative flex h-2 w-2 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
+          </span>
+        )}
+        <svg
+          className="w-3.5 h-3.5 text-cyan-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
+        <span className="font-medium text-cyan-600 dark:text-cyan-400">{t('chat.searching')}</span>
+        {!expanded && <code className="text-text-muted font-mono truncate flex-1">{preview}</code>}
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-cyan-200 dark:border-cyan-700">
+          {pattern && (
+            <div className="text-xs text-text-secondary mb-1">
+              <span className="text-text-muted">{t('chat.pattern')}: </span>
+              <code className="font-mono text-cyan-600 dark:text-cyan-400">{pattern}</code>
+            </div>
+          )}
+          {path && (
+            <div className="text-xs text-text-secondary">
+              <span className="text-text-muted">{t('chat.path')}: </span>
+              <code className="font-mono truncate">{path}</code>
+            </div>
+          )}
+          {!pattern && !path && (
+            <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto whitespace-pre-wrap break-all">
+              {content}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolUseBlock({
   content,
   metadata,
@@ -434,6 +524,9 @@ export function ToolUseBlock({
       return <ReadToolBlock content={content} />
     case 'Bash':
       return <BashToolBlock content={content} isStreaming={isStreaming} />
+    case 'Grep':
+    case 'Glob':
+      return <GrepToolBlock content={content} isStreaming={isStreaming} />
   }
 
   // Extract a short preview from tool input for the collapsed state
@@ -751,34 +844,164 @@ export function WorkspaceStatusBlock({ content }: { content: string }) {
   )
 }
 
-/** Collapse consecutive Read tool_use groups into batched renders */
-function collapseReadGroups(
-  groups: ChunkGroup[],
-): (ChunkGroup | { type: 'read_batch'; contents: string[] })[] {
-  const result: (ChunkGroup | { type: 'read_batch'; contents: string[] })[] = []
-  let readBuffer: string[] = []
+/** Batch type for collapsed consecutive groups */
+interface CollapsedBatch {
+  type: 'read_batch' | 'tool_batch' | 'thinking_batch'
+  contents: string[]
+  toolName?: string
+}
 
-  const flushReads = () => {
-    if (readBuffer.length > 3) {
-      result.push({ type: 'read_batch', contents: [...readBuffer] })
+/** Collapse consecutive same-type tool_use/thinking groups into batched renders */
+function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | CollapsedBatch)[] {
+  const result: (ChunkGroup | CollapsedBatch)[] = []
+  let buffer: ChunkGroup[] = []
+  let bufferKey = '' // "tool_use:Read", "tool_use:Bash", "thinking", etc.
+
+  const getGroupKey = (g: ChunkGroup): string => {
+    if (g.type === 'thinking') return 'thinking'
+    if (g.type === 'tool_use') return `tool_use:${(g.metadata?.toolName as string) || ''}`
+    return ''
+  }
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) return
+    const first = buffer[0]
+
+    if (first.type === 'thinking' && buffer.length >= 2) {
+      result.push({
+        type: 'thinking_batch',
+        contents: buffer.map((b) => b.content),
+      })
+    } else if (
+      first.type === 'tool_use' &&
+      (first.metadata?.toolName as string) === 'Read' &&
+      buffer.length > 3
+    ) {
+      // Read blocks use existing ReadToolBlockGroup with >3 threshold
+      result.push({
+        type: 'read_batch',
+        contents: buffer.map((b) => b.content),
+      })
+    } else if (first.type === 'tool_use' && buffer.length >= 2) {
+      result.push({
+        type: 'tool_batch',
+        contents: buffer.map((b) => b.content),
+        toolName: (first.metadata?.toolName as string) || '',
+      })
     } else {
-      for (const content of readBuffer) {
-        result.push({ type: 'tool_use', content, metadata: { toolName: 'Read' } })
+      // Not enough to batch — emit individually
+      for (const b of buffer) {
+        result.push(b)
       }
     }
-    readBuffer = []
+    buffer = []
+    bufferKey = ''
   }
 
   for (const group of groups) {
-    if (group.type === 'tool_use' && (group.metadata?.toolName as string) === 'Read') {
-      readBuffer.push(group.content)
+    const key = getGroupKey(group)
+    // Only buffer groupable types
+    if (key && key === bufferKey) {
+      buffer.push(group)
     } else {
-      if (readBuffer.length > 0) flushReads()
-      result.push(group)
+      flushBuffer()
+      if (key) {
+        buffer = [group]
+        bufferKey = key
+      } else {
+        result.push(group)
+      }
     }
   }
-  if (readBuffer.length > 0) flushReads()
+  flushBuffer()
   return result
+}
+
+/** Collapsed batch of same-type tool blocks */
+function ToolBatchBlock({ contents, toolName }: { contents: string[]; toolName: string }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <svg
+          className="w-3.5 h-3.5 text-blue-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+        <span className="font-medium">
+          {t('chat.toolBatch', { tool: toolName, count: contents.length })}
+        </span>
+      </button>
+      {expanded && (
+        <div className="ml-5 mt-1 space-y-1">
+          {contents.map((c, i) => (
+            <ToolUseBlock key={i} content={c} metadata={{ toolName }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Collapsed batch of thinking blocks */
+function ThinkingBatchBlock({ contents }: { contents: string[] }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="font-medium">
+          {t('chat.thought')} ×{contents.length}
+        </span>
+      </button>
+      {expanded && (
+        <div className="ml-5 mt-1 space-y-1">
+          {contents.map((c, i) => (
+            <ThinkingBlock key={i} content={c} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Render an array of chunk groups */
@@ -789,7 +1012,7 @@ export function ChunkGroupRenderer({
   groups: ChunkGroup[]
   isStreaming?: boolean
 }) {
-  const collapsed = useMemo(() => collapseReadGroups(groups), [groups])
+  const collapsed = useMemo(() => collapseConsecutiveGroups(groups), [groups])
 
   return (
     <>
@@ -798,12 +1021,18 @@ export function ChunkGroupRenderer({
         const isLast = isStreaming && i === collapsed.length - 1
 
         if (group.type === 'read_batch') {
+          return <ReadToolBlockGroup key={key} contents={(group as CollapsedBatch).contents} />
+        }
+
+        if (group.type === 'tool_batch') {
+          const batch = group as CollapsedBatch
           return (
-            <ReadToolBlockGroup
-              key={key}
-              contents={(group as { type: 'read_batch'; contents: string[] }).contents}
-            />
+            <ToolBatchBlock key={key} contents={batch.contents} toolName={batch.toolName || ''} />
           )
+        }
+
+        if (group.type === 'thinking_batch') {
+          return <ThinkingBatchBlock key={key} contents={(group as CollapsedBatch).contents} />
         }
 
         const g = group as ChunkGroup
