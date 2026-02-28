@@ -13,6 +13,7 @@ import type {
   ServerPermissionResponse,
   ServerAgentCommand,
   ServerQueryAgentInfo,
+  ServerSpawnAgent,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
@@ -144,7 +145,8 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         msg.type === 'server:room_context' ||
         msg.type === 'server:permission_response' ||
         msg.type === 'server:agent_command' ||
-        msg.type === 'server:query_agent_info'
+        msg.type === 'server:query_agent_info' ||
+        msg.type === 'server:spawn_agent'
       ) {
         agentManager.handleServerMessage(
           msg as
@@ -154,7 +156,8 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             | ServerRoomContext
             | ServerPermissionResponse
             | ServerAgentCommand
-            | ServerQueryAgentInfo,
+            | ServerQueryAgentInfo
+            | ServerSpawnAgent,
         )
       }
     },

@@ -704,6 +704,14 @@ export const gatewayAgentInfoSchema = z.object({
   model: z.string().max(200).optional(),
 })
 
+export const gatewaySpawnResultSchema = z.object({
+  type: z.literal('gateway:spawn_result'),
+  requestId: z.string().min(1),
+  success: z.boolean(),
+  agentId: z.string().optional(),
+  error: z.string().optional(),
+})
+
 export const gatewayPingSchema = z.object({
   type: z.literal('gateway:ping'),
   ts: z.number(),
@@ -721,6 +729,7 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayPermissionRequestSchema,
   gatewayAgentCommandResultSchema,
   gatewayAgentInfoSchema,
+  gatewaySpawnResultSchema,
   gatewayPingSchema,
 ])
 
@@ -1008,6 +1017,15 @@ export const serverRoomRemovedSchema = z.object({
   roomId: z.string(),
 })
 
+export const serverSpawnResultSchema = z.object({
+  type: z.literal('server:spawn_result'),
+  requestId: z.string().min(1),
+  gatewayId: z.string().min(1),
+  success: z.boolean(),
+  agentId: z.string().optional(),
+  error: z.string().optional(),
+})
+
 export const serverErrorSchema = z.object({
   type: z.literal('server:error'),
   code: z.string(),
@@ -1039,6 +1057,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverReactionUpdateSchema,
   serverPermissionRequestSchema,
   serverPermissionRequestExpiredSchema,
+  serverSpawnResultSchema,
   serverPongSchema,
   serverErrorSchema,
 ])
@@ -1101,6 +1120,14 @@ export const serverPermissionResponseSchema = z.object({
   decision: z.enum(PERMISSION_DECISIONS),
 })
 
+export const serverSpawnAgentSchema = z.object({
+  type: z.literal('server:spawn_agent'),
+  requestId: z.string().min(1),
+  agentType: z.enum(AGENT_TYPES),
+  name: z.string().min(1).max(100),
+  workingDirectory: z.string().optional(),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
@@ -1110,6 +1137,7 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverPermissionResponseSchema,
   serverAgentCommandSchema,
   serverQueryAgentInfoSchema,
+  serverSpawnAgentSchema,
   serverPongSchema,
   serverErrorSchema,
 ])

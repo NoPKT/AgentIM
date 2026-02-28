@@ -274,6 +274,12 @@ export const ko = {
     deleteAgent: '에이전트 삭제',
     agentDeleted: '에이전트가 성공적으로 삭제되었습니다',
     confirmDeleteAgent: '에이전트의 연결을 끊고 모든 방에서 제거합니다. 계속하시겠습니까?',
+    spawnAgent: '에이전트 생성',
+    spawnAgentDesc: '이 게이트웨이에서 새 에이전트를 시작합니다',
+    agentName: '에이전트 이름',
+    spawnSuccess: '에이전트 생성 요청이 전송되었습니다',
+    spawnFailed: '에이전트 생성에 실패했습니다',
+    gatewayOffline: '게이트웨이가 오프라인입니다',
   },
   task: {
     tasks: '작업',

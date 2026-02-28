@@ -275,6 +275,12 @@ export const en = {
     deleteAgent: 'Delete Agent',
     agentDeleted: 'Agent deleted successfully',
     confirmDeleteAgent: 'This will disconnect the agent and remove it from all rooms. Continue?',
+    spawnAgent: 'Spawn Agent',
+    spawnAgentDesc: 'Start a new agent on this gateway',
+    agentName: 'Agent Name',
+    spawnSuccess: 'Agent spawn request sent',
+    spawnFailed: 'Failed to spawn agent',
+    gatewayOffline: 'Gateway is offline',
   },
   task: {
     tasks: 'Tasks',

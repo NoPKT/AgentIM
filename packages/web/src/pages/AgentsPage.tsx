@@ -5,6 +5,7 @@ import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConf
 import { Button } from '../components/ui.js'
 import { AgentInfoModal } from '../components/AgentInfoModal.js'
 import { toast } from '../stores/toast.js'
+import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 
 export default function AgentsPage() {
@@ -306,9 +307,15 @@ function AgentCard({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => vo
 function GatewayCard({ gateway }: { gateway: Gateway }) {
   const { t, i18n } = useTranslation()
   const deleteGateway = useAgentStore((s) => s.deleteGateway)
+  const spawnAgent = useAgentStore((s) => s.spawnAgent)
   const loadAgents = useAgentStore((s) => s.loadAgents)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showSpawn, setShowSpawn] = useState(false)
+  const [spawnType, setSpawnType] = useState<string>(AGENT_TYPES[0])
+  const [spawnName, setSpawnName] = useState('')
+  const [spawnWorkDir, setSpawnWorkDir] = useState('')
+  const [spawning, setSpawning] = useState(false)
 
   const isOnline = !!gateway.connectedAt && !gateway.disconnectedAt
 
@@ -323,6 +330,22 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     } finally {
       setDeleting(false)
       setConfirmDelete(false)
+    }
+  }
+
+  const handleSpawn = async () => {
+    if (!spawnName.trim()) return
+    setSpawning(true)
+    try {
+      await spawnAgent(gateway.id, spawnType, spawnName.trim(), spawnWorkDir.trim() || undefined)
+      toast.success(t('agent.spawnSuccess'))
+      setShowSpawn(false)
+      setSpawnName('')
+      setSpawnWorkDir('')
+    } catch (err) {
+      toast.error((err as Error).message ?? t('agent.spawnFailed'))
+    } finally {
+      setSpawning(false)
     }
   }
 
@@ -379,38 +402,112 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
         )}
       </div>
 
-      {/* Delete */}
-      <div className="mt-4 pt-3 border-t border-border">
-        {confirmDelete ? (
+      {/* Spawn Agent */}
+      <div className="mt-4 pt-3 border-t border-border space-y-2">
+        {showSpawn ? (
           <div className="space-y-2">
-            <p className="text-xs text-text-secondary">{t('agent.confirmDeleteGateway')}</p>
+            <p className="text-xs font-medium text-text-secondary">{t('agent.spawnAgentDesc')}</p>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                {t('agent.agentType')}
+              </label>
+              <select
+                value={spawnType}
+                onChange={(e) => setSpawnType(e.target.value)}
+                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                {AGENT_TYPES.filter((t) => t !== 'generic').map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                {t('agent.agentName')}
+              </label>
+              <input
+                type="text"
+                value={spawnName}
+                onChange={(e) => setSpawnName(e.target.value)}
+                placeholder="my-agent"
+                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                {t('agent.workingDir')}
+              </label>
+              <input
+                type="text"
+                value={spawnWorkDir}
+                onChange={(e) => setSpawnWorkDir(e.target.value)}
+                placeholder="/path/to/project"
+                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => setShowSpawn(false)}
                 className="flex-1"
               >
                 {t('common.cancel')}
               </Button>
               <Button
                 size="sm"
-                variant="danger"
-                onClick={handleDelete}
-                disabled={deleting}
+                onClick={handleSpawn}
+                disabled={spawning || !spawnName.trim()}
                 className="flex-1"
               >
-                {t('common.delete')}
+                {t('agent.spawnAgent')}
               </Button>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="w-full px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-          >
-            {t('agent.deleteGateway')}
-          </button>
+          <div className="space-y-2">
+            {isOnline && (
+              <button
+                onClick={() => setShowSpawn(true)}
+                className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
+              >
+                {t('agent.spawnAgent')}
+              </button>
+            )}
+            {confirmDelete ? (
+              <div className="space-y-2">
+                <p className="text-xs text-text-secondary">{t('agent.confirmDeleteGateway')}</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1"
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1"
+                  >
+                    {t('common.delete')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              >
+                {t('agent.deleteGateway')}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

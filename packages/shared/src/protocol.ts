@@ -226,6 +226,15 @@ export interface ServerRoomRemoved {
   roomId: string
 }
 
+export interface ServerSpawnResult {
+  type: 'server:spawn_result'
+  requestId: string
+  gatewayId: string
+  success: boolean
+  agentId?: string
+  error?: string
+}
+
 export type ServerMessage =
   | ServerAuthResult
   | ServerNewMessage
@@ -246,6 +255,7 @@ export type ServerMessage =
   | ServerReactionUpdate
   | ServerPermissionRequest
   | ServerPermissionRequestExpired
+  | ServerSpawnResult
   | ServerPong
   | ServerError
 
@@ -346,6 +356,14 @@ export interface GatewayAgentInfo {
   model?: string
 }
 
+export interface GatewaySpawnResult {
+  type: 'gateway:spawn_result'
+  requestId: string
+  success: boolean
+  agentId?: string
+  error?: string
+}
+
 export interface GatewayPing {
   type: 'gateway:ping'
   ts: number
@@ -363,6 +381,7 @@ export type GatewayMessage =
   | GatewayPermissionRequest
   | GatewayAgentCommandResult
   | GatewayAgentInfo
+  | GatewaySpawnResult
   | GatewayPing
 
 // ─── Server → Gateway Messages ───
@@ -423,6 +442,14 @@ export interface ServerPermissionResponse {
   decision: PermissionDecision
 }
 
+export interface ServerSpawnAgent {
+  type: 'server:spawn_agent'
+  requestId: string
+  agentType: AgentType
+  name: string
+  workingDirectory?: string
+}
+
 export interface ServerPong {
   type: 'server:pong'
   ts: number
@@ -437,6 +464,7 @@ export type ServerGatewayMessage =
   | ServerPermissionResponse
   | ServerAgentCommand
   | ServerQueryAgentInfo
+  | ServerSpawnAgent
   | ServerPong
   | ServerError
 
@@ -473,6 +501,7 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:permission_request',
   'gateway:agent_command_result',
   'gateway:agent_info',
+  'gateway:spawn_result',
   'gateway:ping',
 ])
 
@@ -497,6 +526,7 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:reaction_update',
   'server:permission_request',
   'server:permission_request_expired',
+  'server:spawn_result',
   'server:pong',
   'server:error',
 ])
@@ -548,6 +578,7 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:permission_response',
   'server:agent_command',
   'server:query_agent_info',
+  'server:spawn_agent',
 ])
 
 /** Type guard for ServerGatewayMessage */

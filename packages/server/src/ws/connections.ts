@@ -477,6 +477,36 @@ export class ConnectionManager {
     return this.agentQueueDepths.get(agentId) ?? 0
   }
 
+  /** Send a message to a gateway by its gateway ID (not agent ID). */
+  sendToGatewayById(gatewayId: string, message: object): boolean {
+    const data = JSON.stringify(message)
+    for (const [, gw] of this.gateways) {
+      if (gw.gatewayId === gatewayId) {
+        try {
+          gw.ws.send(data)
+          return true
+        } catch {
+          return false
+        }
+      }
+    }
+    return false
+  }
+
+  /** Send a message to all web clients belonging to a specific user. */
+  broadcastToUser(userId: string, message: object) {
+    const data = JSON.stringify(message)
+    for (const client of this.clients.values()) {
+      if (client.userId === userId) {
+        try {
+          client.ws.send(data)
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  }
+
   sendToGateway(agentId: string, message: object): boolean {
     const data = JSON.stringify(message)
     const sent = this.localSendToGateway(agentId, data)

@@ -198,6 +198,8 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return handleAgentCommandResult(ws, msg)
       case 'gateway:agent_info':
         return handleAgentInfoResponse(ws, msg)
+      case 'gateway:spawn_result':
+        return handleSpawnResult(ws, msg)
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return
@@ -978,6 +980,29 @@ async function handleAgentCommandResult(
     command: msg.command,
     success: msg.success,
     message: msg.message,
+  })
+}
+
+function handleSpawnResult(
+  ws: WSContext,
+  msg: {
+    requestId: string
+    success: boolean
+    agentId?: string
+    error?: string
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw) return
+
+  // Forward result to all of this user's connected web clients
+  connectionManager.broadcastToUser(gw.userId, {
+    type: 'server:spawn_result',
+    requestId: msg.requestId,
+    gatewayId: gw.gatewayId,
+    success: msg.success,
+    agentId: msg.agentId,
+    error: msg.error,
   })
 }
 
