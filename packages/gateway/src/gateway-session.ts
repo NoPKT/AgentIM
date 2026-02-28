@@ -11,6 +11,8 @@ import type {
   ServerRemoveAgent,
   ServerRoomContext,
   ServerPermissionResponse,
+  ServerAgentCommand,
+  ServerQueryAgentInfo,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
@@ -20,6 +22,10 @@ export interface GatewaySessionOptions {
   permissionLevel: PermissionLevel
   /** Called after successful authentication. Return value indicates whether agents were already registered. */
   onAuthenticated: (agentManager: AgentManager, isReconnect: boolean) => void
+  /** Override config's gatewayId (ephemeral per session). */
+  gatewayId?: string
+  /** Exit process when all agents are removed. */
+  exitOnEmpty?: boolean
 }
 
 /**
@@ -35,6 +41,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   wsClient: GatewayWsClient
   agentManager: AgentManager
   start: () => void
+  cleanup: () => Promise<void>
 } {
   const config = loadConfig()
   if (!config) {
@@ -44,6 +51,8 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
 
   const tokenManager = new TokenManager(config)
   const deviceInfo = getDeviceInfo()
+  // Use ephemeral gatewayId if provided, otherwise fall back to config
+  const gatewayId = opts.gatewayId ?? config.gatewayId
   // AgentManager is initialized after wsClient is created (circular dependency)
   // eslint-disable-next-line prefer-const
   let agentManager: AgentManager
@@ -60,7 +69,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     wsClient.send({
       type: 'gateway:auth',
       token: tokenManager.accessToken,
-      gatewayId: config.gatewayId,
+      gatewayId,
       protocolVersion: CURRENT_PROTOCOL_VERSION,
       deviceInfo,
     })
@@ -132,7 +141,9 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         msg.type === 'server:stop_agent' ||
         msg.type === 'server:remove_agent' ||
         msg.type === 'server:room_context' ||
-        msg.type === 'server:permission_response'
+        msg.type === 'server:permission_response' ||
+        msg.type === 'server:agent_command' ||
+        msg.type === 'server:query_agent_info'
       ) {
         agentManager.handleServerMessage(
           msg as
@@ -140,7 +151,9 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             | ServerStopAgent
             | ServerRemoveAgent
             | ServerRoomContext
-            | ServerPermissionResponse,
+            | ServerPermissionResponse
+            | ServerAgentCommand
+            | ServerQueryAgentInfo,
         )
       }
     },
@@ -149,7 +162,15 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     },
   })
 
-  agentManager = new AgentManager(wsClient, opts.permissionLevel)
+  // Build onEmpty callback for single-agent (exitOnEmpty) mode
+  const onEmpty = opts.exitOnEmpty
+    ? () => {
+        log.info('All agents removed, exiting...')
+        void cleanup().then(() => process.exit(0))
+      }
+    : undefined
+
+  agentManager = new AgentManager(wsClient, opts.permissionLevel, onEmpty)
 
   // Graceful shutdown
   let shuttingDown = false
@@ -204,5 +225,5 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     })
   }
 
-  return { wsClient, agentManager, start }
+  return { wsClient, agentManager, start, cleanup }
 }

@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { generateAgentName } from './name-generator.js'
 import { createGatewaySession } from './gateway-session.js'
 import { createLogger } from './lib/logger.js'
@@ -22,6 +23,8 @@ export async function runWrapper(opts: {
 
   const { start } = createGatewaySession({
     permissionLevel: opts.permissionLevel ?? 'interactive',
+    gatewayId: nanoid(),
+    exitOnEmpty: true,
     onAuthenticated: (agentManager, isReconnect) => {
       if (isReconnect) {
         // On reconnect, re-register existing agent instead of creating a new one

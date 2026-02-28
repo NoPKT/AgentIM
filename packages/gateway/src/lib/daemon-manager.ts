@@ -63,7 +63,7 @@ function isAgentimProcess(pid: number): boolean {
           arg.endsWith('/agentim') ||
           arg.endsWith('/cli.js') ||
           arg.endsWith('/cli.ts') ||
-          (arg.includes('agentim') && arg.includes('daemon')),
+          (arg.includes('agentim') && (arg.includes('daemon') || arg.includes('--foreground'))),
       )
     }
     if (platform() === 'win32') {
@@ -75,7 +75,7 @@ function isAgentimProcess(pid: number): boolean {
           timeout: 5000,
         },
       ).trim()
-      return /\bagentim\b/i.test(output) || /cli\.[jt]s\b.*\bdaemon\b/i.test(output)
+      return /\bagentim\b/i.test(output) || /cli\.[jt]s\b/i.test(output)
     }
     // macOS / other Unix: use ps with full argument list
     const output = execSync(`ps -p ${pid} -o args=`, {
@@ -83,7 +83,7 @@ function isAgentimProcess(pid: number): boolean {
       timeout: 3000,
     }).trim()
     // Match the agentim CLI binary or daemon subcommand
-    return /\bagentim\b/.test(output) || /cli\.[jt]s\b.*\bdaemon\b/.test(output)
+    return /\bagentim\b/.test(output) || /cli\.[jt]s\b/.test(output)
   } catch {
     // If we cannot verify, assume NOT an agentim process to avoid killing
     // an unrelated process that recycled this PID.
