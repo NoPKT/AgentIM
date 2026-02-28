@@ -157,9 +157,9 @@ function AgentCard({ agent }: { agent: Agent }) {
     <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+            className={`w-10 h-10 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
           >
             <span className="text-sm font-semibold text-white">
               {agent.name.charAt(0).toUpperCase()}
