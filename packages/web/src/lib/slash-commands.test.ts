@@ -24,12 +24,12 @@ describe('slash-commands', () => {
       expect(parseSlashCommand('/help ')).toEqual({ name: 'help', args: '' })
     })
 
-    it('returns name with empty args for slash followed by command only', () => {
-      expect(parseSlashCommand('/ ')).toEqual({ name: '', args: '' })
+    it('returns null for slash followed by only whitespace', () => {
+      expect(parseSlashCommand('/ ')).toBeNull()
     })
 
-    it('handles slash-only input', () => {
-      expect(parseSlashCommand('/')).toEqual({ name: '', args: '' })
+    it('returns null for slash-only input', () => {
+      expect(parseSlashCommand('/')).toBeNull()
     })
 
     it('trims args whitespace', () => {
