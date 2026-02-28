@@ -21,6 +21,7 @@ vi.mock('../lib/ws.js', () => ({
 // ── Store mocks ─────────────────────────────────────────────────────────────
 
 const mockAddMessage = vi.fn()
+const mockReplaceOptimisticMessage = vi.fn(() => false)
 const mockAddStreamChunk = vi.fn()
 const mockCompleteStream = vi.fn()
 const mockAddTypingUser = vi.fn()
@@ -51,6 +52,7 @@ const mockChatGetState = vi.fn(() => ({
   rooms: [] as Array<{ id: string; name: string }>,
   joinedRooms: new Set<string>(),
   addMessage: mockAddMessage,
+  replaceOptimisticMessage: mockReplaceOptimisticMessage,
   addStreamChunk: mockAddStreamChunk,
   completeStream: mockCompleteStream,
   addTypingUser: mockAddTypingUser,
@@ -177,6 +179,7 @@ describe('useWebSocket', () => {
       rooms: [],
       joinedRooms: new Set<string>(),
       addMessage: mockAddMessage,
+      replaceOptimisticMessage: mockReplaceOptimisticMessage,
       addStreamChunk: mockAddStreamChunk,
       completeStream: mockCompleteStream,
       addTypingUser: mockAddTypingUser,

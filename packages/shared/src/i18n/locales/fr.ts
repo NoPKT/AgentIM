@@ -274,6 +274,10 @@ export const fr = {
     disconnectedAt: 'Déconnecté à',
     confirmDeleteGateway:
       'Êtes-vous sûr de vouloir supprimer cette passerelle ? Tous les agents associés seront supprimés.',
+    deleteAgent: "Supprimer l'agent",
+    agentDeleted: 'Agent supprimé avec succès',
+    confirmDeleteAgent:
+      "Cela déconnectera l'agent et le retirera de toutes les salles. Continuer ?",
   },
   task: {
     tasks: 'Tâches',

@@ -281,6 +281,13 @@
       "when": 1773200000000,
       "tag": "0039_add_agent_slash_commands",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773300000000,
+      "tag": "0040_fix_agent_message_updated_at",
+      "breakpoints": true
     }
   ]
 }

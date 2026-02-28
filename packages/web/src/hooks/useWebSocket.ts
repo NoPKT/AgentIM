@@ -41,7 +41,9 @@ export function useWebSocket() {
       switch (msg.type) {
         case 'server:new_message': {
           try {
-            chat.addMessage(msg.message)
+            // Try to replace an optimistic message first (user's own message echo)
+            const replaced = chat.replaceOptimisticMessage(msg.message)
+            if (!replaced) chat.addMessage(msg.message)
             // Desktop notifications for messages from other users
             const user = useAuthStore.getState().user
             if (user && msg.message.senderId !== user.id) {

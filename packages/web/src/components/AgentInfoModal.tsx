@@ -5,7 +5,7 @@ import { wsClient } from '../lib/ws.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
 import { toast } from '../stores/toast.js'
 import { Modal, Input, Button } from './ui.js'
-import { CloseIcon, PencilIcon } from './icons.js'
+import { CloseIcon, PencilIcon, TrashIcon } from './icons.js'
 
 interface AgentInfoModalProps {
   agentId: string | null
@@ -19,11 +19,14 @@ export function AgentInfoModal({ agentId, isOpen, onClose, isOwner = false }: Ag
   const { t, i18n } = useTranslation()
   const agents = useAgentStore((s) => s.agents)
   const renameAgent = useAgentStore((s) => s.renameAgent)
+  const deleteAgent = useAgentStore((s) => s.deleteAgent)
   const agent = agents.find((a) => a.id === agentId) ?? null
 
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Query fresh info from the gateway when modal opens
   useEffect(() => {
@@ -37,7 +40,10 @@ export function AgentInfoModal({ agentId, isOpen, onClose, isOwner = false }: Ag
   }, [agent])
 
   useEffect(() => {
-    if (!isOpen) setEditingName(false)
+    if (!isOpen) {
+      setEditingName(false)
+      setConfirmDelete(false)
+    }
   }, [isOpen])
 
   if (!agent) return null
@@ -47,6 +53,19 @@ export function AgentInfoModal({ agentId, isOpen, onClose, isOwner = false }: Ag
   const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
   const type = typeConfig[agent.type] || typeConfig.generic
   const gradient = agentGradients[agent.type] || agentGradients.generic
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      await deleteAgent(agent!.id)
+      toast.success(t('agent.agentDeleted'))
+      onClose()
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handleRename = async () => {
     const trimmed = nameValue.trim()
@@ -226,6 +245,44 @@ export function AgentInfoModal({ agentId, isOpen, onClose, isOwner = false }: Ag
               <p className="text-xs text-text-muted">{t('agentInfo.noCommands')}</p>
             )}
           </Section>
+
+          {/* Delete Agent */}
+          {isOwner && (
+            <div className="mt-2 pt-3 border-t border-border">
+              {confirmDelete ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-text-secondary">{t('agent.confirmDeleteAgent')}</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex-1"
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex-1"
+                    >
+                      {t('common.delete')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-2 text-sm text-danger-text hover:text-danger-text/80 transition-colors"
+                >
+                  <TrashIcon className="w-4 h-4" aria-hidden="true" />
+                  {t('agent.deleteAgent')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>
