@@ -16,6 +16,8 @@ export default function AgentsPage() {
   const loadAgents = useAgentStore((state) => state.loadAgents)
   const loadGateways = useAgentStore((state) => state.loadGateways)
 
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+
   useEffect(() => {
     loadAgents()
     loadGateways()
@@ -82,8 +84,6 @@ export default function AgentsPage() {
       </div>
     )
   }
-
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
 
   if (agents.length === 0) {
     return (
