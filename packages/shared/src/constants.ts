@@ -178,8 +178,12 @@ export const MAX_SERVICE_AGENT_FILE_SIZE = 100 * 1024 * 1024 // 100 MB for media
 export const OAUTH_PROVIDERS = ['github', 'google'] as const
 
 // ─── Slash Commands ───
-export const SLASH_COMMANDS = ['clear', 'help', 'task', 'status'] as const
+export const SLASH_COMMANDS = ['clear', 'help', 'stop', 'agents'] as const
 export type SlashCommandName = (typeof SLASH_COMMANDS)[number]
+
+// ─── Agent Slash Command Sources ───
+export const AGENT_COMMAND_SOURCES = ['builtin', 'skill'] as const
+export type AgentCommandSource = (typeof AGENT_COMMAND_SOURCES)[number]
 
 // ─── Web Client Constants (migrated from web package) ───
 export const MAX_WS_QUEUE_SIZE = 500

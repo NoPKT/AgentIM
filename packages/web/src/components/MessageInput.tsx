@@ -24,7 +24,12 @@ import { api } from '../lib/api.js'
 import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
 import { SlashCommandMenu } from './SlashCommandMenu.js'
-import { parseSlashCommand, getCommand, getAllCommands } from '../lib/slash-commands.js'
+import {
+  parseSlashCommand,
+  getCommand,
+  getAllCommands,
+  getAgentCommands,
+} from '../lib/slash-commands.js'
 import { getDraft, setDraft as saveDraft } from '../lib/message-cache.js'
 
 const MAX_UPLOAD_RETRIES = 3
@@ -114,6 +119,8 @@ export function MessageInput() {
       ),
     [agents, debouncedMentionSearch],
   )
+
+  const agentCommands = useMemo(() => getAgentCommands(agents), [agents])
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -322,13 +329,17 @@ export function MessageInput() {
   const filteredSlashCommands = getAllCommands().filter((cmd) =>
     cmd.command.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
   )
+  const filteredAgentCmds = agentCommands.filter((item) =>
+    item.command.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
+  )
+  const totalSlashItems = filteredSlashCommands.length + filteredAgentCmds.length
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Slash command menu navigation
-    if (showSlashMenu && filteredSlashCommands.length > 0) {
+    if (showSlashMenu && totalSlashItems > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSlashActiveIndex((prev) => (prev < filteredSlashCommands.length - 1 ? prev + 1 : prev))
+        setSlashActiveIndex((prev) => (prev < totalSlashItems - 1 ? prev + 1 : prev))
         return
       }
       if (e.key === 'ArrowUp') {
@@ -338,8 +349,15 @@ export function MessageInput() {
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
-        const cmd = filteredSlashCommands[slashActiveIndex]
-        setContent('/' + cmd.command.name + ' ')
+        if (slashActiveIndex < filteredSlashCommands.length) {
+          const cmd = filteredSlashCommands[slashActiveIndex]
+          setContent('/' + cmd.command.name + ' ')
+        } else {
+          const agentCmd = filteredAgentCmds[slashActiveIndex - filteredSlashCommands.length]
+          if (agentCmd) {
+            handleAgentCommandSelect(agentCmd)
+          }
+        }
         setShowSlashMenu(false)
         return
       }
@@ -394,6 +412,19 @@ export function MessageInput() {
   const attachmentAuthUrls = useUploadUrls(pendingAttachments.map((a) => a.url ?? ''))
   const hasContent = content.trim().length > 0 || readyAttachments.length > 0
 
+  const handleAgentCommandSelect = (item: import('../lib/slash-commands.js').AgentCommandItem) => {
+    if (!currentRoomId) return
+    wsClient.send({
+      type: 'client:agent_command',
+      agentId: item.agentId,
+      roomId: currentRoomId,
+      command: item.command.name,
+      args: '',
+    })
+    setContent('')
+    toast.info(`/${item.command.name} sent to ${item.agentName}`)
+  }
+
   const handleSend = () => {
     // Handle slash commands
     const parsed = parseSlashCommand(content)
@@ -404,6 +435,23 @@ export function MessageInput() {
         setContent('')
         setShowSlashMenu(false)
         return
+      }
+      // Check if it matches an agent command
+      if (currentRoomId) {
+        const agentCmd = agentCommands.find((item) => item.command.name === parsed.name)
+        if (agentCmd) {
+          wsClient.send({
+            type: 'client:agent_command',
+            agentId: agentCmd.agentId,
+            roomId: currentRoomId,
+            command: agentCmd.command.name,
+            args: parsed.args,
+          })
+          setContent('')
+          setShowSlashMenu(false)
+          toast.info(`/${agentCmd.command.name} sent to ${agentCmd.agentName}`)
+          return
+        }
       }
     }
 
@@ -532,12 +580,17 @@ export function MessageInput() {
         {showSlashMenu && (
           <SlashCommandMenu
             filter={slashFilter}
-            onSelect={(cmd) => {
-              setContent('/' + cmd.command.name + ' ')
+            onSelect={(item) => {
+              if (item.type === 'platform') {
+                setContent('/' + item.handler.command.name + ' ')
+              } else {
+                handleAgentCommandSelect(item.item)
+              }
               setShowSlashMenu(false)
               textareaRef.current?.focus()
             }}
             activeIndex={slashActiveIndex}
+            agentCommands={agentCommands}
           />
         )}
 
@@ -706,15 +759,15 @@ export function MessageInput() {
               aria-controls={
                 showMentionMenu && filteredAgents.length > 0
                   ? 'mention-listbox'
-                  : showSlashMenu && filteredSlashCommands.length > 0
+                  : showSlashMenu && totalSlashItems > 0
                     ? 'slash-cmd-listbox'
                     : undefined
               }
               aria-activedescendant={
                 showMentionMenu && filteredAgents.length > 0 && filteredAgents[selectedMentionIndex]
                   ? `mention-option-${filteredAgents[selectedMentionIndex].id}`
-                  : showSlashMenu && filteredSlashCommands.length > 0
-                    ? `slash-cmd-${filteredSlashCommands[slashActiveIndex].command.name}`
+                  : showSlashMenu && totalSlashItems > 0
+                    ? `slash-cmd-${slashActiveIndex}`
                     : undefined
               }
               className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent min-h-12 max-h-[200px]"

@@ -339,6 +339,26 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }
   }
 
+  override getSlashCommands(): Array<{
+    name: string
+    description: string
+    usage: string
+    source: 'builtin' | 'skill'
+  }> {
+    return [{ name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' }]
+  }
+
+  override async handleSlashCommand(
+    command: string,
+    _args: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    if (command === 'clear') {
+      this.session = undefined
+      return { success: true, message: 'Session cleared' }
+    }
+    return { success: false, message: `Unknown command: ${command}` }
+  }
+
   /**
    * Abort the current query and reset session state.
    * The session is discarded so the next sendMessage() starts fresh.

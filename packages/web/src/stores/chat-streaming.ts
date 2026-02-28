@@ -22,7 +22,10 @@ export interface TerminalBuffer {
 
 const MAX_CHUNKS_PER_STREAM = 2000
 const MAX_TERMINAL_LINES = 500
-const STALE_TIMEOUT = 30_000 // 30 seconds
+/** Grace period after an agent goes offline before cleaning up its stream. */
+const OFFLINE_STALE_TIMEOUT = 30_000 // 30 seconds
+/** Absolute safety-net timeout regardless of agent status (zombie stream protection). */
+const ABSOLUTE_STALE_TIMEOUT = 3_600_000 // 1 hour
 
 export function addStreamChunkAction(
   streaming: Map<string, StreamingMessage>,
@@ -83,14 +86,32 @@ export interface StaleStreamEntry extends StreamingMessage {
   roomId: string
 }
 
+/**
+ * Determine which streams are stale based on agent online status:
+ * - Agent online/busy → stream is NOT stale (agent is still working)
+ * - Agent offline/error → stale after OFFLINE_STALE_TIMEOUT (30s grace period)
+ * - Safety net: any stream older than ABSOLUTE_STALE_TIMEOUT (1h) regardless of status
+ *
+ * @param onlineAgentIds - Set of agent IDs currently online or busy
+ */
 export function cleanupStaleStreamsAction(
   streaming: Map<string, StreamingMessage>,
+  onlineAgentIds?: Set<string>,
 ): { next: Map<string, StreamingMessage>; stale: StaleStreamEntry[] } | null {
   const now = Date.now()
   const next = new Map(streaming)
   const stale: StaleStreamEntry[] = []
   for (const [key, stream] of next) {
-    if (now - stream.lastChunkAt > STALE_TIMEOUT) {
+    const elapsed = now - stream.lastChunkAt
+    const isAgentOnline = onlineAgentIds?.has(stream.agentId) ?? false
+
+    // Agent still online/busy — only clean up after absolute timeout (zombie protection)
+    // Agent offline — clean up after short grace period
+    const isStale = isAgentOnline
+      ? elapsed > ABSOLUTE_STALE_TIMEOUT
+      : elapsed > OFFLINE_STALE_TIMEOUT
+
+    if (isStale) {
       // Key format is "roomId:agentId" — extract roomId
       const separatorIdx = key.indexOf(':')
       const roomId = separatorIdx > 0 ? key.slice(0, separatorIdx) : key

@@ -11,6 +11,8 @@ import type {
   ServerRemoveAgent,
   ServerRoomContext,
   ServerPermissionResponse,
+  ServerAgentCommand,
+  ServerQueryAgentInfo,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
@@ -188,7 +190,7 @@ export class AgentManager {
       this.agentCapabilities.set(agentId, opts.capabilities)
     }
 
-    // Register with server
+    // Register with server, including slash commands, MCP servers, and model
     this.wsClient.send({
       type: 'gateway:register_agent',
       agent: {
@@ -197,6 +199,9 @@ export class AgentManager {
         type: opts.type as AgentType,
         workingDirectory: opts.workingDirectory,
         capabilities: opts.capabilities,
+        slashCommands: adapter.getSlashCommands(),
+        mcpServers: adapter.getMcpServers(),
+        model: adapter.getModel(),
       },
     })
 
@@ -257,6 +262,9 @@ export class AgentManager {
           type: adapter.type as AgentType,
           workingDirectory: adapter.workingDirectory,
           capabilities: this.agentCapabilities.get(agentId),
+          slashCommands: adapter.getSlashCommands(),
+          mcpServers: adapter.getMcpServers(),
+          model: adapter.getModel(),
         },
       })
     }
@@ -271,7 +279,9 @@ export class AgentManager {
       | ServerStopAgent
       | ServerRemoveAgent
       | ServerRoomContext
-      | ServerPermissionResponse,
+      | ServerPermissionResponse
+      | ServerAgentCommand
+      | ServerQueryAgentInfo,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -283,6 +293,10 @@ export class AgentManager {
       this.handleRoomContext(msg)
     } else if (msg.type === 'server:permission_response') {
       this.handlePermissionResponse(msg)
+    } else if (msg.type === 'server:agent_command') {
+      this.handleAgentCommand(msg)
+    } else if (msg.type === 'server:query_agent_info') {
+      this.handleQueryAgentInfo(msg)
     }
   }
 
@@ -572,6 +586,60 @@ export class AgentManager {
       type: adapter.type,
       running: adapter.running,
     }))
+  }
+
+  private async handleAgentCommand(msg: ServerAgentCommand) {
+    const adapter = this.adapters.get(msg.agentId)
+    if (!adapter) {
+      log.warn(`Agent not found for command: ${msg.agentId}`)
+      this.wsClient.send({
+        type: 'gateway:agent_command_result',
+        agentId: msg.agentId,
+        roomId: msg.roomId,
+        command: msg.command,
+        success: false,
+        message: 'Agent not found',
+      })
+      return
+    }
+
+    try {
+      const result = await adapter.handleSlashCommand(msg.command, msg.args)
+      this.wsClient.send({
+        type: 'gateway:agent_command_result',
+        agentId: msg.agentId,
+        roomId: msg.roomId,
+        command: msg.command,
+        success: result.success,
+        message: result.message,
+      })
+    } catch (err) {
+      log.error(`Slash command error for agent ${msg.agentId}: ${(err as Error).message}`)
+      this.wsClient.send({
+        type: 'gateway:agent_command_result',
+        agentId: msg.agentId,
+        roomId: msg.roomId,
+        command: msg.command,
+        success: false,
+        message: `Command error: ${(err as Error).message}`,
+      })
+    }
+  }
+
+  private handleQueryAgentInfo(msg: ServerQueryAgentInfo) {
+    const adapter = this.adapters.get(msg.agentId)
+    if (!adapter) {
+      log.warn(`Agent not found for info query: ${msg.agentId}`)
+      return
+    }
+
+    this.wsClient.send({
+      type: 'gateway:agent_info',
+      agentId: msg.agentId,
+      slashCommands: adapter.getSlashCommands(),
+      mcpServers: adapter.getMcpServers(),
+      model: adapter.getModel(),
+    })
   }
 
   async disposeAll() {

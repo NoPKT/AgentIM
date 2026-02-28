@@ -4,6 +4,7 @@ import type {
   AgentVisibility,
   AgentConnectionType,
   AgentCommandRole,
+  AgentCommandSource,
   UserRole,
   RoomType,
   MemberRole,
@@ -35,6 +36,13 @@ export interface User {
   updatedAt: string
 }
 
+export interface AgentSlashCommand {
+  name: string
+  description: string
+  usage: string
+  source: AgentCommandSource
+}
+
 export interface Agent {
   id: string
   name: string
@@ -47,6 +55,9 @@ export interface Agent {
   connectionType?: AgentConnectionType
   deviceInfo?: DeviceInfo
   ownerName?: string
+  slashCommands?: AgentSlashCommand[]
+  mcpServers?: string[]
+  model?: string
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

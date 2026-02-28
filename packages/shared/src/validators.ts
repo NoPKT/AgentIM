@@ -5,6 +5,7 @@ import {
   AGENT_VISIBILITIES,
   AGENT_CONNECTION_TYPES,
   AGENT_COMMAND_ROLES,
+  AGENT_COMMAND_SOURCES,
   ROOM_TYPES,
   MEMBER_ROLES,
   MESSAGE_TYPES,
@@ -366,8 +367,21 @@ export const updateTaskSchema = z.object({
 
 // ─── Agent ───
 
+export const agentSlashCommandSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500),
+  usage: z.string().max(500),
+  source: z.enum(AGENT_COMMAND_SOURCES),
+})
+
 export const updateAgentSchema = z.object({
   visibility: z.enum(AGENT_VISIBILITIES).optional(),
+  name: z
+    .string()
+    .min(1)
+    .max(MAX_DISPLAY_NAME_LENGTH)
+    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
+    .optional(),
 })
 
 // ─── Service Agent ───
@@ -558,6 +572,19 @@ export const clientPermissionResponseSchema = z.object({
   decision: z.enum(['allow', 'deny']),
 })
 
+export const clientAgentCommandSchema = z.object({
+  type: z.literal('client:agent_command'),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  command: z.string().min(1).max(100),
+  args: z.string().max(10_000).default(''),
+})
+
+export const clientQueryAgentInfoSchema = z.object({
+  type: z.literal('client:query_agent_info'),
+  agentId: z.string().min(1),
+})
+
 export const clientPingSchema = z.object({
   type: z.literal('client:ping'),
   ts: z.number(),
@@ -571,6 +598,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientTypingSchema,
   clientStopGenerationSchema,
   clientPermissionResponseSchema,
+  clientAgentCommandSchema,
+  clientQueryAgentInfoSchema,
   clientPingSchema,
 ])
 
@@ -597,6 +626,9 @@ export const gatewayRegisterAgentSchema = z.object({
     type: z.enum(AGENT_TYPES),
     workingDirectory: z.string().optional(),
     capabilities: z.array(z.string()).optional(),
+    slashCommands: z.array(agentSlashCommandSchema).max(100).optional(),
+    mcpServers: z.array(z.string().max(200)).max(100).optional(),
+    model: z.string().max(200).optional(),
   }),
 })
 
@@ -654,6 +686,23 @@ export const gatewayPermissionRequestSchema = z.object({
   timeoutMs: z.number().int().min(1000).max(PERMISSION_TIMEOUT_MS),
 })
 
+export const gatewayAgentCommandResultSchema = z.object({
+  type: z.literal('gateway:agent_command_result'),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  command: z.string().min(1).max(100),
+  success: z.boolean(),
+  message: z.string().max(10_000).optional(),
+})
+
+export const gatewayAgentInfoSchema = z.object({
+  type: z.literal('gateway:agent_info'),
+  agentId: z.string().min(1),
+  slashCommands: z.array(agentSlashCommandSchema).max(100),
+  mcpServers: z.array(z.string().max(200)).max(100),
+  model: z.string().max(200).optional(),
+})
+
 export const gatewayPingSchema = z.object({
   type: z.literal('gateway:ping'),
   ts: z.number(),
@@ -669,6 +718,8 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayTerminalDataSchema,
   gatewayTaskUpdateSchema,
   gatewayPermissionRequestSchema,
+  gatewayAgentCommandResultSchema,
+  gatewayAgentInfoSchema,
   gatewayPingSchema,
 ])
 
@@ -726,6 +777,9 @@ const agentSchema = z.object({
   connectionType: z.enum(AGENT_CONNECTION_TYPES).optional(),
   deviceInfo: deviceInfoSchema.optional(),
   ownerName: z.string().optional(),
+  slashCommands: z.array(agentSlashCommandSchema).optional(),
+  mcpServers: z.array(z.string()).optional(),
+  model: z.string().optional(),
   lastSeenAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -855,7 +909,29 @@ export const serverTypingSchema = z.object({
 
 export const serverAgentStatusSchema = z.object({
   type: z.literal('server:agent_status'),
-  agent: agentSchema.pick({ id: true, name: true, type: true, status: true }),
+  agent: agentSchema.pick({
+    id: true,
+    name: true,
+    type: true,
+    status: true,
+    slashCommands: true,
+    mcpServers: true,
+    model: true,
+  }),
+})
+
+export const serverAgentCommandResultSchema = z.object({
+  type: z.literal('server:agent_command_result'),
+  agentId: z.string(),
+  roomId: z.string(),
+  command: z.string(),
+  success: z.boolean(),
+  message: z.string().optional(),
+})
+
+export const serverAgentInfoSchema = z.object({
+  type: z.literal('server:agent_info'),
+  agent: agentSchema,
 })
 
 export const serverTaskUpdateSchema = z.object({
@@ -951,6 +1027,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverMessageDeletedSchema,
   serverTypingSchema,
   serverAgentStatusSchema,
+  serverAgentCommandResultSchema,
+  serverAgentInfoSchema,
   serverTaskUpdateSchema,
   serverRoomUpdateSchema,
   serverRoomRemovedSchema,
@@ -1001,6 +1079,20 @@ export const serverRemoveAgentSchema = z.object({
   agentId: z.string(),
 })
 
+export const serverAgentCommandSchema = z.object({
+  type: z.literal('server:agent_command'),
+  agentId: z.string(),
+  roomId: z.string(),
+  command: z.string(),
+  args: z.string(),
+  userId: z.string(),
+})
+
+export const serverQueryAgentInfoSchema = z.object({
+  type: z.literal('server:query_agent_info'),
+  agentId: z.string(),
+})
+
 export const serverPermissionResponseSchema = z.object({
   type: z.literal('server:permission_response'),
   requestId: z.string(),
@@ -1015,6 +1107,8 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverRemoveAgentSchema,
   serverRoomContextSchema,
   serverPermissionResponseSchema,
+  serverAgentCommandSchema,
+  serverQueryAgentInfoSchema,
   serverPongSchema,
   serverErrorSchema,
 ])

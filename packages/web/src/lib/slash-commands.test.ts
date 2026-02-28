@@ -1,7 +1,55 @@
-import { describe, it, expect, vi } from 'vitest'
-import { parseSlashCommand, getCommand, getAllCommands, registerCommand } from './slash-commands.js'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock dependencies before importing the module under test
+vi.mock('../stores/chat.js', () => ({
+  useChatStore: {
+    getState: vi.fn(() => ({
+      currentRoomId: 'room-1',
+      messages: new Map([['room-1', [{ id: 'msg-1', content: 'hello' }]]]),
+      streaming: new Map(),
+    })),
+    setState: vi.fn(),
+  },
+}))
+
+vi.mock('../stores/agents.js', () => ({
+  useAgentStore: {
+    getState: vi.fn(() => ({
+      agents: [{ id: 'agent-1', name: 'TestAgent', type: 'claude-code', status: 'online' }],
+    })),
+  },
+}))
+
+vi.mock('./ws.js', () => ({
+  wsClient: {
+    send: vi.fn(),
+  },
+}))
+
+vi.mock('../stores/toast.js', () => ({
+  toast: {
+    success: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+}))
+
+import {
+  parseSlashCommand,
+  getCommand,
+  getAllCommands,
+  registerCommand,
+  getAgentCommands,
+} from './slash-commands.js'
+import { useChatStore } from '../stores/chat.js'
+import { wsClient } from './ws.js'
+import { toast } from '../stores/toast.js'
 
 describe('slash-commands', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('parseSlashCommand', () => {
     it('returns null for non-slash input', () => {
       expect(parseSlashCommand('hello')).toBeNull()
@@ -14,9 +62,9 @@ describe('slash-commands', () => {
     })
 
     it('parses command with args', () => {
-      expect(parseSlashCommand('/task Create a new feature')).toEqual({
-        name: 'task',
-        args: 'Create a new feature',
+      expect(parseSlashCommand('/stop @TestAgent')).toEqual({
+        name: 'stop',
+        args: '@TestAgent',
       })
     })
 
@@ -24,24 +72,24 @@ describe('slash-commands', () => {
       expect(parseSlashCommand('/help ')).toEqual({ name: 'help', args: '' })
     })
 
-    it('returns name with empty args for slash followed by command only', () => {
-      expect(parseSlashCommand('/ ')).toEqual({ name: '', args: '' })
+    it('returns null for slash followed by only whitespace', () => {
+      expect(parseSlashCommand('/ ')).toBeNull()
     })
 
-    it('handles slash-only input', () => {
-      expect(parseSlashCommand('/')).toEqual({ name: '', args: '' })
+    it('returns null for slash-only input', () => {
+      expect(parseSlashCommand('/')).toBeNull()
     })
 
     it('trims args whitespace', () => {
-      expect(parseSlashCommand('/task   hello world  ')).toEqual({
-        name: 'task',
-        args: 'hello world',
+      expect(parseSlashCommand('/stop   @agent  ')).toEqual({
+        name: 'stop',
+        args: '@agent',
       })
     })
 
     it('handles special characters in args', () => {
-      expect(parseSlashCommand('/task @user #tag $var')).toEqual({
-        name: 'task',
+      expect(parseSlashCommand('/stop @user #tag $var')).toEqual({
+        name: 'stop',
         args: '@user #tag $var',
       })
     })
@@ -54,8 +102,8 @@ describe('slash-commands', () => {
     })
 
     it('handles unicode characters in args', () => {
-      expect(parseSlashCommand('/task 你好世界')).toEqual({
-        name: 'task',
+      expect(parseSlashCommand('/stop 你好世界')).toEqual({
+        name: 'stop',
         args: '你好世界',
       })
     })
@@ -65,8 +113,7 @@ describe('slash-commands', () => {
     it('returns built-in commands', () => {
       expect(getCommand('help')).toBeDefined()
       expect(getCommand('clear')).toBeDefined()
-      expect(getCommand('task')).toBeDefined()
-      expect(getCommand('status')).toBeDefined()
+      expect(getCommand('stop')).toBeDefined()
     })
 
     it('returns undefined for unknown commands', () => {
@@ -77,54 +124,116 @@ describe('slash-commands', () => {
   describe('getAllCommands', () => {
     it('returns all registered commands', () => {
       const commands = getAllCommands()
-      expect(commands.length).toBeGreaterThanOrEqual(4)
+      expect(commands.length).toBeGreaterThanOrEqual(3)
       const names = commands.map((c) => c.command.name)
       expect(names).toContain('help')
       expect(names).toContain('clear')
-      expect(names).toContain('task')
-      expect(names).toContain('status')
+      expect(names).toContain('stop')
     })
   })
 
   describe('command execution', () => {
-    it('dispatches CustomEvent for clear command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:clear', handler)
+    it('/clear clears messages for the current room', () => {
       const cmd = getCommand('clear')
       cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:clear', handler)
-    })
-
-    it('dispatches CustomEvent for help command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:help', handler)
-      const cmd = getCommand('help')
-      cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:help', handler)
-    })
-
-    it('dispatches CustomEvent for task command with args', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:task', handler)
-      const cmd = getCommand('task')
-      cmd?.execute('My task title')
-      expect(handler).toHaveBeenCalledWith(
+      expect(useChatStore.setState).toHaveBeenCalledWith(
         expect.objectContaining({
-          detail: { title: 'My task title' },
+          messages: expect.any(Map),
         }),
       )
-      window.removeEventListener('slash:task', handler)
+      // The new messages map should have an empty array for room-1
+      const callArgs = vi.mocked(useChatStore.setState).mock.calls[0][0] as {
+        messages: Map<string, unknown[]>
+      }
+      expect(callArgs.messages.get('room-1')).toEqual([])
     })
 
-    it('dispatches CustomEvent for status command', () => {
-      const handler = vi.fn()
-      window.addEventListener('slash:status', handler)
-      const cmd = getCommand('status')
+    it('/help shows a toast with command list', () => {
+      const cmd = getCommand('help')
       cmd?.execute('')
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('slash:status', handler)
+      expect(toast.info).toHaveBeenCalled()
+    })
+
+    it('/stop with @agent sends stop_generation for that agent', () => {
+      const cmd = getCommand('stop')
+      cmd?.execute('@TestAgent')
+      expect(wsClient.send).toHaveBeenCalledWith({
+        type: 'client:stop_generation',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+      })
+    })
+
+    it('/stop without args stops all streaming agents', () => {
+      // Mock streaming state with an active stream
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: 'room-1',
+        messages: new Map(),
+        streaming: new Map([
+          [
+            'room-1:agent-1',
+            {
+              agentId: 'agent-1',
+              agentName: 'TestAgent',
+              messageId: 'msg-1',
+              chunks: [],
+              lastChunkAt: Date.now(),
+            },
+          ],
+        ]),
+      } as any)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('')
+      expect(wsClient.send).toHaveBeenCalledWith({
+        type: 'client:stop_generation',
+        roomId: 'room-1',
+        agentId: 'agent-1',
+      })
+    })
+
+    it('/stop shows error for unknown agent name', () => {
+      const cmd = getCommand('stop')
+      cmd?.execute('@nonexistent')
+      expect(toast.error).toHaveBeenCalled()
+      expect(wsClient.send).not.toHaveBeenCalled()
+    })
+
+    it('/clear does nothing when no current room', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: null,
+        messages: new Map(),
+        streaming: new Map(),
+      } as any)
+
+      const cmd = getCommand('clear')
+      cmd?.execute('')
+      expect(useChatStore.setState).not.toHaveBeenCalled()
+    })
+
+    it('/stop does nothing when no current room', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: null,
+        messages: new Map(),
+        streaming: new Map(),
+      } as any)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('@TestAgent')
+      expect(wsClient.send).not.toHaveBeenCalled()
+    })
+
+    it('/stop shows no-active-streams message when no streaming', () => {
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        currentRoomId: 'room-1',
+        messages: new Map(),
+        streaming: new Map(),
+      } as any)
+
+      const cmd = getCommand('stop')
+      cmd?.execute('')
+      expect(wsClient.send).not.toHaveBeenCalled()
+      expect(toast.info).toHaveBeenCalled()
     })
   })
 
@@ -160,6 +269,80 @@ describe('slash-commands', () => {
 
       const cmd = getCommand('custom-test')
       expect(cmd!.command.description).toBe('Overridden command')
+    })
+  })
+
+  describe('getAgentCommands', () => {
+    it('returns empty array for agents without slash commands', () => {
+      const agents = [
+        { id: 'a1', name: 'Agent1', type: 'codex' },
+        { id: 'a2', name: 'Agent2', type: 'generic' },
+      ] as any[]
+      expect(getAgentCommands(agents)).toEqual([])
+    })
+
+    it('returns commands from agents with slashCommands', () => {
+      const agents = [
+        {
+          id: 'a1',
+          name: 'Claude',
+          type: 'claude-code',
+          slashCommands: [
+            { name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' },
+            {
+              name: 'compact',
+              description: 'Compact context',
+              usage: '/compact',
+              source: 'builtin',
+            },
+          ],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(2)
+      expect(result[0]).toEqual({
+        agentId: 'a1',
+        agentName: 'Claude',
+        agentType: 'claude-code',
+        command: agents[0].slashCommands[0],
+      })
+    })
+
+    it('skips agents with empty slashCommands array', () => {
+      const agents = [
+        { id: 'a1', name: 'Agent1', type: 'codex', slashCommands: [] },
+        {
+          id: 'a2',
+          name: 'Agent2',
+          type: 'claude-code',
+          slashCommands: [
+            { name: 'clear', description: 'Reset', usage: '/clear', source: 'builtin' },
+          ],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(1)
+      expect(result[0].agentId).toBe('a2')
+    })
+
+    it('gathers commands from multiple agents', () => {
+      const agents = [
+        {
+          id: 'a1',
+          name: 'Agent1',
+          type: 'claude-code',
+          slashCommands: [{ name: 'cmd1', description: 'd1', usage: '/cmd1', source: 'builtin' }],
+        },
+        {
+          id: 'a2',
+          name: 'Agent2',
+          type: 'codex',
+          slashCommands: [{ name: 'cmd2', description: 'd2', usage: '/cmd2', source: 'builtin' }],
+        },
+      ] as any[]
+      const result = getAgentCommands(agents)
+      expect(result).toHaveLength(2)
+      expect(result.map((r) => r.agentId)).toEqual(['a1', 'a2'])
     })
   })
 })

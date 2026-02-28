@@ -96,13 +96,16 @@ async function getAgentRoomIds(agentId: string): Promise<string[]> {
   return rows.map((r) => r.roomId)
 }
 
-async function broadcastAgentStatus(agentId: string) {
+export async function broadcastAgentStatus(agentId: string) {
   const [agent] = await db
     .select({
       id: agents.id,
       name: agents.name,
       type: agents.type,
       status: agents.status,
+      slashCommands: agents.slashCommands,
+      mcpServers: agents.mcpServers,
+      model: agents.model,
     })
     .from(agents)
     .where(eq(agents.id, agentId))
@@ -191,6 +194,10 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return await handleTaskUpdate(ws, msg.taskId, msg.status, msg.result)
       case 'gateway:permission_request':
         return await handlePermissionRequest(ws, msg)
+      case 'gateway:agent_command_result':
+        return handleAgentCommandResult(ws, msg)
+      case 'gateway:agent_info':
+        return handleAgentInfoResponse(ws, msg)
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return
@@ -342,6 +349,9 @@ async function handleRegisterAgent(
     type: string
     workingDirectory?: string
     capabilities?: string[]
+    slashCommands?: Array<{ name: string; description: string; usage: string; source: string }>
+    mcpServers?: string[]
+    model?: string
   },
 ) {
   const gw = connectionManager.getGateway(ws)
@@ -401,6 +411,9 @@ async function handleRegisterAgent(
       gatewayId: gw.gatewayId,
       workingDirectory: agent.workingDirectory,
       capabilities: capabilitiesValue,
+      slashCommands: agent.slashCommands ?? null,
+      mcpServers: agent.mcpServers ?? null,
+      model: agent.model ?? null,
       connectionType: 'cli',
       lastSeenAt: now,
       createdAt: now,
@@ -414,6 +427,9 @@ async function handleRegisterAgent(
         status: 'online',
         workingDirectory: agent.workingDirectory,
         capabilities: capabilitiesValue,
+        slashCommands: agent.slashCommands ?? null,
+        mcpServers: agent.mcpServers ?? null,
+        model: agent.model ?? null,
         connectionType: 'cli',
         lastSeenAt: now,
         updatedAt: now,
@@ -619,19 +635,31 @@ async function handleMessageComplete(
     }
   }
 
-  // Persist agent's full message with structured chunks
-  await db.insert(messages).values({
-    id: msg.messageId,
-    roomId: msg.roomId,
-    senderId: msg.agentId,
-    senderType: 'agent',
-    senderName: agentName,
-    type: 'agent_response',
-    content: msg.fullContent,
-    mentions: [],
-    chunks: chunksValue,
-    createdAt: now,
-  })
+  // Persist agent's full message with structured chunks.
+  // Use onConflictDoUpdate to handle gateway retries (duplicate messageId)
+  // gracefully — ensures the broadcast always happens and latest content wins.
+  await db
+    .insert(messages)
+    .values({
+      id: msg.messageId,
+      roomId: msg.roomId,
+      senderId: msg.agentId,
+      senderType: 'agent',
+      senderName: agentName,
+      type: 'agent_response',
+      content: msg.fullContent,
+      mentions: [],
+      chunks: chunksValue,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: messages.id,
+      set: {
+        content: msg.fullContent,
+        chunks: chunksValue,
+        updatedAt: now,
+      },
+    })
 
   const message = {
     id: msg.messageId,
@@ -922,6 +950,83 @@ export async function handleGatewayDisconnect(ws: WSContext) {
     }
 
     connectionManager.removeGateway(ws)
+  }
+}
+
+async function handleAgentCommandResult(
+  ws: WSContext,
+  msg: {
+    agentId: string
+    roomId: string
+    command: string
+    success: boolean
+    message?: string
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to send command result for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  connectionManager.broadcastToRoom(msg.roomId, {
+    type: 'server:agent_command_result',
+    agentId: msg.agentId,
+    roomId: msg.roomId,
+    command: msg.command,
+    success: msg.success,
+    message: msg.message,
+  })
+}
+
+async function handleAgentInfoResponse(
+  ws: WSContext,
+  msg: {
+    agentId: string
+    slashCommands: Array<{ name: string; description: string; usage: string; source: string }>
+    mcpServers: string[]
+    model?: string
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to send agent info for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  // Get the full agent record to build the response
+  const [agent] = await db.select().from(agents).where(eq(agents.id, msg.agentId)).limit(1)
+  if (!agent) return
+
+  const [agentGw] = await db
+    .select()
+    .from(gateways)
+    .where(eq(gateways.id, agent.gatewayId))
+    .limit(1)
+
+  const enrichedAgent = {
+    ...agent,
+    capabilities: agent.capabilities ?? undefined,
+    slashCommands: msg.slashCommands,
+    mcpServers: msg.mcpServers,
+    model: msg.model,
+    deviceInfo: agentGw
+      ? {
+          hostname: agentGw.hostname ?? '',
+          platform: agentGw.platform ?? '',
+          arch: agentGw.arch ?? '',
+          nodeVersion: agentGw.nodeVersion ?? '',
+        }
+      : undefined,
+  }
+
+  // Broadcast to all clients in rooms where this agent is a member
+  const roomIds = await getAgentRoomIds(msg.agentId)
+  for (const roomId of roomIds) {
+    connectionManager.broadcastToRoom(roomId, {
+      type: 'server:agent_info',
+      agent: enrichedAgent,
+    })
   }
 }
 

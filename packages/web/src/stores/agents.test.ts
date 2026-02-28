@@ -125,4 +125,25 @@ describe('useAgentStore', () => {
 
     expect(useAgentStore.getState().agents[0]).toHaveProperty('visibility', 'public')
   })
+
+  it('renameAgent updates agent name on success', async () => {
+    useAgentStore.setState({
+      agents: [{ id: 'a1', name: 'OldName', type: 'codex' }] as never[],
+    })
+    mockApi.put.mockResolvedValue({ ok: true, data: { id: 'a1', name: 'NewName' } })
+
+    await useAgentStore.getState().renameAgent('a1', 'NewName')
+
+    expect(useAgentStore.getState().agents[0]).toHaveProperty('name', 'NewName')
+  })
+
+  it('renameAgent throws on failure', async () => {
+    useAgentStore.setState({
+      agents: [{ id: 'a1', name: 'OldName', type: 'codex' }] as never[],
+    })
+    mockApi.put.mockResolvedValue({ ok: false, error: 'Forbidden' })
+
+    await expect(useAgentStore.getState().renameAgent('a1', 'NewName')).rejects.toThrow('Forbidden')
+    expect(useAgentStore.getState().agents[0]).toHaveProperty('name', 'OldName')
+  })
 })

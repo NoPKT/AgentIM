@@ -214,6 +214,28 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:agent_command_result':
+          try {
+            if (msg.success) {
+              toast.success(i18next.t('slashCommand.commandSuccess', { command: msg.command }))
+            } else {
+              toast.error(
+                i18next.t('slashCommand.commandFailed', {
+                  message: msg.message ?? msg.command,
+                }),
+              )
+            }
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:agent_info':
+          try {
+            agentStore.updateAgent(msg.agent)
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:auth_result':
           try {
             if (!msg.ok) {

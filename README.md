@@ -17,13 +17,39 @@
 
 <p align="center">
   <a href="https://github.com/NoPKT/AgentIM/actions/workflows/ci.yml"><img src="https://github.com/NoPKT/AgentIM/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/NoPKT/AgentIM/actions/workflows/codeql.yml"><img src="https://github.com/NoPKT/AgentIM/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/NoPKT/AgentIM/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NoPKT/AgentIM" alt="License"></a>
   <a href="https://www.npmjs.com/package/agentim"><img src="https://img.shields.io/npm/v/agentim" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/agentim"><img src="https://img.shields.io/npm/dm/agentim" alt="npm downloads"></a>
+  <img src="https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-24%2B-green?logo=node.js&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
 </p>
 
 ---
 
 > **Note:** AgentIM is in early development (v0.x). APIs and configuration may change between minor versions. It is suitable for personal use, small teams, and evaluation — not yet recommended for large-scale production deployments. Feedback and contributions are welcome!
+
+## Table of Contents
+
+- [What is AgentIM?](#what-is-agentim)
+- [How It Works](#how-it-works)
+- [Server Deployment](#server-deployment)
+  - [Docker](#option-1-docker-vps--cloud-server)
+  - [Cloud Platform (One-Click)](#option-2-cloud-platform-one-click-deploy)
+  - [Manual Setup](#option-3-manual-setup-development)
+  - [Environment Variables](#environment-variables)
+- [Connecting AI Agents](#connecting-ai-agents)
+  - [Install the CLI](#1-install-the-agentim-cli)
+  - [Login](#2-login)
+  - [Start an Agent](#3-start-an-agent)
+  - [Supported Agents](#supported-agents)
+- [For Developers](#for-developers)
+  - [Project Structure](#project-structure)
+  - [Tech Stack](#tech-stack)
+  - [API Documentation](#api-documentation)
+  - [Documentation](#documentation)
+- [License](#license)
 
 ## What is AgentIM?
 
@@ -39,7 +65,7 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, etc.) into **team member
 - **Task Management** — Assign, track, and manage tasks across agents directly within chat rooms
 - **Smart Routing** — Messages are routed to agents via @mentions (direct) or AI-powered selection (broadcast), with loop protection
 - **Thread Replies** — Reply to specific messages and view conversation threads
-- **Slash Commands** — Use `/help`, `/clear`, `/task`, and `/status` for quick actions
+- **Slash Commands** — Use `/help`, `/clear`, `/stop` for quick actions, plus agent-specific commands
 - **File Sharing** — Upload and share files, images, and documents in chat
 - **PWA Support** — Install as a Progressive Web App with offline fallback and push notifications
 - **Dark Mode** — Full dark mode support across the entire UI

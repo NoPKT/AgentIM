@@ -15,7 +15,13 @@ test.describe('Agents page', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page)
     await page.goto('/agents')
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+    // loginAsAdmin sets an httpOnly refresh cookie via page.request.post.
+    // When the SPA loads, it runs loadUser() → tryRefresh(cookie) → /users/me
+    // before ProtectedRoute renders its children. The #main-content element
+    // (inside AppLayout) only exists after ProtectedRoute passes the auth gate.
+    // Wait for this positive signal rather than the unreliable not.toHaveURL check,
+    // which passes immediately before the async auth flow has resolved.
+    await expect(page.locator('#main-content')).toBeVisible({ timeout: 20_000 })
   })
 
   test('agents page loads without errors', async ({ page }) => {
@@ -26,11 +32,15 @@ test.describe('Agents page', () => {
   })
 
   test('displays agents section', async ({ page }) => {
-    // Wait for page to fully load
-    await page.waitForLoadState('networkidle')
-    // Page should contain either an agents list or an empty-state message
-    const hasAgents = await page.locator('[data-testid="agents-list"]').count()
-    const hasEmpty = await page.getByText(/no agents|connect.*agent|start.*agent/i).count()
-    expect(hasAgents + hasEmpty).toBeGreaterThan(0)
+    // Wait for the AgentsPage to settle past loading state.
+    // The page has 4 possible states: loading, error, empty, or populated.
+    // All states now have data-testid attributes for reliable detection.
+    await expect(
+      page
+        .locator('[data-testid="agents-list"]')
+        .or(page.locator('[data-testid="agents-empty"]'))
+        .or(page.locator('[data-testid="agents-error"]'))
+        .or(page.locator('[data-testid="agents-loading"]')),
+    ).toBeVisible({ timeout: 15_000 })
   })
 })

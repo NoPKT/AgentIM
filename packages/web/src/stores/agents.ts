@@ -15,6 +15,7 @@ interface AgentState {
   deleteGateway: (gatewayId: string) => Promise<void>
   updateAgent: (agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'> & Partial<Agent>) => void
   updateAgentVisibility: (agentId: string, visibility: AgentVisibility) => Promise<void>
+  renameAgent: (agentId: string, name: string) => Promise<void>
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -75,6 +76,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({
         agents: get().agents.map((a) => (a.id === agentId ? { ...a, visibility } : a)),
       })
+    }
+  },
+
+  renameAgent: async (agentId, name) => {
+    const res = await api.put<Agent>(`/agents/${agentId}`, { name })
+    if (res.ok && res.data) {
+      set({
+        agents: get().agents.map((a) => (a.id === agentId ? { ...a, name } : a)),
+      })
+    } else {
+      throw new Error(res.error ?? 'Failed to rename agent')
     }
   },
 }))

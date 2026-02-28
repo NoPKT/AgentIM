@@ -8,7 +8,13 @@ import {
   CURRENT_PROTOCOL_VERSION,
   MAX_JSON_DEPTH,
 } from '@agentim/shared'
-import type { ServerSendToAgent, ServerStopAgent, RoutingMode } from '@agentim/shared'
+import type {
+  ServerSendToAgent,
+  ServerStopAgent,
+  ServerAgentCommand,
+  ServerQueryAgentInfo,
+  RoutingMode,
+} from '@agentim/shared'
 import { getPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
 import { connectionManager } from './connections.js'
 import { verifyToken } from '../lib/jwt.js'
@@ -260,6 +266,10 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
         return handleStopGeneration(ws, msg.roomId, msg.agentId)
       case 'client:permission_response':
         return handlePermissionResponse(ws, msg.requestId, msg.decision)
+      case 'client:agent_command':
+        return await handleAgentCommand(ws, msg.agentId, msg.roomId, msg.command, msg.args)
+      case 'client:query_agent_info':
+        return await handleQueryAgentInfo(ws, msg.agentId)
       case 'client:ping':
         connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
@@ -964,6 +974,85 @@ function handlePermissionResponse(ws: WSContext, requestId: string, decision: 'a
     agentId: pending.agentId,
     decision,
   })
+}
+
+async function handleAgentCommand(
+  ws: WSContext,
+  agentId: string,
+  roomId: string,
+  command: string,
+  args: string,
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client || !client.joinedRooms.has(roomId)) return
+
+  // Verify agent membership in the room
+  const [membership] = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, agentId),
+        eq(roomMembers.memberType, 'agent'),
+      ),
+    )
+    .limit(1)
+  if (!membership) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.NOT_A_MEMBER,
+      message: 'Agent is not a member of this room',
+    })
+    return
+  }
+
+  const cmdMsg: ServerAgentCommand = {
+    type: 'server:agent_command',
+    agentId,
+    roomId,
+    command,
+    args,
+    userId: client.userId,
+  }
+  const sent = connectionManager.sendToGateway(agentId, cmdMsg)
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:agent_command_result',
+      agentId,
+      roomId,
+      command,
+      success: false,
+      message: 'Agent is offline',
+    })
+  }
+}
+
+async function handleQueryAgentInfo(ws: WSContext, agentId: string) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const queryMsg: ServerQueryAgentInfo = {
+    type: 'server:query_agent_info',
+    agentId,
+  }
+  const sent = connectionManager.sendToGateway(agentId, queryMsg)
+  if (!sent) {
+    // Agent is offline, return cached data from DB
+    const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
+    if (agent) {
+      connectionManager.sendToClient(ws, {
+        type: 'server:agent_info',
+        agent: {
+          ...agent,
+          capabilities: agent.capabilities ?? undefined,
+          slashCommands: agent.slashCommands ?? undefined,
+          mcpServers: agent.mcpServers ?? undefined,
+          model: agent.model ?? undefined,
+        },
+      })
+    }
+  }
 }
 
 export function handleClientDisconnect(ws: WSContext) {

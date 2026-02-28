@@ -271,8 +271,8 @@ describe('addTerminalDataAction', () => {
 })
 
 describe('cleanupStaleStreamsAction', () => {
-  it('removes streams older than 2 minutes', () => {
-    const staleTime = Date.now() - 121_000
+  it('removes offline agent streams after 30s grace period', () => {
+    const staleTime = Date.now() - 31_000
     const freshTime = Date.now()
     const streaming = new Map<string, StreamingMessage>([
       [
@@ -285,7 +285,8 @@ describe('cleanupStaleStreamsAction', () => {
       ],
     ])
 
-    const result = cleanupStaleStreamsAction(streaming)
+    // Neither agent is online
+    const result = cleanupStaleStreamsAction(streaming, new Set())
 
     expect(result).not.toBeNull()
     expect(result!.next.has('room-1:agent-stale')).toBe(false)
@@ -295,40 +296,78 @@ describe('cleanupStaleStreamsAction', () => {
     expect(result!.stale[0].roomId).toBe('room-1')
   })
 
+  it('does NOT remove online agent streams regardless of elapsed time', () => {
+    const longAgo = Date.now() - 600_000 // 10 minutes
+    const streaming = new Map<string, StreamingMessage>([
+      ['room-1:agent-1', makeStreamingMessage({ agentId: 'agent-1', lastChunkAt: longAgo })],
+    ])
+
+    // Agent is online
+    const result = cleanupStaleStreamsAction(streaming, new Set(['agent-1']))
+
+    expect(result).toBeNull()
+  })
+
+  it('removes online agent streams after absolute timeout (1 hour)', () => {
+    const overOneHour = Date.now() - 3_601_000
+    const streaming = new Map<string, StreamingMessage>([
+      ['room-1:agent-1', makeStreamingMessage({ agentId: 'agent-1', lastChunkAt: overOneHour })],
+    ])
+
+    // Agent is online but stream is over 1 hour old
+    const result = cleanupStaleStreamsAction(streaming, new Set(['agent-1']))
+
+    expect(result).not.toBeNull()
+    expect(result!.stale).toHaveLength(1)
+  })
+
   it('returns null when no streams are stale', () => {
     const streaming = new Map<string, StreamingMessage>([
       ['room-1:agent-1', makeStreamingMessage({ lastChunkAt: Date.now() })],
     ])
-    const result = cleanupStaleStreamsAction(streaming)
+    const result = cleanupStaleStreamsAction(streaming, new Set())
     expect(result).toBeNull()
   })
 
   it('returns null for an empty streaming map', () => {
     const streaming = new Map<string, StreamingMessage>()
-    const result = cleanupStaleStreamsAction(streaming)
+    const result = cleanupStaleStreamsAction(streaming, new Set())
     expect(result).toBeNull()
   })
 
-  it('removes all streams when all are stale', () => {
-    const longAgo = Date.now() - 300_000
+  it('removes all offline streams when all are stale', () => {
+    const longAgo = Date.now() - 31_000
     const streaming = new Map<string, StreamingMessage>([
       ['room-1:agent-1', makeStreamingMessage({ lastChunkAt: longAgo })],
       ['room-2:agent-2', makeStreamingMessage({ agentId: 'agent-2', lastChunkAt: longAgo })],
     ])
 
-    const result = cleanupStaleStreamsAction(streaming)
+    const result = cleanupStaleStreamsAction(streaming, new Set())
 
     expect(result).not.toBeNull()
     expect(result!.next.size).toBe(0)
     expect(result!.stale).toHaveLength(2)
   })
 
-  it('does not mutate the original map', () => {
-    const staleTime = Date.now() - 200_000
+  it('falls back to offline behavior when onlineAgentIds is not provided', () => {
+    const staleTime = Date.now() - 31_000
     const streaming = new Map<string, StreamingMessage>([
       ['room-1:agent-1', makeStreamingMessage({ lastChunkAt: staleTime })],
     ])
-    cleanupStaleStreamsAction(streaming)
+
+    // No onlineAgentIds passed — treats all agents as offline
+    const result = cleanupStaleStreamsAction(streaming)
+
+    expect(result).not.toBeNull()
+    expect(result!.stale).toHaveLength(1)
+  })
+
+  it('does not mutate the original map', () => {
+    const staleTime = Date.now() - 31_000
+    const streaming = new Map<string, StreamingMessage>([
+      ['room-1:agent-1', makeStreamingMessage({ lastChunkAt: staleTime })],
+    ])
+    cleanupStaleStreamsAction(streaming, new Set())
     expect(streaming.size).toBe(1)
   })
 })
