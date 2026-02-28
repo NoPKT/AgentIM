@@ -16,6 +16,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required. Run ./deploy.sh or set it in .env}
       POSTGRES_DB: agentim
+      # Force PG 18+ to use the legacy data path so the named volume mount works correctly.
+      # Without this, PG 18 defaults to /var/lib/postgresql/18/docker which falls outside
+      # the pgdata volume, causing data loss on container recreation.
+      PGDATA: /var/lib/postgresql/data
     # ports:
     #   - '5432:5432'  # Uncomment for local dev access only; do NOT expose in production
     volumes:
