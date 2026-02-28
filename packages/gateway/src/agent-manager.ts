@@ -13,6 +13,7 @@ import type {
   ServerPermissionResponse,
   ServerAgentCommand,
   ServerQueryAgentInfo,
+  ServerSpawnAgent,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
@@ -288,7 +289,8 @@ export class AgentManager {
       | ServerRoomContext
       | ServerPermissionResponse
       | ServerAgentCommand
-      | ServerQueryAgentInfo,
+      | ServerQueryAgentInfo
+      | ServerSpawnAgent,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -304,6 +306,8 @@ export class AgentManager {
       this.handleAgentCommand(msg)
     } else if (msg.type === 'server:query_agent_info') {
       this.handleQueryAgentInfo(msg)
+    } else if (msg.type === 'server:spawn_agent') {
+      this.handleSpawnAgent(msg)
     }
   }
 
@@ -536,6 +540,31 @@ export class AgentManager {
       status,
       queueDepth,
     })
+  }
+
+  private handleSpawnAgent(msg: ServerSpawnAgent) {
+    try {
+      const agentId = this.addAgent({
+        type: msg.agentType,
+        name: msg.name,
+        workingDirectory: msg.workingDirectory,
+      })
+      this.wsClient.send({
+        type: 'gateway:spawn_result',
+        requestId: msg.requestId,
+        success: true,
+        agentId,
+      })
+      log.info(`Spawned agent "${msg.name}" (${msg.agentType}) -> ${agentId}`)
+    } catch (err) {
+      this.wsClient.send({
+        type: 'gateway:spawn_result',
+        requestId: msg.requestId,
+        success: false,
+        error: (err as Error).message,
+      })
+      log.error(`Failed to spawn agent "${msg.name}": ${(err as Error).message}`)
+    }
   }
 
   private handleRemoveAgent(agentId: string) {

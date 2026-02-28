@@ -238,6 +238,18 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:spawn_result':
+          try {
+            if (msg.success) {
+              toast.success(i18next.t('agent.spawnSuccess'))
+              agentStore.loadAgents()
+            } else {
+              toast.error(msg.error ?? i18next.t('agent.spawnFailed'))
+            }
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:auth_result':
           try {
             if (!msg.ok) {

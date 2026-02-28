@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'fs'
+import { homedir } from 'node:os'
 import { join } from 'path'
 import type { ParsedChunk } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
@@ -268,28 +269,36 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   override getMcpServers(): string[] {
-    if (!this.workingDirectory) return []
-
-    // Try .claude/settings.json first, then .claude.json
+    // Project-level configs take precedence, then global configs
     const candidates = [
-      join(this.workingDirectory, '.claude', 'settings.json'),
-      join(this.workingDirectory, '.claude.json'),
+      ...(this.workingDirectory
+        ? [
+            join(this.workingDirectory, '.claude', 'settings.json'),
+            join(this.workingDirectory, '.claude.json'),
+          ]
+        : []),
+      join(homedir(), '.claude', 'settings.json'),
+      join(homedir(), '.claude.json'),
     ]
 
+    // Merge MCP servers from all config files
+    const allServers = new Set<string>()
     for (const filePath of candidates) {
       try {
         if (!existsSync(filePath)) continue
         const raw = JSON.parse(readFileSync(filePath, 'utf-8'))
         const mcpServers = raw?.mcpServers
         if (mcpServers && typeof mcpServers === 'object') {
-          return Object.keys(mcpServers)
+          for (const key of Object.keys(mcpServers)) {
+            allServers.add(key)
+          }
         }
       } catch {
         // Malformed JSON or unreadable — skip
       }
     }
 
-    return []
+    return Array.from(allServers)
   }
 
   override getModel(): string | undefined {

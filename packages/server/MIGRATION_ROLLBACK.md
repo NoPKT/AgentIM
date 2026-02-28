@@ -39,6 +39,7 @@ Pre-written down migrations are in `drizzle/rollback/`:
 | `0034_rollback.sql` | `0034_add_unique_name_indexes.sql` — drops unique composite indexes on `routers` and `service_agents` |
 | `0035_rollback.sql` | `0035_fix_timestamp_column_types.sql` — reverts `service_agents` and `bookmarks` timestamp columns from `timestamptz` back to `text` |
 | `0037_rollback.sql` | `0037_add_sender_created_idx_and_fix_fk.sql` — drops `messages_sender_created_idx` index and reverts `service_agents.created_by_id` FK back to no-action |
+| `0041_rollback.sql` | `0041_add_gateway_ephemeral.sql` — drops `ephemeral` column from `gateways` |
 
 ## Step-by-Step Rollback Procedure
 

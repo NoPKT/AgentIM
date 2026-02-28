@@ -484,6 +484,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existingIds.has(message.id)) return
     }
     let updated = [...roomMsgs, message]
+    updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     if (updated.length > MAX_CACHED_MESSAGES) {
       updated = updated.slice(-MAX_CACHED_MESSAGES)
     }
@@ -531,19 +532,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const roomMsgs = msgs.get(message.roomId)
     if (!roomMsgs) return false
 
+    // Check if the real message already exists (from sync/load)
+    const hasReal = roomMsgs.some((m) => m.id === message.id)
+
     // Find an optimistic message with matching sender + content + close timestamp
-    const idx = roomMsgs.findIndex(
+    const optimisticIdx = roomMsgs.findIndex(
       (m) =>
         m.id.startsWith('optimistic-') &&
         m.senderId === message.senderId &&
         m.content === message.content &&
         Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 10_000,
     )
-    if (idx < 0) return false
 
-    // Replace optimistic message with the real one, preserving position
+    if (optimisticIdx < 0 && !hasReal) return false
+
     const updated = [...roomMsgs]
-    updated[idx] = message
+    if (optimisticIdx >= 0) {
+      if (hasReal) {
+        // Both exist — remove the optimistic duplicate
+        updated.splice(optimisticIdx, 1)
+      } else {
+        // Normal case — replace optimistic with real
+        updated[optimisticIdx] = message
+      }
+    }
+    // If only hasReal (no optimistic), nothing to do — return true to skip addMessage
     const next = new Map(msgs)
     next.set(message.roomId, updated)
     set({ messages: next })
@@ -583,6 +596,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       msgs.set(message.roomId, updated)
     } else {
       let updated = [...roomMsgs, message]
+      updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       if (updated.length > MAX_CACHED_MESSAGES) {
         updated = updated.slice(-MAX_CACHED_MESSAGES)
       }
@@ -1174,6 +1188,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (unique.length > 0) {
           const msgs = new Map(get().messages)
           const combined = [...current, ...unique]
+          combined.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
           msgs.set(roomId, combined)
           set({ messages: msgs })
         }

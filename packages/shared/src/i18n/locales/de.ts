@@ -277,6 +277,12 @@ export const de = {
     deleteAgent: 'Agent löschen',
     agentDeleted: 'Agent erfolgreich gelöscht',
     confirmDeleteAgent: 'Der Agent wird getrennt und aus allen Räumen entfernt. Fortfahren?',
+    spawnAgent: 'Agent erstellen',
+    spawnAgentDesc: 'Einen neuen Agenten auf diesem Gateway starten',
+    agentName: 'Agent-Name',
+    spawnSuccess: 'Agent-Erstellungsanfrage gesendet',
+    spawnFailed: 'Agent-Erstellung fehlgeschlagen',
+    gatewayOffline: 'Gateway ist offline',
   },
   task: {
     tasks: 'Aufgaben',

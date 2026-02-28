@@ -278,6 +278,12 @@ export const fr = {
     agentDeleted: 'Agent supprimé avec succès',
     confirmDeleteAgent:
       "Cela déconnectera l'agent et le retirera de toutes les salles. Continuer ?",
+    spawnAgent: 'Créer un agent',
+    spawnAgentDesc: 'Démarrer un nouvel agent sur cette passerelle',
+    agentName: "Nom de l'agent",
+    spawnSuccess: "Demande de création d'agent envoyée",
+    spawnFailed: "Échec de la création de l'agent",
+    gatewayOffline: 'Passerelle hors ligne',
   },
   task: {
     tasks: 'Tâches',

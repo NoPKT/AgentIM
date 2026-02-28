@@ -17,6 +17,12 @@ interface AgentState {
   updateAgent: (agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'> & Partial<Agent>) => void
   updateAgentVisibility: (agentId: string, visibility: AgentVisibility) => Promise<void>
   renameAgent: (agentId: string, name: string) => Promise<void>
+  spawnAgent: (
+    gatewayId: string,
+    agentType: string,
+    name: string,
+    workingDirectory?: string,
+  ) => Promise<void>
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -95,6 +101,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     } else {
       throw new Error(res.error ?? 'Failed to rename agent')
     }
+  },
+
+  spawnAgent: async (gatewayId, agentType, name, workingDirectory) => {
+    const res = await api.post('/agents/spawn', { gatewayId, agentType, name, workingDirectory })
+    if (!res.ok) throw new Error(res.error ?? 'Failed to spawn agent')
   },
 }))
 

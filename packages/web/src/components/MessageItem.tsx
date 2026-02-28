@@ -303,7 +303,7 @@ function MessageContent({
   }
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-hidden">
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
       <LazyMarkdown
         components={{
           code({ className, children, ...props }) {
@@ -348,7 +348,7 @@ function MessageContent({
           },
           table({ children, ...props }) {
             return (
-              <div className="overflow-x-auto">
+              <div className="not-prose overflow-x-auto -mx-2 px-2">
                 <table className="min-w-full divide-y divide-border" {...props}>
                   {children}
                 </table>

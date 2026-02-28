@@ -273,6 +273,12 @@ export const zhCN = {
     deleteAgent: '删除智能体',
     agentDeleted: '智能体已成功删除',
     confirmDeleteAgent: '此操作将断开智能体连接并将其从所有房间中移除。是否继续？',
+    spawnAgent: '创建 Agent',
+    spawnAgentDesc: '在此网关上启动新的 Agent',
+    agentName: 'Agent 名称',
+    spawnSuccess: 'Agent 创建请求已发送',
+    spawnFailed: '创建 Agent 失败',
+    gatewayOffline: '网关离线',
   },
   task: {
     tasks: '任务',

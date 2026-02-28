@@ -275,6 +275,12 @@ export const ru = {
     deleteAgent: 'Удалить агента',
     agentDeleted: 'Агент успешно удалён',
     confirmDeleteAgent: 'Агент будет отключён и удалён из всех комнат. Продолжить?',
+    spawnAgent: 'Создать агента',
+    spawnAgentDesc: 'Запустить нового агента на этом шлюзе',
+    agentName: 'Имя агента',
+    spawnSuccess: 'Запрос на создание агента отправлен',
+    spawnFailed: 'Не удалось создать агента',
+    gatewayOffline: 'Шлюз не в сети',
   },
   task: {
     tasks: 'Задачи',

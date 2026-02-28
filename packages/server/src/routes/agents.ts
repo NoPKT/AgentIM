@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
+import { nanoid } from 'nanoid'
 import { eq, ne, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agents, gateways, roomMembers, users } from '../db/schema.js'
-import { updateAgentSchema } from '@agentim/shared'
+import { updateAgentSchema, AGENT_TYPES } from '@agentim/shared'
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import {
   validateIdParams,
@@ -232,10 +233,63 @@ agentRoutes.delete('/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-// List gateways
+// Spawn a new agent on a gateway
+agentRoutes.post('/spawn', async (c) => {
+  const userId = c.get('userId')
+  const body = await parseJsonBody(c)
+  if (body instanceof Response) return body
+
+  const { gatewayId, agentType, name, workingDirectory } = body as {
+    gatewayId?: string
+    agentType?: string
+    name?: string
+    workingDirectory?: string
+  }
+
+  if (!gatewayId || !agentType || !name) {
+    return c.json({ ok: false, error: 'Missing required fields: gatewayId, agentType, name' }, 400)
+  }
+
+  if (!(AGENT_TYPES as readonly string[]).includes(agentType)) {
+    return c.json({ ok: false, error: `Invalid agent type: ${agentType}` }, 400)
+  }
+
+  if (name.length > 100 || name.trim().length === 0) {
+    return c.json({ ok: false, error: 'Name must be 1-100 non-empty characters' }, 400)
+  }
+
+  // Verify gateway ownership
+  const [gw] = await db
+    .select()
+    .from(gateways)
+    .where(and(eq(gateways.id, gatewayId), eq(gateways.userId, userId)))
+    .limit(1)
+  if (!gw) {
+    return c.json({ ok: false, error: 'Gateway not found' }, 404)
+  }
+
+  // Send spawn request to the gateway
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:spawn_agent',
+    requestId: nanoid(),
+    agentType,
+    name,
+    workingDirectory,
+  })
+  if (!sent) {
+    return c.json({ ok: false, error: 'Gateway is offline' }, 503)
+  }
+
+  return c.json({ ok: true })
+})
+
+// List gateways (excludes ephemeral gateways)
 agentRoutes.get('/gateways/list', async (c) => {
   const userId = c.get('userId')
-  const gwList = await db.select().from(gateways).where(eq(gateways.userId, userId))
+  const gwList = await db
+    .select()
+    .from(gateways)
+    .where(and(eq(gateways.userId, userId), eq(gateways.ephemeral, false)))
   return c.json({ ok: true, data: gwList })
 })
 

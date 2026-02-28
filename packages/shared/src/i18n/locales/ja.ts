@@ -275,6 +275,12 @@ export const ja = {
     deleteAgent: 'エージェントを削除',
     agentDeleted: 'エージェントが正常に削除されました',
     confirmDeleteAgent: 'エージェントを切断し、すべてのルームから削除します。続行しますか？',
+    spawnAgent: 'エージェント起動',
+    spawnAgentDesc: 'このゲートウェイで新しいエージェントを起動',
+    agentName: 'エージェント名',
+    spawnSuccess: 'エージェント起動リクエスト送信済み',
+    spawnFailed: 'エージェントの起動に失敗しました',
+    gatewayOffline: 'ゲートウェイがオフラインです',
   },
   task: {
     tasks: 'タスク',
