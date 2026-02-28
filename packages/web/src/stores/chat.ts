@@ -85,6 +85,7 @@ interface ChatState {
     attachmentIds?: string[],
   ) => void
   addMessage: (message: Message) => void
+  replaceOptimisticMessage: (message: Message) => boolean
   addStreamChunk: (
     roomId: string,
     agentId: string,
@@ -448,6 +449,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } else {
       wsClient.send(msg)
+
+      // Optimistic update: show user message immediately before server echo
+      const currentUser = useAuthStore.getState().user
+      if (currentUser) {
+        const optimisticMsg: Message = {
+          id: `optimistic-${nanoid()}`,
+          roomId,
+          senderId: currentUser.id,
+          senderType: 'user',
+          senderName: currentUser.displayName || currentUser.username,
+          type: 'text',
+          content,
+          mentions: mentions || [],
+          replyToId: replyTo?.id,
+          attachments: [],
+          createdAt: new Date().toISOString(),
+        }
+        get().addMessage(optimisticMsg)
+      }
     }
 
     if (replyTo) set({ replyTo: null })
@@ -504,6 +524,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       })
     }
+  },
+
+  replaceOptimisticMessage: (message) => {
+    const msgs = get().messages
+    const roomMsgs = msgs.get(message.roomId)
+    if (!roomMsgs) return false
+
+    // Find an optimistic message with matching sender + content + close timestamp
+    const idx = roomMsgs.findIndex(
+      (m) =>
+        m.id.startsWith('optimistic-') &&
+        m.senderId === message.senderId &&
+        m.content === message.content &&
+        Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 10_000,
+    )
+    if (idx < 0) return false
+
+    // Replace optimistic message with the real one, preserving position
+    const updated = [...roomMsgs]
+    updated[idx] = message
+    const next = new Map(msgs)
+    next.set(message.roomId, updated)
+    set({ messages: next })
+    return true
   },
 
   addStreamChunk: (roomId, agentId, agentName, messageId, chunk) => {

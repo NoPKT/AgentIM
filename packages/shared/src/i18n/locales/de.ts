@@ -274,6 +274,9 @@ export const de = {
     disconnectedAt: 'Getrennt um',
     confirmDeleteGateway:
       'Möchten Sie dieses Gateway wirklich löschen? Alle zugehörigen Agenten werden entfernt.',
+    deleteAgent: 'Agent löschen',
+    agentDeleted: 'Agent erfolgreich gelöscht',
+    confirmDeleteAgent: 'Der Agent wird getrennt und aus allen Räumen entfernt. Fortfahren?',
   },
   task: {
     tasks: 'Aufgaben',

@@ -272,6 +272,9 @@ export const ja = {
     disconnectedAt: '切断時刻',
     confirmDeleteGateway:
       'このゲートウェイを削除してもよろしいですか？関連するすべてのエージェントが削除されます。',
+    deleteAgent: 'エージェントを削除',
+    agentDeleted: 'エージェントが正常に削除されました',
+    confirmDeleteAgent: 'エージェントを切断し、すべてのルームから削除します。続行しますか？',
   },
   task: {
     tasks: 'タスク',

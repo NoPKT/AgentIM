@@ -13,6 +13,7 @@ interface AgentState {
   loadSharedAgents: () => Promise<void>
   loadGateways: () => Promise<void>
   deleteGateway: (gatewayId: string) => Promise<void>
+  deleteAgent: (agentId: string) => Promise<void>
   updateAgent: (agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'> & Partial<Agent>) => void
   updateAgentVisibility: (agentId: string, visibility: AgentVisibility) => Promise<void>
   renameAgent: (agentId: string, name: string) => Promise<void>
@@ -53,6 +54,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (res.ok && res.data) {
       set({ gateways: res.data })
     }
+  },
+
+  deleteAgent: async (agentId) => {
+    const res = await api.delete(`/agents/${agentId}`)
+    if (!res.ok) throw new Error(res.error ?? 'Failed to delete agent')
+    set({ agents: get().agents.filter((a) => a.id !== agentId) })
   },
 
   deleteGateway: async (gatewayId) => {

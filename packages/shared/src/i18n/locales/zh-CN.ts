@@ -270,6 +270,9 @@ export const zhCN = {
     gatewayDeleted: '网关已成功删除',
     disconnectedAt: '断开时间',
     confirmDeleteGateway: '确定要删除此网关吗？所有关联的智能体都将被移除。',
+    deleteAgent: '删除智能体',
+    agentDeleted: '智能体已成功删除',
+    confirmDeleteAgent: '此操作将断开智能体连接并将其从所有房间中移除。是否继续？',
   },
   task: {
     tasks: '任务',

@@ -272,6 +272,9 @@ export const ru = {
     disconnectedAt: 'Отключён в',
     confirmDeleteGateway:
       'Вы уверены, что хотите удалить этот шлюз? Все связанные агенты будут удалены.',
+    deleteAgent: 'Удалить агента',
+    agentDeleted: 'Агент успешно удалён',
+    confirmDeleteAgent: 'Агент будет отключён и удалён из всех комнат. Продолжить?',
   },
   task: {
     tasks: 'Задачи',

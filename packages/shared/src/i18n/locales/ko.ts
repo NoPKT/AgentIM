@@ -271,6 +271,9 @@ export const ko = {
     gatewayDeleted: '게이트웨이가 성공적으로 삭제되었습니다',
     disconnectedAt: '연결 해제 시간',
     confirmDeleteGateway: '이 게이트웨이를 삭제하시겠습니까? 관련된 모든 에이전트가 제거됩니다.',
+    deleteAgent: '에이전트 삭제',
+    agentDeleted: '에이전트가 성공적으로 삭제되었습니다',
+    confirmDeleteAgent: '에이전트의 연결을 끊고 모든 방에서 제거합니다. 계속하시겠습니까?',
   },
   task: {
     tasks: '작업',

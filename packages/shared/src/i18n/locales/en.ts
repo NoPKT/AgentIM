@@ -272,6 +272,9 @@ export const en = {
     disconnectedAt: 'Disconnected at',
     confirmDeleteGateway:
       'Are you sure you want to delete this gateway? All associated agents will be removed.',
+    deleteAgent: 'Delete Agent',
+    agentDeleted: 'Agent deleted successfully',
+    confirmDeleteAgent: 'This will disconnect the agent and remove it from all rooms. Continue?',
   },
   task: {
     tasks: 'Tasks',

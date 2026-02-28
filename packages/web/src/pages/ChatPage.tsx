@@ -247,7 +247,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-surface">
+    <div className="flex-1 flex flex-col min-h-0 bg-surface">
       {/* Room Header */}
       <div className="border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

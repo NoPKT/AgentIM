@@ -657,7 +657,7 @@ async function handleMessageComplete(
       set: {
         content: msg.fullContent,
         chunks: chunksValue,
-        updatedAt: now,
+        // Don't set updatedAt — this is not a user edit, just a delivery retry
       },
     })
 
