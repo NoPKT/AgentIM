@@ -334,7 +334,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const serverIds = new Set(newMsgs.map((m) => m.id))
           const serverNewest = newMsgs[newMsgs.length - 1]?.createdAt ?? ''
           const wsOnlyMsgs = existing.filter(
-            (m) => m.createdAt > serverNewest && !serverIds.has(m.id),
+            (m) => m.createdAt >= serverNewest && !serverIds.has(m.id),
           )
           combined = [...newMsgs, ...wsOnlyMsgs]
         }
