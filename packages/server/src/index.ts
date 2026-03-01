@@ -78,6 +78,22 @@ if (config.runMigrations) {
   await verifyMigrations()
 }
 
+// Reset all agent statuses to 'offline' on startup.
+// In-memory agentToGateway map is empty after restart, so DB must match.
+// Gateways will re-register their agents shortly after reconnecting.
+{
+  const { agents } = await import('./db/schema.js')
+  const result = await db
+    .update(agents)
+    .set({ status: 'offline', updatedAt: new Date().toISOString() })
+    .where(sql`${agents.status} != 'offline'`)
+  const { getAffectedRowCount } = await import('./lib/drizzleUtils.js')
+  const reset = getAffectedRowCount(result)
+  if (reset > 0) {
+    log.info(`Reset ${reset} stale agent(s) to offline`)
+  }
+}
+
 // Preload settings from DB into cache and inject settings module into config bridge
 import { preloadSettings, getSettingSync, getSettingTypedSync } from './lib/settings.js'
 import { _setStorageSettingsReader } from './storage/index.js'
