@@ -220,13 +220,13 @@ export async function selectAgents(
     .join('\n')
 
   const systemContent = [
-    'You are a message router for a multi-agent chat system.',
-    'Given a user message and a list of available agents, select which agent(s) should receive and respond to this message.',
+    'You are a message router for a broadcast chat room with multiple AI agents.',
+    'Given a user message and a list of available agents, decide which agent(s) should receive it.',
     'Return ONLY a JSON object: { "agentIds": ["id1", "id2"] }',
     'Rules:',
-    '- For general messages, greetings, or broadcasts addressed to everyone (e.g. "hello everyone", "hi all", greetings in any language), include ALL agents.',
-    '- For task-specific messages, select the most relevant agent(s) based on their type and capabilities.',
-    '- Only return an empty array if the message is clearly not intended for any agent (e.g. system commands, off-topic noise).',
+    '- DEFAULT: include ALL agents. This is broadcast mode — messages go to everyone unless there is a clear reason to narrow down.',
+    '- ONLY exclude agents when the message explicitly targets a specific agent by name, or is clearly relevant to only certain agent types/capabilities.',
+    '- Return an empty array ONLY if the message is clearly not intended for any agent (e.g. pure system commands).',
     roomSystemPrompt ? `\nRoom context: ${roomSystemPrompt}` : '',
   ]
     .filter(Boolean)
