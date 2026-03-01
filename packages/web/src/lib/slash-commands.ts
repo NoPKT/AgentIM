@@ -4,7 +4,6 @@ import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
 import { wsClient } from './ws.js'
 import { toast } from '../stores/toast.js'
-import { clearRoomCache } from './message-cache.js'
 
 export interface SlashCommandHandler {
   command: SlashCommand
@@ -65,22 +64,10 @@ export function getAgentCommands(roomAgents: Agent[]): AgentCommandItem[] {
 // Register built-in platform commands
 registerCommand({
   command: { name: 'clear', description: 'Clear the chat view', usage: '/clear', clientOnly: true },
-  execute: () => {
-    const { currentRoomId, messages } = useChatStore.getState()
+  execute: async () => {
+    const { currentRoomId } = useChatStore.getState()
     if (!currentRoomId) return
-    const msgs = new Map(messages)
-    msgs.set(currentRoomId, [])
-    useChatStore.setState({ messages: msgs })
-    // Persist the clear: store timestamp so messages before this point stay hidden after refresh
-    try {
-      const stored = JSON.parse(localStorage.getItem('agentim:clearedAt') ?? '{}')
-      stored[currentRoomId] = new Date().toISOString()
-      localStorage.setItem('agentim:clearedAt', JSON.stringify(stored))
-    } catch {
-      // localStorage unavailable — clear is still effective for current session
-    }
-    // Also clear IndexedDB cache for this room
-    clearRoomCache(currentRoomId).catch(() => {})
+    await useChatStore.getState().clearChat(currentRoomId)
     toast.success(i18next.t('slashCommand.chatCleared'))
   },
 })

@@ -295,6 +295,13 @@
       "when": 1773400000000,
       "tag": "0041_add_gateway_ephemeral",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1773500000000,
+      "tag": "0042_add_room_member_cleared_at",
+      "breakpoints": true
     }
   ]
 }

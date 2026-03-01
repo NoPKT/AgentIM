@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock dependencies before importing the module under test
+const mockClearChat = vi.fn()
 vi.mock('../stores/chat.js', () => ({
   useChatStore: {
     getState: vi.fn(() => ({
       currentRoomId: 'room-1',
       messages: new Map([['room-1', [{ id: 'msg-1', content: 'hello' }]]]),
       streaming: new Map(),
+      clearChat: mockClearChat,
     })),
     setState: vi.fn(),
   },
@@ -133,19 +135,10 @@ describe('slash-commands', () => {
   })
 
   describe('command execution', () => {
-    it('/clear clears messages for the current room', () => {
+    it('/clear clears messages for the current room', async () => {
       const cmd = getCommand('clear')
-      cmd?.execute('')
-      expect(useChatStore.setState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          messages: expect.any(Map),
-        }),
-      )
-      // The new messages map should have an empty array for room-1
-      const callArgs = vi.mocked(useChatStore.setState).mock.calls[0][0] as {
-        messages: Map<string, unknown[]>
-      }
-      expect(callArgs.messages.get('room-1')).toEqual([])
+      await cmd?.execute('')
+      expect(mockClearChat).toHaveBeenCalledWith('room-1')
     })
 
     it('/help shows a toast with command list', () => {
@@ -199,16 +192,17 @@ describe('slash-commands', () => {
       expect(wsClient.send).not.toHaveBeenCalled()
     })
 
-    it('/clear does nothing when no current room', () => {
+    it('/clear does nothing when no current room', async () => {
       vi.mocked(useChatStore.getState).mockReturnValue({
         currentRoomId: null,
         messages: new Map(),
         streaming: new Map(),
+        clearChat: mockClearChat,
       } as any)
 
       const cmd = getCommand('clear')
-      cmd?.execute('')
-      expect(useChatStore.setState).not.toHaveBeenCalled()
+      await cmd?.execute('')
+      expect(mockClearChat).not.toHaveBeenCalled()
     })
 
     it('/stop does nothing when no current room', () => {

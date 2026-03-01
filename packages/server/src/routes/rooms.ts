@@ -545,6 +545,39 @@ roomRoutes.put('/:id/archive', async (c) => {
   return c.json({ ok: true, data: { archived: !!archivedAt } })
 })
 
+// Clear chat history for current user in a room (hides messages before this point)
+roomRoutes.put('/:id/clear', async (c) => {
+  const roomId = c.req.param('id')
+  const userId = c.get('userId')
+
+  const [member] = await db
+    .select()
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
+    .limit(1)
+  if (!member) return c.json({ ok: false, error: 'Not a member' }, 404)
+
+  const clearedAt = new Date().toISOString()
+  await db
+    .update(roomMembers)
+    .set({ clearedAt })
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
+
+  return c.json({ ok: true, data: { clearedAt } })
+})
+
 // Update notification preference for current user in a room
 roomRoutes.put('/:id/notification-pref', async (c) => {
   const roomId = c.req.param('id')

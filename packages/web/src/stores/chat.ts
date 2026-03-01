@@ -136,6 +136,8 @@ interface ChatState {
   updateNotificationPref: (roomId: string, pref: 'all' | 'mentions' | 'none') => Promise<void>
   togglePin: (roomId: string) => Promise<void>
   toggleArchive: (roomId: string) => Promise<void>
+  /** Clear chat history for the current user in a room (persisted server-side) */
+  clearChat: (roomId: string) => Promise<void>
   // Server-initiated eviction: clean up local state without an API call.
   evictRoom: (roomId: string) => void
   /** Load thread replies for a message */
@@ -339,16 +341,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
             (m) => m.createdAt >= serverNewest && !serverIds.has(m.id),
           )
           combined = [...newMsgs, ...wsOnlyMsgs]
-        }
-        // Filter out messages cleared by /clear command
-        try {
-          const stored = JSON.parse(localStorage.getItem('agentim:clearedAt') ?? '{}')
-          const clearedAt = stored[roomId]
-          if (clearedAt) {
-            combined = combined.filter((m) => m.createdAt > clearedAt)
-          }
-        } catch {
-          // localStorage unavailable — skip filtering
         }
         if (combined.length > MAX_CACHED_MESSAGES) {
           combined = combined.slice(-MAX_CACHED_MESSAGES)
@@ -1173,6 +1165,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch {
       toast.error('Failed to toggle archive')
     }
+  },
+
+  clearChat: async (roomId) => {
+    // Clear local state immediately
+    const msgs = new Map(get().messages)
+    msgs.set(roomId, [])
+    set({ messages: msgs })
+    clearRoomCache(roomId).catch(() => {})
+    // Persist on server so it syncs across devices
+    await api.put(`/rooms/${roomId}/clear`)
   },
 
   syncMissedMessages: async (roomId) => {

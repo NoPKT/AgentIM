@@ -216,6 +216,7 @@ export const roomMembers = pgTable(
     pinnedAt: ts('pinned_at'),
     archivedAt: ts('archived_at'),
     lastReadAt: ts('last_read_at'),
+    clearedAt: ts('cleared_at'),
     joinedAt: ts('joined_at').notNull(),
   },
   (table) => [
