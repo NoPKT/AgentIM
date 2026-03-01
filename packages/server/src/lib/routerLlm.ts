@@ -113,7 +113,13 @@ const llmResponseSchema = z.object({
   choices: z
     .array(
       z.object({
-        message: z.object({ content: z.string().optional() }).optional(),
+        message: z
+          .object({
+            content: z.string().nullable().optional(),
+            // Reasoning models (o1/o3/gpt-5) may place output here instead
+            reasoning_content: z.string().nullable().optional(),
+          })
+          .optional(),
       }),
     )
     .optional(),
@@ -289,9 +295,13 @@ export async function selectAgents(
       log.warn(`Router LLM response schema mismatch: ${data.error.message}`)
       return null
     }
-    const text = data.data.choices?.[0]?.message?.content?.trim()
+    const choice = data.data.choices?.[0]
+    // Try content first, fall back to reasoning_content (reasoning models)
+    const text = (choice?.message?.content ?? choice?.message?.reasoning_content ?? '').trim()
     if (!text) {
-      log.warn('Router LLM returned empty content')
+      log.warn(
+        `Router LLM returned empty content — raw keys: ${JSON.stringify(Object.keys((raw as Record<string, unknown>) ?? {}))}; choice: ${JSON.stringify(choice ?? null)}`,
+      )
       return null
     }
 
