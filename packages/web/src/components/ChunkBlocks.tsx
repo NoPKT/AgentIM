@@ -742,12 +742,17 @@ function DiffView({ diff }: { diff: string }) {
       continue
     }
     if (line.startsWith('@@')) {
-      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)/)
+      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/)
       if (m) {
         oldLine = +m[1]
         newLine = +m[2]
       }
-      rows.push({ type: 'hunk', text: line })
+      // Show only the context part (function/section name) after @@, if present
+      const context = m?.[3]?.trim()
+      rows.push({
+        type: 'hunk',
+        text: context ? `\u00B7\u00B7\u00B7 ${context}` : '\u00B7\u00B7\u00B7',
+      })
     } else if (line.startsWith('+')) {
       rows.push({ type: 'add', new: newLine++, text: line.slice(1) })
     } else if (line.startsWith('-')) {
