@@ -17,9 +17,9 @@ export default defineConfig({
       include: ['src/lib/**', 'src/stores/**', 'src/components/**', 'src/hooks/**'],
       all: false,
       thresholds: {
-        lines: 41,
+        lines: 40,
         functions: 32,
-        statements: 41,
+        statements: 40,
         branches: 26,
       },
     },

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { homedir } from 'node:os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import type { ParsedChunk } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
@@ -61,10 +61,20 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       }
       const query = _cachedQueryFn
 
+      // Ensure PATH includes the current node binary's directory so the SDK
+      // can spawn `node` even when running as a daemon with a minimal PATH.
+      const nodeDir = dirname(process.execPath)
+      const currentPath = process.env.PATH || ''
+      const env = {
+        ...process.env,
+        ...this.env,
+        ...(currentPath.includes(nodeDir) ? {} : { PATH: `${nodeDir}:${currentPath}` }),
+      }
+
       const options: Options = {
         allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
         cwd: this.workingDirectory,
-        env: Object.keys(this.env).length > 0 ? { ...process.env, ...this.env } : undefined,
+        env,
       }
 
       if (this.permissionLevel === 'bypass') {

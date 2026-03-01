@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWorkspaceStore } from '../stores/workspace.js'
 import { wsClient } from '../lib/ws.js'
@@ -152,14 +152,30 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
 
 // ─── Changes Tab ───
 
-function WorkspaceChangesView({ agentId }: { agentId: string }) {
+function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: string }) {
   const { t } = useTranslation()
   const statusEntry = useWorkspaceStore((s) => s.statuses.get(agentId))
+  const loading = useWorkspaceStore((s) => s.loading)
+
+  // Auto-request workspace status when no data exists
+  useEffect(() => {
+    if (!statusEntry && !(loading?.agentId === agentId && loading?.kind === 'status')) {
+      useWorkspaceStore.getState().setLoading({ agentId, kind: 'status' })
+      wsClient.send({
+        type: 'client:request_workspace',
+        roomId,
+        agentId,
+        request: { kind: 'status' },
+      })
+    }
+  }, [roomId, agentId])
 
   if (!statusEntry) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-text-muted p-4">
-        {t('chat.workspaceNoData')}
+        {loading?.agentId === agentId && loading?.kind === 'status'
+          ? t('chat.workspaceLoading')
+          : t('chat.workspaceNoData')}
       </div>
     )
   }
@@ -245,10 +261,12 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
     [roomId, agentId],
   )
 
-  // Initial load
-  if (!entries && !(loading?.agentId === agentId && loading?.kind === 'tree')) {
-    requestTree('.')
-  }
+  // Initial load — must be in useEffect, not during render
+  useEffect(() => {
+    if (!entries && !(loading?.agentId === agentId && loading?.kind === 'tree')) {
+      requestTree('.')
+    }
+  }, [agentId])
 
   const isLoadingTree = loading?.agentId === agentId && loading?.kind === 'tree'
   const isLoadingFile = loading?.agentId === agentId && loading?.kind === 'file'
@@ -361,6 +379,15 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
   const [selectedAgentId, setSelectedAgentId] = useState<string>(agentMembers[0]?.memberId ?? '')
   const loading = useWorkspaceStore((s) => s.loading)
 
+  // Clear loading state after 15s timeout to prevent permanent "Loading..."
+  useEffect(() => {
+    if (!loading) return
+    const timer = setTimeout(() => {
+      useWorkspaceStore.getState().setLoading(null)
+    }, 15_000)
+    return () => clearTimeout(timer)
+  }, [loading])
+
   // Agent selector options
   const agentOptions = useMemo(
     () => agentMembers.map((m) => ({ id: m.memberId, name: m.displayName || m.memberId })),
@@ -458,7 +485,9 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
 
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {activeTab === 'changes' && <WorkspaceChangesView agentId={selectedAgentId} />}
+        {activeTab === 'changes' && (
+          <WorkspaceChangesView roomId={roomId} agentId={selectedAgentId} />
+        )}
         {activeTab === 'files' && <WorkspaceFilesView roomId={roomId} agentId={selectedAgentId} />}
       </div>
     </div>
