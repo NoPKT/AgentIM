@@ -738,10 +738,19 @@ async function routeToAgents(
   } else if (room.broadcastMode) {
     // Broadcast room, no mentions — try AI Router via room's router config
     const cliAgents = agentRows.filter((a) => a.connectionType !== 'api')
-    if (cliAgents.length === 0) return
+    if (cliAgents.length === 0) {
+      log.info(`Broadcast room ${roomId}: no CLI agents in room, skipping routing`)
+      return
+    }
 
     const routerCfg = await getRouterConfig(roomId)
-    if (!routerCfg) return // No router configured → don't route
+    if (!routerCfg) {
+      log.warn(
+        `Broadcast room ${roomId}: no AI Router configured — message will not be routed. ` +
+          'Assign a Router in Room Settings or use @mention to address agents directly.',
+      )
+      return
+    }
 
     const routerResult = await selectAgents(
       message.content,
@@ -756,7 +765,9 @@ async function routeToAgents(
     )
 
     if (routerResult === null || routerResult.length === 0) {
-      // No agents selected — don't route
+      log.info(
+        `Broadcast room ${roomId}: AI Router selected no agents for message "${message.content.slice(0, 80)}"`,
+      )
       return
     }
 
