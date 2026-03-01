@@ -69,7 +69,9 @@ export function ToastContainer() {
           className={`${typeStyles[toast.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in`}
         >
           {typeIcons[toast.type]}
-          <span className="text-sm font-medium flex-1">{toast.message}</span>
+          <span className="text-sm font-medium flex-1 whitespace-pre-wrap break-words">
+            {toast.message}
+          </span>
           <button
             onClick={() => removeToast(toast.id)}
             className="p-1 rounded hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"

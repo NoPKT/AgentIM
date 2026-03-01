@@ -231,14 +231,7 @@ export function useWebSocket() {
           try {
             if (msg.success) {
               if (msg.message) {
-                toast.success(msg.message, {
-                  duration: 8000,
-                  style: {
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'monospace',
-                    fontSize: '12px',
-                  },
-                })
+                toast.success(msg.message, 8000)
               } else {
                 toast.success(i18next.t('slashCommand.commandSuccess', { command: msg.command }))
               }
