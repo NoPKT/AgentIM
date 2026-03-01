@@ -214,7 +214,7 @@ export interface ServerWorkspaceResponse {
   agentId: string
   requestId: string
   response:
-    | { kind: 'status'; data: WorkspaceStatus }
+    | { kind: 'status'; data: WorkspaceStatus | null }
     | { kind: 'tree'; path: string; entries: DirectoryEntry[] }
     | { kind: 'file'; path: string; content: string; size: number; truncated: boolean }
     | { kind: 'error'; message: string }

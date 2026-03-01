@@ -40,13 +40,15 @@ export function addStreamChunkAction(
   const existing = next.get(key)
   const now = Date.now()
   let truncated = false
-  if (existing) {
+  if (existing && existing.messageId === messageId) {
+    // Same message — append chunk
     truncated = existing.chunks.length >= MAX_CHUNKS_PER_STREAM
     const chunks = truncated
       ? [...existing.chunks.slice(-MAX_CHUNKS_PER_STREAM + 1), chunk]
       : [...existing.chunks, chunk]
     next.set(key, { ...existing, chunks, lastChunkAt: now })
   } else {
+    // New stream or different messageId — start fresh
     next.set(key, { messageId, agentId, agentName, chunks: [chunk], lastChunkAt: now })
   }
   return { streaming: next, truncated }

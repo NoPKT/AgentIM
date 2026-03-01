@@ -38,6 +38,7 @@ import {
   SERVICE_AGENT_CATEGORIES,
   SERVICE_AGENT_STATUSES,
 } from './constants.js'
+import type { ServerWorkspaceResponse } from './protocol.js'
 
 // ─── Shared Tool Input Schema ───
 
@@ -1079,6 +1080,15 @@ export const serverErrorSchema = z.object({
   message: z.string(),
 })
 
+export const serverWorkspaceResponseSchema = z.object({
+  type: z.literal('server:workspace_response'),
+  agentId: z.string(),
+  requestId: z.string(),
+  response: z.custom<ServerWorkspaceResponse['response']>(
+    (val) => typeof val === 'object' && val !== null && 'kind' in val,
+  ),
+})
+
 export const serverPongSchema = z.object({
   type: z.literal('server:pong'),
   ts: z.number(),
@@ -1106,6 +1116,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverPermissionRequestExpiredSchema,
   serverRoomClearedSchema,
   serverSpawnResultSchema,
+  serverWorkspaceResponseSchema,
   serverPongSchema,
   serverErrorSchema,
 ])
