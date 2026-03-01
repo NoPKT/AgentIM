@@ -120,7 +120,14 @@ export function MessageInput() {
     [agents, debouncedMentionSearch],
   )
 
-  const agentCommands = useMemo(() => getAgentCommands(agents), [agents])
+  const HIDDEN_AGENT_COMMANDS = useMemo(
+    () => new Set(['model', 'think', 'effort', 'cost', 'context']),
+    [],
+  )
+  const agentCommands = useMemo(
+    () => getAgentCommands(agents).filter((cmd) => !HIDDEN_AGENT_COMMANDS.has(cmd.command.name)),
+    [agents, HIDDEN_AGENT_COMMANDS],
+  )
 
   useEffect(() => {
     if (textareaRef.current) {

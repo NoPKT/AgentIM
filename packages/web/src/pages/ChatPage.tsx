@@ -22,6 +22,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary.js'
 import { MemberListPanel } from '../components/MemberListPanel.js'
 import { AddAgentDialog } from '../components/AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
+import { AgentConfigPanel } from '../components/AgentConfigPanel.js'
 import {
   TerminalIcon,
   WorkspaceIcon,
@@ -29,6 +30,7 @@ import {
   SettingsIcon,
   ChatBubbleIcon,
   UsersIcon,
+  TuneIcon,
 } from '../components/icons.js'
 
 export default function ChatPage() {
@@ -45,6 +47,8 @@ export default function ChatPage() {
   const [addAgentOpen, setAddAgentOpen] = useState(false)
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [agentConfigOpen, setAgentConfigOpen] = useState(false)
+  const [configAgentId, setConfigAgentId] = useState<string | null>(null)
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
@@ -64,6 +68,12 @@ export default function ChatPage() {
   const currentRoom = rooms.find((r) => r.id === currentRoomId)
   const members = currentRoomId ? (roomMembers.get(currentRoomId) ?? []) : []
   const agentMembers = useMemo(() => members.filter((m) => m.memberType === 'agent'), [members])
+  const agents = useAgentStore((s) => s.agents)
+  const singleAgent = useMemo(
+    () =>
+      agentMembers.length === 1 ? agents.find((a) => a.id === agentMembers[0].memberId) : null,
+    [agentMembers, agents],
+  )
 
   // Routing indicator for broadcast mode
   const [showRouting, setShowRouting] = useState(false)
@@ -265,6 +275,18 @@ export default function ChatPage() {
           <span className="hidden sm:inline text-xs text-text-muted flex-shrink-0">
             {t('chat.memberCount', { count: members.length })}
           </span>
+          {singleAgent?.model && (
+            <button
+              onClick={() => {
+                setConfigAgentId(singleAgent.id)
+                setAgentConfigOpen(true)
+              }}
+              className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-surface-secondary text-text-muted rounded-md hover:bg-surface-hover transition-colors flex-shrink-0"
+              title={t('agentConfig.clickToChange')}
+            >
+              {singleAgent.model}
+            </button>
+          )}
           {connectionStatus !== 'connected' && (
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full flex-shrink-0 ${
@@ -338,6 +360,18 @@ export default function ChatPage() {
                 title={t('chat.workspace')}
               >
                 <WorkspaceIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {
+                  const id =
+                    agentMembers.length === 1 ? agentMembers[0].memberId : agentMembers[0].memberId
+                  setConfigAgentId(id)
+                  setAgentConfigOpen(true)
+                }}
+                className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                title={t('agentConfig.title')}
+              >
+                <TuneIcon className="w-5 h-5" />
               </button>
             </>
           )}
@@ -527,6 +561,16 @@ export default function ChatPage() {
           currentIndex={lightbox.currentIndex}
           onClose={lightbox.closeLightbox}
           onNavigate={lightbox.navigateTo}
+        />
+      )}
+
+      {/* Agent Config Panel */}
+      {configAgentId && (
+        <AgentConfigPanel
+          agentId={configAgentId}
+          roomId={currentRoomId}
+          isOpen={agentConfigOpen}
+          onClose={() => setAgentConfigOpen(false)}
         />
       )}
     </div>

@@ -331,6 +331,14 @@ export class CodexAdapter extends BaseAgentAdapter {
     return this.modelOverride || this.env.CODEX_MODEL || undefined
   }
 
+  override getAvailableModels(): string[] {
+    return ['o4-mini', 'o3', 'gpt-4.1']
+  }
+
+  override getAvailableEffortLevels(): string[] {
+    return ['minimal', 'low', 'medium', 'high', 'xhigh']
+  }
+
   override getEffortLevel(): string | undefined {
     return this.reasoningEffort
   }

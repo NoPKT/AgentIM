@@ -695,6 +695,9 @@ export class AgentManager {
     }
 
     const costSummary = adapter.getCostSummary()
+    const availableModels = adapter.getAvailableModels()
+    const availableEffortLevels = adapter.getAvailableEffortLevels()
+    const availableThinkingModes = adapter.getAvailableThinkingModes()
     this.wsClient.send({
       type: 'gateway:agent_info',
       agentId: msg.agentId,
@@ -704,6 +707,10 @@ export class AgentManager {
       thinkingMode: adapter.getThinkingMode(),
       effortLevel: adapter.getEffortLevel(),
       sessionCostUSD: costSummary.costUSD > 0 ? costSummary.costUSD : undefined,
+      availableModels: availableModels.length > 0 ? availableModels : undefined,
+      availableEffortLevels: availableEffortLevels.length > 0 ? availableEffortLevels : undefined,
+      availableThinkingModes:
+        availableThinkingModes.length > 0 ? availableThinkingModes : undefined,
     })
   }
 

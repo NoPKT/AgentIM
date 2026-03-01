@@ -386,6 +386,9 @@ export interface GatewayAgentInfo {
   thinkingMode?: string
   effortLevel?: string
   sessionCostUSD?: number
+  availableModels?: string[]
+  availableEffortLevels?: string[]
+  availableThinkingModes?: string[]
 }
 
 export interface GatewaySpawnResult {
