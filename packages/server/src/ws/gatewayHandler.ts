@@ -1019,6 +1019,9 @@ async function handleAgentInfoResponse(
     thinkingMode?: string
     effortLevel?: string
     sessionCostUSD?: number
+    availableModels?: string[]
+    availableEffortLevels?: string[]
+    availableThinkingModes?: string[]
   },
 ) {
   const gw = connectionManager.getGateway(ws)
@@ -1046,6 +1049,9 @@ async function handleAgentInfoResponse(
     thinkingMode: msg.thinkingMode,
     effortLevel: msg.effortLevel,
     sessionCostUSD: msg.sessionCostUSD,
+    availableModels: msg.availableModels,
+    availableEffortLevels: msg.availableEffortLevels,
+    availableThinkingModes: msg.availableThinkingModes,
     deviceInfo: agentGw
       ? {
           hostname: agentGw.hostname ?? '',

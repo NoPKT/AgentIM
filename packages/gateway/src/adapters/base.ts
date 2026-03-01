@@ -166,6 +166,21 @@ export abstract class BaseAgentAdapter {
     return undefined
   }
 
+  /** Return the list of models this agent supports. */
+  getAvailableModels(): string[] {
+    return []
+  }
+
+  /** Return the list of effort levels this agent supports. */
+  getAvailableEffortLevels(): string[] {
+    return []
+  }
+
+  /** Return the list of thinking modes this agent supports. */
+  getAvailableThinkingModes(): string[] {
+    return []
+  }
+
   /** Handle a slash command from a user. */
   async handleSlashCommand(
     _command: string,

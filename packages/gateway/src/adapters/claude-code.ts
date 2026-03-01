@@ -394,6 +394,18 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return this.modelOverride || this.env.ANTHROPIC_MODEL || this.env.CLAUDE_MODEL || undefined
   }
 
+  override getAvailableModels(): string[] {
+    return ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-5-20251001']
+  }
+
+  override getAvailableEffortLevels(): string[] {
+    return ['low', 'medium', 'high', 'max']
+  }
+
+  override getAvailableThinkingModes(): string[] {
+    return ['adaptive', 'enabled', 'disabled']
+  }
+
   override getThinkingMode(): string | undefined {
     if (!this.thinkingConfig) return undefined
     if (this.thinkingConfig.type === 'enabled' && 'budgetTokens' in this.thinkingConfig) {

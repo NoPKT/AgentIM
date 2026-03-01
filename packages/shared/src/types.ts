@@ -61,6 +61,9 @@ export interface Agent {
   thinkingMode?: string
   effortLevel?: string
   sessionCostUSD?: number
+  availableModels?: string[]
+  availableEffortLevels?: string[]
+  availableThinkingModes?: string[]
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

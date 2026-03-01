@@ -718,6 +718,9 @@ export const gatewayAgentInfoSchema = z.object({
   thinkingMode: z.string().max(100).optional(),
   effortLevel: z.string().max(50).optional(),
   sessionCostUSD: z.number().nonnegative().optional(),
+  availableModels: z.array(z.string().max(200)).max(50).optional(),
+  availableEffortLevels: z.array(z.string().max(50)).max(20).optional(),
+  availableThinkingModes: z.array(z.string().max(100)).max(20).optional(),
 })
 
 export const gatewaySpawnResultSchema = z.object({
@@ -835,6 +838,9 @@ const agentSchema = z.object({
   slashCommands: z.array(agentSlashCommandSchema).optional(),
   mcpServers: z.array(z.string()).optional(),
   model: z.string().optional(),
+  availableModels: z.array(z.string()).optional(),
+  availableEffortLevels: z.array(z.string()).optional(),
+  availableThinkingModes: z.array(z.string()).optional(),
   lastSeenAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
