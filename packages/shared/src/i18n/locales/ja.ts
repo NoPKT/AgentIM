@@ -244,6 +244,7 @@ export const ja = {
     workspaceEmptyDir: '空のディレクトリ',
     workspaceBranch: 'ブランチ：{{branch}}',
     workspaceParentDir: '親ディレクトリ',
+    workspaceSelectFile: 'ツリーからファイルを選択して内容を表示します。',
   },
   agent: {
     agents: 'エージェント',

@@ -246,6 +246,7 @@ export const fr = {
     workspaceEmptyDir: 'Répertoire vide',
     workspaceBranch: 'Branche : {{branch}}',
     workspaceParentDir: 'Répertoire parent',
+    workspaceSelectFile: 'Sélectionnez un fichier dans l\u2019arborescence pour voir son contenu.',
   },
   agent: {
     agents: 'Agents',

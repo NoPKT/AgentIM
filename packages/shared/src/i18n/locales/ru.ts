@@ -244,6 +244,7 @@ export const ru = {
     workspaceEmptyDir: 'Пустая директория',
     workspaceBranch: 'Ветка: {{branch}}',
     workspaceParentDir: 'Родительская директория',
+    workspaceSelectFile: 'Выберите файл в дереве для просмотра содержимого.',
   },
   agent: {
     agents: 'Агенты',

@@ -75,13 +75,16 @@ export async function getWorkspaceStatus(
           status = 'renamed'
           const renameMatch = path.match(/\{(.*)=> (.+?)\}/)
           if (renameMatch) {
-            // Format: prefix/{old => new}/suffix → prefix/new/suffix
+            // Format: prefix/{old => new}/suffix — show both names
             const prefix = path.slice(0, path.indexOf('{'))
             const suffix = path.slice(path.indexOf('}') + 1)
-            path = prefix + renameMatch[2].trim() + suffix
+            const oldName = prefix + renameMatch[1].trim() + suffix
+            const newName = prefix + renameMatch[2].trim() + suffix
+            path = `${oldName} \u2192 ${newName}`
           } else {
-            // Format: old => new
-            path = path.split('=>').pop()!.trim()
+            // Format: old => new — show both names
+            const parts = path.split('=>')
+            path = `${parts[0].trim()} \u2192 ${parts[1].trim()}`
           }
         }
 
@@ -105,8 +108,14 @@ export async function getWorkspaceStatus(
     if (truncatedDiff) {
       const fileDiffs = splitDiffByFile(truncatedDiff)
       for (const file of changedFiles) {
-        if (!isSensitivePath(file.path)) {
-          file.diff = fileDiffs.get(file.path)
+        // For renames ("old → new"), try both the new name (used by diff --git b/)
+        // and the full path for diff lookup
+        const lookupPath =
+          file.status === 'renamed' && file.path.includes(' \u2192 ')
+            ? file.path.split(' \u2192 ').pop()!.trim()
+            : file.path
+        if (!isSensitivePath(lookupPath)) {
+          file.diff = fileDiffs.get(lookupPath)
         }
       }
     }
@@ -120,7 +129,8 @@ export async function getWorkspaceStatus(
 
         // Handle rename format: "R  old -> new" (code may be "R", "RM", etc.)
         if (code.startsWith('R') && path.includes(' -> ')) {
-          path = path.split(' -> ').pop()!.trim()
+          const parts = path.split(' -> ')
+          path = `${parts[0].trim()} \u2192 ${parts[1].trim()}`
         }
 
         if (!knownPaths.has(path)) {

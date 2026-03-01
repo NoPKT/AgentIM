@@ -246,6 +246,7 @@ export const de = {
     workspaceEmptyDir: 'Leeres Verzeichnis',
     workspaceBranch: 'Branch: {{branch}}',
     workspaceParentDir: 'Übergeordnetes Verzeichnis',
+    workspaceSelectFile: 'Wählen Sie eine Datei aus dem Baum, um den Inhalt anzuzeigen.',
   },
   agent: {
     agents: 'Agenten',

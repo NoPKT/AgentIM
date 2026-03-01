@@ -244,6 +244,7 @@ export const ko = {
     workspaceEmptyDir: '빈 디렉토리',
     workspaceBranch: '브랜치: {{branch}}',
     workspaceParentDir: '상위 디렉토리',
+    workspaceSelectFile: '트리에서 파일을 선택하여 내용을 확인하세요.',
   },
   agent: {
     agents: '에이전트',

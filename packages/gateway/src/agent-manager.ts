@@ -420,7 +420,12 @@ export class AgentManager {
     this.agentCurrentRoom.set(msg.agentId, msg.roomId)
     this.touchRoomContext(msg.agentId, msg.roomId)
 
-    const messageId = msg.messageId
+    // Generate a unique response ID for this agent's reply.
+    // In broadcast mode, multiple agents receive the same msg.messageId (the user's
+    // original message ID). If they all reuse it as their response ID, the DB's
+    // onConflictDoUpdate causes the last completer to overwrite all others (including
+    // the user's own message).  A fresh nanoid per response avoids the collision.
+    const messageId = nanoid()
     const allChunks: ParsedChunk[] = []
     let completed = false
 

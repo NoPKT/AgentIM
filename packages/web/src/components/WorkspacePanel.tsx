@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import hljs from 'highlight.js/lib/common'
 import { useWorkspaceStore } from '../stores/workspace.js'
 import { wsClient } from '../lib/ws.js'
 import { CloseIcon, RefreshIcon, FolderIcon, FileIcon } from './icons.js'
@@ -223,11 +224,92 @@ function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: st
   )
 }
 
+// ─── Syntax-Highlighted Code Viewer ───
+
+/** Map file extension to highlight.js language name */
+function getLanguage(path: string): string | undefined {
+  const ext = path.split('.').pop()?.toLowerCase()
+  const map: Record<string, string> = {
+    js: 'javascript',
+    mjs: 'javascript',
+    cjs: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    py: 'python',
+    rb: 'ruby',
+    go: 'go',
+    rs: 'rust',
+    java: 'java',
+    kt: 'kotlin',
+    swift: 'swift',
+    c: 'c',
+    h: 'c',
+    cpp: 'cpp',
+    cc: 'cpp',
+    cs: 'csharp',
+    php: 'php',
+    sh: 'bash',
+    bash: 'bash',
+    zsh: 'bash',
+    html: 'xml',
+    htm: 'xml',
+    xml: 'xml',
+    svg: 'xml',
+    css: 'css',
+    scss: 'scss',
+    less: 'less',
+    json: 'json',
+    yaml: 'yaml',
+    yml: 'yaml',
+    toml: 'ini',
+    ini: 'ini',
+    md: 'markdown',
+    sql: 'sql',
+    graphql: 'graphql',
+    gql: 'graphql',
+    dockerfile: 'dockerfile',
+    makefile: 'makefile',
+    lua: 'lua',
+    r: 'r',
+    perl: 'perl',
+    pl: 'perl',
+  }
+  return ext ? map[ext] : undefined
+}
+
+function HighlightedCode({ content, path }: { content: string; path: string }) {
+  const codeRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!codeRef.current) return
+    const lang = getLanguage(path)
+    if (lang) {
+      try {
+        const result = hljs.highlight(content, { language: lang, ignoreIllegals: true })
+        codeRef.current.innerHTML = result.value
+      } catch {
+        codeRef.current.textContent = content
+      }
+    } else {
+      codeRef.current.textContent = content
+    }
+  }, [content, path])
+
+  return (
+    <pre className="text-xs font-mono bg-surface-secondary rounded-md p-3 overflow-x-auto whitespace-pre-wrap hljs">
+      <code ref={codeRef}>{content}</code>
+    </pre>
+  )
+}
+
 // ─── Files Tab ───
 
 function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: string }) {
   const { t } = useTranslation()
   const [currentPath, setCurrentPath] = useState('.')
+  // On mobile, toggle between tree and file content views
+  const [mobileView, setMobileView] = useState<'tree' | 'file'>('tree')
   const trees = useWorkspaceStore((s) => s.trees.get(agentId))
   const fileContent = useWorkspaceStore((s) => s.fileContent)
   const loading = useWorkspaceStore((s) => s.loading)
@@ -243,6 +325,7 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
         request: { kind: 'tree', path: path === '.' ? undefined : path },
       })
       setCurrentPath(path)
+      setMobileView('tree')
     },
     [roomId, agentId],
   )
@@ -257,6 +340,7 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
         agentId,
         request: { kind: 'file', path },
       })
+      setMobileView('file')
     },
     [roomId, agentId],
   )
@@ -271,95 +355,113 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
   const isLoadingTree = loading?.agentId === agentId && loading?.kind === 'tree'
   const isLoadingFile = loading?.agentId === agentId && loading?.kind === 'file'
 
+  const treePanel = (
+    <div className="w-full md:w-56 lg:w-64 md:border-r border-border overflow-y-auto p-2 md:flex-shrink-0">
+      {/* Parent directory button */}
+      {currentPath !== '.' && (
+        <button
+          onClick={() => {
+            const parts = currentPath.split('/')
+            parts.pop()
+            requestTree(parts.length > 0 ? parts.join('/') : '.')
+          }}
+          className="flex items-center gap-2 text-xs w-full text-left py-1 px-2 hover:bg-surface-hover rounded text-text-secondary"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          <span>{t('chat.workspaceParentDir')}</span>
+        </button>
+      )}
+
+      {isLoadingTree ? (
+        <div className="text-xs text-text-muted p-2">{t('chat.workspaceLoading')}</div>
+      ) : entries ? (
+        entries.length === 0 ? (
+          <div className="text-xs text-text-muted p-2">{t('chat.workspaceEmptyDir')}</div>
+        ) : (
+          entries.map((entry) => (
+            <button
+              key={entry.name}
+              onClick={() => {
+                const entryPath = currentPath === '.' ? entry.name : `${currentPath}/${entry.name}`
+                if (entry.type === 'directory') {
+                  requestTree(entryPath)
+                } else {
+                  requestFile(entryPath)
+                }
+              }}
+              className="flex items-center gap-2 text-xs w-full text-left py-1 px-2 hover:bg-surface-hover rounded"
+            >
+              {entry.type === 'directory' ? (
+                <FolderIcon className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+              ) : (
+                <FileIcon className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
+              )}
+              <span className="truncate flex-1">{entry.name}</span>
+              {entry.size != null && entry.type === 'file' && (
+                <span className="text-text-muted text-[10px]">
+                  {entry.size > 1024 ? `${Math.round(entry.size / 1024)}KB` : `${entry.size}B`}
+                </span>
+              )}
+            </button>
+          ))
+        )
+      ) : null}
+    </div>
+  )
+
+  const filePanel = (
+    <div className="flex-1 overflow-y-auto p-3 min-w-0">
+      {/* Back to tree button (mobile only) */}
+      <button
+        onClick={() => setMobileView('tree')}
+        className="md:hidden flex items-center gap-1 text-xs text-accent mb-2 hover:underline"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        {t('chat.workspaceParentDir')}
+      </button>
+      {isLoadingFile ? (
+        <div className="text-xs text-text-muted">{t('chat.workspaceLoading')}</div>
+      ) : fileContent && fileContent.agentId === agentId ? (
+        <div>
+          <div className="flex items-center gap-2 text-xs text-text-secondary mb-2 flex-wrap">
+            <span className="font-mono break-all">{fileContent.path}</span>
+            <span className="text-text-muted">
+              (
+              {fileContent.size > 1024
+                ? `${Math.round(fileContent.size / 1024)}KB`
+                : `${fileContent.size}B`}
+              )
+            </span>
+            {fileContent.truncated && (
+              <span className="text-warning-text">{t('chat.workspaceFileTooBig')}</span>
+            )}
+          </div>
+          <HighlightedCode content={fileContent.content} path={fileContent.path} />
+        </div>
+      ) : (
+        <div className="text-xs text-text-muted">{t('chat.workspaceSelectFile')}</div>
+      )}
+    </div>
+  )
+
   return (
     <div className="flex-1 flex overflow-hidden">
-      {/* Directory tree */}
-      <div className="w-64 border-r border-border overflow-y-auto p-2 flex-shrink-0">
-        {/* Parent directory button */}
-        {currentPath !== '.' && (
-          <button
-            onClick={() => {
-              const parts = currentPath.split('/')
-              parts.pop()
-              requestTree(parts.length > 0 ? parts.join('/') : '.')
-            }}
-            className="flex items-center gap-2 text-xs w-full text-left py-1 px-2 hover:bg-surface-hover rounded text-text-secondary"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            <span>{t('chat.workspaceParentDir')}</span>
-          </button>
-        )}
-
-        {isLoadingTree ? (
-          <div className="text-xs text-text-muted p-2">{t('chat.workspaceLoading')}</div>
-        ) : entries ? (
-          entries.length === 0 ? (
-            <div className="text-xs text-text-muted p-2">{t('chat.workspaceEmptyDir')}</div>
-          ) : (
-            entries.map((entry) => (
-              <button
-                key={entry.name}
-                onClick={() => {
-                  const entryPath =
-                    currentPath === '.' ? entry.name : `${currentPath}/${entry.name}`
-                  if (entry.type === 'directory') {
-                    requestTree(entryPath)
-                  } else {
-                    requestFile(entryPath)
-                  }
-                }}
-                className="flex items-center gap-2 text-xs w-full text-left py-1 px-2 hover:bg-surface-hover rounded"
-              >
-                {entry.type === 'directory' ? (
-                  <FolderIcon className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                ) : (
-                  <FileIcon className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
-                )}
-                <span className="truncate flex-1">{entry.name}</span>
-                {entry.size != null && entry.type === 'file' && (
-                  <span className="text-text-muted text-[10px]">
-                    {entry.size > 1024 ? `${Math.round(entry.size / 1024)}KB` : `${entry.size}B`}
-                  </span>
-                )}
-              </button>
-            ))
-          )
-        ) : null}
+      {/* Desktop: side-by-side. Mobile: toggle between tree and file */}
+      <div className="hidden md:contents">
+        {treePanel}
+        {filePanel}
       </div>
-
-      {/* File viewer */}
-      <div className="flex-1 overflow-y-auto p-3">
-        {isLoadingFile ? (
-          <div className="text-xs text-text-muted">{t('chat.workspaceLoading')}</div>
-        ) : fileContent && fileContent.agentId === agentId ? (
-          <div>
-            <div className="flex items-center gap-2 text-xs text-text-secondary mb-2">
-              <span className="font-mono">{fileContent.path}</span>
-              <span className="text-text-muted">
-                (
-                {fileContent.size > 1024
-                  ? `${Math.round(fileContent.size / 1024)}KB`
-                  : `${fileContent.size}B`}
-                )
-              </span>
-              {fileContent.truncated && (
-                <span className="text-warning-text">{t('chat.workspaceFileTooBig')}</span>
-              )}
-            </div>
-            <pre className="text-xs font-mono bg-surface-secondary rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
-              {fileContent.content}
-            </pre>
-          </div>
-        ) : (
-          <div className="text-xs text-text-muted">{t('chat.workspaceNoData')}</div>
-        )}
+      <div className="md:hidden flex-1 overflow-hidden">
+        {mobileView === 'tree' ? treePanel : filePanel}
       </div>
     </div>
   )
