@@ -8,8 +8,9 @@ import { useAgentStore } from '../stores/agents.js'
 import { useAuthStore } from '../stores/auth.js'
 import { showNotification } from '../lib/notifications.js'
 import { toast } from '../stores/toast.js'
+import { useWorkspaceStore } from '../stores/workspace.js'
 import { WS_ERROR_CODES } from '@agentim/shared'
-import type { ServerMessage } from '@agentim/shared'
+import type { ServerMessage, WorkspaceStatus } from '@agentim/shared'
 
 /** Track stream keys that have already shown a buffer-overflow toast. */
 const truncationToasted = new Set<string>()
@@ -84,6 +85,16 @@ export function useWebSocket() {
         }
         case 'server:message_chunk':
           try {
+            // Intercept workspace_status chunks → store for panel
+            if (msg.chunk.type === 'workspace_status') {
+              try {
+                const wsData = JSON.parse(msg.chunk.content) as WorkspaceStatus
+                const workDir = (msg.chunk.metadata?.workingDirectory as string) || ''
+                useWorkspaceStore.getState().setStatus(msg.agentId, wsData, workDir)
+              } catch {
+                // Ignore parse errors
+              }
+            }
             const { truncated } = chat.addStreamChunk(
               msg.roomId,
               msg.agentId,
@@ -259,6 +270,34 @@ export function useWebSocket() {
             } else {
               toast.error(msg.error ?? i18next.t('agent.spawnFailed'))
             }
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:workspace_response':
+          try {
+            const ws = useWorkspaceStore.getState()
+            const resp = msg.response as { kind: string; [key: string]: unknown }
+            if (resp.kind === 'status') {
+              ws.setStatus(msg.agentId, resp.data as WorkspaceStatus, '')
+            } else if (resp.kind === 'tree') {
+              ws.setTree(
+                msg.agentId,
+                resp.path as string,
+                resp.entries as import('@agentim/shared').DirectoryEntry[],
+              )
+            } else if (resp.kind === 'file') {
+              ws.setFileContent({
+                agentId: msg.agentId,
+                path: resp.path as string,
+                content: resp.content as string,
+                size: resp.size as number,
+                truncated: resp.truncated as boolean,
+              })
+            } else if (resp.kind === 'error') {
+              console.warn('[WS] Workspace error:', resp.message)
+            }
+            ws.setLoading(null)
           } catch (err) {
             console.error('[WS] Error handling message:', msg.type, err)
           }

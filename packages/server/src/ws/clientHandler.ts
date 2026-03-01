@@ -270,6 +270,8 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
         return await handleAgentCommand(ws, msg.agentId, msg.roomId, msg.command, msg.args)
       case 'client:query_agent_info':
         return await handleQueryAgentInfo(ws, msg.agentId)
+      case 'client:request_workspace':
+        return await handleRequestWorkspace(ws, msg.roomId, msg.agentId, msg.request)
       case 'client:ping':
         connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
@@ -1069,6 +1071,91 @@ async function handleQueryAgentInfo(ws: WSContext, agentId: string) {
   }
 }
 
+// ─── Workspace Request Routing ───
+// Map requestId → userId so gateway responses can be relayed back to the right client
+const MAX_PENDING_WORKSPACE = 10_000
+const WORKSPACE_REQUEST_TTL = 30_000
+
+interface PendingWorkspaceRequest {
+  userId: string
+  roomId: string
+  expiresAt: number
+}
+
+export const pendingWorkspaceRequests = new Map<string, PendingWorkspaceRequest>()
+
+// Periodic cleanup of expired workspace requests
+let workspaceCleanupTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of pendingWorkspaceRequests) {
+    if (now > entry.expiresAt) pendingWorkspaceRequests.delete(key)
+  }
+}, 30_000)
+workspaceCleanupTimer.unref()
+
+async function handleRequestWorkspace(
+  ws: WSContext,
+  roomId: string,
+  agentId: string,
+  request: { kind: string; path?: string },
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client || !client.joinedRooms.has(roomId)) return
+
+  // Verify agent is a member of this room
+  const [membership] = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, agentId),
+        eq(roomMembers.memberType, 'agent'),
+      ),
+    )
+    .limit(1)
+  if (!membership) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.NOT_A_MEMBER,
+      message: 'Agent is not a member of this room',
+    })
+    return
+  }
+
+  const requestId = nanoid()
+
+  // Enforce capacity limit
+  if (pendingWorkspaceRequests.size >= MAX_PENDING_WORKSPACE) {
+    const oldest = pendingWorkspaceRequests.keys().next().value
+    if (oldest) pendingWorkspaceRequests.delete(oldest)
+  }
+
+  pendingWorkspaceRequests.set(requestId, {
+    userId: client.userId,
+    roomId,
+    expiresAt: Date.now() + WORKSPACE_REQUEST_TTL,
+  })
+
+  const sent = connectionManager.sendToGateway(agentId, {
+    type: 'server:request_workspace',
+    agentId,
+    roomId,
+    requestId,
+    request,
+  })
+
+  if (!sent) {
+    pendingWorkspaceRequests.delete(requestId)
+    connectionManager.sendToClient(ws, {
+      type: 'server:workspace_response',
+      agentId,
+      requestId,
+      response: { kind: 'error', message: 'Agent is offline' },
+    })
+  }
+}
+
 export function handleClientDisconnect(ws: WSContext) {
   const client = connectionManager.getClient(ws)
   connectionManager.removeClient(ws)
@@ -1116,5 +1203,9 @@ export function stopClientHandlerCleanup() {
   if (typingDebounceTimer) {
     clearInterval(typingDebounceTimer)
     typingDebounceTimer = null
+  }
+  if (workspaceCleanupTimer) {
+    clearInterval(workspaceCleanupTimer)
+    workspaceCleanupTimer = null
   }
 }

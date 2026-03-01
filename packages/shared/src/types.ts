@@ -216,6 +216,14 @@ export interface WorkspaceStatus {
   recentCommits?: Array<{ hash: string; message: string }>
 }
 
+// ─── Directory Listing ───
+
+export interface DirectoryEntry {
+  name: string
+  type: 'file' | 'directory'
+  size?: number
+}
+
 // ─── Auth ───
 
 export interface AuthTokens {

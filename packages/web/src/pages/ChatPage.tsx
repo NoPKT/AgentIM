@@ -12,6 +12,7 @@ import { MessageInput } from '../components/MessageInput.js'
 import { RoomSettingsDrawer } from '../components/RoomSettingsDrawer.js'
 import { SearchDialog } from '../components/SearchDialog.js'
 import { TerminalViewer } from '../components/TerminalViewer.js'
+import { WorkspacePanel } from '../components/WorkspacePanel.js'
 import { PermissionCard, type PermissionRequestData } from '../components/PermissionCard.js'
 import { CachedDataBanner } from '../components/CachedDataBanner.js'
 import { useConnectionStatus } from '../hooks/useConnectionStatus.js'
@@ -23,6 +24,7 @@ import { AddAgentDialog } from '../components/AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
 import {
   TerminalIcon,
+  WorkspaceIcon,
   SearchIcon,
   SettingsIcon,
   ChatBubbleIcon,
@@ -42,6 +44,7 @@ export default function ChatPage() {
   const [membersOpen, setMembersOpen] = useState(false)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
@@ -294,17 +297,19 @@ export default function ChatPage() {
         </div>
         <div className="flex items-center gap-1">
           {agentMembers.length > 0 && (
-            <div className="relative">
+            <>
               <button
                 onClick={() => {
                   if (terminalAgentId) {
                     setTerminalAgentId(null)
-                  } else if (agentMembers.length === 1) {
-                    setTerminalAgentId(agentMembers[0].memberId)
                   } else {
-                    // Toggle first agent with terminal data, or first agent
-                    const withData = agentMembers.find((m) => terminalBuffers.has(m.memberId))
-                    setTerminalAgentId(withData?.memberId ?? agentMembers[0].memberId)
+                    setWorkspaceOpen(false) // mutual exclusion
+                    if (agentMembers.length === 1) {
+                      setTerminalAgentId(agentMembers[0].memberId)
+                    } else {
+                      const withData = agentMembers.find((m) => terminalBuffers.has(m.memberId))
+                      setTerminalAgentId(withData?.memberId ?? agentMembers[0].memberId)
+                    }
                   }
                 }}
                 className={`p-2 rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -316,7 +321,25 @@ export default function ChatPage() {
               >
                 <TerminalIcon className="w-5 h-5" />
               </button>
-            </div>
+              <button
+                onClick={() => {
+                  if (workspaceOpen) {
+                    setWorkspaceOpen(false)
+                  } else {
+                    setTerminalAgentId(null) // mutual exclusion
+                    setWorkspaceOpen(true)
+                  }
+                }}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  workspaceOpen
+                    ? 'bg-surface-hover text-text-primary'
+                    : 'hover:bg-surface-hover text-text-muted hover:text-text-secondary'
+                }`}
+                title={t('chat.workspace')}
+              >
+                <WorkspaceIcon className="w-5 h-5" />
+              </button>
+            </>
           )}
           <button
             onClick={() => setSearchOpen(true)}
@@ -452,6 +475,15 @@ export default function ChatPage() {
                 onClose={() => setTerminalAgentId(null)}
               />
             </ErrorBoundary>
+          )}
+
+          {/* Workspace Panel */}
+          {workspaceOpen && agentMembers.length > 0 && (
+            <WorkspacePanel
+              roomId={currentRoomId}
+              agentMembers={agentMembers}
+              onClose={() => setWorkspaceOpen(false)}
+            />
           )}
 
           {/* Input */}

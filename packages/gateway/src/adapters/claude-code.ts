@@ -64,7 +64,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       const options: Options = {
         allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
         cwd: this.workingDirectory,
-        env: Object.keys(this.env).length > 0 ? this.env : undefined,
+        env: Object.keys(this.env).length > 0 ? { ...process.env, ...this.env } : undefined,
       }
 
       if (this.permissionLevel === 'bypass') {

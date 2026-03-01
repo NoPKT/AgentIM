@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LazyMarkdown } from './LazyMarkdown.js'
-import type { ParsedChunk, WorkspaceStatus, WorkspaceFileChange } from '@agentim/shared'
+import type { ParsedChunk } from '@agentim/shared'
 
 export interface ChunkGroup {
   type: ParsedChunk['type']
@@ -702,218 +702,6 @@ export function TextBlock({
   )
 }
 
-// ─── Workspace Status Block ───
-
-function FileStatusIcon({ status }: { status: WorkspaceFileChange['status'] }) {
-  switch (status) {
-    case 'added':
-      return <span className="text-green-500 font-bold text-xs">A</span>
-    case 'modified':
-      return <span className="text-yellow-500 font-bold text-xs">M</span>
-    case 'deleted':
-      return <span className="text-red-500 font-bold text-xs">D</span>
-    case 'renamed':
-      return <span className="text-blue-500 font-bold text-xs">R</span>
-    default:
-      return <span className="text-gray-500 font-bold text-xs">?</span>
-  }
-}
-
-type DiffRow = {
-  type: 'hunk' | 'add' | 'del' | 'ctx'
-  old?: number
-  new?: number
-  text: string
-}
-
-function DiffView({ diff }: { diff: string }) {
-  const lines = diff.split('\n')
-  let oldLine = 0
-  let newLine = 0
-  const rows: DiffRow[] = []
-
-  for (const line of lines) {
-    if (
-      line.startsWith('diff --git') ||
-      line.startsWith('index ') ||
-      line.startsWith('--- ') ||
-      line.startsWith('+++ ')
-    ) {
-      continue
-    }
-    if (line.startsWith('@@')) {
-      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)/)
-      if (m) {
-        oldLine = +m[1]
-        newLine = +m[2]
-      }
-      rows.push({ type: 'hunk', text: line })
-    } else if (line.startsWith('+')) {
-      rows.push({ type: 'add', new: newLine++, text: line.slice(1) })
-    } else if (line.startsWith('-')) {
-      rows.push({ type: 'del', old: oldLine++, text: line.slice(1) })
-    } else {
-      rows.push({
-        type: 'ctx',
-        old: oldLine++,
-        new: newLine++,
-        text: line.startsWith(' ') ? line.slice(1) : line,
-      })
-    }
-  }
-
-  return (
-    <div className="ml-5 mt-1 mb-2 overflow-x-auto max-h-60 overflow-y-auto rounded-md border border-border">
-      <table className="text-xs font-mono w-full border-collapse">
-        <tbody>
-          {rows.map((r, i) => {
-            const rowBg =
-              r.type === 'add'
-                ? 'bg-green-500/10'
-                : r.type === 'del'
-                  ? 'bg-red-500/10'
-                  : r.type === 'hunk'
-                    ? 'bg-blue-500/10'
-                    : ''
-            const textCls =
-              r.type === 'add'
-                ? 'text-green-700 dark:text-green-300'
-                : r.type === 'del'
-                  ? 'text-red-700 dark:text-red-300'
-                  : r.type === 'hunk'
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : ''
-            return (
-              <tr key={i} className={rowBg}>
-                <td className="select-none text-right pr-2 pl-2 text-text-muted/50 w-[1%] whitespace-nowrap">
-                  {r.old ?? ''}
-                </td>
-                <td className="select-none text-right pr-2 text-text-muted/50 w-[1%] whitespace-nowrap border-r border-border">
-                  {r.new ?? ''}
-                </td>
-                {r.type === 'hunk' ? (
-                  <td className={`px-2 whitespace-pre ${textCls} italic`}>{r.text}</td>
-                ) : (
-                  <td className={`px-2 whitespace-pre ${textCls}`}>{r.text}</td>
-                )}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div>
-      <button
-        onClick={() => file.diff && setExpanded(!expanded)}
-        aria-expanded={file.diff ? expanded : undefined}
-        className="flex items-center gap-2 text-xs w-full text-left py-0.5 hover:bg-surface-hover rounded px-1"
-      >
-        <FileStatusIcon status={file.status} />
-        <span className="font-mono truncate flex-1">{file.path}</span>
-        {file.additions != null && file.additions > 0 && (
-          <span className="text-green-500 text-xs">+{file.additions}</span>
-        )}
-        {file.deletions != null && file.deletions > 0 && (
-          <span className="text-red-500 text-xs">-{file.deletions}</span>
-        )}
-        {file.diff && (
-          <svg
-            className={`w-3 h-3 text-text-muted transition-transform ${expanded ? 'rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        )}
-      </button>
-      {expanded && file.diff && <DiffView diff={file.diff} />}
-    </div>
-  )
-}
-
-export function WorkspaceStatusBlock({ content }: { content: string }) {
-  const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
-
-  let status: WorkspaceStatus | null = null
-  try {
-    status = JSON.parse(content) as WorkspaceStatus
-  } catch {
-    return null
-  }
-
-  if (!status || status.changedFiles.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="my-3 border border-border rounded-lg overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        aria-expanded={expanded}
-        className="flex items-center gap-2 w-full text-left px-3 py-2 bg-surface-secondary hover:bg-surface-hover transition-colors"
-      >
-        <svg
-          className={`w-3.5 h-3.5 text-text-muted transition-transform ${expanded ? 'rotate-90' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-        <svg
-          className="w-4 h-4 text-orange-500"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7l4-4h8l4 4M4 7h16"
-          />
-        </svg>
-        <span className="text-xs font-medium text-text-primary">{t('chat.workspaceChanges')}</span>
-        <span className="text-xs text-text-muted">{status.branch}</span>
-        <span className="ml-auto text-xs text-text-muted">
-          {t('chat.filesChanged', { count: status.summary.filesChanged })}
-        </span>
-        <span className="text-green-500 text-xs">+{status.summary.additions}</span>
-        <span className="text-red-500 text-xs">-{status.summary.deletions}</span>
-      </button>
-      {expanded && (
-        <div className="px-3 py-2 space-y-1">
-          {status.changedFiles.map((file, i) => (
-            <WorkspaceFileItem key={i} file={file} />
-          ))}
-          {status.recentCommits && status.recentCommits.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border">
-              <div className="text-xs font-medium text-text-secondary mb-1">
-                {t('chat.recentCommits')}
-              </div>
-              {status.recentCommits.map((commit, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-                  <code className="text-orange-500 font-mono">{commit.hash}</code>
-                  <span className="text-text-secondary truncate">{commit.message}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** Batch type for collapsed consecutive groups */
 interface CollapsedBatch {
   type: 'read_batch' | 'tool_batch' | 'thinking_batch'
@@ -1123,7 +911,8 @@ export function ChunkGroupRenderer({
           case 'error':
             return <ErrorBlock key={key} content={g.content} />
           case 'workspace_status':
-            return <WorkspaceStatusBlock key={key} content={g.content} />
+            // Workspace status is now shown in the dedicated panel, not inline
+            return null
           case 'text':
             return <TextBlock key={key} content={g.content} isStreaming={isLast} />
           default:

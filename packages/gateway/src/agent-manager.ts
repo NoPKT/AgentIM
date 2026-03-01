@@ -14,10 +14,12 @@ import type {
   ServerAgentCommand,
   ServerQueryAgentInfo,
   ServerSpawnAgent,
+  ServerRequestWorkspace,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
 import { getWorkspaceStatus } from './lib/git-utils.js'
+import { getDirectoryListing, getFileContent } from './lib/fs-utils.js'
 
 const log = createLogger('AgentManager')
 
@@ -290,7 +292,8 @@ export class AgentManager {
       | ServerPermissionResponse
       | ServerAgentCommand
       | ServerQueryAgentInfo
-      | ServerSpawnAgent,
+      | ServerSpawnAgent
+      | ServerRequestWorkspace,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -308,6 +311,8 @@ export class AgentManager {
       this.handleQueryAgentInfo(msg)
     } else if (msg.type === 'server:spawn_agent') {
       this.handleSpawnAgent(msg)
+    } else if (msg.type === 'server:request_workspace') {
+      this.handleRequestWorkspace(msg)
     }
   }
 
@@ -680,6 +685,93 @@ export class AgentManager {
       mcpServers: adapter.getMcpServers(),
       model: adapter.getModel(),
     })
+  }
+
+  private async handleRequestWorkspace(msg: ServerRequestWorkspace) {
+    const adapter = this.adapters.get(msg.agentId)
+    if (!adapter) {
+      log.warn(`Agent not found for workspace request: ${msg.agentId}`)
+      this.wsClient.send({
+        type: 'gateway:workspace_response',
+        agentId: msg.agentId,
+        requestId: msg.requestId,
+        response: { kind: 'error', message: 'Agent not found' },
+      })
+      return
+    }
+
+    const workingDir = adapter.workingDirectory
+    if (!workingDir) {
+      this.wsClient.send({
+        type: 'gateway:workspace_response',
+        agentId: msg.agentId,
+        requestId: msg.requestId,
+        response: { kind: 'error', message: 'Agent has no working directory' },
+      })
+      return
+    }
+
+    const WORKSPACE_REQUEST_TIMEOUT = 15_000
+    try {
+      let timeoutTimer: ReturnType<typeof setTimeout> | undefined
+      const result = await Promise.race([
+        this.executeWorkspaceRequest(workingDir, msg.request),
+        new Promise<never>((_, reject) => {
+          timeoutTimer = setTimeout(
+            () => reject(new Error('Workspace request timed out')),
+            WORKSPACE_REQUEST_TIMEOUT,
+          )
+          timeoutTimer.unref()
+        }),
+      ]).finally(() => {
+        if (timeoutTimer) clearTimeout(timeoutTimer)
+      })
+
+      this.wsClient.send({
+        type: 'gateway:workspace_response',
+        agentId: msg.agentId,
+        requestId: msg.requestId,
+        response: result,
+      })
+    } catch (err) {
+      log.warn(`Workspace request failed for agent ${msg.agentId}: ${(err as Error).message}`)
+      this.wsClient.send({
+        type: 'gateway:workspace_response',
+        agentId: msg.agentId,
+        requestId: msg.requestId,
+        response: { kind: 'error', message: (err as Error).message },
+      })
+    }
+  }
+
+  private async executeWorkspaceRequest(
+    workingDir: string,
+    request: ServerRequestWorkspace['request'],
+  ) {
+    switch (request.kind) {
+      case 'status': {
+        const status = await getWorkspaceStatus(workingDir)
+        if (!status) {
+          return {
+            kind: 'status' as const,
+            data: {
+              branch: 'unknown',
+              changedFiles: [],
+              summary: { filesChanged: 0, additions: 0, deletions: 0 },
+            },
+          }
+        }
+        return { kind: 'status' as const, data: status }
+      }
+      case 'tree': {
+        const entries = await getDirectoryListing(workingDir, request.path)
+        return { kind: 'tree' as const, path: request.path ?? '.', entries }
+      }
+      case 'file': {
+        const result = await getFileContent(workingDir, request.path)
+        return { kind: 'file' as const, path: request.path, ...result }
+      }
+    }
   }
 
   async disposeAll() {

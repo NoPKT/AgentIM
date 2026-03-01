@@ -585,6 +585,17 @@ export const clientQueryAgentInfoSchema = z.object({
   agentId: z.string().min(1),
 })
 
+export const clientRequestWorkspaceSchema = z.object({
+  type: z.literal('client:request_workspace'),
+  roomId: z.string().min(1),
+  agentId: z.string().min(1),
+  request: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('status') }),
+    z.object({ kind: z.literal('tree'), path: z.string().max(4096).optional() }),
+    z.object({ kind: z.literal('file'), path: z.string().min(1).max(4096) }),
+  ]),
+})
+
 export const clientPingSchema = z.object({
   type: z.literal('client:ping'),
   ts: z.number(),
@@ -600,6 +611,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientPermissionResponseSchema,
   clientAgentCommandSchema,
   clientQueryAgentInfoSchema,
+  clientRequestWorkspaceSchema,
   clientPingSchema,
 ])
 
@@ -712,6 +724,34 @@ export const gatewaySpawnResultSchema = z.object({
   error: z.string().optional(),
 })
 
+export const gatewayWorkspaceResponseSchema = z.object({
+  type: z.literal('gateway:workspace_response'),
+  agentId: z.string().min(1),
+  requestId: z.string().min(1),
+  response: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('status'), data: z.record(z.string(), z.unknown()) }),
+    z.object({
+      kind: z.literal('tree'),
+      path: z.string(),
+      entries: z.array(
+        z.object({
+          name: z.string(),
+          type: z.enum(['file', 'directory']),
+          size: z.number().optional(),
+        }),
+      ),
+    }),
+    z.object({
+      kind: z.literal('file'),
+      path: z.string(),
+      content: z.string(),
+      size: z.number(),
+      truncated: z.boolean(),
+    }),
+    z.object({ kind: z.literal('error'), message: z.string() }),
+  ]),
+})
+
 export const gatewayPingSchema = z.object({
   type: z.literal('gateway:ping'),
   ts: z.number(),
@@ -730,6 +770,7 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAgentCommandResultSchema,
   gatewayAgentInfoSchema,
   gatewaySpawnResultSchema,
+  gatewayWorkspaceResponseSchema,
   gatewayPingSchema,
 ])
 

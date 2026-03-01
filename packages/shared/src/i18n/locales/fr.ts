@@ -235,6 +235,17 @@ export const fr = {
     streamBufferOverflow: 'La réponse est très longue. Le contenu précédent a été tronqué.',
     searchShortcutHint: '{{modifier}}+K',
     editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Entrée {{save}}',
+    workspace: 'Espace de travail',
+    workspaceFiles: 'Fichiers',
+    workspaceNoData:
+      "Pas encore de données d'espace de travail. Envoyez un message à un agent pour voir les modifications.",
+    workspaceNoAgents: 'Aucun agent avec espace de travail dans cette salle',
+    workspaceRefresh: 'Actualiser',
+    workspaceLoading: 'Chargement...',
+    workspaceFileTooBig: 'Fichier trop volumineux pour être affiché',
+    workspaceEmptyDir: 'Répertoire vide',
+    workspaceBranch: 'Branche : {{branch}}',
+    workspaceParentDir: 'Répertoire parent',
   },
   agent: {
     agents: 'Agents',

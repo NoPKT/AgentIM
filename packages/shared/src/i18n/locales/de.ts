@@ -235,6 +235,17 @@ export const de = {
     streamBufferOverflow: 'Die Antwort ist sehr lang. Früherer Inhalt wurde gekürzt.',
     searchShortcutHint: '{{modifier}}+K',
     editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Eingabe {{save}}',
+    workspace: 'Arbeitsbereich',
+    workspaceFiles: 'Dateien',
+    workspaceNoData:
+      'Noch keine Arbeitsbereichsdaten. Sende eine Nachricht an einen Agenten, um Änderungen zu sehen.',
+    workspaceNoAgents: 'Keine Agenten mit Arbeitsbereich in diesem Raum',
+    workspaceRefresh: 'Aktualisieren',
+    workspaceLoading: 'Laden...',
+    workspaceFileTooBig: 'Datei zu groß zur Anzeige',
+    workspaceEmptyDir: 'Leeres Verzeichnis',
+    workspaceBranch: 'Branch: {{branch}}',
+    workspaceParentDir: 'Übergeordnetes Verzeichnis',
   },
   agent: {
     agents: 'Agenten',

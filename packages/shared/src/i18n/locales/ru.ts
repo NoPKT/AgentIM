@@ -233,6 +233,17 @@ export const ru = {
     streamBufferOverflow: 'Ответ очень длинный. Более ранний контент был обрезан.',
     searchShortcutHint: '{{modifier}}+K',
     editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Enter {{save}}',
+    workspace: 'Рабочая область',
+    workspaceFiles: 'Файлы',
+    workspaceNoData:
+      'Данных рабочей области пока нет. Отправьте сообщение агенту, чтобы увидеть изменения.',
+    workspaceNoAgents: 'В этой комнате нет агентов с рабочей областью',
+    workspaceRefresh: 'Обновить',
+    workspaceLoading: 'Загрузка...',
+    workspaceFileTooBig: 'Файл слишком большой для отображения',
+    workspaceEmptyDir: 'Пустая директория',
+    workspaceBranch: 'Ветка: {{branch}}',
+    workspaceParentDir: 'Родительская директория',
   },
   agent: {
     agents: 'Агенты',

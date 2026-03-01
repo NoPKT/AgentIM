@@ -40,8 +40,8 @@ export async function getWorkspaceStatus(
   try {
     const [branch, diffStat, diffContent, logOutput] = await Promise.all([
       execGit(['rev-parse', '--abbrev-ref', 'HEAD'], workingDirectory),
-      execGit(['diff', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
-      execGit(['diff', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', '--no-renames', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', '--no-renames', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['log', '--oneline', '-3'], workingDirectory).catch(() => ''),
     ])
 
@@ -65,14 +65,28 @@ export async function getWorkspaceStatus(
       // Parse individual file stat lines: " path/to/file | 5 ++--"
       const match = line.match(/^\s*(.+?)\s+\|\s+(\d+)\s*([+-]*)/)
       if (match) {
-        const path = match[1].trim()
-        if (knownPaths.has(path)) continue
-        knownPaths.add(path)
+        let path = match[1].trim()
         const additions = (match[3].match(/\+/g) || []).length
         const deletions = (match[3].match(/-/g) || []).length
 
         let status: WorkspaceFileChange['status'] = 'modified'
-        if (line.includes('=>')) status = 'renamed'
+        // Handle rename format: "old => new" or "{prefix/}{old => new}{/suffix}"
+        if (path.includes('=>')) {
+          status = 'renamed'
+          const renameMatch = path.match(/\{(.*)=> (.+?)\}/)
+          if (renameMatch) {
+            // Format: prefix/{old => new}/suffix → prefix/new/suffix
+            const prefix = path.slice(0, path.indexOf('{'))
+            const suffix = path.slice(path.indexOf('}') + 1)
+            path = prefix + renameMatch[2].trim() + suffix
+          } else {
+            // Format: old => new
+            path = path.split('=>').pop()!.trim()
+          }
+        }
+
+        if (knownPaths.has(path)) continue
+        knownPaths.add(path)
 
         changedFiles.push({
           path,
@@ -105,7 +119,7 @@ export async function getWorkspaceStatus(
       )
       for (const line of statusOutput.split('\n').filter(Boolean)) {
         const code = line.slice(0, 2).trim()
-        const path = line.slice(3)
+        const path = line.slice(3).trim()
         if (!knownPaths.has(path)) {
           knownPaths.add(path)
           let status: WorkspaceFileChange['status'] = 'modified'

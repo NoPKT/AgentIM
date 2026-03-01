@@ -34,6 +34,7 @@ import { getRouterConfig, type RouterConfig } from '../lib/routerConfig.js'
 import { buildAgentNameMap } from '../lib/agentUtils.js'
 import { isWebPushEnabled, sendPushToUser } from '../lib/webPush.js'
 import { safeJsonParse } from '../lib/json.js'
+import { pendingWorkspaceRequests } from './clientHandler.js'
 
 const log = createLogger('GatewayHandler')
 
@@ -200,6 +201,8 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return handleAgentInfoResponse(ws, msg)
       case 'gateway:spawn_result':
         return handleSpawnResult(ws, msg)
+      case 'gateway:workspace_response':
+        return handleWorkspaceResponse(ws, msg)
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return
@@ -1054,6 +1057,46 @@ async function handleAgentInfoResponse(
       type: 'server:agent_info',
       agent: enrichedAgent,
     })
+  }
+}
+
+// ─── Workspace Response Relay ───
+
+function handleWorkspaceResponse(
+  ws: WSContext,
+  msg: {
+    agentId: string
+    requestId: string
+    response: { kind: string; [key: string]: unknown }
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw || !gw.agentIds.has(msg.agentId)) {
+    log.warn(`Gateway attempted to send workspace response for unowned agent ${msg.agentId}`)
+    return
+  }
+
+  const pending = pendingWorkspaceRequests.get(msg.requestId)
+  if (!pending) {
+    log.warn(`No pending workspace request for requestId=${msg.requestId}`)
+    return
+  }
+
+  pendingWorkspaceRequests.delete(msg.requestId)
+
+  // Relay to the user's clients in the room
+  const clients = connectionManager.getClientsInRoom(pending.roomId)
+  const responseMsg = {
+    type: 'server:workspace_response' as const,
+    agentId: msg.agentId,
+    requestId: msg.requestId,
+    response: msg.response,
+  }
+
+  for (const client of clients) {
+    if (client.userId === pending.userId) {
+      connectionManager.sendToClient(client.ws, responseMsg)
+    }
   }
 }
 
