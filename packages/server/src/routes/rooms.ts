@@ -575,6 +575,13 @@ roomRoutes.put('/:id/clear', async (c) => {
       ),
     )
 
+  // Notify all of this user's connected clients so other devices sync
+  connectionManager.broadcastToUser(userId, {
+    type: 'server:room_cleared',
+    roomId,
+    clearedAt,
+  })
+
   return c.json({ ok: true, data: { clearedAt } })
 })
 

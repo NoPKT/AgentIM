@@ -238,6 +238,19 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:room_cleared':
+          try {
+            // Another device of this user cleared the room — sync local state
+            const msgs = new Map(chat.messages)
+            msgs.set(msg.roomId, [])
+            useChatStore.setState({ messages: msgs })
+            import('../lib/message-cache.js').then((mc) =>
+              mc.clearRoomCache(msg.roomId).catch(() => {}),
+            )
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:spawn_result':
           try {
             if (msg.success) {

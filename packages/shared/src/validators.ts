@@ -1017,6 +1017,12 @@ export const serverRoomRemovedSchema = z.object({
   roomId: z.string(),
 })
 
+export const serverRoomClearedSchema = z.object({
+  type: z.literal('server:room_cleared'),
+  roomId: z.string().min(1),
+  clearedAt: z.string().min(1),
+})
+
 export const serverSpawnResultSchema = z.object({
   type: z.literal('server:spawn_result'),
   requestId: z.string().min(1),
@@ -1057,6 +1063,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverReactionUpdateSchema,
   serverPermissionRequestSchema,
   serverPermissionRequestExpiredSchema,
+  serverRoomClearedSchema,
   serverSpawnResultSchema,
   serverPongSchema,
   serverErrorSchema,
