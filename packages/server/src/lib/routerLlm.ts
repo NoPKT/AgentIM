@@ -248,7 +248,6 @@ export async function selectAgents(
             { role: 'system', content: systemContent },
             { role: 'user', content: userContent },
           ],
-          temperature: 0,
           max_completion_tokens: 256,
         }),
         signal: controller.signal,

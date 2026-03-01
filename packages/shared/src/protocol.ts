@@ -226,6 +226,12 @@ export interface ServerRoomRemoved {
   roomId: string
 }
 
+export interface ServerRoomCleared {
+  type: 'server:room_cleared'
+  roomId: string
+  clearedAt: string
+}
+
 export interface ServerSpawnResult {
   type: 'server:spawn_result'
   requestId: string
@@ -255,6 +261,7 @@ export type ServerMessage =
   | ServerReactionUpdate
   | ServerPermissionRequest
   | ServerPermissionRequestExpired
+  | ServerRoomCleared
   | ServerSpawnResult
   | ServerPong
   | ServerError
@@ -526,6 +533,7 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:reaction_update',
   'server:permission_request',
   'server:permission_request_expired',
+  'server:room_cleared',
   'server:spawn_result',
   'server:pong',
   'server:error',
