@@ -88,7 +88,11 @@ export function AppLayout() {
       </a>
 
       {/* Main Content — rendered before sidebar in DOM so sidebar paints on top */}
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0 outline-none">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 flex flex-col min-h-0 min-w-0 outline-none"
+      >
         {/* Mobile top bar */}
         <div className="lg:hidden h-16 flex items-center px-4 bg-surface border-b border-border">
           <button

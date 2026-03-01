@@ -517,7 +517,7 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
   const isLoading = loading?.agentId === selectedAgentId
 
   return (
-    <div className="border-t border-border flex flex-col h-72 min-w-0">
+    <div className="border-t border-border flex flex-col h-72 min-w-0 overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-secondary border-b border-border flex-shrink-0">
         {/* Agent selector */}

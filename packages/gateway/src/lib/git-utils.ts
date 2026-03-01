@@ -38,14 +38,30 @@ export async function getWorkspaceStatus(
   }
 
   try {
-    const [branch, diffStat, diffContent, logOutput] = await Promise.all([
+    const [branch, diffStat, diffContent, logOutput, statusOutput] = await Promise.all([
       execGit(['rev-parse', '--abbrev-ref', 'HEAD'], workingDirectory),
       execGit(['diff', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['diff', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['log', '--oneline', '-3'], workingDirectory).catch(() => ''),
+      execGit(['status', '--porcelain', '--no-renames'], workingDirectory).catch(() => ''),
     ])
 
-    // Parse --stat output for file change summary
+    // ── 1. Parse git status (authoritative source for which files changed) ──
+
+    // statusPaths = set of every real file path reported by git status
+    const statusPaths = new Set<string>()
+    const statusCodes = new Map<string, string>()
+    for (const line of statusOutput.split('\n').filter(Boolean)) {
+      const code = line.slice(0, 2).trim()
+      const path = line.slice(3).trim()
+      if (path) {
+        statusPaths.add(path)
+        statusCodes.set(path, code)
+      }
+    }
+
+    // ── 2. Parse diff --stat for additions/deletions counts ──
+
     const statLines = diffStat.split('\n').filter(Boolean)
     const changedFiles: WorkspaceFileChange[] = []
     const knownPaths = new Set<string>()
@@ -73,23 +89,36 @@ export async function getWorkspaceStatus(
         // Handle rename format: "old => new" or "{prefix/}{old => new}{/suffix}"
         if (path.includes('=>')) {
           status = 'renamed'
+          let oldName: string
+          let newName: string
           const renameMatch = path.match(/\{(.*)=> (.+?)\}/)
           if (renameMatch) {
             // Format: prefix/{old => new}/suffix — show both names
             const prefix = path.slice(0, path.indexOf('{'))
             const suffix = path.slice(path.indexOf('}') + 1)
-            const oldName = prefix + renameMatch[1].trim() + suffix
-            const newName = prefix + renameMatch[2].trim() + suffix
-            path = `${oldName} \u2192 ${newName}`
+            oldName = prefix + renameMatch[1].trim() + suffix
+            newName = prefix + renameMatch[2].trim() + suffix
           } else {
             // Format: old => new — show both names
             const parts = path.split('=>')
-            path = `${parts[0].trim()} \u2192 ${parts[1].trim()}`
+            oldName = parts[0].trim()
+            newName = parts[1].trim()
           }
+          path = `${oldName} \u2192 ${newName}`
+          // Register both old and new actual paths so git status won't
+          // re-add them as separate entries (--no-renames splits renames
+          // into D + A pairs).
+          knownPaths.add(oldName)
+          knownPaths.add(newName)
         }
 
         if (knownPaths.has(path)) continue
         knownPaths.add(path)
+
+        // Only include files confirmed by git status. diff --stat can report
+        // stale entries (e.g. renames where one side no longer exists) that
+        // git status does not list; drop those to avoid phantom files.
+        if (status !== 'renamed' && !statusPaths.has(path)) continue
 
         changedFiles.push({
           path,
@@ -101,7 +130,8 @@ export async function getWorkspaceStatus(
       }
     }
 
-    // Parse per-file diffs (truncate total to MAX_DIFF_SIZE)
+    // ── 3. Parse per-file diffs ──
+
     const truncatedDiff =
       diffContent.length > MAX_DIFF_SIZE ? diffContent.slice(0, MAX_DIFF_SIZE) : diffContent
 
@@ -120,32 +150,23 @@ export async function getWorkspaceStatus(
       }
     }
 
-    // Also check for untracked/added/deleted files via git status
-    try {
-      const statusOutput = await execGit(
-        ['status', '--porcelain', '--no-renames'],
-        workingDirectory,
-      )
-      for (const line of statusOutput.split('\n').filter(Boolean)) {
-        const code = line.slice(0, 2).trim()
-        const path = line.slice(3).trim()
+    // ── 4. Add files from git status that diff --stat missed ──
 
-        if (!knownPaths.has(path)) {
-          knownPaths.add(path)
-          let status: WorkspaceFileChange['status'] = 'modified'
-          if (code === '??' || code.startsWith('A')) status = 'added'
-          else if (code.startsWith('D')) status = 'deleted'
-          changedFiles.push({ path, status })
-        } else {
-          const existing = changedFiles.find((f) => f.path === path)
-          if (existing) {
-            if (code.startsWith('D')) existing.status = 'deleted'
-            else if (code === '??' || code.startsWith('A')) existing.status = 'added'
-          }
+    for (const [path, code] of statusCodes) {
+      if (knownPaths.has(path)) {
+        // Already in changedFiles — update status from git status
+        const existing = changedFiles.find((f) => f.path === path)
+        if (existing) {
+          if (code.startsWith('D')) existing.status = 'deleted'
+          else if (code === '??' || code.startsWith('A')) existing.status = 'added'
         }
+      } else {
+        knownPaths.add(path)
+        let status: WorkspaceFileChange['status'] = 'modified'
+        if (code === '??' || code.startsWith('A')) status = 'added'
+        else if (code.startsWith('D')) status = 'deleted'
+        changedFiles.push({ path, status })
       }
-    } catch {
-      // git status failed, continue with diff-only info
     }
 
     // Parse recent commits
