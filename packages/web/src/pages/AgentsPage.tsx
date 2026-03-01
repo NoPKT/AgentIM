@@ -86,64 +86,60 @@ export default function AgentsPage() {
     )
   }
 
-  if (agents.length === 0) {
-    return (
-      <div
-        data-testid="agents-empty"
-        className="flex-1 flex items-center justify-center bg-surface-secondary px-4"
-      >
-        <div className="text-center max-w-md">
-          <svg
-            className="mx-auto h-16 w-16 text-text-muted"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
-          </svg>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('agent.noAgents')}</h3>
-          <p className="mt-2 text-sm text-text-secondary">{t('agent.noAgentsDesc')}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-text-primary">{t('agent.agents')}</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {t('agent.agentsConnected', { count: agents.length })}
-          </p>
-        </div>
+        {/* Agents Section */}
+        {agents.length > 0 ? (
+          <>
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-text-primary">{t('agent.agents')}</h1>
+              <p className="mt-1 text-sm text-text-secondary">
+                {t('agent.agentsConnected', { count: agents.length })}
+              </p>
+            </div>
 
-        <div
-          data-testid="agents-list"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-        >
-          {agents.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              onInfoClick={() => setSelectedAgentId(agent.id)}
+            <div
+              data-testid="agents-list"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              {agents.map((agent) => (
+                <AgentCard
+                  key={agent.id}
+                  agent={agent}
+                  onInfoClick={() => setSelectedAgentId(agent.id)}
+                />
+              ))}
+            </div>
+
+            <AgentInfoModal
+              agentId={selectedAgentId}
+              isOpen={!!selectedAgentId}
+              onClose={() => setSelectedAgentId(null)}
+              isOwner
             />
-          ))}
-        </div>
+          </>
+        ) : (
+          <div data-testid="agents-empty" className="text-center py-12">
+            <svg
+              className="mx-auto h-16 w-16 text-text-muted"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            <h3 className="mt-4 text-lg font-semibold text-text-primary">{t('agent.noAgents')}</h3>
+            <p className="mt-2 text-sm text-text-secondary">{t('agent.noAgentsDesc')}</p>
+          </div>
+        )}
 
-        <AgentInfoModal
-          agentId={selectedAgentId}
-          isOpen={!!selectedAgentId}
-          onClose={() => setSelectedAgentId(null)}
-          isOwner
-        />
-
-        {/* Gateways Section */}
+        {/* Gateways Section — always visible so users can spawn agents on daemon gateways */}
         {gateways.length > 0 && (
           <div className="mt-10">
             <h2 className="text-xl font-bold text-text-primary mb-1">{t('agent.gateways')}</h2>
