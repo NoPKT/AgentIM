@@ -249,7 +249,7 @@ export async function selectAgents(
             { role: 'user', content: userContent },
           ],
           temperature: 0,
-          max_tokens: 256,
+          max_completion_tokens: 256,
         }),
         signal: controller.signal,
       })
@@ -266,7 +266,13 @@ export async function selectAgents(
     }
 
     if (!res.ok) {
-      log.warn(`Router LLM HTTP error: status ${res.status} ${res.statusText}`)
+      let detail = ''
+      try {
+        detail = ` — ${(await res.text()).slice(0, 500)}`
+      } catch {
+        // ignore
+      }
+      log.warn(`Router LLM HTTP error: status ${res.status} ${res.statusText}${detail}`)
       await recordFailure(cbKey)
       return null
     }
