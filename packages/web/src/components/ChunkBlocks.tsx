@@ -719,6 +719,92 @@ function FileStatusIcon({ status }: { status: WorkspaceFileChange['status'] }) {
   }
 }
 
+type DiffRow = {
+  type: 'hunk' | 'add' | 'del' | 'ctx'
+  old?: number
+  new?: number
+  text: string
+}
+
+function DiffView({ diff }: { diff: string }) {
+  const lines = diff.split('\n')
+  let oldLine = 0
+  let newLine = 0
+  const rows: DiffRow[] = []
+
+  for (const line of lines) {
+    if (
+      line.startsWith('diff --git') ||
+      line.startsWith('index ') ||
+      line.startsWith('--- ') ||
+      line.startsWith('+++ ')
+    ) {
+      continue
+    }
+    if (line.startsWith('@@')) {
+      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)/)
+      if (m) {
+        oldLine = +m[1]
+        newLine = +m[2]
+      }
+      rows.push({ type: 'hunk', text: line })
+    } else if (line.startsWith('+')) {
+      rows.push({ type: 'add', new: newLine++, text: line.slice(1) })
+    } else if (line.startsWith('-')) {
+      rows.push({ type: 'del', old: oldLine++, text: line.slice(1) })
+    } else {
+      rows.push({
+        type: 'ctx',
+        old: oldLine++,
+        new: newLine++,
+        text: line.startsWith(' ') ? line.slice(1) : line,
+      })
+    }
+  }
+
+  return (
+    <div className="ml-5 mt-1 mb-2 overflow-x-auto max-h-60 overflow-y-auto rounded-md border border-border">
+      <table className="text-xs font-mono w-full border-collapse">
+        <tbody>
+          {rows.map((r, i) => {
+            const rowBg =
+              r.type === 'add'
+                ? 'bg-green-500/10'
+                : r.type === 'del'
+                  ? 'bg-red-500/10'
+                  : r.type === 'hunk'
+                    ? 'bg-blue-500/10'
+                    : ''
+            const textCls =
+              r.type === 'add'
+                ? 'text-green-700 dark:text-green-300'
+                : r.type === 'del'
+                  ? 'text-red-700 dark:text-red-300'
+                  : r.type === 'hunk'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : ''
+            return (
+              <tr key={i} className={rowBg}>
+                <td className="select-none text-right pr-2 pl-2 text-text-muted/50 w-[1%] whitespace-nowrap">
+                  {r.old ?? ''}
+                </td>
+                <td className="select-none text-right pr-2 text-text-muted/50 w-[1%] whitespace-nowrap border-r border-border">
+                  {r.new ?? ''}
+                </td>
+                {r.type === 'hunk' ? (
+                  <td className={`px-2 whitespace-pre ${textCls} italic`}>{r.text}</td>
+                ) : (
+                  <td className={`px-2 whitespace-pre ${textCls}`}>{r.text}</td>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -748,23 +834,7 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
           </svg>
         )}
       </button>
-      {expanded && file.diff && (
-        <pre className="text-xs font-mono rounded-md p-2 ml-5 mt-1 mb-2 overflow-x-auto max-h-60 overflow-y-auto bg-surface-secondary whitespace-pre-wrap">
-          {file.diff.split('\n').map((line, i) => {
-            let cls = ''
-            if (line.startsWith('+') && !line.startsWith('+++'))
-              cls = 'text-green-600 dark:text-green-400'
-            else if (line.startsWith('-') && !line.startsWith('---'))
-              cls = 'text-red-600 dark:text-red-400'
-            else if (line.startsWith('@@')) cls = 'text-blue-500'
-            return (
-              <div key={i} className={cls}>
-                {line}
-              </div>
-            )
-          })}
-        </pre>
-      )}
+      {expanded && file.diff && <DiffView diff={file.diff} />}
     </div>
   )
 }
