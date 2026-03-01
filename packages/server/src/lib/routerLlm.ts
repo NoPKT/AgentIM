@@ -251,10 +251,14 @@ export async function selectAgents(
         body: JSON.stringify({
           model: routerConfig.llmModel,
           messages: [
-            { role: 'system', content: systemContent },
+            // Use 'developer' role for reasoning models (o1/o3/gpt-5);
+            // standard models accept both 'developer' and 'system'.
+            { role: 'developer', content: systemContent },
             { role: 'user', content: userContent },
           ],
-          max_completion_tokens: 256,
+          // Omit max_completion_tokens to let the model use its full capacity.
+          // Reasoning models need many tokens for internal thinking; a hard
+          // limit risks leaving 0 tokens for actual output.
         }),
         signal: controller.signal,
       })
