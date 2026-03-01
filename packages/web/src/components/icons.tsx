@@ -320,3 +320,19 @@ export function TuneIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function MaximizeIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
+    </svg>
+  )
+}
+
+export function MinimizeIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M4 14h6v6M20 14h-6v6M4 10h6V4M20 10h-6V4" />
+    </svg>
+  )
+}

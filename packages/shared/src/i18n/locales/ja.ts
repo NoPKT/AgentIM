@@ -250,6 +250,9 @@ export const ja = {
     workspaceBranch: 'ブランチ：{{branch}}',
     workspaceParentDir: '親ディレクトリ',
     workspaceSelectFile: 'ツリーからファイルを選択して内容を表示します。',
+    workspaceDragResize: 'ドラッグしてサイズ変更',
+    workspaceMaximize: '最大化',
+    workspaceMinimize: '元に戻す',
   },
   agent: {
     agents: 'エージェント',

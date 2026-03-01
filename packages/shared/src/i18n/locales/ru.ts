@@ -250,6 +250,9 @@ export const ru = {
     workspaceBranch: 'Ветка: {{branch}}',
     workspaceParentDir: 'Родительская директория',
     workspaceSelectFile: 'Выберите файл в дереве для просмотра содержимого.',
+    workspaceDragResize: 'Перетащите для изменения размера',
+    workspaceMaximize: 'Развернуть',
+    workspaceMinimize: 'Восстановить',
   },
   agent: {
     agents: 'Агенты',

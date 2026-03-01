@@ -248,6 +248,9 @@ export const zhCN = {
     workspaceBranch: '分支：{{branch}}',
     workspaceParentDir: '上级目录',
     workspaceSelectFile: '从目录树中选择文件以查看内容。',
+    workspaceDragResize: '拖拽调整大小',
+    workspaceMaximize: '最大化',
+    workspaceMinimize: '还原',
   },
   agent: {
     agents: '智能体',

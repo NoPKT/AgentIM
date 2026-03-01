@@ -252,6 +252,9 @@ export const fr = {
     workspaceBranch: 'Branche : {{branch}}',
     workspaceParentDir: 'Répertoire parent',
     workspaceSelectFile: 'Sélectionnez un fichier dans l\u2019arborescence pour voir son contenu.',
+    workspaceDragResize: 'Glisser pour redimensionner',
+    workspaceMaximize: 'Agrandir',
+    workspaceMinimize: 'Restaurer',
   },
   agent: {
     agents: 'Agents',

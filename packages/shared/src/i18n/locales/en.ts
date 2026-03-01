@@ -249,6 +249,9 @@ export const en = {
     workspaceBranch: 'Branch: {{branch}}',
     workspaceParentDir: 'Parent directory',
     workspaceSelectFile: 'Select a file from the tree to view its content.',
+    workspaceDragResize: 'Drag to resize',
+    workspaceMaximize: 'Maximize',
+    workspaceMinimize: 'Restore',
   },
   agent: {
     agents: 'Agents',

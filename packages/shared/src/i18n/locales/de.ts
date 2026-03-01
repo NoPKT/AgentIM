@@ -252,6 +252,9 @@ export const de = {
     workspaceBranch: 'Branch: {{branch}}',
     workspaceParentDir: 'Übergeordnetes Verzeichnis',
     workspaceSelectFile: 'Wählen Sie eine Datei aus dem Baum, um den Inhalt anzuzeigen.',
+    workspaceDragResize: 'Zum Ändern der Größe ziehen',
+    workspaceMaximize: 'Maximieren',
+    workspaceMinimize: 'Wiederherstellen',
   },
   agent: {
     agents: 'Agenten',

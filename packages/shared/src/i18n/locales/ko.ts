@@ -250,6 +250,9 @@ export const ko = {
     workspaceBranch: '브랜치: {{branch}}',
     workspaceParentDir: '상위 디렉토리',
     workspaceSelectFile: '트리에서 파일을 선택하여 내용을 확인하세요.',
+    workspaceDragResize: '드래그하여 크기 조절',
+    workspaceMaximize: '최대화',
+    workspaceMinimize: '복원',
   },
   agent: {
     agents: '에이전트',
