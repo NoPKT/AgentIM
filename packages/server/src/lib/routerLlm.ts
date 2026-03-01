@@ -332,8 +332,12 @@ export async function selectAgents(
 
     // Validate that returned IDs exist in the agent list
     const validIds = new Set(agents.map((a) => a.id))
+    const selected = parsed.agentIds.filter((id) => validIds.has(id))
+    log.debug(
+      `Router LLM selected ${selected.length}/${agents.length} agents: [${selected.join(', ')}]`,
+    )
     await recordSuccess(cbKey)
-    return parsed.agentIds.filter((id) => validIds.has(id))
+    return selected
   } catch (err) {
     await recordFailure(cbKey)
     log.warn(`Router LLM unexpected error: ${err instanceof Error ? err.message : String(err)}`)

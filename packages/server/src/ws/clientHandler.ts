@@ -776,6 +776,9 @@ async function routeToAgents(
       const agent = agentMap.get(id)
       if (agent) targetAgents.push(agent)
     }
+    log.info(
+      `Broadcast room ${roomId}: AI Router selected ${targetAgents.length}/${cliAgents.length} agents [${targetAgents.map((a) => a.name).join(', ')}] for message "${message.content.slice(0, 80)}"`,
+    )
   } else {
     // Non-broadcast + no mentions = don't route
     return
