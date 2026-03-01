@@ -217,7 +217,10 @@ export async function selectAgents(
     'You are a message router for a multi-agent chat system.',
     'Given a user message and a list of available agents, select which agent(s) should receive and respond to this message.',
     'Return ONLY a JSON object: { "agentIds": ["id1", "id2"] }',
-    'Select the most relevant agent(s). If no agent is clearly suited, return an empty array.',
+    'Rules:',
+    '- For general messages, greetings, or broadcasts addressed to everyone (e.g. "hello everyone", "hi all", greetings in any language), include ALL agents.',
+    '- For task-specific messages, select the most relevant agent(s) based on their type and capabilities.',
+    '- Only return an empty array if the message is clearly not intended for any agent (e.g. system commands, off-topic noise).',
     roomSystemPrompt ? `\nRoom context: ${roomSystemPrompt}` : '',
   ]
     .filter(Boolean)
