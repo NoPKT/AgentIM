@@ -530,7 +530,17 @@ export const MessageItem = memo(function MessageItem({
           {/* Sender and time — only for first message in group */}
           {showHeader && (
             <div className="flex items-center space-x-2 mb-1">
-              <span className="font-semibold text-text-primary text-sm">{message.senderName}</span>
+              <span className="font-semibold text-text-primary text-sm">
+                {message.senderName}
+                {message.metadata?.targetAgentName && (
+                  <span className="text-text-muted font-normal">
+                    {' → '}
+                    <span className="font-semibold text-text-primary">
+                      {String(message.metadata.targetAgentName)}
+                    </span>
+                  </span>
+                )}
+              </span>
               {isAgent && (
                 <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
                   {t('agent.agents')}

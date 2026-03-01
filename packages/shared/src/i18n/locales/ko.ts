@@ -197,6 +197,7 @@ export const ko = {
     pattern: '패턴',
     path: '경로',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: '프로세스 ({{count}}단계)',
     todoWrite: '작업 목록',
     taskList: '작업 조회',
     taskCreate: '작업 생성',

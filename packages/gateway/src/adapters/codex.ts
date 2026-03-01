@@ -32,6 +32,15 @@ const CODEX_PERMISSION_PREAMBLE = [
   'Read-only operations (reading files, searching, listing) do not require approval.',
 ].join('\n')
 
+const CODEX_AGENTIM_CONTEXT_PREAMBLE = [
+  '[AgentIM Room Communication]',
+  'You are connected to an AgentIM room with other agents and users.',
+  'If you have MCP tools available (send_message, request_reply, get_room_messages,',
+  'list_room_members), use them to communicate with other agents directly.',
+  'If not, mention other agents by name using @AgentName format in your messages.',
+  'The room system will route your message to the mentioned agent.',
+].join('\n')
+
 export class CodexAdapter extends BaseAgentAdapter {
   private codex?: Codex
   private thread?: Thread
@@ -160,9 +169,16 @@ export class CodexAdapter extends BaseAgentAdapter {
    */
   protected override buildPrompt(content: string, context?: MessageContext): string {
     const base = super.buildPrompt(content, context)
-    if (!this.promptPermission) return base
-    // Prepend the permission preamble so it appears as a system-level instruction
-    return `${CODEX_PERMISSION_PREAMBLE}\n\n${base}`
+    const parts: string[] = []
+    if (this.promptPermission) {
+      parts.push(CODEX_PERMISSION_PREAMBLE)
+    }
+    // Add AgentIM context for agent-to-agent awareness
+    if (this.mcpContext) {
+      parts.push(CODEX_AGENTIM_CONTEXT_PREAMBLE)
+    }
+    if (parts.length === 0) return base
+    return `${parts.join('\n\n')}\n\n${base}`
   }
 
   async sendMessage(

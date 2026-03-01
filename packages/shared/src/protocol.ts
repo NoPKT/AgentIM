@@ -5,6 +5,7 @@ import type {
   DirectoryEntry,
   Message,
   MessageReaction,
+  ModelOption,
   ParsedChunk,
   Task,
   Room,
@@ -324,6 +325,8 @@ export interface GatewayMessageChunk {
   agentId: string
   messageId: string
   chunk: ParsedChunk
+  /** When set, this message is directed at a specific agent */
+  targetAgentName?: string
 }
 
 export interface GatewayMessageComplete {
@@ -335,6 +338,8 @@ export interface GatewayMessageComplete {
   chunks?: ParsedChunk[]
   conversationId?: string
   depth?: number
+  /** When set, this message is directed at a specific agent (agent-to-agent via MCP) */
+  targetAgentName?: string
 }
 
 export interface GatewayAgentStatus {
@@ -387,6 +392,7 @@ export interface GatewayAgentInfo {
   effortLevel?: string
   sessionCostUSD?: number
   availableModels?: string[]
+  availableModelInfo?: ModelOption[]
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
 }

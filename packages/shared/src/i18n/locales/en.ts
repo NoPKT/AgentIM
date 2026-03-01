@@ -197,6 +197,7 @@ export const en = {
     pattern: 'Pattern',
     path: 'Path',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: 'Process ({{count}} steps)',
     todoWrite: 'Task List',
     taskList: 'Listing Tasks',
     taskCreate: 'Create Task',

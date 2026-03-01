@@ -197,6 +197,7 @@ export const ru = {
     pattern: 'Шаблон',
     path: 'Путь',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: 'Процесс ({{count}} шагов)',
     todoWrite: 'Список задач',
     taskList: 'Просмотр задач',
     taskCreate: 'Создать задачу',

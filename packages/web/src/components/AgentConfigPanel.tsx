@@ -302,11 +302,17 @@ function AgentSettings({
               className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
             >
               {!agent.model && <option value="">{t('agentConfig.default')}</option>}
-              {agent.availableModels?.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
+              {agent.availableModelInfo && agent.availableModelInfo.length > 0
+                ? agent.availableModelInfo.map((m) => (
+                    <option key={m.value} value={m.value} title={m.description}>
+                      {m.displayName}
+                    </option>
+                  ))
+                : agent.availableModels?.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
               <option value="__custom__">{t('agentConfig.customModel')}</option>
             </select>
           )}

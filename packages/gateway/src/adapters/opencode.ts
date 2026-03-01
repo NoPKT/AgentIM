@@ -1,4 +1,4 @@
-import type { ParsedChunk } from '@agentim/shared'
+import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
   BaseAgentAdapter,
@@ -25,6 +25,14 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
   private client?: OpencodeClient
   private serverClose?: () => void
   private sessionId?: string
+
+  // Cached model info from provider.list()
+  private cachedModelOptions: ModelOption[] = []
+  private cachedModelValues: string[] = []
+  private modelInfoFetched = false
+
+  // MCP server registration state
+  private mcpRegistered = false
 
   // Runtime settings configurable via slash commands
   private modelOverride?: { modelID: string; providerID?: string }
@@ -66,7 +74,57 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     this.client = client
     this.serverClose = server.close
     log.info(`OpenCode server started at ${server.url}`)
+
+    // Register AgentIM MCP server for agent-to-agent communication
+    await this.registerMcpServer(client)
+
     return this.client
+  }
+
+  /** Register the AgentIM MCP stdio server with OpenCode. */
+  private async registerMcpServer(client: OpencodeClient) {
+    if (this.mcpRegistered || !this.mcpContext) return
+    this.mcpRegistered = true
+
+    try {
+      // Dynamically import the agent-manager to get IPC port
+      // The MCP context is set by agent-manager which also manages the IPC server
+      const { fileURLToPath } = await import('node:url')
+      const { dirname, join } = await import('node:path')
+
+      // Resolve the stdio-server.ts/js path relative to this module
+      const thisDir = dirname(fileURLToPath(import.meta.url))
+      const mcpDir = join(thisDir, '..', 'mcp')
+      // In production (dist/), the file is compiled to .js
+      const serverScript = join(mcpDir, 'stdio-server.js')
+
+      // We need the IPC port from the agent-manager. It's stored in env by the manager.
+      const ipcPort = process.env.AGENTIM_IPC_PORT
+      if (!ipcPort) {
+        log.warn('AGENTIM_IPC_PORT not set, skipping MCP registration for OpenCode')
+        return
+      }
+
+      await client.mcp.add({
+        body: {
+          name: 'agentim',
+          config: {
+            type: 'local',
+            command: [process.execPath, serverScript],
+            environment: {
+              AGENTIM_IPC_PORT: ipcPort,
+              AGENTIM_AGENT_ID: this.agentId,
+              AGENTIM_AGENT_NAME: this.agentName,
+            },
+            enabled: true,
+            timeout: 30000,
+          },
+        },
+      })
+      log.info('Registered AgentIM MCP server with OpenCode')
+    } catch (err) {
+      log.warn(`Failed to register AgentIM MCP server with OpenCode: ${(err as Error).message}`)
+    }
   }
 
   async sendMessage(
@@ -91,6 +149,37 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
 
     try {
       const client = await this.ensureClient()
+
+      // Fetch available models on first use (async, non-blocking)
+      if (!this.modelInfoFetched) {
+        this.modelInfoFetched = true
+        client.provider
+          .list()
+          .then((res) => {
+            const providers = res.data?.all
+            if (!providers) return
+            const options: ModelOption[] = []
+            const values: string[] = []
+            for (const provider of providers) {
+              if (!provider.models) continue
+              for (const [key, model] of Object.entries(provider.models)) {
+                const value = `${provider.id}/${key}`
+                values.push(value)
+                options.push({
+                  value,
+                  displayName: `${model.name} (${provider.name})`,
+                  description: model.id || key,
+                })
+              }
+            }
+            this.cachedModelOptions = options
+            this.cachedModelValues = values
+            log.info(`Cached ${options.length} models from ${providers.length} providers`)
+          })
+          .catch((err) => {
+            log.warn(`Failed to fetch provider models: ${(err as Error).message}`)
+          })
+      }
 
       // Create or reuse session
       if (!this.sessionId) {
@@ -416,6 +505,14 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
         source: 'builtin',
       },
     ]
+  }
+
+  override getAvailableModels(): string[] {
+    return this.cachedModelValues
+  }
+
+  override getAvailableModelInfo(): ModelOption[] {
+    return this.cachedModelOptions
   }
 
   override getModel(): string | undefined {

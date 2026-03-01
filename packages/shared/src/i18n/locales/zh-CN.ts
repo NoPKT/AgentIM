@@ -196,6 +196,7 @@ export const zhCN = {
     pattern: '模式',
     path: '路径',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: '过程 ({{count}} 步)',
     todoWrite: '任务清单',
     taskList: '查看任务',
     taskCreate: '创建任务',

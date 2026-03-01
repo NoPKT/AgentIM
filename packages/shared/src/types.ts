@@ -43,6 +43,13 @@ export interface AgentSlashCommand {
   source: AgentCommandSource
 }
 
+/** Rich model info returned by SDK APIs (e.g. Claude supportedModels()) */
+export interface ModelOption {
+  value: string
+  displayName: string
+  description?: string
+}
+
 export interface Agent {
   id: string
   name: string
@@ -62,6 +69,7 @@ export interface Agent {
   effortLevel?: string
   sessionCostUSD?: number
   availableModels?: string[]
+  availableModelInfo?: ModelOption[]
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
   lastSeenAt?: string
@@ -148,6 +156,7 @@ export interface Message {
   attachments?: MessageAttachment[]
   reactions?: MessageReaction[]
   chunks?: ParsedChunk[]
+  metadata?: Record<string, unknown>
   createdAt: string
   updatedAt?: string
 }
@@ -275,11 +284,20 @@ export interface RoomContextMember {
   status?: AgentStatus
 }
 
+export interface RoomContextMessage {
+  senderName: string
+  senderType: string
+  content: string
+  createdAt: string
+}
+
 export interface RoomContext {
   roomId: string
   roomName: string
   systemPrompt?: string
   members: RoomContextMember[]
+  /** Recent messages for agent context (populated by server on context request) */
+  recentMessages?: RoomContextMessage[]
 }
 
 // ─── Service Agents ───

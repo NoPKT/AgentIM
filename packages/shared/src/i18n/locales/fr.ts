@@ -199,6 +199,7 @@ export const fr = {
     pattern: 'Motif',
     path: 'Chemin',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: 'Processus ({{count}} étapes)',
     todoWrite: 'Liste des tâches',
     taskList: 'Liste des tâches',
     taskCreate: 'Créer une tâche',
