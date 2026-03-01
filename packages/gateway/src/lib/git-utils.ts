@@ -118,24 +118,24 @@ export async function getWorkspaceStatus(
         const code = line.slice(0, 2).trim()
         let path = line.slice(3).trim()
 
-        // Handle rename format: "R  old -> new"
-        if (code === 'R' && path.includes(' -> ')) {
+        // Handle rename format: "R  old -> new" (code may be "R", "RM", etc.)
+        if (code.startsWith('R') && path.includes(' -> ')) {
           path = path.split(' -> ').pop()!.trim()
         }
 
         if (!knownPaths.has(path)) {
           knownPaths.add(path)
           let status: WorkspaceFileChange['status'] = 'modified'
-          if (code === '??' || code === 'A') status = 'added'
-          else if (code === 'D') status = 'deleted'
-          else if (code === 'R') status = 'renamed'
+          if (code === '??' || code.startsWith('A')) status = 'added'
+          else if (code.startsWith('D')) status = 'deleted'
+          else if (code.startsWith('R')) status = 'renamed'
           changedFiles.push({ path, status })
         } else {
           const existing = changedFiles.find((f) => f.path === path)
           if (existing) {
-            if (code === 'D') existing.status = 'deleted'
-            else if (code === '??' || code === 'A') existing.status = 'added'
-            else if (code === 'R') existing.status = 'renamed'
+            if (code.startsWith('D')) existing.status = 'deleted'
+            else if (code === '??' || code.startsWith('A')) existing.status = 'added'
+            else if (code.startsWith('R')) existing.status = 'renamed'
           }
         }
       }
