@@ -288,27 +288,58 @@ messageRoutes.get('/rooms/:roomId', async (c) => {
   const { cursor, limit } = query.data
   const after = c.req.query('after')
 
+  // Check if user has cleared chat history for this room
+  const [membership] = await db
+    .select({ clearedAt: roomMembers.clearedAt })
+    .from(roomMembers)
+    .where(
+      and(
+        eq(roomMembers.roomId, roomId),
+        eq(roomMembers.memberId, userId),
+        eq(roomMembers.memberType, 'user'),
+      ),
+    )
+    .limit(1)
+  const clearedAt = membership?.clearedAt
+
   let rows
   if (after) {
     // Forward sync: get messages newer than `after` timestamp
     rows = await db
       .select()
       .from(messages)
-      .where(and(eq(messages.roomId, roomId), gt(messages.createdAt, after)))
+      .where(
+        and(
+          eq(messages.roomId, roomId),
+          gt(messages.createdAt, after),
+          clearedAt ? gte(messages.createdAt, clearedAt) : undefined,
+        ),
+      )
       .orderBy(desc(messages.createdAt))
       .limit(limit + 1)
   } else if (cursor) {
     rows = await db
       .select()
       .from(messages)
-      .where(and(eq(messages.roomId, roomId), lt(messages.createdAt, cursor)))
+      .where(
+        and(
+          eq(messages.roomId, roomId),
+          lt(messages.createdAt, cursor),
+          clearedAt ? gte(messages.createdAt, clearedAt) : undefined,
+        ),
+      )
       .orderBy(desc(messages.createdAt))
       .limit(limit + 1)
   } else {
     rows = await db
       .select()
       .from(messages)
-      .where(eq(messages.roomId, roomId))
+      .where(
+        and(
+          eq(messages.roomId, roomId),
+          clearedAt ? gte(messages.createdAt, clearedAt) : undefined,
+        ),
+      )
       .orderBy(desc(messages.createdAt))
       .limit(limit + 1)
   }

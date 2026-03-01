@@ -125,6 +125,7 @@ export interface RoomMember {
   pinnedAt?: string
   archivedAt?: string
   lastReadAt?: string
+  clearedAt?: string
   joinedAt: string
 }
 
