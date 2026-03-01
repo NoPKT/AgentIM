@@ -107,11 +107,15 @@ export function MessageList({ onImageClick }: MessageListProps) {
   })
 
   // Invalidate virtualizer measurements when messages change.
-  // Double-measure: immediate + delayed to catch late DOM layout.
+  // Triple-measure: immediate + short delay + longer delay to catch async content (lazy markdown).
   useEffect(() => {
     virtualizer.measure()
-    const timer = setTimeout(() => virtualizer.measure(), 100)
-    return () => clearTimeout(timer)
+    const t1 = setTimeout(() => virtualizer.measure(), 150)
+    const t2 = setTimeout(() => virtualizer.measure(), 500)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
   }, [currentMessages, virtualizer])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
@@ -261,6 +265,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
                   top: 0,
                   left: 0,
                   width: '100%',
+                  overflow: 'hidden',
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
                 ref={virtualizer.measureElement}

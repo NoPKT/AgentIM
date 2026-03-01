@@ -954,45 +954,55 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Optimistic update: toggle pin state immediately before API call
     const userId = useAuthStore.getState().user?.id ?? null
     const prevMembers = get().roomMembers
+    const prevRooms = get().rooms
     const list = prevMembers.get(roomId)
+    const currentMember = list?.find((m) => m.memberId === userId)
+    const isPinned = !!currentMember?.pinnedAt
+    const newPinnedAt = isPinned ? undefined : new Date().toISOString()
+
+    // Update roomMembers optimistically
     if (list && userId) {
-      const currentMember = list.find((m) => m.memberId === userId)
-      const isPinned = !!currentMember?.pinnedAt
       const optimisticMembers = new Map(prevMembers)
       optimisticMembers.set(
         roomId,
-        list.map((m) =>
-          m.memberId === userId
-            ? { ...m, pinnedAt: isPinned ? undefined : new Date().toISOString() }
-            : m,
-        ),
+        list.map((m) => (m.memberId === userId ? { ...m, pinnedAt: newPinnedAt } : m)),
       )
       set({ roomMembers: optimisticMembers })
     }
+    // Update rooms array optimistically so sorting reflects the change
+    set({
+      rooms: prevRooms.map((r) => (r.id === roomId ? { ...r, pinnedAt: newPinnedAt ?? null } : r)),
+    })
+
     try {
       const res = await api.put<{ pinned: boolean }>(`/rooms/${roomId}/pin`)
       if (res.ok && res.data) {
-        // Apply server-confirmed state
+        const confirmedPinnedAt = res.data.pinned ? new Date().toISOString() : undefined
+        // Apply server-confirmed state to roomMembers
         const members = new Map(get().roomMembers)
         const currentList = members.get(roomId)
         if (currentList) {
           members.set(
             roomId,
             currentList.map((m) =>
-              m.memberId === userId
-                ? { ...m, pinnedAt: res.data!.pinned ? new Date().toISOString() : undefined }
-                : m,
+              m.memberId === userId ? { ...m, pinnedAt: confirmedPinnedAt } : m,
             ),
           )
           set({ roomMembers: members })
         }
+        // Apply server-confirmed state to rooms
+        set({
+          rooms: get().rooms.map((r) =>
+            r.id === roomId ? { ...r, pinnedAt: confirmedPinnedAt ?? null } : r,
+          ),
+        })
       } else {
         // Revert on failure
-        set({ roomMembers: prevMembers })
+        set({ roomMembers: prevMembers, rooms: prevRooms })
       }
     } catch {
       // Revert on error
-      set({ roomMembers: prevMembers })
+      set({ roomMembers: prevMembers, rooms: prevRooms })
       toast.error('Failed to toggle pin')
     }
   },

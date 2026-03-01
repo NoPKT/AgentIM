@@ -3,7 +3,14 @@ import { useTranslation } from 'react-i18next'
 import hljs from 'highlight.js/lib/common'
 import { useWorkspaceStore } from '../stores/workspace.js'
 import { wsClient } from '../lib/ws.js'
-import { CloseIcon, RefreshIcon, FolderIcon, FileIcon } from './icons.js'
+import {
+  CloseIcon,
+  RefreshIcon,
+  FolderIcon,
+  FileIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+} from './icons.js'
 import type { RoomMember, WorkspaceFileChange } from '@agentim/shared'
 
 // ─── Shared sub-components (from former ChunkBlocks workspace rendering) ───
@@ -474,11 +481,44 @@ interface WorkspacePanelProps {
   onClose: () => void
 }
 
+const MIN_PANEL_HEIGHT = 120
+const DEFAULT_PANEL_HEIGHT = 288 // h-72
+const MAX_PANEL_RATIO = 0.8 // max 80% of viewport
+
 export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanelProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<'changes' | 'files'>('changes')
   const [selectedAgentId, setSelectedAgentId] = useState<string>(agentMembers[0]?.memberId ?? '')
   const loading = useWorkspaceStore((s) => s.loading)
+  const [panelHeight, setPanelHeight] = useState(DEFAULT_PANEL_HEIGHT)
+  const [isMaximized, setIsMaximized] = useState(false)
+  const isDragging = useRef(false)
+  const dragStartY = useRef(0)
+  const dragStartHeight = useRef(0)
+
+  // Drag-to-resize handler
+  const handleDragStart = useCallback(
+    (e: React.PointerEvent) => {
+      if (isMaximized) return
+      isDragging.current = true
+      dragStartY.current = e.clientY
+      dragStartHeight.current = panelHeight
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    [panelHeight, isMaximized],
+  )
+
+  const handleDragMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return
+    const delta = dragStartY.current - e.clientY
+    const maxH = window.innerHeight * MAX_PANEL_RATIO
+    const newH = Math.min(maxH, Math.max(MIN_PANEL_HEIGHT, dragStartHeight.current + delta))
+    setPanelHeight(newH)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    isDragging.current = false
+  }, [])
 
   // Clear loading state after 15s timeout to prevent permanent "Loading..."
   useEffect(() => {
@@ -515,9 +555,27 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
   }
 
   const isLoading = loading?.agentId === selectedAgentId
+  const effectiveHeight = isMaximized ? '100%' : `${panelHeight}px`
 
   return (
-    <div className="border-t border-border flex flex-col h-72 min-w-0 overflow-hidden">
+    <div
+      className={`border-t border-border flex flex-col min-w-0 overflow-hidden ${isMaximized ? 'flex-1' : ''}`}
+      style={isMaximized ? undefined : { height: effectiveHeight }}
+    >
+      {/* Drag handle — wider touch area on mobile, hidden when maximized */}
+      {!isMaximized && (
+        <div
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+          className="h-1.5 sm:h-1 cursor-ns-resize hover:bg-accent/30 active:bg-accent/40 transition-colors flex-shrink-0 touch-none flex items-center justify-center"
+          title={t('chat.workspaceDragResize')}
+        >
+          {/* Visual grip indicator */}
+          <div className="w-8 h-0.5 rounded-full bg-text-muted/30" />
+        </div>
+      )}
       {/* Header bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-secondary border-b border-border flex-shrink-0">
         {/* Agent selector */}
@@ -572,6 +630,18 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
             title={t('chat.workspaceRefresh')}
           >
             <RefreshIcon className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+          {/* Maximize / Minimize */}
+          <button
+            onClick={() => setIsMaximized((v) => !v)}
+            className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary"
+            title={isMaximized ? t('chat.workspaceMinimize') : t('chat.workspaceMaximize')}
+          >
+            {isMaximized ? (
+              <MinimizeIcon className="w-3.5 h-3.5" />
+            ) : (
+              <MaximizeIcon className="w-3.5 h-3.5" />
+            )}
           </button>
           {/* Close */}
           <button

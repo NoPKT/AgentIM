@@ -332,7 +332,7 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   override getAvailableModels(): string[] {
-    return ['o4-mini', 'o3', 'gpt-4.1']
+    return ['codex-mini', 'o4-mini', 'o3', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano']
   }
 
   override getAvailableEffortLevels(): string[] {

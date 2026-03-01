@@ -395,7 +395,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   override getAvailableModels(): string[] {
-    return ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-5-20251001']
+    return [
+      'sonnet',
+      'opus',
+      'haiku',
+      'claude-sonnet-4-6',
+      'claude-opus-4-6',
+      'claude-haiku-4-5-20251001',
+    ]
   }
 
   override getAvailableEffortLevels(): string[] {

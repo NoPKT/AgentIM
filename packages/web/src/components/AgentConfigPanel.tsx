@@ -1,50 +1,69 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ServerMessage } from '@agentim/shared'
+import type { ServerMessage, Agent } from '@agentim/shared'
 import { useAgentStore } from '../stores/agents.js'
 import { wsClient } from '../lib/ws.js'
 import { toast } from '../stores/toast.js'
 import { CloseIcon } from './icons.js'
 
 interface AgentConfigPanelProps {
-  agentId: string
+  agentIds: string[]
   roomId: string
   isOpen: boolean
   onClose: () => void
 }
 
-export function AgentConfigPanel({ agentId, roomId, isOpen, onClose }: AgentConfigPanelProps) {
+export function AgentConfigPanel({ agentIds, roomId, isOpen, onClose }: AgentConfigPanelProps) {
   const { t } = useTranslation()
-  const agent = useAgentStore((s) => s.agents.find((a) => a.id === agentId))
+  const agents = useAgentStore((s) => s.agents)
+  const [activeAgentId, setActiveAgentId] = useState(agentIds[0] ?? '')
   const [pendingCommand, setPendingCommand] = useState<string | null>(null)
   const [customModelInput, setCustomModelInput] = useState('')
   const [showCustomModel, setShowCustomModel] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // Reset active agent when agentIds change
+  useEffect(() => {
+    if (agentIds.length > 0 && !agentIds.includes(activeAgentId)) {
+      setActiveAgentId(agentIds[0])
+    }
+  }, [agentIds, activeAgentId])
+
+  // Reset custom model input when switching agents
+  useEffect(() => {
+    setShowCustomModel(false)
+    setCustomModelInput('')
+    setPendingCommand(null)
+  }, [activeAgentId])
+
+  const agent = agents.find((a) => a.id === activeAgentId)
+  const agentList = agentIds.map((id) => agents.find((a) => a.id === id)).filter(Boolean) as Agent[]
+
   // Query agent info on open
   useEffect(() => {
-    if (isOpen && agentId) {
-      wsClient.send({ type: 'client:query_agent_info', agentId })
+    if (isOpen) {
+      for (const id of agentIds) {
+        wsClient.send({ type: 'client:query_agent_info', agentId: id })
+      }
     }
-  }, [isOpen, agentId])
+  }, [isOpen, agentIds])
 
   // Listen for command results
   useEffect(() => {
     if (!isOpen) return
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
-      if (msg.type === 'server:agent_command_result' && msg.agentId === agentId) {
+      if (msg.type === 'server:agent_command_result' && agentIds.includes(msg.agentId)) {
         setPendingCommand(null)
         if (msg.success) {
           toast.success(t('agentConfig.settingUpdated'))
-          // Re-query to refresh state
-          wsClient.send({ type: 'client:query_agent_info', agentId })
+          wsClient.send({ type: 'client:query_agent_info', agentId: msg.agentId })
         } else {
           toast.error(msg.message ?? t('common.error'))
         }
       }
     })
     return unsub
-  }, [isOpen, agentId, t])
+  }, [isOpen, agentIds, t])
 
   // Close on Escape
   useEffect(() => {
@@ -56,7 +75,6 @@ export function AgentConfigPanel({ agentId, roomId, isOpen, onClose }: AgentConf
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Close on backdrop click
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) onClose()
@@ -69,13 +87,13 @@ export function AgentConfigPanel({ agentId, roomId, isOpen, onClose }: AgentConf
       setPendingCommand(command)
       wsClient.send({
         type: 'client:agent_command',
-        agentId,
+        agentId: activeAgentId,
         roomId,
         command,
         args,
       })
     },
-    [agentId, roomId],
+    [activeAgentId, roomId],
   )
 
   const handleModelChange = useCallback(
@@ -117,9 +135,11 @@ export function AgentConfigPanel({ agentId, roomId, isOpen, onClose }: AgentConf
     }
   }, [sendCommand, t])
 
-  if (!isOpen || !agent) return null
+  const handleCompact = useCallback(() => {
+    sendCommand('compact', '')
+  }, [sendCommand])
 
-  const costSummary = agent.sessionCostUSD
+  if (!isOpen || agentIds.length === 0) return null
 
   return (
     <div
@@ -145,134 +165,224 @@ export function AgentConfigPanel({ agentId, roomId, isOpen, onClose }: AgentConf
           </button>
         </div>
 
+        {/* Agent tabs — only shown when multiple agents */}
+        {agentList.length > 1 && (
+          <div className="flex border-b border-border overflow-x-auto scrollbar-thin">
+            {agentList.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setActiveAgentId(a.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  a.id === activeAgentId
+                    ? 'border-accent text-accent'
+                    : 'border-transparent text-text-muted hover:text-text-secondary hover:border-border'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    a.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
+                  }`}
+                />
+                <span className="truncate max-w-32">{a.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Agent identity */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-white">
-                {agent.name.charAt(0).toUpperCase()}
-              </span>
+          {agent ? (
+            <AgentSettings
+              agent={agent}
+              pendingCommand={pendingCommand}
+              showCustomModel={showCustomModel}
+              customModelInput={customModelInput}
+              onCustomModelInputChange={setCustomModelInput}
+              onShowCustomModelChange={setShowCustomModel}
+              onModelChange={handleModelChange}
+              onCustomModelSubmit={handleCustomModelSubmit}
+              onThinkingChange={handleThinkingChange}
+              onEffortChange={handleEffortChange}
+              onResetSession={handleResetSession}
+              onCompact={handleCompact}
+            />
+          ) : (
+            <div className="py-8 text-center text-sm text-text-muted">
+              {t('agentConfig.noOptions')}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-text-primary truncate">{agent.name}</p>
-              <p className="text-xs text-text-muted">
-                {agent.type}
-                <span className="mx-1.5">&middot;</span>
-                <span
-                  className={agent.status === 'online' ? 'text-success-text' : 'text-text-muted'}
-                >
-                  {t(`common.${agent.status}`)}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Model */}
-          {(agent.availableModels?.length ?? 0) > 0 && (
-            <ConfigSection label={t('agentConfig.model')}>
-              {showCustomModel ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCustomModelSubmit()
-                      if (e.key === 'Escape') setShowCustomModel(false)
-                    }}
-                    placeholder={t('agentConfig.modelPlaceholder')}
-                    className="flex-1 min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleCustomModelSubmit}
-                    disabled={!customModelInput.trim()}
-                    className="min-h-[44px] px-4 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors"
-                  >
-                    {t('common.confirm')}
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={agent.model ?? ''}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  disabled={pendingCommand === 'model'}
-                  className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
-                >
-                  {!agent.model && <option value="">{t('agentConfig.default')}</option>}
-                  {agent.availableModels?.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                  <option value="__custom__">{t('agentConfig.customModel')}</option>
-                </select>
-              )}
-            </ConfigSection>
           )}
-
-          {/* Thinking Mode */}
-          {(agent.availableThinkingModes?.length ?? 0) > 0 && (
-            <ConfigSection label={t('agentConfig.thinkingMode')}>
-              <select
-                value={agent.thinkingMode ?? ''}
-                onChange={(e) => handleThinkingChange(e.target.value)}
-                disabled={pendingCommand === 'think'}
-                className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
-              >
-                {!agent.thinkingMode && <option value="">{t('agentConfig.default')}</option>}
-                {agent.availableThinkingModes?.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </ConfigSection>
-          )}
-
-          {/* Effort Level */}
-          {(agent.availableEffortLevels?.length ?? 0) > 0 && (
-            <ConfigSection label={t('agentConfig.effortLevel')}>
-              <select
-                value={agent.effortLevel ?? ''}
-                onChange={(e) => handleEffortChange(e.target.value)}
-                disabled={pendingCommand === 'effort'}
-                className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
-              >
-                {!agent.effortLevel && <option value="">{t('agentConfig.default')}</option>}
-                {agent.availableEffortLevels?.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </ConfigSection>
-          )}
-
-          {/* Session Info */}
-          <ConfigSection label={t('agentConfig.session')}>
-            <div className="space-y-2 text-sm">
-              {costSummary != null && costSummary > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-text-muted">{t('agentConfig.cost')}</span>
-                  <span className="text-text-primary font-mono">${costSummary.toFixed(4)}</span>
-                </div>
-              )}
-            </div>
-          </ConfigSection>
-
-          {/* Reset Session */}
-          <button
-            onClick={handleResetSession}
-            disabled={pendingCommand === 'clear'}
-            className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-danger-text hover:bg-danger-subtle transition-colors disabled:opacity-50"
-          >
-            {t('agentConfig.resetSession')}
-          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+interface AgentSettingsProps {
+  agent: Agent
+  pendingCommand: string | null
+  showCustomModel: boolean
+  customModelInput: string
+  onCustomModelInputChange: (v: string) => void
+  onShowCustomModelChange: (v: boolean) => void
+  onModelChange: (v: string) => void
+  onCustomModelSubmit: () => void
+  onThinkingChange: (v: string) => void
+  onEffortChange: (v: string) => void
+  onResetSession: () => void
+  onCompact: () => void
+}
+
+function AgentSettings({
+  agent,
+  pendingCommand,
+  showCustomModel,
+  customModelInput,
+  onCustomModelInputChange,
+  onShowCustomModelChange,
+  onModelChange,
+  onCustomModelSubmit,
+  onThinkingChange,
+  onEffortChange,
+  onResetSession,
+  onCompact,
+}: AgentSettingsProps) {
+  const { t } = useTranslation()
+  const costSummary = agent.sessionCostUSD
+  const hasCompact = agent.type === 'claude-code'
+
+  return (
+    <>
+      {/* Agent identity */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-bold text-white">{agent.name.charAt(0).toUpperCase()}</span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-primary truncate">{agent.name}</p>
+          <p className="text-xs text-text-muted">
+            {agent.type}
+            <span className="mx-1.5">&middot;</span>
+            <span className={agent.status === 'online' ? 'text-success-text' : 'text-text-muted'}>
+              {t(`common.${agent.status}`)}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Model */}
+      {(agent.availableModels?.length ?? 0) > 0 && (
+        <ConfigSection label={t('agentConfig.model')}>
+          {showCustomModel ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customModelInput}
+                onChange={(e) => onCustomModelInputChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onCustomModelSubmit()
+                  if (e.key === 'Escape') onShowCustomModelChange(false)
+                }}
+                placeholder={t('agentConfig.modelPlaceholder')}
+                className="flex-1 min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                autoFocus
+              />
+              <button
+                onClick={onCustomModelSubmit}
+                disabled={!customModelInput.trim()}
+                className="min-h-[44px] px-4 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors"
+              >
+                {t('common.confirm')}
+              </button>
+            </div>
+          ) : (
+            <select
+              value={agent.model ?? ''}
+              onChange={(e) => onModelChange(e.target.value)}
+              disabled={pendingCommand === 'model'}
+              className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
+            >
+              {!agent.model && <option value="">{t('agentConfig.default')}</option>}
+              {agent.availableModels?.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+              <option value="__custom__">{t('agentConfig.customModel')}</option>
+            </select>
+          )}
+        </ConfigSection>
+      )}
+
+      {/* Thinking Mode */}
+      {(agent.availableThinkingModes?.length ?? 0) > 0 && (
+        <ConfigSection label={t('agentConfig.thinkingMode')}>
+          <select
+            value={agent.thinkingMode ?? ''}
+            onChange={(e) => onThinkingChange(e.target.value)}
+            disabled={pendingCommand === 'think'}
+            className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
+          >
+            {!agent.thinkingMode && <option value="">{t('agentConfig.default')}</option>}
+            {agent.availableThinkingModes?.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </ConfigSection>
+      )}
+
+      {/* Effort Level */}
+      {(agent.availableEffortLevels?.length ?? 0) > 0 && (
+        <ConfigSection label={t('agentConfig.effortLevel')}>
+          <select
+            value={agent.effortLevel ?? ''}
+            onChange={(e) => onEffortChange(e.target.value)}
+            disabled={pendingCommand === 'effort'}
+            className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
+          >
+            {!agent.effortLevel && <option value="">{t('agentConfig.default')}</option>}
+            {agent.availableEffortLevels?.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </ConfigSection>
+      )}
+
+      {/* Session Info */}
+      <ConfigSection label={t('agentConfig.session')}>
+        <div className="space-y-2 text-sm">
+          {costSummary != null && costSummary > 0 && (
+            <div className="flex justify-between">
+              <span className="text-text-muted">{t('agentConfig.cost')}</span>
+              <span className="text-text-primary font-mono">${costSummary.toFixed(4)}</span>
+            </div>
+          )}
+        </div>
+      </ConfigSection>
+
+      {/* Action buttons */}
+      <div className="space-y-2">
+        {hasCompact && (
+          <button
+            onClick={onCompact}
+            disabled={pendingCommand === 'compact'}
+            className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-50"
+          >
+            {t('agentConfig.compactSession')}
+          </button>
+        )}
+        <button
+          onClick={onResetSession}
+          disabled={pendingCommand === 'clear'}
+          className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-danger-text hover:bg-danger-subtle transition-colors disabled:opacity-50"
+        >
+          {t('agentConfig.resetSession')}
+        </button>
+      </div>
+    </>
   )
 }
 
