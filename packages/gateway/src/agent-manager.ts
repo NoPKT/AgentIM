@@ -694,12 +694,16 @@ export class AgentManager {
       return
     }
 
+    const costSummary = adapter.getCostSummary()
     this.wsClient.send({
       type: 'gateway:agent_info',
       agentId: msg.agentId,
       slashCommands: adapter.getSlashCommands(),
       mcpServers: adapter.getMcpServers(),
       model: adapter.getModel(),
+      thinkingMode: adapter.getThinkingMode(),
+      effortLevel: adapter.getEffortLevel(),
+      sessionCostUSD: costSummary.costUSD > 0 ? costSummary.costUSD : undefined,
     })
   }
 

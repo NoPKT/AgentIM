@@ -230,7 +230,18 @@ export function useWebSocket() {
         case 'server:agent_command_result':
           try {
             if (msg.success) {
-              toast.success(i18next.t('slashCommand.commandSuccess', { command: msg.command }))
+              if (msg.message) {
+                toast.success(msg.message, {
+                  duration: 8000,
+                  style: {
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  },
+                })
+              } else {
+                toast.success(i18next.t('slashCommand.commandSuccess', { command: msg.command }))
+              }
             } else {
               toast.error(
                 i18next.t('slashCommand.commandFailed', {

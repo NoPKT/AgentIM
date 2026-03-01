@@ -31,6 +31,25 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private sessionId?: string
   private currentQuery?: Query
 
+  // Runtime settings configurable via slash commands
+  private thinkingConfig?:
+    | { type: 'adaptive' }
+    | { type: 'enabled'; budgetTokens?: number }
+    | { type: 'disabled' }
+  private effort?: 'low' | 'medium' | 'high' | 'max'
+  private modelOverride?: string
+  private lastModelUsage?: Record<
+    string,
+    {
+      contextWindow: number
+      maxOutputTokens: number
+      costUSD: number
+      inputTokens: number
+      outputTokens: number
+      cacheReadInputTokens: number
+    }
+  >
+
   constructor(opts: AdapterOptions) {
     super(opts)
   }
@@ -104,6 +123,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (this.sessionId) {
         options.resume = this.sessionId
       }
+
+      // Apply runtime settings from slash commands
+      if (this.thinkingConfig) options.thinking = this.thinkingConfig
+      if (this.effort) options.effort = this.effort
+      if (this.modelOverride) options.model = this.modelOverride
 
       // systemPrompt is included by buildPrompt() via [System: ...] prefix,
       // so we do NOT set options.systemPrompt to avoid double injection.
@@ -179,11 +203,36 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       return
     }
 
-    // Extract result
+    // Extract result — accumulate cost and token usage
     if (message.type === 'result') {
       const resultMsg = message as SDKResultMessage
-      if ('result' in resultMsg && resultMsg.subtype === 'success') {
-        // Result text is already accumulated from assistant messages
+      if (resultMsg.subtype === 'success') {
+        this.accumulatedCostUSD += resultMsg.total_cost_usd ?? 0
+        if (resultMsg.usage) {
+          this.accumulatedInputTokens += resultMsg.usage.input_tokens ?? 0
+          this.accumulatedOutputTokens += resultMsg.usage.output_tokens ?? 0
+        }
+        if (resultMsg.modelUsage) {
+          this.lastModelUsage = {}
+          for (const [model, usage] of Object.entries(resultMsg.modelUsage)) {
+            this.lastModelUsage[model] = {
+              contextWindow: usage.contextWindow,
+              maxOutputTokens: usage.maxOutputTokens,
+              costUSD: usage.costUSD,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cacheReadInputTokens: usage.cacheReadInputTokens,
+            }
+            this.accumulatedCacheReadTokens += usage.cacheReadInputTokens ?? 0
+          }
+        }
+      } else {
+        // Error results still have cost data
+        this.accumulatedCostUSD += resultMsg.total_cost_usd ?? 0
+        if (resultMsg.usage) {
+          this.accumulatedInputTokens += resultMsg.usage.input_tokens ?? 0
+          this.accumulatedOutputTokens += resultMsg.usage.output_tokens ?? 0
+        }
       }
       return
     }
@@ -254,6 +303,36 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         usage: '/compact',
         source: 'builtin',
       },
+      {
+        name: 'model',
+        description: 'Switch model or list available models',
+        usage: '/model [name]',
+        source: 'builtin',
+      },
+      {
+        name: 'think',
+        description: 'Set thinking mode: adaptive, enabled[:budget], disabled',
+        usage: '/think [mode]',
+        source: 'builtin',
+      },
+      {
+        name: 'effort',
+        description: 'Set effort level: low, medium, high, max',
+        usage: '/effort [level]',
+        source: 'builtin',
+      },
+      {
+        name: 'cost',
+        description: 'Show accumulated cost and token usage',
+        usage: '/cost',
+        source: 'builtin',
+      },
+      {
+        name: 'context',
+        description: 'Show context window and model info',
+        usage: '/context',
+        source: 'builtin',
+      },
     ]
 
     // Discover custom slash commands from .claude/commands/
@@ -312,22 +391,134 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   override getModel(): string | undefined {
-    return this.env.ANTHROPIC_MODEL || this.env.CLAUDE_MODEL || undefined
+    return this.modelOverride || this.env.ANTHROPIC_MODEL || this.env.CLAUDE_MODEL || undefined
+  }
+
+  override getThinkingMode(): string | undefined {
+    if (!this.thinkingConfig) return undefined
+    if (this.thinkingConfig.type === 'enabled' && 'budgetTokens' in this.thinkingConfig) {
+      return `enabled:${this.thinkingConfig.budgetTokens}`
+    }
+    return this.thinkingConfig.type
+  }
+
+  override getEffortLevel(): string | undefined {
+    return this.effort
   }
 
   override async handleSlashCommand(
     command: string,
-    _args: string,
+    args: string,
   ): Promise<{ success: boolean; message?: string }> {
-    if (command === 'clear') {
-      this.sessionId = undefined
-      return { success: true, message: 'Session cleared' }
+    switch (command) {
+      case 'clear': {
+        this.sessionId = undefined
+        return { success: true, message: 'Session cleared' }
+      }
+      case 'compact': {
+        this.sessionId = undefined
+        return { success: true, message: 'Session compacted (reset)' }
+      }
+      case 'model': {
+        const name = args.trim()
+        if (!name) {
+          const current = this.getModel() ?? '(default)'
+          return {
+            success: true,
+            message: `Current model: ${current}\nUse /model <name> to switch`,
+          }
+        }
+        this.modelOverride = name
+        return { success: true, message: `Model set to: ${name}` }
+      }
+      case 'think': {
+        const mode = args.trim().toLowerCase()
+        if (!mode) {
+          const current = this.thinkingConfig
+            ? this.thinkingConfig.type === 'enabled' && 'budgetTokens' in this.thinkingConfig
+              ? `enabled (budget: ${this.thinkingConfig.budgetTokens})`
+              : this.thinkingConfig.type
+            : '(default)'
+          return {
+            success: true,
+            message: `Thinking mode: ${current}\nOptions: adaptive, enabled[:budget], disabled`,
+          }
+        }
+        if (mode === 'adaptive') {
+          this.thinkingConfig = { type: 'adaptive' }
+          return { success: true, message: 'Thinking set to: adaptive' }
+        }
+        if (mode === 'disabled' || mode === 'off') {
+          this.thinkingConfig = { type: 'disabled' }
+          return { success: true, message: 'Thinking set to: disabled' }
+        }
+        if (mode.startsWith('enabled') || mode.startsWith('on')) {
+          const budgetMatch = mode.match(/:(\d+)/)
+          if (budgetMatch) {
+            this.thinkingConfig = { type: 'enabled', budgetTokens: parseInt(budgetMatch[1], 10) }
+            return {
+              success: true,
+              message: `Thinking set to: enabled (budget: ${budgetMatch[1]} tokens)`,
+            }
+          }
+          this.thinkingConfig = { type: 'enabled' }
+          return { success: true, message: 'Thinking set to: enabled' }
+        }
+        return {
+          success: false,
+          message: `Unknown thinking mode: ${mode}\nOptions: adaptive, enabled[:budget], disabled`,
+        }
+      }
+      case 'effort': {
+        const level = args.trim().toLowerCase()
+        if (!level) {
+          return {
+            success: true,
+            message: `Effort level: ${this.effort ?? '(default)'}\nOptions: low, medium, high, max`,
+          }
+        }
+        const valid = ['low', 'medium', 'high', 'max'] as const
+        if (!valid.includes(level as (typeof valid)[number])) {
+          return {
+            success: false,
+            message: `Invalid effort level: ${level}\nOptions: low, medium, high, max`,
+          }
+        }
+        this.effort = level as 'low' | 'medium' | 'high' | 'max'
+        return { success: true, message: `Effort set to: ${level}` }
+      }
+      case 'cost': {
+        const summary = this.getCostSummary()
+        const lines = [
+          'Session Cost Summary',
+          `  Cost:         $${summary.costUSD.toFixed(4)}`,
+          `  Input tokens:  ${summary.inputTokens.toLocaleString()}`,
+          `  Output tokens: ${summary.outputTokens.toLocaleString()}`,
+          `  Cache read:    ${summary.cacheReadTokens.toLocaleString()}`,
+        ]
+        return { success: true, message: lines.join('\n') }
+      }
+      case 'context': {
+        const lines: string[] = ['Context Info']
+        const model = this.getModel()
+        if (model) lines.push(`  Model: ${model}`)
+        if (this.lastModelUsage) {
+          for (const [modelName, usage] of Object.entries(this.lastModelUsage)) {
+            lines.push(`  ${modelName}:`)
+            lines.push(`    Context window:  ${usage.contextWindow.toLocaleString()}`)
+            lines.push(`    Max output:      ${usage.maxOutputTokens.toLocaleString()}`)
+            lines.push(`    Input tokens:    ${usage.inputTokens.toLocaleString()}`)
+            lines.push(`    Output tokens:   ${usage.outputTokens.toLocaleString()}`)
+            lines.push(`    Cost:            $${usage.costUSD.toFixed(4)}`)
+          }
+        } else {
+          lines.push('  No model usage data yet (send a message first)')
+        }
+        return { success: true, message: lines.join('\n') }
+      }
+      default:
+        return { success: false, message: `Unknown command: ${command}` }
     }
-    if (command === 'compact') {
-      this.sessionId = undefined
-      return { success: true, message: 'Session compacted (reset)' }
-    }
-    return { success: false, message: `Unknown command: ${command}` }
   }
 
   stop() {

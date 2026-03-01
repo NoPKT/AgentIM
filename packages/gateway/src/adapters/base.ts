@@ -45,6 +45,12 @@ export abstract class BaseAgentAdapter {
   protected readonly onPermissionRequest?: PermissionRequestCallback
   protected isRunning = false
 
+  // Cost/token tracking — accumulated across all messages in the session
+  protected accumulatedCostUSD = 0
+  protected accumulatedInputTokens = 0
+  protected accumulatedOutputTokens = 0
+  protected accumulatedCacheReadTokens = 0
+
   constructor(opts: AdapterOptions) {
     this.agentId = opts.agentId
     this.agentName = opts.agentName
@@ -137,6 +143,26 @@ export abstract class BaseAgentAdapter {
 
   /** Return the model this agent is using, if known. */
   getModel(): string | undefined {
+    return undefined
+  }
+
+  /** Return accumulated cost and token usage for the session. */
+  getCostSummary() {
+    return {
+      costUSD: this.accumulatedCostUSD,
+      inputTokens: this.accumulatedInputTokens,
+      outputTokens: this.accumulatedOutputTokens,
+      cacheReadTokens: this.accumulatedCacheReadTokens,
+    }
+  }
+
+  /** Return the current thinking mode, if applicable. */
+  getThinkingMode(): string | undefined {
+    return undefined
+  }
+
+  /** Return the current effort level, if applicable. */
+  getEffortLevel(): string | undefined {
     return undefined
   }
 
