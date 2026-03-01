@@ -92,9 +92,14 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         // refresh token (server rotates on use → second request gets 401).
         const pending = refreshingToken
         refreshingToken = null
+        const pendingConnId = connectionId
         pending.then(
-          () => authenticate(wsClient),
-          () => authenticate(wsClient),
+          () => {
+            if (pendingConnId === connectionId) authenticate(wsClient)
+          },
+          () => {
+            if (pendingConnId === connectionId) authenticate(wsClient)
+          },
         )
       } else {
         refreshingToken = null
