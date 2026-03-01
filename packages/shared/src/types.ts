@@ -58,6 +58,9 @@ export interface Agent {
   slashCommands?: AgentSlashCommand[]
   mcpServers?: string[]
   model?: string
+  thinkingMode?: string
+  effortLevel?: string
+  sessionCostUSD?: number
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

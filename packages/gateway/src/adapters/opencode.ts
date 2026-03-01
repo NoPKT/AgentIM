@@ -26,6 +26,9 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
   private serverClose?: () => void
   private sessionId?: string
 
+  // Runtime settings configurable via slash commands
+  private modelOverride?: { modelID: string; providerID?: string }
+
   // Streaming state: track deltas to avoid duplicate content
   private lastTextLength = new Map<string, number>()
   private lastToolStatus = new Map<string, string>()
@@ -100,9 +103,9 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       const prompt = this.buildPrompt(content, context)
       const sessionId = this.sessionId
 
-      // Determine model and provider from env
-      const modelID = this.env.OPENCODE_MODEL_ID
-      const providerID = this.env.OPENCODE_PROVIDER_ID
+      // Determine model and provider from env or override
+      const modelID = this.modelOverride?.modelID || this.env.OPENCODE_MODEL_ID
+      const providerID = this.modelOverride?.providerID || this.env.OPENCODE_PROVIDER_ID
 
       // Start SSE event stream before sending the prompt.
       // If the initial subscribe fails (e.g. transient network error), retry up
@@ -139,6 +142,29 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
               ? { system: context.roomContext.systemPrompt }
               : {}),
           },
+        })
+        .then((res) => {
+          // Extract cost and token data from the prompt response
+          const info = res?.data?.info
+          if (info && typeof info === 'object') {
+            const msg = info as {
+              cost?: number
+              tokens?: {
+                input?: number
+                output?: number
+                cache?: { read?: number }
+              }
+            }
+            if (typeof msg.cost === 'number') {
+              this.accumulatedCostUSD += msg.cost
+            }
+            if (msg.tokens) {
+              this.accumulatedInputTokens += msg.tokens.input ?? 0
+              this.accumulatedOutputTokens += msg.tokens.output ?? 0
+              this.accumulatedCacheReadTokens += msg.tokens.cache?.read ?? 0
+            }
+          }
+          return res
         })
         .catch((err: unknown) => {
           if (!completed) throw err
@@ -375,18 +401,79 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     usage: string
     source: 'builtin' | 'skill'
   }> {
-    return [{ name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' }]
+    return [
+      { name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' },
+      {
+        name: 'model',
+        description: 'Switch model/provider',
+        usage: '/model [provider/model]',
+        source: 'builtin',
+      },
+      {
+        name: 'cost',
+        description: 'Show cost and token usage',
+        usage: '/cost',
+        source: 'builtin',
+      },
+    ]
+  }
+
+  override getModel(): string | undefined {
+    if (this.modelOverride) {
+      return this.modelOverride.providerID
+        ? `${this.modelOverride.providerID}/${this.modelOverride.modelID}`
+        : this.modelOverride.modelID
+    }
+    const modelID = this.env.OPENCODE_MODEL_ID
+    const providerID = this.env.OPENCODE_PROVIDER_ID
+    if (modelID) return providerID ? `${providerID}/${modelID}` : modelID
+    return undefined
   }
 
   override async handleSlashCommand(
     command: string,
-    _args: string,
+    args: string,
   ): Promise<{ success: boolean; message?: string }> {
-    if (command === 'clear') {
-      this.sessionId = undefined
-      return { success: true, message: 'Session cleared' }
+    switch (command) {
+      case 'clear': {
+        this.sessionId = undefined
+        return { success: true, message: 'Session cleared' }
+      }
+      case 'model': {
+        const input = args.trim()
+        if (!input) {
+          const current = this.getModel() ?? '(default)'
+          return {
+            success: true,
+            message: `Current model: ${current}\nUse /model <provider/model> or /model <model> to switch`,
+          }
+        }
+        // Parse "provider/model" or just "model"
+        const slashIdx = input.indexOf('/')
+        if (slashIdx > 0) {
+          this.modelOverride = {
+            providerID: input.slice(0, slashIdx),
+            modelID: input.slice(slashIdx + 1),
+          }
+        } else {
+          this.modelOverride = { modelID: input }
+        }
+        return { success: true, message: `Model set to: ${input}` }
+      }
+      case 'cost': {
+        const summary = this.getCostSummary()
+        const lines = [
+          'Session Cost Summary',
+          `  Cost:         $${summary.costUSD.toFixed(4)}`,
+          `  Input tokens:  ${summary.inputTokens.toLocaleString()}`,
+          `  Output tokens: ${summary.outputTokens.toLocaleString()}`,
+          `  Cache read:    ${summary.cacheReadTokens.toLocaleString()}`,
+        ]
+        return { success: true, message: lines.join('\n') }
+      }
+      default:
+        return { success: false, message: `Unknown command: ${command}` }
     }
-    return { success: false, message: `Unknown command: ${command}` }
   }
 
   stop() {

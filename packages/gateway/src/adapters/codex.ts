@@ -39,6 +39,10 @@ export class CodexAdapter extends BaseAgentAdapter {
   /** Whether prompt-based permission simulation is active for this adapter. */
   private readonly promptPermission: boolean
 
+  // Runtime settings configurable via slash commands
+  private modelOverride?: string
+  private reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+
   constructor(opts: AdapterOptions) {
     super(opts)
     // Enable prompt-based permissions when interactive mode is requested but the
@@ -124,14 +128,26 @@ export class CodexAdapter extends BaseAgentAdapter {
           )
         }
       }
+      const threadOpts: {
+        model?: string
+        modelReasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+        workingDirectory?: string
+        approvalPolicy?: 'never' | 'on-request'
+      } = {
+        workingDirectory: this.workingDirectory,
+        approvalPolicy,
+      }
+      if (this.modelOverride || this.env.CODEX_MODEL) {
+        threadOpts.model = this.modelOverride || this.env.CODEX_MODEL
+      }
+      if (this.reasoningEffort) {
+        threadOpts.modelReasoningEffort = this.reasoningEffort
+      }
       if (this.threadId) {
-        this.thread = this.codex!.resumeThread(this.threadId)
+        this.thread = this.codex!.resumeThread(this.threadId, threadOpts)
         log.info(`Resumed Codex thread: ${this.threadId}`)
       } else {
-        this.thread = this.codex!.startThread({
-          workingDirectory: this.workingDirectory,
-          approvalPolicy,
-        })
+        this.thread = this.codex!.startThread(threadOpts)
         log.info(`Started new Codex thread (approvalPolicy=${approvalPolicy})`)
       }
     }
@@ -180,6 +196,15 @@ export class CodexAdapter extends BaseAgentAdapter {
         // Note: Codex SDK handles permissions via approvalPolicy parameter.
         // In daemon mode with interactive permission level, the model is prompted
         // to describe its plan and wait for user approval (see CODEX_PERMISSION_PREAMBLE).
+
+        if (event.type === 'turn.completed') {
+          if (event.usage) {
+            this.accumulatedInputTokens += event.usage.input_tokens ?? 0
+            this.accumulatedOutputTokens += event.usage.output_tokens ?? 0
+            this.accumulatedCacheReadTokens += event.usage.cached_input_tokens ?? 0
+          }
+          continue
+        }
 
         if (event.type === 'item.completed') {
           const chunks = this.mapItemToChunks(event.item)
@@ -281,19 +306,92 @@ export class CodexAdapter extends BaseAgentAdapter {
         usage: '/clear',
         source: 'builtin',
       },
+      {
+        name: 'model',
+        description: 'Switch model',
+        usage: '/model [name]',
+        source: 'builtin',
+      },
+      {
+        name: 'effort',
+        description: 'Set reasoning effort: minimal, low, medium, high, xhigh',
+        usage: '/effort [level]',
+        source: 'builtin',
+      },
+      {
+        name: 'cost',
+        description: 'Show token usage',
+        usage: '/cost',
+        source: 'builtin',
+      },
     ]
+  }
+
+  override getModel(): string | undefined {
+    return this.modelOverride || this.env.CODEX_MODEL || undefined
+  }
+
+  override getEffortLevel(): string | undefined {
+    return this.reasoningEffort
   }
 
   override async handleSlashCommand(
     command: string,
-    _args: string,
+    args: string,
   ): Promise<{ success: boolean; message?: string }> {
-    if (command === 'clear') {
-      this.thread = undefined
-      this.threadId = undefined
-      return { success: true, message: 'Thread cleared' }
+    switch (command) {
+      case 'clear': {
+        this.thread = undefined
+        this.threadId = undefined
+        return { success: true, message: 'Thread cleared' }
+      }
+      case 'model': {
+        const name = args.trim()
+        if (!name) {
+          const current = this.getModel() ?? '(default)'
+          return {
+            success: true,
+            message: `Current model: ${current}\nUse /model <name> to switch`,
+          }
+        }
+        this.modelOverride = name
+        // Force thread recreation to apply the new model
+        this.thread = undefined
+        return { success: true, message: `Model set to: ${name} (thread will restart)` }
+      }
+      case 'effort': {
+        const level = args.trim().toLowerCase()
+        if (!level) {
+          return {
+            success: true,
+            message: `Reasoning effort: ${this.reasoningEffort ?? '(default)'}\nOptions: minimal, low, medium, high, xhigh`,
+          }
+        }
+        const valid = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const
+        if (!valid.includes(level as (typeof valid)[number])) {
+          return {
+            success: false,
+            message: `Invalid effort level: ${level}\nOptions: minimal, low, medium, high, xhigh`,
+          }
+        }
+        this.reasoningEffort = level as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+        // Force thread recreation to apply the new effort level
+        this.thread = undefined
+        return { success: true, message: `Reasoning effort set to: ${level} (thread will restart)` }
+      }
+      case 'cost': {
+        const summary = this.getCostSummary()
+        const lines = [
+          'Session Token Usage',
+          `  Input tokens:  ${summary.inputTokens.toLocaleString()}`,
+          `  Output tokens: ${summary.outputTokens.toLocaleString()}`,
+          `  Cache read:    ${summary.cacheReadTokens.toLocaleString()}`,
+        ]
+        return { success: true, message: lines.join('\n') }
+      }
+      default:
+        return { success: false, message: `Unknown command: ${command}` }
     }
-    return { success: false, message: `Unknown command: ${command}` }
   }
 
   stop() {

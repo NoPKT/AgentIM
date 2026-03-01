@@ -1016,6 +1016,9 @@ async function handleAgentInfoResponse(
     slashCommands: Array<{ name: string; description: string; usage: string; source: string }>
     mcpServers: string[]
     model?: string
+    thinkingMode?: string
+    effortLevel?: string
+    sessionCostUSD?: number
   },
 ) {
   const gw = connectionManager.getGateway(ws)
@@ -1040,6 +1043,9 @@ async function handleAgentInfoResponse(
     slashCommands: msg.slashCommands,
     mcpServers: msg.mcpServers,
     model: msg.model,
+    thinkingMode: msg.thinkingMode,
+    effortLevel: msg.effortLevel,
+    sessionCostUSD: msg.sessionCostUSD,
     deviceInfo: agentGw
       ? {
           hostname: agentGw.hostname ?? '',

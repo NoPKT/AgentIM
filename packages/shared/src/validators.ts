@@ -715,6 +715,9 @@ export const gatewayAgentInfoSchema = z.object({
   slashCommands: z.array(agentSlashCommandSchema).max(100),
   mcpServers: z.array(z.string().max(200)).max(100),
   model: z.string().max(200).optional(),
+  thinkingMode: z.string().max(100).optional(),
+  effortLevel: z.string().max(50).optional(),
+  sessionCostUSD: z.number().nonnegative().optional(),
 })
 
 export const gatewaySpawnResultSchema = z.object({

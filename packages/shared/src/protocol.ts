@@ -383,6 +383,9 @@ export interface GatewayAgentInfo {
   slashCommands: AgentSlashCommand[]
   mcpServers: string[]
   model?: string
+  thinkingMode?: string
+  effortLevel?: string
+  sessionCostUSD?: number
 }
 
 export interface GatewaySpawnResult {

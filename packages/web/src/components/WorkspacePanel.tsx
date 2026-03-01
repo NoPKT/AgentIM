@@ -143,7 +143,7 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
         )}
       </button>
       {expanded && file.diff && (
-        <div className="ml-5 mt-1 mb-2">
+        <div className="ml-5 mt-1 mb-2 min-w-0 max-w-full overflow-hidden">
           <DiffView diff={file.diff} />
         </div>
       )}
@@ -517,7 +517,7 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
   const isLoading = loading?.agentId === selectedAgentId
 
   return (
-    <div className="border-t border-border flex flex-col h-72">
+    <div className="border-t border-border flex flex-col h-72 min-w-0">
       {/* Header bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-secondary border-b border-border flex-shrink-0">
         {/* Agent selector */}
