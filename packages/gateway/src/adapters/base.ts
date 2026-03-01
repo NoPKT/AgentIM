@@ -67,7 +67,7 @@ export abstract class BaseAgentAdapter {
     }
 
     // In broadcast mode, include room member info so agents are aware of
-    // each other and can collaborate instead of working independently.
+    // each other and can potentially collaborate when appropriate.
     if (context?.routingMode === 'broadcast' && context.roomContext?.members?.length) {
       const others = context.roomContext.members.filter(
         (m) => m.id !== this.agentId && m.type === 'agent',
@@ -82,8 +82,7 @@ export abstract class BaseAgentAdapter {
         })
         parts.push(
           `[Room "${context.roomContext.roomName}" — this message is broadcast to all agents. ` +
-            `You are "${this.agentName}". Other agents in the room:\n${memberLines.join('\n')}\n` +
-            `Collaborate with them — discuss, coordinate, and avoid duplicating work.]`,
+            `You are "${this.agentName}". Other agents in the room:\n${memberLines.join('\n')}]`,
         )
       }
     }
