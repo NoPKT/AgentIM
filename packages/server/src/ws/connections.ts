@@ -477,6 +477,15 @@ export class ConnectionManager {
     return this.agentQueueDepths.get(agentId) ?? 0
   }
 
+  /** Return the set of gateway IDs that currently have an active WebSocket connection. */
+  getConnectedGatewayIds(): Set<string> {
+    const ids = new Set<string>()
+    for (const gw of this.gateways.values()) {
+      ids.add(gw.gatewayId)
+    }
+    return ids
+  }
+
   /** Send a message to a gateway by its gateway ID (not agent ID). */
   sendToGatewayById(gatewayId: string, message: object): boolean {
     const data = JSON.stringify(message)

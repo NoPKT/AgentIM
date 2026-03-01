@@ -78,19 +78,30 @@ if (config.runMigrations) {
   await verifyMigrations()
 }
 
-// Reset all agent statuses to 'offline' on startup.
-// In-memory agentToGateway map is empty after restart, so DB must match.
-// Gateways will re-register their agents shortly after reconnecting.
+// Reset all agent statuses to 'offline' and mark all gateways as disconnected
+// on startup. In-memory maps are empty after restart, so DB must match.
+// Gateways will re-register (and re-connect agents) shortly after reconnecting.
 {
-  const { agents } = await import('./db/schema.js')
-  const result = await db
-    .update(agents)
-    .set({ status: 'offline', updatedAt: new Date().toISOString() })
-    .where(sql`${agents.status} != 'offline'`)
+  const { agents, gateways } = await import('./db/schema.js')
   const { getAffectedRowCount } = await import('./lib/drizzleUtils.js')
-  const reset = getAffectedRowCount(result)
-  if (reset > 0) {
-    log.info(`Reset ${reset} stale agent(s) to offline`)
+  const now = new Date().toISOString()
+
+  const agentResult = await db
+    .update(agents)
+    .set({ status: 'offline', updatedAt: now })
+    .where(sql`${agents.status} != 'offline'`)
+  const resetAgents = getAffectedRowCount(agentResult)
+  if (resetAgents > 0) {
+    log.info(`Reset ${resetAgents} stale agent(s) to offline`)
+  }
+
+  const gwResult = await db
+    .update(gateways)
+    .set({ disconnectedAt: now })
+    .where(sql`${gateways.disconnectedAt} IS NULL`)
+  const resetGateways = getAffectedRowCount(gwResult)
+  if (resetGateways > 0) {
+    log.info(`Marked ${resetGateways} stale gateway(s) as disconnected`)
   }
 }
 

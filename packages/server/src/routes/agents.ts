@@ -284,13 +284,30 @@ agentRoutes.post('/spawn', async (c) => {
 })
 
 // List gateways (excludes ephemeral gateways)
+// Enriches DB results with live connection status from the connection manager
+// to prevent stale `disconnectedAt` values after server restarts.
 agentRoutes.get('/gateways/list', async (c) => {
   const userId = c.get('userId')
   const gwList = await db
     .select()
     .from(gateways)
     .where(and(eq(gateways.userId, userId), eq(gateways.ephemeral, false)))
-  return c.json({ ok: true, data: gwList })
+
+  const connectedIds = connectionManager.getConnectedGatewayIds()
+  const enriched = gwList.map((gw) => {
+    const isConnected = connectedIds.has(gw.id)
+    if (isConnected && gw.disconnectedAt) {
+      // Gateway reconnected but DB not yet updated — fix for client
+      return { ...gw, disconnectedAt: null }
+    }
+    if (!isConnected && !gw.disconnectedAt) {
+      // DB says online but no active WebSocket — stale after server restart
+      return { ...gw, disconnectedAt: gw.connectedAt }
+    }
+    return gw
+  })
+
+  return c.json({ ok: true, data: enriched })
 })
 
 // Delete gateway (owner only) — cascade deletes all associated agents
