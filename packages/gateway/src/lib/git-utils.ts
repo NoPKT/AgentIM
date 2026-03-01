@@ -40,8 +40,8 @@ export async function getWorkspaceStatus(
   try {
     const [branch, diffStat, diffContent, logOutput] = await Promise.all([
       execGit(['rev-parse', '--abbrev-ref', 'HEAD'], workingDirectory),
-      execGit(['diff', '--no-renames', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
-      execGit(['diff', '--no-renames', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['log', '--oneline', '-3'], workingDirectory).catch(() => ''),
     ])
 
@@ -113,24 +113,29 @@ export async function getWorkspaceStatus(
 
     // Also check for untracked/added/deleted files via git status
     try {
-      const statusOutput = await execGit(
-        ['status', '--porcelain', '--no-renames'],
-        workingDirectory,
-      )
+      const statusOutput = await execGit(['status', '--porcelain'], workingDirectory)
       for (const line of statusOutput.split('\n').filter(Boolean)) {
         const code = line.slice(0, 2).trim()
-        const path = line.slice(3).trim()
+        let path = line.slice(3).trim()
+
+        // Handle rename format: "R  old -> new"
+        if (code === 'R' && path.includes(' -> ')) {
+          path = path.split(' -> ').pop()!.trim()
+        }
+
         if (!knownPaths.has(path)) {
           knownPaths.add(path)
           let status: WorkspaceFileChange['status'] = 'modified'
           if (code === '??' || code === 'A') status = 'added'
           else if (code === 'D') status = 'deleted'
+          else if (code === 'R') status = 'renamed'
           changedFiles.push({ path, status })
         } else {
           const existing = changedFiles.find((f) => f.path === path)
           if (existing) {
             if (code === 'D') existing.status = 'deleted'
             else if (code === '??' || code === 'A') existing.status = 'added'
+            else if (code === 'R') existing.status = 'renamed'
           }
         }
       }
