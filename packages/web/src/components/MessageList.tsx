@@ -66,15 +66,24 @@ export function MessageList({ onImageClick }: MessageListProps) {
         new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
       const baseHeight = hasHeader ? 80 : 24
 
-      // Agent messages with chunks (thinking + tool_use + text) are much taller
+      // Agent messages with chunks: only count visible text (not collapsed
+      // thinking/tool_use blocks which are hidden by default).
       if (msg.chunks?.length) {
-        const chunksText = msg.chunks.reduce(
-          (acc: number, c: { content?: string; input?: string }) =>
-            acc + (c.content?.length ?? c.input?.length ?? 0),
+        const visibleText = msg.chunks.reduce(
+          (acc: number, c: { type?: string; content?: string }) => {
+            if (c.type === 'thinking' || c.type === 'tool_use' || c.type === 'tool_result')
+              return acc
+            return acc + (c.content?.length ?? 0)
+          },
           0,
         )
-        const lineEstimate = Math.ceil(chunksText / 80)
-        return baseHeight + Math.max(60, lineEstimate * 22)
+        const lineEstimate = Math.ceil(visibleText / 80)
+        // Each collapsed block adds ~32px for its summary header
+        const collapsedBlocks = msg.chunks.filter(
+          (c: { type?: string }) =>
+            c.type === 'thinking' || c.type === 'tool_use' || c.type === 'tool_result',
+        ).length
+        return baseHeight + Math.max(20, lineEstimate * 22) + collapsedBlocks * 32
       }
 
       const contentLength = msg.content?.length ?? 0
@@ -89,13 +98,20 @@ export function MessageList({ onImageClick }: MessageListProps) {
     count: currentMessages.length,
     getScrollElement: () => parentRef.current,
     estimateSize,
+    // Stable keys prevent DOM recreation when messages are inserted/reordered
+    getItemKey: useCallback(
+      (index: number) => currentMessages[index]?.id ?? index,
+      [currentMessages],
+    ),
     overscan: 5,
   })
 
-  // Invalidate virtualizer measurements when messages change
-  // (e.g. stream completes, new message added, reorder after sort)
+  // Invalidate virtualizer measurements when messages change.
+  // Double-measure: immediate + delayed to catch late DOM layout.
   useEffect(() => {
     virtualizer.measure()
+    const timer = setTimeout(() => virtualizer.measure(), 100)
+    return () => clearTimeout(timer)
   }, [currentMessages, virtualizer])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing

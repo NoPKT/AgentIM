@@ -122,30 +122,25 @@ export async function getWorkspaceStatus(
 
     // Also check for untracked/added/deleted files via git status
     try {
-      const statusOutput = await execGit(['status', '--porcelain'], workingDirectory)
+      const statusOutput = await execGit(
+        ['status', '--porcelain', '--no-renames'],
+        workingDirectory,
+      )
       for (const line of statusOutput.split('\n').filter(Boolean)) {
         const code = line.slice(0, 2).trim()
-        let path = line.slice(3).trim()
-
-        // Handle rename format: "R  old -> new" (code may be "R", "RM", etc.)
-        if (code.startsWith('R') && path.includes(' -> ')) {
-          const parts = path.split(' -> ')
-          path = `${parts[0].trim()} \u2192 ${parts[1].trim()}`
-        }
+        const path = line.slice(3).trim()
 
         if (!knownPaths.has(path)) {
           knownPaths.add(path)
           let status: WorkspaceFileChange['status'] = 'modified'
           if (code === '??' || code.startsWith('A')) status = 'added'
           else if (code.startsWith('D')) status = 'deleted'
-          else if (code.startsWith('R')) status = 'renamed'
           changedFiles.push({ path, status })
         } else {
           const existing = changedFiles.find((f) => f.path === path)
           if (existing) {
             if (code.startsWith('D')) existing.status = 'deleted'
             else if (code === '??' || code.startsWith('A')) existing.status = 'added'
-            else if (code.startsWith('R')) existing.status = 'renamed'
           }
         }
       }
