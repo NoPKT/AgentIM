@@ -65,6 +65,31 @@ export abstract class BaseAgentAdapter {
     if (context?.roomContext?.systemPrompt) {
       parts.push(`[System: ${context.roomContext.systemPrompt}]`)
     }
+
+    // In broadcast mode, include full room member info so agents are aware
+    // of the room composition and can make informed decisions.
+    if (context?.routingMode === 'broadcast' && context.roomContext?.members?.length) {
+      const others = context.roomContext.members.filter((m) => m.id !== this.agentId)
+      if (others.length > 0) {
+        const memberLines = others.map((m) => {
+          const desc = [m.name]
+          if (m.type === 'user') {
+            desc.push('(user)')
+          } else if (m.type === 'agent') {
+            desc.push(`(agent${m.agentType ? `: ${m.agentType}` : ''})`)
+            if (m.capabilities?.length) desc.push(`capabilities: [${m.capabilities.join(', ')}]`)
+          }
+          if (m.roleDescription) desc.push(`role: ${m.roleDescription}`)
+          if (m.status) desc.push(`status: ${m.status}`)
+          return `  - ${desc.join(', ')}`
+        })
+        parts.push(
+          `[Room "${context.roomContext.roomName}" — this message is broadcast to all agents. ` +
+            `You are "${this.agentName}" (agent: ${this.type}). Room members:\n${memberLines.join('\n')}]`,
+        )
+      }
+    }
+
     if (context?.senderName) {
       parts.push(`[From: ${context.senderName}]`)
     }
