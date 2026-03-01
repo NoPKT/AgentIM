@@ -214,7 +214,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
             tabIndex={0}
             ref={roomListRef}
             onKeyDown={handleRoomListKeyDown}
-            className="overflow-y-auto"
+            className="overflow-y-auto overflow-x-hidden"
             style={{ maxHeight: 'calc(100vh - 220px)' }}
           >
             <div
@@ -263,13 +263,13 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                       <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className="truncate text-sm flex items-center gap-1">
+                          <span className="truncate text-sm flex items-center gap-1 min-w-0">
                             {room.pinnedAt && (
                               <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                             )}
-                            {room.name}
+                            <span className="truncate">{room.name}</span>
                           </span>
-                          <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
+                          <div className="flex items-center space-x-1 flex-shrink-0 ml-1.5">
                             {room.broadcastMode && (
                               <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning-subtle text-warning-text rounded">
                                 BC

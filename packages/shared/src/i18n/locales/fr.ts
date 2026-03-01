@@ -550,6 +550,7 @@ export const fr = {
     inputTokens: "Tokens d'entrée",
     outputTokens: 'Tokens de sortie',
     cacheTokens: 'Lecture du cache',
+    compactSession: 'Compresser la conversation',
     resetSession: 'Réinitialiser la session',
     resetConfirm: 'Êtes-vous sûr de vouloir réinitialiser la session ?',
     settingUpdated: 'Paramètre mis à jour',

@@ -501,6 +501,235 @@ function GrepToolBlock({
   )
 }
 
+function TodoWriteBlock({ content, toolName }: { content: string; toolName: string }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(true)
+  const input = parseToolInput(content)
+
+  // TodoWrite sends {todos: [{content, status, activeForm}...]}
+  // TaskCreate sends {subject, description, activeForm}
+  // TaskUpdate sends {taskId, status, ...}
+  // TaskList sends nothing
+  const todos =
+    (input?.todos as Array<{ content?: string; status?: string; activeForm?: string }>) ?? []
+  const isSingleTask = toolName === 'TaskCreate' || toolName === 'TaskUpdate'
+  const taskSubject = (input?.subject as string) || ''
+  const taskStatus = (input?.status as string) || ''
+  const taskId = (input?.taskId as string) || ''
+
+  const statusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return (
+          <svg
+            className="w-4 h-4 text-green-500 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        )
+      case 'in_progress':
+        return (
+          <svg
+            className="w-4 h-4 text-blue-500 flex-shrink-0 animate-spin"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        )
+      case 'deleted':
+        return (
+          <svg
+            className="w-4 h-4 text-red-400 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        )
+      default: // pending
+        return (
+          <span className="w-4 h-4 flex-shrink-0 rounded-full border-2 border-gray-300 dark:border-gray-600 inline-block" />
+        )
+    }
+  }
+
+  const label =
+    toolName === 'TaskList'
+      ? t('chat.taskList')
+      : toolName === 'TaskCreate'
+        ? t('chat.taskCreate')
+        : toolName === 'TaskUpdate'
+          ? t('chat.taskUpdate')
+          : t('chat.todoWrite')
+
+  // TaskList: just a label, no content
+  if (toolName === 'TaskList') {
+    return (
+      <div className="my-1 flex items-center gap-2 text-xs text-text-muted">
+        <svg
+          className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
+        </svg>
+        <span>{label}</span>
+      </div>
+    )
+  }
+
+  // TaskCreate / TaskUpdate: single task
+  if (isSingleTask) {
+    return (
+      <div className="my-1 flex items-center gap-2 text-xs text-text-muted">
+        <svg
+          className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
+        </svg>
+        <span className="font-medium text-indigo-600 dark:text-indigo-400">{label}</span>
+        {taskId && <span className="text-text-muted">#{taskId}</span>}
+        {taskSubject && <span className="truncate">{taskSubject}</span>}
+        {taskStatus && (
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              taskStatus === 'completed'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : taskStatus === 'in_progress'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+            }`}
+          >
+            {taskStatus}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  // TodoWrite: full list
+  if (todos.length === 0) {
+    return (
+      <div className="my-1 flex items-center gap-2 text-xs text-text-muted">
+        <svg
+          className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
+        </svg>
+        <span className="font-medium text-indigo-600 dark:text-indigo-400">{label}</span>
+      </div>
+    )
+  }
+
+  const completedCount = todos.filter((td) => td.status === 'completed').length
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <svg
+          className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
+        </svg>
+        <span className="font-medium text-indigo-600 dark:text-indigo-400">{label}</span>
+        <span className="text-text-muted">
+          {completedCount}/{todos.length}
+        </span>
+        {/* Progress bar */}
+        <div className="flex-1 max-w-24 h-1.5 bg-surface-hover rounded-full overflow-hidden">
+          <div
+            className="h-full bg-indigo-500 rounded-full transition-all"
+            style={{ width: `${todos.length > 0 ? (completedCount / todos.length) * 100 : 0}%` }}
+          />
+        </div>
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-indigo-200 dark:border-indigo-700 space-y-1">
+          {todos.map((todo, i) => (
+            <div key={i} className="flex items-start gap-2 py-0.5">
+              {statusIcon(todo.status || 'pending')}
+              <span
+                className={`text-xs leading-relaxed ${
+                  todo.status === 'completed'
+                    ? 'text-text-muted line-through'
+                    : todo.status === 'in_progress'
+                      ? 'text-text-primary font-medium'
+                      : 'text-text-secondary'
+                }`}
+              >
+                {todo.content || todo.activeForm || '(no content)'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolUseBlock({
   content,
   metadata,
@@ -527,6 +756,11 @@ export function ToolUseBlock({
     case 'Grep':
     case 'Glob':
       return <GrepToolBlock content={content} isStreaming={isStreaming} />
+    case 'TodoWrite':
+    case 'TaskCreate':
+    case 'TaskUpdate':
+    case 'TaskList':
+      return <TodoWriteBlock content={content} toolName={toolName} />
   }
 
   // Extract a short preview from tool input for the collapsed state
@@ -775,10 +1009,73 @@ function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | Collapse
   return result
 }
 
+/** Collapsed batch of Bash commands — merged into a single code block */
+function BashBatchBlock({ contents }: { contents: string[] }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const commands = contents.map((c) => {
+    const input = parseToolInput(c)
+    return (input?.command as string) || c
+  })
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <svg
+          className="w-3.5 h-3.5 text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {t('chat.runningCommands', { count: commands.length })}
+        </span>
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
+          <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+            {commands.map((cmd, i) => (
+              <div key={i}>
+                <span className="text-gray-500 select-none">$ </span>
+                {cmd}
+                {i < commands.length - 1 && '\n'}
+              </div>
+            ))}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Collapsed batch of same-type tool blocks */
 function ToolBatchBlock({ contents, toolName }: { contents: string[]; toolName: string }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+
+  // Bash commands: merge into a single code block
+  if (toolName === 'Bash') {
+    return <BashBatchBlock contents={contents} />
+  }
 
   return (
     <div className="my-2">

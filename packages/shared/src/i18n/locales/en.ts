@@ -646,6 +646,7 @@ export const en = {
     inputTokens: 'Input Tokens',
     outputTokens: 'Output Tokens',
     cacheTokens: 'Cache Read',
+    compactSession: 'Compact Conversation',
     resetSession: 'Reset Session',
     resetConfirm: 'Are you sure you want to reset the session?',
     settingUpdated: 'Setting updated',

@@ -540,6 +540,7 @@ export const ja = {
     inputTokens: '入力トークン',
     outputTokens: '出力トークン',
     cacheTokens: 'キャッシュ読取',
+    compactSession: '会話を圧縮',
     resetSession: 'セッションをリセット',
     resetConfirm: 'セッションをリセットしてもよろしいですか？',
     settingUpdated: '設定が更新されました',

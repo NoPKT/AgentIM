@@ -550,6 +550,7 @@ export const de = {
     inputTokens: 'Eingabe-Tokens',
     outputTokens: 'Ausgabe-Tokens',
     cacheTokens: 'Cache-Lesung',
+    compactSession: 'Konversation komprimieren',
     resetSession: 'Sitzung zurücksetzen',
     resetConfirm: 'Sind Sie sicher, dass Sie die Sitzung zurücksetzen möchten?',
     settingUpdated: 'Einstellung aktualisiert',

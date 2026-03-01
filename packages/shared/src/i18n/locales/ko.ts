@@ -538,6 +538,7 @@ export const ko = {
     inputTokens: '입력 토큰',
     outputTokens: '출력 토큰',
     cacheTokens: '캐시 읽기',
+    compactSession: '대화 압축',
     resetSession: '세션 초기화',
     resetConfirm: '세션을 초기화하시겠습니까?',
     settingUpdated: '설정이 업데이트되었습니다',

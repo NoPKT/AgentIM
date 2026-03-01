@@ -48,7 +48,6 @@ export default function ChatPage() {
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [agentConfigOpen, setAgentConfigOpen] = useState(false)
-  const [configAgentId, setConfigAgentId] = useState<string | null>(null)
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
@@ -362,12 +361,7 @@ export default function ChatPage() {
                 <WorkspaceIcon className="w-5 h-5" />
               </button>
               <button
-                onClick={() => {
-                  const id =
-                    agentMembers.length === 1 ? agentMembers[0].memberId : agentMembers[0].memberId
-                  setConfigAgentId(id)
-                  setAgentConfigOpen(true)
-                }}
+                onClick={() => setAgentConfigOpen(true)}
                 className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title={t('agentConfig.title')}
               >
@@ -565,9 +559,9 @@ export default function ChatPage() {
       )}
 
       {/* Agent Config Panel */}
-      {configAgentId && (
+      {agentMembers.length > 0 && (
         <AgentConfigPanel
-          agentId={configAgentId}
+          agentIds={agentMembers.map((m) => m.memberId)}
           roomId={currentRoomId}
           isOpen={agentConfigOpen}
           onClose={() => setAgentConfigOpen(false)}

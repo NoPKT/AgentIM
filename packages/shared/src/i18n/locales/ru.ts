@@ -546,6 +546,7 @@ export const ru = {
     inputTokens: 'Входные токены',
     outputTokens: 'Выходные токены',
     cacheTokens: 'Чтение кэша',
+    compactSession: 'Сжать диалог',
     resetSession: 'Сбросить сессию',
     resetConfirm: 'Вы уверены, что хотите сбросить сессию?',
     settingUpdated: 'Настройка обновлена',

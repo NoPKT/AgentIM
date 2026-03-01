@@ -533,6 +533,7 @@ export const zhCN = {
     inputTokens: '输入 Token',
     outputTokens: '输出 Token',
     cacheTokens: '缓存读取',
+    compactSession: '压缩对话',
     resetSession: '重置会话',
     resetConfirm: '确定要重置会话吗？',
     settingUpdated: '设置已更新',
