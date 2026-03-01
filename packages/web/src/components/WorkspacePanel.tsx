@@ -182,7 +182,7 @@ function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: st
 
   const { data: status } = statusEntry
 
-  if (status.changedFiles.length === 0) {
+  if (!status || status.changedFiles.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-text-muted p-4">
         {t('chat.noChanges')}

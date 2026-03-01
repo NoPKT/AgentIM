@@ -279,7 +279,7 @@ export function useWebSocket() {
             const ws = useWorkspaceStore.getState()
             const resp = msg.response as { kind: string; [key: string]: unknown }
             if (resp.kind === 'status') {
-              ws.setStatus(msg.agentId, resp.data as WorkspaceStatus, '')
+              ws.setStatus(msg.agentId, (resp.data as WorkspaceStatus | null) ?? null, '')
             } else if (resp.kind === 'tree') {
               ws.setTree(
                 msg.agentId,

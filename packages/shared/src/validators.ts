@@ -729,7 +729,7 @@ export const gatewayWorkspaceResponseSchema = z.object({
   agentId: z.string().min(1),
   requestId: z.string().min(1),
   response: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('status'), data: z.record(z.string(), z.unknown()) }),
+    z.object({ kind: z.literal('status'), data: z.record(z.string(), z.unknown()).nullable() }),
     z.object({
       kind: z.literal('tree'),
       path: z.string(),
