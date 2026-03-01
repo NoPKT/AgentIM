@@ -2,8 +2,11 @@ import { create } from 'zustand'
 import type { WorkspaceStatus, DirectoryEntry } from '@agentim/shared'
 
 export interface WorkspaceState {
-  // Per-agent latest git status (from message chunks)
-  statuses: Map<string, { data: WorkspaceStatus; workingDirectory: string; updatedAt: number }>
+  // Per-agent latest git status (from message chunks or explicit requests)
+  statuses: Map<
+    string,
+    { data: WorkspaceStatus | null; workingDirectory: string; updatedAt: number }
+  >
   // Per-agent directory listings cache (path → entries)
   trees: Map<string, Map<string, DirectoryEntry[]>>
   // Currently viewed file
@@ -17,7 +20,7 @@ export interface WorkspaceState {
   // Loading states
   loading: { agentId: string; kind: string } | null
 
-  setStatus(agentId: string, data: WorkspaceStatus, workingDirectory: string): void
+  setStatus(agentId: string, data: WorkspaceStatus | null, workingDirectory: string): void
   setTree(agentId: string, path: string, entries: DirectoryEntry[]): void
   setFileContent(content: WorkspaceState['fileContent']): void
   setLoading(loading: WorkspaceState['loading']): void
