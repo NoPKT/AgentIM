@@ -66,23 +66,26 @@ export abstract class BaseAgentAdapter {
       parts.push(`[System: ${context.roomContext.systemPrompt}]`)
     }
 
-    // In broadcast mode, include room member info so agents are aware of
-    // each other and can potentially collaborate when appropriate.
+    // In broadcast mode, include full room member info so agents are aware
+    // of the room composition and can make informed decisions.
     if (context?.routingMode === 'broadcast' && context.roomContext?.members?.length) {
-      const others = context.roomContext.members.filter(
-        (m) => m.id !== this.agentId && m.type === 'agent',
-      )
+      const others = context.roomContext.members.filter((m) => m.id !== this.agentId)
       if (others.length > 0) {
         const memberLines = others.map((m) => {
           const desc = [m.name]
-          if (m.agentType) desc.push(`type: ${m.agentType}`)
+          if (m.type === 'user') {
+            desc.push('(user)')
+          } else if (m.type === 'agent') {
+            desc.push(`(agent${m.agentType ? `: ${m.agentType}` : ''})`)
+            if (m.capabilities?.length) desc.push(`capabilities: [${m.capabilities.join(', ')}]`)
+          }
           if (m.roleDescription) desc.push(`role: ${m.roleDescription}`)
           if (m.status) desc.push(`status: ${m.status}`)
           return `  - ${desc.join(', ')}`
         })
         parts.push(
           `[Room "${context.roomContext.roomName}" — this message is broadcast to all agents. ` +
-            `You are "${this.agentName}". Other agents in the room:\n${memberLines.join('\n')}]`,
+            `You are "${this.agentName}" (agent: ${this.type}). Room members:\n${memberLines.join('\n')}]`,
         )
       }
     }
