@@ -33,7 +33,7 @@ describe('useWorkspaceStore', () => {
     useWorkspaceStore.getState().setStatus('agent1', MOCK_STATUS, '/home/user/project')
     const entry = useWorkspaceStore.getState().statuses.get('agent1')
     expect(entry).toBeDefined()
-    expect(entry!.data.branch).toBe('main')
+    expect(entry!.data!.branch).toBe('main')
     expect(entry!.workingDirectory).toBe('/home/user/project')
     expect(entry!.updatedAt).toBeGreaterThan(0)
   })
@@ -43,7 +43,7 @@ describe('useWorkspaceStore', () => {
     const updated: WorkspaceStatus = { ...MOCK_STATUS, branch: 'develop' }
     useWorkspaceStore.getState().setStatus('agent1', updated, '/dir2')
     expect(useWorkspaceStore.getState().statuses.size).toBe(1)
-    expect(useWorkspaceStore.getState().statuses.get('agent1')!.data.branch).toBe('develop')
+    expect(useWorkspaceStore.getState().statuses.get('agent1')!.data!.branch).toBe('develop')
   })
 
   it('setStatus supports multiple agents', () => {
