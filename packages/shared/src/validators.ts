@@ -1176,6 +1176,18 @@ export const serverSpawnAgentSchema = z.object({
   workingDirectory: z.string().optional(),
 })
 
+export const serverRequestWorkspaceSchema = z.object({
+  type: z.literal('server:request_workspace'),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  requestId: z.string().min(1),
+  request: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('status') }),
+    z.object({ kind: z.literal('tree'), path: z.string().max(4096).optional() }),
+    z.object({ kind: z.literal('file'), path: z.string().min(1).max(4096) }),
+  ]),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
@@ -1186,6 +1198,7 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverAgentCommandSchema,
   serverQueryAgentInfoSchema,
   serverSpawnAgentSchema,
+  serverRequestWorkspaceSchema,
   serverPongSchema,
   serverErrorSchema,
 ])
