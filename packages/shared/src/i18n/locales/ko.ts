@@ -233,6 +233,17 @@ export const ko = {
     streamBufferOverflow: '응답이 매우 깁니다. 이전 내용이 잘렸습니다.',
     searchShortcutHint: '{{modifier}}+K',
     editKeyboardHint: 'Esc {{cancel}}, {{modifier}}+Enter {{save}}',
+    workspace: '워크스페이스',
+    workspaceFiles: '파일',
+    workspaceNoData:
+      '아직 워크스페이스 데이터가 없습니다. 에이전트에게 메시지를 보내 변경 사항을 확인하세요.',
+    workspaceNoAgents: '이 방에 워크스페이스가 있는 에이전트가 없습니다',
+    workspaceRefresh: '새로고침',
+    workspaceLoading: '로딩 중...',
+    workspaceFileTooBig: '파일이 너무 커서 표시할 수 없습니다',
+    workspaceEmptyDir: '빈 디렉토리',
+    workspaceBranch: '브랜치: {{branch}}',
+    workspaceParentDir: '상위 디렉토리',
   },
   agent: {
     agents: '에이전트',

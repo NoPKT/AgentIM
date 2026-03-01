@@ -2,6 +2,7 @@ import type {
   Agent,
   AgentSlashCommand,
   DeviceInfo,
+  DirectoryEntry,
   Message,
   MessageReaction,
   ParsedChunk,
@@ -9,6 +10,7 @@ import type {
   Room,
   RoomMember,
   RoomContext,
+  WorkspaceStatus,
 } from './types.js'
 import type {
   AgentStatus,
@@ -76,6 +78,13 @@ export interface ClientQueryAgentInfo {
   agentId: string
 }
 
+export interface ClientRequestWorkspace {
+  type: 'client:request_workspace'
+  roomId: string
+  agentId: string
+  request: { kind: 'status' } | { kind: 'tree'; path?: string } | { kind: 'file'; path: string }
+}
+
 export interface ClientPing {
   type: 'client:ping'
   ts: number
@@ -91,6 +100,7 @@ export type ClientMessage =
   | ClientPermissionResponse
   | ClientAgentCommand
   | ClientQueryAgentInfo
+  | ClientRequestWorkspace
   | ClientPing
 
 // ─── Server → Client Messages ───
@@ -199,6 +209,17 @@ export interface ServerReactionUpdate {
   reactions: MessageReaction[]
 }
 
+export interface ServerWorkspaceResponse {
+  type: 'server:workspace_response'
+  agentId: string
+  requestId: string
+  response:
+    | { kind: 'status'; data: WorkspaceStatus }
+    | { kind: 'tree'; path: string; entries: DirectoryEntry[] }
+    | { kind: 'file'; path: string; content: string; size: number; truncated: boolean }
+    | { kind: 'error'; message: string }
+}
+
 export interface ServerError {
   type: 'server:error'
   code: string
@@ -263,6 +284,7 @@ export type ServerMessage =
   | ServerPermissionRequestExpired
   | ServerRoomCleared
   | ServerSpawnResult
+  | ServerWorkspaceResponse
   | ServerPong
   | ServerError
 
@@ -371,6 +393,17 @@ export interface GatewaySpawnResult {
   error?: string
 }
 
+export interface GatewayWorkspaceResponse {
+  type: 'gateway:workspace_response'
+  agentId: string
+  requestId: string
+  response:
+    | { kind: 'status'; data: WorkspaceStatus }
+    | { kind: 'tree'; path: string; entries: DirectoryEntry[] }
+    | { kind: 'file'; path: string; content: string; size: number; truncated: boolean }
+    | { kind: 'error'; message: string }
+}
+
 export interface GatewayPing {
   type: 'gateway:ping'
   ts: number
@@ -389,6 +422,7 @@ export type GatewayMessage =
   | GatewayAgentCommandResult
   | GatewayAgentInfo
   | GatewaySpawnResult
+  | GatewayWorkspaceResponse
   | GatewayPing
 
 // ─── Server → Gateway Messages ───
@@ -457,6 +491,14 @@ export interface ServerSpawnAgent {
   workingDirectory?: string
 }
 
+export interface ServerRequestWorkspace {
+  type: 'server:request_workspace'
+  agentId: string
+  roomId: string
+  requestId: string
+  request: { kind: 'status' } | { kind: 'tree'; path?: string } | { kind: 'file'; path: string }
+}
+
 export interface ServerPong {
   type: 'server:pong'
   ts: number
@@ -472,6 +514,7 @@ export type ServerGatewayMessage =
   | ServerAgentCommand
   | ServerQueryAgentInfo
   | ServerSpawnAgent
+  | ServerRequestWorkspace
   | ServerPong
   | ServerError
 
@@ -492,6 +535,7 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'client:permission_response',
   'client:agent_command',
   'client:query_agent_info',
+  'client:request_workspace',
   'client:ping',
 ])
 
@@ -509,6 +553,7 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:agent_command_result',
   'gateway:agent_info',
   'gateway:spawn_result',
+  'gateway:workspace_response',
   'gateway:ping',
 ])
 
@@ -535,6 +580,7 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:permission_request_expired',
   'server:room_cleared',
   'server:spawn_result',
+  'server:workspace_response',
   'server:pong',
   'server:error',
 ])
@@ -587,6 +633,7 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:agent_command',
   'server:query_agent_info',
   'server:spawn_agent',
+  'server:request_workspace',
 ])
 
 /** Type guard for ServerGatewayMessage */

@@ -271,6 +271,40 @@ export function ServiceAgentsIcon(props: IconProps) {
   )
 }
 
+export function FolderIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+  )
+}
+
+export function FileIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  )
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M1 4v6h6M23 20v-6h-6" />
+      <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" />
+    </svg>
+  )
+}
+
+export function WorkspaceIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7l4-4h8l4 4M4 7h16" />
+    </svg>
+  )
+}
+
 export function LogoutIcon(props: IconProps) {
   return (
     <svg {...defaultStroke} {...props}>

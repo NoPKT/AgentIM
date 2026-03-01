@@ -233,6 +233,17 @@ export const ja = {
     streamBufferOverflow: '応答が非常に長いため、以前の内容がトリミングされました。',
     searchShortcutHint: '{{modifier}}+K',
     editKeyboardHint: 'Esc {{cancel}}、{{modifier}}+Enter {{save}}',
+    workspace: 'ワークスペース',
+    workspaceFiles: 'ファイル',
+    workspaceNoData:
+      'ワークスペースデータがまだありません。エージェントにメッセージを送信して変更を確認してください。',
+    workspaceNoAgents: 'このルームにワークスペースを持つエージェントはいません',
+    workspaceRefresh: '更新',
+    workspaceLoading: '読み込み中...',
+    workspaceFileTooBig: 'ファイルが大きすぎて表示できません',
+    workspaceEmptyDir: '空のディレクトリ',
+    workspaceBranch: 'ブランチ：{{branch}}',
+    workspaceParentDir: '親ディレクトリ',
   },
   agent: {
     agents: 'エージェント',
