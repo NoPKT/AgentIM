@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
@@ -22,6 +24,14 @@ import { getWorkspaceStatus } from './lib/git-utils.js'
 import { getDirectoryListing, getFileContent } from './lib/fs-utils.js'
 
 const log = createLogger('AgentManager')
+
+/** Expand leading `~` or `~user` to actual home directory and resolve to absolute. */
+function expandPath(p: string): string {
+  if (p.startsWith('~/') || p === '~') {
+    return resolve(homedir(), p.slice(2))
+  }
+  return resolve(p)
+}
 
 interface PendingPermission {
   resolve: (decision: { behavior: 'allow' | 'deny' }) => void
@@ -104,12 +114,13 @@ export class AgentManager {
     passEnv?: string[]
   }): string {
     const agentId = nanoid()
+    const workingDirectory = opts.workingDirectory ? expandPath(opts.workingDirectory) : undefined
     let adapter: BaseAgentAdapter
     try {
       adapter = createAdapter(opts.type, {
         agentId,
         agentName: opts.name,
-        workingDirectory: opts.workingDirectory,
+        workingDirectory,
         command: opts.command,
         args: opts.args,
         promptVia: opts.promptVia,
