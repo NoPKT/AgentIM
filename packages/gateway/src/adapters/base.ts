@@ -65,6 +65,29 @@ export abstract class BaseAgentAdapter {
     if (context?.roomContext?.systemPrompt) {
       parts.push(`[System: ${context.roomContext.systemPrompt}]`)
     }
+
+    // In broadcast mode, include room member info so agents are aware of
+    // each other and can collaborate instead of working independently.
+    if (context?.routingMode === 'broadcast' && context.roomContext?.members?.length) {
+      const others = context.roomContext.members.filter(
+        (m) => m.id !== this.agentId && m.type === 'agent',
+      )
+      if (others.length > 0) {
+        const memberLines = others.map((m) => {
+          const desc = [m.name]
+          if (m.agentType) desc.push(`type: ${m.agentType}`)
+          if (m.roleDescription) desc.push(`role: ${m.roleDescription}`)
+          if (m.status) desc.push(`status: ${m.status}`)
+          return `  - ${desc.join(', ')}`
+        })
+        parts.push(
+          `[Room "${context.roomContext.roomName}" — this message is broadcast to all agents. ` +
+            `You are "${this.agentName}". Other agents in the room:\n${memberLines.join('\n')}\n` +
+            `Collaborate with them — discuss, coordinate, and avoid duplicating work.]`,
+        )
+      }
+    }
+
     if (context?.senderName) {
       parts.push(`[From: ${context.senderName}]`)
     }
