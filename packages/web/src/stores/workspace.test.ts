@@ -4,14 +4,13 @@ import type { WorkspaceStatus } from '@agentim/shared'
 
 const MOCK_STATUS: WorkspaceStatus = {
   branch: 'main',
-  summary: { added: 1, modified: 2, deleted: 0, renamed: 0 },
-  files: [
+  summary: { filesChanged: 1, additions: 5, deletions: 2 },
+  changedFiles: [
     {
       path: 'src/index.ts',
       status: 'modified',
       additions: 5,
       deletions: 2,
-      hunks: [],
     },
   ],
   recentCommits: [],
