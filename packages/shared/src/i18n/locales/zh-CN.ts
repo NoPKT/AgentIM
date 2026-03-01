@@ -242,6 +242,7 @@ export const zhCN = {
     workspaceEmptyDir: '空目录',
     workspaceBranch: '分支：{{branch}}',
     workspaceParentDir: '上级目录',
+    workspaceSelectFile: '从目录树中选择文件以查看内容。',
   },
   agent: {
     agents: '智能体',

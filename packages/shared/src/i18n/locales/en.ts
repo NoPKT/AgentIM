@@ -243,6 +243,7 @@ export const en = {
     workspaceEmptyDir: 'Empty directory',
     workspaceBranch: 'Branch: {{branch}}',
     workspaceParentDir: 'Parent directory',
+    workspaceSelectFile: 'Select a file from the tree to view its content.',
   },
   agent: {
     agents: 'Agents',

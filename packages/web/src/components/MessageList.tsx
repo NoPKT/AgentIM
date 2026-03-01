@@ -263,7 +263,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
         {/* Streaming messages */}
         {streamingMessages.map((streamMsg) => (
           <StreamingMessage
-            key={streamMsg.messageId}
+            key={`${streamMsg.agentId}:${streamMsg.messageId}`}
             agentName={streamMsg.agentName}
             agentId={streamMsg.agentId}
             roomId={currentRoomId!}
