@@ -48,6 +48,7 @@ export async function getWorkspaceStatus(
     // Parse --stat output for file change summary
     const statLines = diffStat.split('\n').filter(Boolean)
     const changedFiles: WorkspaceFileChange[] = []
+    const knownPaths = new Set<string>()
     let totalAdditions = 0
     let totalDeletions = 0
 
@@ -65,6 +66,8 @@ export async function getWorkspaceStatus(
       const match = line.match(/^\s*(.+?)\s+\|\s+(\d+)\s*([+-]*)/)
       if (match) {
         const path = match[1].trim()
+        if (knownPaths.has(path)) continue
+        knownPaths.add(path)
         const additions = (match[3].match(/\+/g) || []).length
         const deletions = (match[3].match(/-/g) || []).length
 
@@ -103,16 +106,18 @@ export async function getWorkspaceStatus(
       for (const line of statusOutput.split('\n').filter(Boolean)) {
         const code = line.slice(0, 2).trim()
         const path = line.slice(3)
-        const existing = changedFiles.find((f) => f.path === path)
-        if (!existing) {
+        if (!knownPaths.has(path)) {
+          knownPaths.add(path)
           let status: WorkspaceFileChange['status'] = 'modified'
           if (code === '??' || code === 'A') status = 'added'
           else if (code === 'D') status = 'deleted'
           changedFiles.push({ path, status })
-        } else if (code === 'D') {
-          existing.status = 'deleted'
-        } else if (code === '??' || code === 'A') {
-          existing.status = 'added'
+        } else {
+          const existing = changedFiles.find((f) => f.path === path)
+          if (existing) {
+            if (code === 'D') existing.status = 'deleted'
+            else if (code === '??' || code === 'A') existing.status = 'added'
+          }
         }
       }
     } catch {
