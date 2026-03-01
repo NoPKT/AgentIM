@@ -412,7 +412,7 @@ export const MessageItem = memo(function MessageItem({
 
   return (
     <div
-      className={`px-6 ${showHeader ? 'py-3' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}
+      className={`px-6 ${showHeader ? 'py-2' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}
     >
       {/* Mobile action trigger */}
       {!actions.showActions && (

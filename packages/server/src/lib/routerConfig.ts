@@ -3,6 +3,7 @@ import { db } from '../db/index.js'
 import { rooms, routers } from '../db/schema.js'
 import { decryptSecret } from './crypto.js'
 import { createLogger } from './logger.js'
+import { getSetting } from './settings.js'
 
 const log = createLogger('RouterConfig')
 
@@ -31,6 +32,28 @@ export interface RouterConfig {
   rateLimitMax: number
 }
 
+/**
+ * Fall back to system-level AI Router settings when a room has no router assigned.
+ * Returns null if system settings are not configured (missing baseUrl or apiKey).
+ */
+async function getSystemRouterConfig(): Promise<RouterConfig | null> {
+  const [llmBaseUrl, llmApiKey, llmModel, maxChainDepthStr] = await Promise.all([
+    getSetting('router.llm.baseUrl'),
+    getSetting('router.llm.apiKey'),
+    getSetting('router.llm.model'),
+    getSetting('router.maxChainDepth'),
+  ])
+  if (!llmBaseUrl || !llmApiKey) return null
+  return {
+    llmBaseUrl,
+    llmApiKey,
+    llmModel: llmModel || 'gpt-4o-mini',
+    maxChainDepth: parseInt(maxChainDepthStr, 10) || 5,
+    rateLimitWindow: 60,
+    rateLimitMax: 20,
+  }
+}
+
 export async function getRouterConfig(roomId: string): Promise<RouterConfig | null> {
   // Note: routerId is validated via checkRouterAccess() when assigned to the room.
   // The API key is used server-side only (LLM calls) and never exposed to clients.
@@ -40,7 +63,12 @@ export async function getRouterConfig(roomId: string): Promise<RouterConfig | nu
     .from(rooms)
     .where(eq(rooms.id, roomId))
     .limit(1)
-  if (!room?.routerId) return null
+  if (!room) return null
+
+  // If room has no router assigned, fall back to system-level AI Router settings
+  if (!room.routerId) {
+    return getSystemRouterConfig()
+  }
 
   const [router] = await db
     .select({

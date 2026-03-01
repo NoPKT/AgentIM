@@ -47,7 +47,7 @@ export function StreamingMessage({ agentName, agentId, roomId, chunks }: Streami
   }
 
   return (
-    <div className="px-6 py-4" role="status" aria-busy="true">
+    <div className="px-6 py-2" role="status" aria-busy="true">
       <div className="flex items-start space-x-3">
         {/* Avatar */}
         <div

@@ -340,6 +340,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
           )
           combined = [...newMsgs, ...wsOnlyMsgs]
         }
+        // Filter out messages cleared by /clear command
+        try {
+          const stored = JSON.parse(localStorage.getItem('agentim:clearedAt') ?? '{}')
+          const clearedAt = stored[roomId]
+          if (clearedAt) {
+            combined = combined.filter((m) => m.createdAt > clearedAt)
+          }
+        } catch {
+          // localStorage unavailable — skip filtering
+        }
         if (combined.length > MAX_CACHED_MESSAGES) {
           combined = combined.slice(-MAX_CACHED_MESSAGES)
         }
