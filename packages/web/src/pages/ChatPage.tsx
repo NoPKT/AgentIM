@@ -276,10 +276,7 @@ export default function ChatPage() {
           </span>
           {singleAgent?.model && (
             <button
-              onClick={() => {
-                setConfigAgentId(singleAgent.id)
-                setAgentConfigOpen(true)
-              }}
+              onClick={() => setAgentConfigOpen(true)}
               className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-surface-secondary text-text-muted rounded-md hover:bg-surface-hover transition-colors flex-shrink-0"
               title={t('agentConfig.clickToChange')}
             >
