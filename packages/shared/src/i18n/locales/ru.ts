@@ -523,10 +523,11 @@ export const ru = {
     noAgentFound: 'Агент не найден: {{name}}',
     noActiveStreams: 'Нет активных потоков агента для остановки',
   },
-  agentInfo: {
+  agentPanel: {
     title: 'Сведения об агенте',
     general: 'Общее',
     model: 'Модель',
+    modelPlaceholder: 'Введите название модели',
     gateway: 'Шлюз',
     mcpServers: 'MCP-серверы',
     slashCommands: 'Слеш-команды',
@@ -537,11 +538,6 @@ export const ru = {
     rename: 'Переименовать',
     renamed: 'Агент переименован',
     renamePlaceholder: 'Введите новое имя',
-  },
-  agentConfig: {
-    title: 'Настройки агента',
-    model: 'Модель',
-    modelPlaceholder: 'Введите название модели',
     thinkingMode: 'Режим мышления',
     effortLevel: 'Уровень усилий',
     planMode: 'Режим планирования',

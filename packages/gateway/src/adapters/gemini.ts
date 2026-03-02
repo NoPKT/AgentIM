@@ -37,6 +37,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
   // Runtime settings
   private modelOverride?: string
   private planMode = false
+  private thinkingBudget: 'off' | 'low' | 'medium' | 'high' = 'off'
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -85,7 +86,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     const { nanoid } = await import('nanoid')
     const sessionId = nanoid()
 
-    this.config = new sdk.Config({
+    const configOpts = {
       sessionId,
       model,
       targetDir: this.workingDirectory ?? process.cwd(),
@@ -93,13 +94,15 @@ export class GeminiAdapter extends BaseAgentAdapter {
       debugMode: false,
       interactive: false,
       approvalMode,
-    })
+      ...(this.thinkingBudget !== 'off' ? { thinkingBudget: this.thinkingBudget } : {}),
+    }
+    this.config = new sdk.Config(configOpts)
 
     await this.config.initialize()
 
     this.client = new sdk.GeminiClient(this.config)
     await this.client.initialize()
-    await this.client.startChat()
+    // Note: initialize() already calls startChat() internally — do NOT call startChat() again
     this.initialized = true
 
     log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
@@ -409,6 +412,12 @@ export class GeminiAdapter extends BaseAgentAdapter {
         usage: '/plan [on|off]',
         source: 'builtin',
       },
+      {
+        name: 'think',
+        description: 'Set thinking budget: off, low, medium, high',
+        usage: '/think [level]',
+        source: 'builtin',
+      },
     ]
   }
 
@@ -479,6 +488,29 @@ export class GeminiAdapter extends BaseAgentAdapter {
           message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
         }
       }
+      case 'think': {
+        const level = args.trim().toLowerCase()
+        if (!level) {
+          return {
+            success: true,
+            message: `Thinking budget: ${this.thinkingBudget}\nOptions: off, low, medium, high`,
+          }
+        }
+        const valid = ['off', 'low', 'medium', 'high'] as const
+        if (!valid.includes(level as (typeof valid)[number])) {
+          return {
+            success: false,
+            message: `Invalid thinking level: ${level}\nOptions: off, low, medium, high`,
+          }
+        }
+        this.thinkingBudget = level as 'off' | 'low' | 'medium' | 'high'
+        // Reset session so Config is recreated with the new thinking budget
+        this.resetSession()
+        return {
+          success: true,
+          message: `Thinking budget set to: ${level} (session will restart)`,
+        }
+      }
       default:
         return { success: false, message: `Unknown command: ${command}` }
     }
@@ -511,6 +543,14 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   override getPlanMode(): boolean {
     return this.planMode
+  }
+
+  override getThinkingMode(): string | undefined {
+    return this.thinkingBudget
+  }
+
+  override getAvailableThinkingModes(): string[] {
+    return ['off', 'low', 'medium', 'high']
   }
 
   // ─── Session Lifecycle ───

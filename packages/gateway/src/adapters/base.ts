@@ -207,6 +207,15 @@ export abstract class BaseAgentAdapter {
     return false
   }
 
+  /**
+   * Wait for model list to be available.
+   * Adapters that fetch models asynchronously should override this.
+   * Default: resolves immediately (models are already available or unsupported).
+   */
+  async waitForModels(_timeoutMs?: number): Promise<void> {
+    // No-op by default
+  }
+
   /** Handle a slash command from a user. */
   async handleSlashCommand(
     _command: string,

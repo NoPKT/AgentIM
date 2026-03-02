@@ -527,10 +527,11 @@ export const fr = {
     noAgentFound: 'Agent introuvable : {{name}}',
     noActiveStreams: "Aucun flux d'agent actif à arrêter",
   },
-  agentInfo: {
+  agentPanel: {
     title: "Détails de l'agent",
     general: 'Général',
     model: 'Modèle',
+    modelPlaceholder: 'Entrez le nom du modèle',
     gateway: 'Passerelle',
     mcpServers: 'Serveurs MCP',
     slashCommands: 'Commandes slash',
@@ -541,11 +542,6 @@ export const fr = {
     rename: 'Renommer',
     renamed: 'Agent renommé',
     renamePlaceholder: 'Entrez le nouveau nom',
-  },
-  agentConfig: {
-    title: "Paramètres de l'agent",
-    model: 'Modèle',
-    modelPlaceholder: 'Entrez le nom du modèle',
     thinkingMode: 'Mode de réflexion',
     effortLevel: "Niveau d'effort",
     planMode: 'Mode plan',

@@ -58,6 +58,9 @@ export class CodexAdapter extends BaseAgentAdapter {
   // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
   private cachedModelInfo: ModelOption[] = []
 
+  // Promise for the async model fetch so waitForModels() can await it
+  private fetchModelsPromise: Promise<void> | null = null
+
   // Abort controller for the current turn
   private turnAbort?: AbortController
 
@@ -67,7 +70,7 @@ export class CodexAdapter extends BaseAgentAdapter {
     // SDK cannot support it natively (i.e. daemon mode / no TTY).
     this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
     // Fetch model list from OpenAI API (async, non-blocking)
-    this.fetchModels().catch(() => {})
+    this.fetchModelsPromise = this.fetchModels().catch(() => {})
   }
 
   get type() {
@@ -449,6 +452,17 @@ export class CodexAdapter extends BaseAgentAdapter {
 
   override getAvailableModelInfo(): ModelOption[] {
     return this.cachedModelInfo
+  }
+
+  override async waitForModels(timeoutMs = 5000): Promise<void> {
+    if (!this.fetchModelsPromise) return
+    await Promise.race([
+      this.fetchModelsPromise,
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, timeoutMs)
+        if (typeof timer === 'object' && 'unref' in timer) timer.unref()
+      }),
+    ])
   }
 
   override getAvailableEffortLevels(): string[] {
