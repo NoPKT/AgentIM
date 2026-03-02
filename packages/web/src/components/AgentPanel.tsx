@@ -226,14 +226,18 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
           {isOnline && roomId && (
             <>
               {/* Model */}
-              {(agent.availableModels?.length ?? 0) > 0 && (
+              {((agent.availableModels?.length ?? 0) > 0 || agent.model) && (
                 <Section title={t('agentPanel.model')}>
-                  {showCustomModel ? (
+                  {showCustomModel ||
+                  ((agent.availableModels?.length ?? 0) === 0 && agent.model) ? (
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={customModelInput}
-                        onChange={(e) => setCustomModelInput(e.target.value)}
+                        value={customModelInput || (showCustomModel ? '' : (agent.model ?? ''))}
+                        onChange={(e) => {
+                          setCustomModelInput(e.target.value)
+                          if (!showCustomModel) setShowCustomModel(true)
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const model = customModelInput.trim()
@@ -243,11 +247,14 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                               setCustomModelInput('')
                             }
                           }
-                          if (e.key === 'Escape') setShowCustomModel(false)
+                          if (e.key === 'Escape') {
+                            setShowCustomModel(false)
+                            setCustomModelInput('')
+                          }
                         }}
                         placeholder={t('agentPanel.modelPlaceholder')}
                         className="flex-1 min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                        autoFocus
+                        autoFocus={showCustomModel}
                       />
                       <button
                         onClick={() => {
@@ -652,7 +659,7 @@ export function AgentPanelMulti({ agentIds, roomId, isOpen, onClose }: AgentPane
  * Inline panel content for a single agent — used inside AgentPanelMulti.
  * Shares most logic with AgentPanel but renders without the Modal wrapper.
  */
-function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId: string }) {
+export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId: string }) {
   const { t, i18n } = useTranslation()
   const agents = useAgentStore((s) => s.agents)
   const agent = agents.find((a) => a.id === agentId) ?? null
@@ -732,14 +739,17 @@ function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId: string
       </div>
 
       {/* Model */}
-      {(agent.availableModels?.length ?? 0) > 0 && (
+      {((agent.availableModels?.length ?? 0) > 0 || agent.model) && (
         <ConfigSection label={t('agentPanel.model')}>
-          {showCustomModel ? (
+          {showCustomModel || ((agent.availableModels?.length ?? 0) === 0 && agent.model) ? (
             <div className="flex gap-2">
               <input
                 type="text"
-                value={customModelInput}
-                onChange={(e) => setCustomModelInput(e.target.value)}
+                value={customModelInput || (showCustomModel ? '' : (agent.model ?? ''))}
+                onChange={(e) => {
+                  setCustomModelInput(e.target.value)
+                  if (!showCustomModel) setShowCustomModel(true)
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const model = customModelInput.trim()
@@ -749,11 +759,14 @@ function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId: string
                       setCustomModelInput('')
                     }
                   }
-                  if (e.key === 'Escape') setShowCustomModel(false)
+                  if (e.key === 'Escape') {
+                    setShowCustomModel(false)
+                    setCustomModelInput('')
+                  }
                 }}
                 placeholder={t('agentPanel.modelPlaceholder')}
                 className="flex-1 min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                autoFocus
+                autoFocus={showCustomModel}
               />
               <button
                 onClick={() => {

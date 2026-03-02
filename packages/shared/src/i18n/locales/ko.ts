@@ -94,6 +94,7 @@ export const ko = {
     members: '멤버',
     addMember: '멤버 추가',
     removeMember: '멤버 제거',
+    backToMembers: '멤버 목록으로 돌아가기',
     sendMessage: '메시지를 입력하세요...',
     sendWithCmd: 'Cmd+Enter로 전송',
     selectRoomToChat: '채팅을 시작하려면 채팅방을 선택하세요',

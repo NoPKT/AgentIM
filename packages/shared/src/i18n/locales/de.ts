@@ -94,6 +94,7 @@ export const de = {
     members: 'Mitglieder',
     addMember: 'Mitglied hinzufügen',
     removeMember: 'Mitglied entfernen',
+    backToMembers: 'Zurück zur Mitgliederliste',
     sendMessage: 'Nachricht senden...',
     sendWithCmd: 'Cmd+Enter zum Senden',
     selectRoomToChat: 'Wähle einen Raum, um zu chatten',

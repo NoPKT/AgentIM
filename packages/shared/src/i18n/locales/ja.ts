@@ -94,6 +94,7 @@ export const ja = {
     members: 'メンバー',
     addMember: 'メンバー追加',
     removeMember: 'メンバー削除',
+    backToMembers: 'メンバー一覧に戻る',
     sendMessage: 'メッセージを入力...',
     sendWithCmd: 'Cmd+Enter で送信',
     selectRoomToChat: 'ルームを選択してチャットを始めましょう',

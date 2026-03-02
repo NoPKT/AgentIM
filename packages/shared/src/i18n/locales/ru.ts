@@ -94,6 +94,7 @@ export const ru = {
     members: 'Участники',
     addMember: 'Добавить участника',
     removeMember: 'Удалить участника',
+    backToMembers: 'Назад к участникам',
     sendMessage: 'Написать сообщение...',
     sendWithCmd: 'Cmd+Enter для отправки',
     selectRoomToChat: 'Выберите комнату, чтобы начать общение',

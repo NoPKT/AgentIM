@@ -18,15 +18,15 @@ import type { RoomMember, WorkspaceFileChange } from '@agentim/shared'
 function FileStatusIcon({ status }: { status: WorkspaceFileChange['status'] }) {
   switch (status) {
     case 'added':
-      return <span className="text-green-500 font-bold text-xs">A</span>
+      return <span className="text-green-600 dark:text-green-400 font-bold text-xs">A</span>
     case 'modified':
-      return <span className="text-yellow-500 font-bold text-xs">M</span>
+      return <span className="text-yellow-600 dark:text-yellow-400 font-bold text-xs">M</span>
     case 'deleted':
-      return <span className="text-red-500 font-bold text-xs">D</span>
+      return <span className="text-red-600 dark:text-red-400 font-bold text-xs">D</span>
     case 'renamed':
-      return <span className="text-blue-500 font-bold text-xs">R</span>
+      return <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">R</span>
     default:
-      return <span className="text-gray-500 font-bold text-xs">?</span>
+      return <span className="text-gray-600 dark:text-gray-400 font-bold text-xs">?</span>
   }
 }
 
@@ -133,10 +133,10 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
         <FileStatusIcon status={file.status} />
         <span className="font-mono truncate flex-1">{file.path}</span>
         {file.additions != null && file.additions > 0 && (
-          <span className="text-green-500 text-xs">+{file.additions}</span>
+          <span className="text-green-600 dark:text-green-400 text-xs">+{file.additions}</span>
         )}
         {file.deletions != null && file.deletions > 0 && (
-          <span className="text-red-500 text-xs">-{file.deletions}</span>
+          <span className="text-red-600 dark:text-red-400 text-xs">-{file.deletions}</span>
         )}
         {file.diff && (
           <svg
@@ -204,8 +204,8 @@ function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: st
       <div className="flex items-center gap-3 text-xs text-text-secondary mb-2 flex-wrap">
         <span className="font-medium">{t('chat.workspaceBranch', { branch: status.branch })}</span>
         <span>{t('chat.filesChanged', { count: status.summary.filesChanged })}</span>
-        <span className="text-green-500">+{status.summary.additions}</span>
-        <span className="text-red-500">-{status.summary.deletions}</span>
+        <span className="text-green-600 dark:text-green-400">+{status.summary.additions}</span>
+        <span className="text-red-600 dark:text-red-400">-{status.summary.deletions}</span>
       </div>
 
       {/* File list */}
@@ -221,7 +221,7 @@ function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: st
           </div>
           {status.recentCommits.map((commit, i) => (
             <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-              <code className="text-orange-500 font-mono">{commit.hash}</code>
+              <code className="text-orange-600 dark:text-orange-400 font-mono">{commit.hash}</code>
               <span className="text-text-secondary truncate">{commit.message}</span>
             </div>
           ))}
@@ -411,7 +411,7 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
                 className="flex items-center gap-2 text-xs w-full text-left py-1 px-2 hover:bg-surface-hover rounded"
               >
                 {entry.type === 'directory' ? (
-                  <FolderIcon className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                  <FolderIcon className="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                 ) : (
                   <FileIcon className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
                 )}
@@ -479,13 +479,19 @@ interface WorkspacePanelProps {
   roomId: string
   agentMembers: RoomMember[]
   onClose: () => void
+  onMaximizedChange?: (maximized: boolean) => void
 }
 
 const MIN_PANEL_HEIGHT = 120
 const DEFAULT_PANEL_HEIGHT = 288 // h-72
 const MAX_PANEL_RATIO = 0.8 // max 80% of viewport
 
-export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanelProps) {
+export function WorkspacePanel({
+  roomId,
+  agentMembers,
+  onClose,
+  onMaximizedChange,
+}: WorkspacePanelProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<'changes' | 'files'>('changes')
   const [selectedAgentId, setSelectedAgentId] = useState<string>(agentMembers[0]?.memberId ?? '')
@@ -633,7 +639,13 @@ export function WorkspacePanel({ roomId, agentMembers, onClose }: WorkspacePanel
           </button>
           {/* Maximize / Minimize */}
           <button
-            onClick={() => setIsMaximized((v) => !v)}
+            onClick={() => {
+              setIsMaximized((v) => {
+                const next = !v
+                onMaximizedChange?.(next)
+                return next
+              })
+            }}
             className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary"
             title={isMaximized ? t('chat.workspaceMinimize') : t('chat.workspaceMaximize')}
           >
