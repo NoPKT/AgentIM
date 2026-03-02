@@ -176,16 +176,20 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
+### Panneau de gestion TUI
+
+Lancer `agentim` sans sous-commande ouvre un panneau de gestion TUI interactif construit avec Ink/React. Un écran de connexion s'affiche si vous n'êtes pas authentifié, puis un tableau de bord avec la liste des agents, un panneau de détails, un visualiseur de logs et une barre d'actions par raccourcis clavier. Utilisez les touches directionnelles pour naviguer ; `G` bascule la passerelle, `R` renomme, `S` arrête, `D` supprime, `L` affiche les logs, `C` gère les identifiants, `O` déconnecte, `Q` quitte le panneau.
+
 ### Mode passerelle
 
 Démarrez la passerelle pour que le serveur puisse lancer et gérer les agents à distance sur votre machine :
 
 ```bash
-# Premier plan (par défaut)
-agentim
+# Premier plan
+agentim gateway
 
 # Démon en arrière-plan
-agentim -d
+agentim gateway -d
 ```
 
 ### Autres commandes

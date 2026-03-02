@@ -176,16 +176,20 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
+### TUI 管理面板
+
+直接运行 `agentim`（不带任何子命令）会打开基于 Ink/React 构建的交互式 TUI 管理面板。未登录时会显示登录界面，登录后进入包含智能体列表、详情面板、日志查看器和快捷键操作栏的仪表板。使用方向键导航；`G` 切换网关开关、`R` 重命名、`S` 停止、`D` 删除、`L` 查看日志、`C` 管理凭证、`O` 注销、`Q` 退出面板。
+
 ### 网关模式
 
 启动网关，让服务端可以远程启动和管理你机器上的智能体：
 
 ```bash
-# 前台运行（默认）
-agentim
+# 前台运行
+agentim gateway
 
 # 后台守护进程
-agentim -d
+agentim gateway -d
 ```
 
 ### 其他命令

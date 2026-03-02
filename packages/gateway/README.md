@@ -2,6 +2,8 @@
 
 CLI tool for connecting AI coding agents to [AgentIM](https://github.com/NoPKT/AgentIM).
 
+Running `aim` with no arguments launches an **interactive TUI management panel** (built with Ink/React) where you can view, control, and monitor all your agents from the terminal.
+
 ## Installation
 
 ```bash
@@ -16,6 +18,9 @@ Both `agentim` and `aim` are available as CLI commands.
 # Login to your AgentIM server
 AGENTIM_PASSWORD=YourPassword aim login -s http://localhost:3000 -u admin
 
+# Launch the interactive TUI management panel
+aim
+
 # Manage credentials (list, add, rename, delete, set default)
 aim claude token
 
@@ -28,11 +33,11 @@ aim claude -c work-api /path/to/project
 # Start with bypass permissions (auto-approve all tool calls)
 aim claude /path/to/project -y
 
-# Start the gateway (foreground)
-aim
+# Run the gateway in foreground mode
+aim gateway
 
-# Start the gateway as a background daemon
-aim -d
+# Run the gateway as a background daemon
+aim gateway -d
 ```
 
 ## Supported Agents
@@ -47,10 +52,11 @@ aim -d
 
 ## Commands
 
-- `aim` -- Start the gateway in foreground mode (server can remotely launch agents)
-- `aim -d` -- Start the gateway as a background daemon
-- `aim login` -- Authenticate with an AgentIM server
-- `aim logout` -- Clear saved credentials
+- `aim` -- Launch the interactive TUI management panel (login screen → dashboard with agent list, details, log viewer, and hotkey action bar)
+- `aim gateway` -- Run the gateway in foreground mode (server can remotely launch agents)
+- `aim gateway -d` -- Run the gateway as a background daemon
+- `aim login` -- Authenticate with an AgentIM server (scripting)
+- `aim logout` -- Clear saved credentials (scripting)
 - `aim claude [path]` -- Start a Claude Code agent (default: current directory)
 - `aim claude token` -- Manage Claude Code credentials (list, add, rename, delete, set default)
 - `aim codex [path]` -- Start a Codex agent
@@ -62,6 +68,22 @@ aim -d
 - `aim rm <name>` -- Stop and clean up an agent daemon
 - `aim adapters` -- List all available adapter types (built-in + custom)
 - `aim status` -- Show configuration status
+
+### TUI Hotkeys
+
+When the TUI panel is open, the following keys are available:
+
+| Key          | Action                          |
+| ------------ | ------------------------------- |
+| Arrow keys   | Navigate the agent list         |
+| `G`          | Toggle gateway on/off           |
+| `R`          | Rename the selected agent       |
+| `S`          | Stop the selected agent         |
+| `D`          | Delete the selected agent       |
+| `L`          | View logs for the selected agent|
+| `C`          | Manage credentials              |
+| `O`          | Log out                         |
+| `Q`          | Quit the TUI                    |
 
 ### Credential Management
 
@@ -79,7 +101,7 @@ aim claude -c work-api /path/to/project
 
 ### Permission Modes
 
-Agent commands (`claude`, `codex`, `gemini`) and the default gateway action support a `-y, --yes` flag to control permission behavior:
+Agent commands (`claude`, `codex`, `gemini`) and the gateway subcommand support a `-y, --yes` flag to control permission behavior:
 
 | Flag | Mode | Description |
 |------|------|-------------|
@@ -108,20 +130,20 @@ Custom adapters use the `GenericAdapter` under the hood. List all available adap
 
 ## Running as a Service
 
-The built-in daemon mode (`aim -d` or `aim claude .`) spawns a detached background process but does not automatically restart on crashes. For long-running production use, wrap the command with a process manager:
+The built-in daemon mode (`aim gateway -d` or `aim claude .`) spawns a detached background process but does not automatically restart on crashes. For long-running production use, wrap the command with a process manager:
 
 ```bash
 # PM2 — gateway mode
-pm2 start "aim" --name agentim-gateway
+pm2 start "aim gateway" --name agentim-gateway
 
 # PM2 — single agent mode
 pm2 start "aim claude /path/to/project --foreground" --name my-agent
 
 # systemd (create a unit file)
-# ExecStart=/usr/bin/aim
+# ExecStart=/usr/bin/aim gateway
 ```
 
-When managed by an external supervisor, `aim` (no subcommand) runs in the foreground by default. Use `--foreground` for agent subcommands (`aim claude --foreground`).
+When managed by an external supervisor, use `aim gateway` to run the gateway in foreground mode without the TUI. Use `--foreground` for agent subcommands (`aim claude --foreground`).
 
 ## License
 

@@ -176,16 +176,20 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
+### TUI-Verwaltungspanel
+
+Das Ausführen von `agentim` ohne Unterbefehl öffnet ein interaktives TUI-Verwaltungspanel auf Basis von Ink/React. Bei fehlender Authentifizierung erscheint ein Anmeldebildschirm; danach öffnet sich ein Dashboard mit Agentenliste, Detailbereich, Log-Viewer und einer Aktionsleiste mit Tastenkombinationen. Navigieren Sie mit den Pfeiltasten; `G` schaltet das Gateway um, `R` benennt um, `S` stoppt, `D` löscht, `L` zeigt Logs, `C` verwaltet Anmeldedaten, `O` meldet ab, `Q` beendet das Panel.
+
 ### Gateway-Modus
 
 Starten Sie das Gateway, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
 
 ```bash
-# Vordergrund (Standard)
-agentim
+# Vordergrund
+agentim gateway
 
 # Hintergrund-Daemon
-agentim -d
+agentim gateway -d
 ```
 
 ### Weitere Befehle

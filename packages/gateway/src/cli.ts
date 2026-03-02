@@ -35,6 +35,7 @@ import {
   readDaemonInfo,
   removeDaemonInfo,
 } from './lib/daemon-manager.js'
+import { StatusWriter } from './lib/status-writer.js'
 import type { PermissionLevel } from '@agentim/shared'
 
 const log = createLogger('Gateway')
@@ -274,21 +275,39 @@ registerAgentCommand(
 registerAgentCommand(program, 'codex', 'codex', 'Start a Codex agent (background daemon)')
 registerAgentCommand(program, 'gemini', 'gemini', 'Start a Gemini CLI agent (background daemon)')
 
-// ─── Default action: aim = foreground gateway, aim -d = background ───
+// ─── Default action: aim = TUI management panel ───
+
+program.action(async () => {
+  const { render } = await import('ink')
+  const React = await import('react')
+  const { App } = await import('./tui/app.js')
+  render(React.createElement(App))
+})
+
+// ─── aim gateway ─── foreground gateway, aim gateway -d = background ───
 
 /** Shared gateway logic used by both foreground and background modes. */
 function runGateway(opts: { agent?: string[]; yes?: boolean; securityWarning?: boolean }) {
   printSecurityBanner(!opts.securityWarning)
   const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
+  let statusWriter: StatusWriter | null = null
 
   const { start } = createGatewaySession({
     permissionLevel,
-    onAuthenticated: (agentManager, isReconnect) => {
+    onAuthenticated: (am, isReconnect) => {
       if (isReconnect) {
-        agentManager.reRegisterAll()
+        am.reRegisterAll()
       } else {
-        registerAgents(agentManager, opts.agent ?? [])
+        registerAgents(am, opts.agent ?? [])
       }
+      // Start status writer on first auth
+      if (!statusWriter) {
+        statusWriter = new StatusWriter('gateway', am.getAdapters())
+        statusWriter.start()
+      }
+    },
+    onCleanup: () => {
+      statusWriter?.stop()
     },
   })
 
@@ -296,6 +315,8 @@ function runGateway(opts: { agent?: string[]; yes?: boolean; securityWarning?: b
 }
 
 program
+  .command('gateway')
+  .description('Run the gateway (foreground or background daemon)')
   .option(
     '-a, --agent <spec...>',
     'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
@@ -713,8 +734,8 @@ async function spawnGatewayDaemon(opts: {
   rotateLogIfNeeded(logFile)
   const logFd = openSync(logFile, 'a')
 
-  // Build args: re-run ourselves in foreground mode (no -d flag)
-  const daemonArgs = [...process.execArgv, ...getEntryArgs()]
+  // Build args: re-run ourselves as `gateway` command in foreground mode (no -d flag)
+  const daemonArgs = [...process.execArgv, ...getEntryArgs(), 'gateway']
   if (opts.agent?.length) {
     for (const spec of opts.agent) {
       daemonArgs.push('--agent', spec)

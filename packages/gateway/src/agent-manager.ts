@@ -926,6 +926,11 @@ export class AgentManager {
     }))
   }
 
+  /** Expose adapters map for status reporting (e.g. StatusWriter). */
+  getAdapters(): ReadonlyMap<string, BaseAgentAdapter> {
+    return this.adapters
+  }
+
   private async handleAgentCommand(msg: ServerAgentCommand) {
     const adapter = this.adapters.get(msg.agentId)
     if (!adapter) {

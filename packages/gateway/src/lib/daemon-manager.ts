@@ -5,8 +5,10 @@ import {
   readFileSync,
   writeFileSync,
   unlinkSync,
+  renameSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { randomBytes } from 'node:crypto'
 import { homedir, platform } from 'node:os'
 import { execSync } from 'node:child_process'
 import { createLogger } from './logger.js'
@@ -22,6 +24,21 @@ export interface DaemonInfo {
   workDir: string
   startedAt: string
   gatewayId: string
+  agentId?: string
+}
+
+export interface DaemonStatus {
+  agentId?: string
+  model?: string
+  costUSD: number
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  thinkingMode?: string
+  effortLevel?: string
+  planMode?: boolean
+  running: boolean
+  updatedAt: string
 }
 
 function ensureDir() {
@@ -32,6 +49,10 @@ function ensureDir() {
 
 function pidFilePath(name: string): string {
   return join(DAEMONS_DIR, `${name}.json`)
+}
+
+function statusFilePath(name: string): string {
+  return join(DAEMONS_DIR, `${name}.status.json`)
 }
 
 /** Check if a process with the given PID is still running. */
@@ -115,9 +136,40 @@ export function readDaemonInfo(name: string): DaemonInfo | null {
   }
 }
 
-/** Remove a daemon PID file. */
+/** Remove a daemon PID file and its status file. */
 export function removeDaemonInfo(name: string): void {
   const filePath = pidFilePath(name)
+  try {
+    unlinkSync(filePath)
+  } catch {
+    // File may not exist
+  }
+  removeDaemonStatus(name)
+}
+
+/** Write daemon runtime status atomically (temp file + rename). */
+export function writeDaemonStatus(name: string, status: DaemonStatus): void {
+  ensureDir()
+  const filePath = statusFilePath(name)
+  const tmpPath = filePath + '.' + randomBytes(4).toString('hex') + '.tmp'
+  writeFileSync(tmpPath, JSON.stringify(status, null, 2), { encoding: 'utf-8', mode: 0o600 })
+  renameSync(tmpPath, filePath)
+}
+
+/** Read daemon runtime status. Returns null if not found or malformed. */
+export function readDaemonStatus(name: string): DaemonStatus | null {
+  const filePath = statusFilePath(name)
+  if (!existsSync(filePath)) return null
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as DaemonStatus
+  } catch {
+    return null
+  }
+}
+
+/** Remove a daemon status file. */
+export function removeDaemonStatus(name: string): void {
+  const filePath = statusFilePath(name)
   try {
     unlinkSync(filePath)
   } catch {
@@ -131,7 +183,7 @@ export function listDaemons(): (DaemonInfo & { alive: boolean })[] {
   const result: (DaemonInfo & { alive: boolean })[] = []
 
   for (const file of readdirSync(DAEMONS_DIR)) {
-    if (!file.endsWith('.json')) continue
+    if (!file.endsWith('.json') || file.endsWith('.status.json')) continue
     const filePath = join(DAEMONS_DIR, file)
     try {
       const info = JSON.parse(readFileSync(filePath, 'utf-8')) as DaemonInfo
