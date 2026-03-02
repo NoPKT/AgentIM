@@ -1,16 +1,41 @@
 import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text, useFocus, useInput } from 'ink'
 
-interface ActionBarProps {
-  hasSelection: boolean
-  loggedIn: boolean
+export type ActionDef = {
+  id: string
+  hotkey: string
+  label: string
 }
 
-function HotKey({ hotkey, label }: { hotkey: string; label: string }) {
+interface ActionBarProps {
+  actions: ActionDef[]
+  onAction: (id: string) => void
+}
+
+function ActionButton({
+  id,
+  hotkey,
+  label,
+  onActivate,
+}: {
+  id: string
+  hotkey: string
+  label: string
+  onActivate: () => void
+}) {
+  const { isFocused } = useFocus({ id })
+
+  useInput(
+    (_input, key) => {
+      if (key.return || _input === ' ') onActivate()
+    },
+    { isActive: isFocused },
+  )
+
   return (
-    <Text>
+    <Text inverse={isFocused}>
       [
-      <Text bold color="cyan">
+      <Text bold color={isFocused ? undefined : 'cyan'}>
         {hotkey}
       </Text>
       ]{label}
@@ -18,21 +43,18 @@ function HotKey({ hotkey, label }: { hotkey: string; label: string }) {
   )
 }
 
-export function ActionBar({ hasSelection, loggedIn }: ActionBarProps) {
+export function ActionBar({ actions, onAction }: ActionBarProps) {
   return (
     <Box paddingX={1} gap={1}>
-      <HotKey hotkey="G" label="ateway" />
-      {hasSelection && (
-        <>
-          <HotKey hotkey="R" label="ename" />
-          <HotKey hotkey="S" label="top" />
-          <HotKey hotkey="D" label="elete" />
-          <HotKey hotkey="L" label="ogs" />
-        </>
-      )}
-      <HotKey hotkey="C" label="redentials" />
-      {loggedIn && <HotKey hotkey="O" label="ut" />}
-      <HotKey hotkey="Q" label="uit" />
+      {actions.map((a) => (
+        <ActionButton
+          key={a.id}
+          id={`action-${a.id}`}
+          hotkey={a.hotkey}
+          label={a.label}
+          onActivate={() => onAction(a.id)}
+        />
+      ))}
     </Box>
   )
 }
