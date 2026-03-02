@@ -72,6 +72,7 @@ export interface Agent {
   availableModelInfo?: ModelOption[]
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
+  planMode?: boolean
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

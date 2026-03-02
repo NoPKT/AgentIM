@@ -537,6 +537,8 @@ export const ko = {
     modelPlaceholder: '모델 이름 입력',
     thinkingMode: '사고 모드',
     effortLevel: '추론 수준',
+    planMode: '계획 모드',
+    planModeDescription: '계획만, 실행 없음',
     session: '세션',
     cost: '비용',
     inputTokens: '입력 토큰',

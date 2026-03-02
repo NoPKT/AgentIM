@@ -539,6 +539,8 @@ export const ja = {
     modelPlaceholder: 'モデル名を入力',
     thinkingMode: '思考モード',
     effortLevel: '推論レベル',
+    planMode: 'プランモード',
+    planModeDescription: '計画のみ、実行なし',
     session: 'セッション',
     cost: 'コスト',
     inputTokens: '入力トークン',

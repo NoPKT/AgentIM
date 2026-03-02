@@ -139,6 +139,10 @@ export function AgentConfigPanel({ agentIds, roomId, isOpen, onClose }: AgentCon
     sendCommand('compact', '')
   }, [sendCommand])
 
+  const handlePlanModeToggle = useCallback(() => {
+    sendCommand('plan', '')
+  }, [sendCommand])
+
   if (!isOpen || agentIds.length === 0) return null
 
   return (
@@ -205,6 +209,7 @@ export function AgentConfigPanel({ agentIds, roomId, isOpen, onClose }: AgentCon
               onEffortChange={handleEffortChange}
               onResetSession={handleResetSession}
               onCompact={handleCompact}
+              onPlanModeToggle={handlePlanModeToggle}
             />
           ) : (
             <div className="py-8 text-center text-sm text-text-muted">
@@ -230,6 +235,7 @@ interface AgentSettingsProps {
   onEffortChange: (v: string) => void
   onResetSession: () => void
   onCompact: () => void
+  onPlanModeToggle: () => void
 }
 
 function AgentSettings({
@@ -245,6 +251,7 @@ function AgentSettings({
   onEffortChange,
   onResetSession,
   onCompact,
+  onPlanModeToggle,
 }: AgentSettingsProps) {
   const { t } = useTranslation()
   const costSummary = agent.sessionCostUSD
@@ -354,6 +361,30 @@ function AgentSettings({
               </option>
             ))}
           </select>
+        </ConfigSection>
+      )}
+
+      {/* Plan Mode */}
+      {agent.type === 'claude-code' && (
+        <ConfigSection label={t('agentConfig.planMode')}>
+          <button
+            onClick={onPlanModeToggle}
+            disabled={pendingCommand === 'plan'}
+            className="flex items-center justify-between w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm disabled:opacity-50 transition-colors"
+          >
+            <span className="text-text-secondary">{t('agentConfig.planModeDescription')}</span>
+            <span
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+                agent.planMode ? 'bg-accent' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                  agent.planMode ? 'translate-x-5.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </button>
         </ConfigSection>
       )}
 

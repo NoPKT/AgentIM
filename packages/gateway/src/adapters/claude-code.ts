@@ -45,6 +45,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     | { type: 'enabled'; budgetTokens?: number }
     | { type: 'disabled' }
   private effort?: 'low' | 'medium' | 'high' | 'max'
+  private planMode = false
   private modelOverride?: string
   private lastModelUsage?: Record<
     string,
@@ -104,7 +105,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         env,
       }
 
-      if (this.permissionLevel === 'bypass') {
+      if (this.planMode) {
+        options.permissionMode = 'plan'
+      } else if (this.permissionLevel === 'bypass') {
         options.permissionMode = 'bypassPermissions'
         options.allowDangerouslySkipPermissions = true
       } else {
@@ -477,6 +480,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return this.effort
   }
 
+  override getPlanMode(): boolean {
+    return this.planMode
+  }
+
   override async handleSlashCommand(
     command: string,
     args: string,
@@ -538,6 +545,20 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         return {
           success: false,
           message: `Unknown thinking mode: ${mode}\nOptions: adaptive, enabled[:budget], disabled`,
+        }
+      }
+      case 'plan': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.planMode = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.planMode = false
+        } else {
+          this.planMode = !this.planMode
+        }
+        return {
+          success: true,
+          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
         }
       }
       case 'effort': {

@@ -532,6 +532,8 @@ export const zhCN = {
     modelPlaceholder: '输入模型名称',
     thinkingMode: '思考模式',
     effortLevel: '推理力度',
+    planMode: '规划模式',
+    planModeDescription: '仅规划，不执行',
     session: '会话',
     cost: '费用',
     inputTokens: '输入 Token',

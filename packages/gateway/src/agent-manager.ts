@@ -902,6 +902,7 @@ export class AgentManager {
       availableEffortLevels: availableEffortLevels.length > 0 ? availableEffortLevels : undefined,
       availableThinkingModes:
         availableThinkingModes.length > 0 ? availableThinkingModes : undefined,
+      planMode: adapter.getPlanMode() || undefined,
     })
   }
 

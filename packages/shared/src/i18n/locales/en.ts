@@ -645,6 +645,8 @@ export const en = {
     modelPlaceholder: 'Enter model name',
     thinkingMode: 'Thinking Mode',
     effortLevel: 'Effort Level',
+    planMode: 'Plan Mode',
+    planModeDescription: 'Plan only, no execution',
     session: 'Session',
     cost: 'Cost',
     inputTokens: 'Input Tokens',

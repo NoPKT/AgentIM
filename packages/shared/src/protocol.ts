@@ -395,6 +395,7 @@ export interface GatewayAgentInfo {
   availableModelInfo?: ModelOption[]
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
+  planMode?: boolean
 }
 
 export interface GatewaySpawnResult {

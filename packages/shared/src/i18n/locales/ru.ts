@@ -545,6 +545,8 @@ export const ru = {
     modelPlaceholder: 'Введите название модели',
     thinkingMode: 'Режим мышления',
     effortLevel: 'Уровень усилий',
+    planMode: 'Режим планирования',
+    planModeDescription: 'Только планирование, без выполнения',
     session: 'Сессия',
     cost: 'Стоимость',
     inputTokens: 'Входные токены',
