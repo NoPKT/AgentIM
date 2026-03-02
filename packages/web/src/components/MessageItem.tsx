@@ -412,7 +412,10 @@ export const MessageItem = memo(function MessageItem({
 
   const isAgent = message.senderType === 'agent'
   const agentInfo = useAgentStore((s) =>
-    isAgent ? s.agents.find((a) => a.id === message.senderId) : undefined,
+    isAgent
+      ? (s.agents.find((a) => a.id === message.senderId) ??
+        s.sharedAgents.find((a) => a.id === message.senderId))
+      : undefined,
   )
 
   return (
@@ -527,13 +530,20 @@ export const MessageItem = memo(function MessageItem({
             }`}
           >
             {isAgent ? (
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                {(agentTypeIcons[agentInfo?.type ?? 'generic'] || agentTypeIcons.generic).paths.map(
-                  (d, i) => (
-                    <path key={i} d={d} />
-                  ),
-                )}
-              </svg>
+              (() => {
+                const icon = agentTypeIcons[agentInfo?.type ?? 'generic'] || agentTypeIcons.generic
+                return (
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="currentColor"
+                    viewBox={icon.viewBox || '0 0 24 24'}
+                  >
+                    {icon.paths.map((d, i) => (
+                      <path key={i} d={d} />
+                    ))}
+                  </svg>
+                )
+              })()
             ) : (
               <span className="text-sm font-medium text-white">
                 {message.senderName.charAt(0).toUpperCase()}
