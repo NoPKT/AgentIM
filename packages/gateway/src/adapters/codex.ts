@@ -1,4 +1,7 @@
-import type { ParsedChunk } from '@agentim/shared'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -55,6 +58,9 @@ export class CodexAdapter extends BaseAgentAdapter {
   private webSearchMode?: WebSearchMode
   private networkAccess?: boolean
 
+  // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
+  private cachedModelInfo: ModelOption[] = []
+
   // Abort controller for the current turn
   private turnAbort?: AbortController
 
@@ -63,6 +69,8 @@ export class CodexAdapter extends BaseAgentAdapter {
     // Enable prompt-based permissions when interactive mode is requested but the
     // SDK cannot support it natively (i.e. daemon mode / no TTY).
     this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
+    // Fetch model list from OpenAI API (async, non-blocking)
+    this.fetchModels().catch(() => {})
   }
 
   get type() {
@@ -77,6 +85,72 @@ export class CodexAdapter extends BaseAgentAdapter {
         baseUrl: this.env.OPENAI_BASE_URL || undefined,
         env: Object.keys(this.env).length > 0 ? (this.env as Record<string, string>) : undefined,
       })
+    }
+  }
+
+  /**
+   * Resolve an API bearer token for model listing.
+   * Checks env vars first (API-key mode), then falls back to reading the
+   * Codex CLI's OAuth credentials (~/.codex/auth.json) for subscription mode.
+   */
+  private resolveApiToken(): string | undefined {
+    const envKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY
+    if (envKey) return envKey
+    try {
+      const authPath = join(homedir(), '.codex', 'auth.json')
+      const auth = JSON.parse(readFileSync(authPath, 'utf-8')) as {
+        access_token?: string
+      }
+      return auth.access_token || undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Fetch available models from the OpenAI /v1/models endpoint.
+   * Uses the API key from env (API-key mode) or the OAuth access_token
+   * from ~/.codex/auth.json (subscription mode) — the same auth the
+   * Codex CLI itself uses. Results are cached for the adapter lifetime.
+   */
+  private async fetchModels(): Promise<void> {
+    const token = this.resolveApiToken()
+    if (!token) {
+      log.info('No API credentials available — model list will be empty')
+      return
+    }
+    const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) {
+        log.warn(`Model fetch failed: HTTP ${res.status}`)
+        return
+      }
+      const body = (await res.json()) as { data?: Array<{ id: string }> }
+      if (!body.data) return
+      const codexModels = body.data
+        .filter((m) => /codex/i.test(m.id))
+        .map((m) => m.id)
+        .sort()
+        .reverse() // newest (highest version) first
+      if (codexModels.length === 0) {
+        log.info('No codex models found from API')
+        return
+      }
+      this.cachedModelInfo = codexModels.map((id) => ({
+        value: id,
+        displayName: id
+          .split('-')
+          .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
+          .join(' '),
+      }))
+      log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
+    } catch (err) {
+      log.warn(`Failed to fetch models: ${err}`)
     }
   }
 
@@ -398,8 +472,14 @@ export class CodexAdapter extends BaseAgentAdapter {
     return this.modelOverride || this.env.CODEX_MODEL || undefined
   }
 
+  // Models are fetched dynamically from the OpenAI /v1/models API.
+  // Returns empty arrays until the async fetch completes.
   override getAvailableModels(): string[] {
-    return ['codex-mini', 'o4-mini', 'o3', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano']
+    return this.cachedModelInfo.map((m) => m.value)
+  }
+
+  override getAvailableModelInfo(): ModelOption[] {
+    return this.cachedModelInfo
   }
 
   override getAvailableEffortLevels(): string[] {

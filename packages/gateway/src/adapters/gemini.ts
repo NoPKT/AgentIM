@@ -40,6 +40,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   constructor(opts: AdapterOptions) {
     super(opts)
+    // Eagerly trigger SDK load so model info is available for getAvailableModels()
+    this.ensureSdk().catch(() => {})
   }
 
   get type() {
@@ -488,50 +490,23 @@ export class GeminiAdapter extends BaseAgentAdapter {
     return this.modelOverride ?? this.env.GEMINI_MODEL ?? undefined
   }
 
+  // Model list derived from the SDK's VALID_GEMINI_MODELS set.
+  // Automatically stays in sync when the SDK is upgraded.
   override getAvailableModels(): string[] {
-    return [
-      'gemini-2.5-pro',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-3-pro-preview',
-      'gemini-3.1-pro-preview',
-      'gemini-3-flash-preview',
-    ]
+    if (!_cachedSdk) return []
+    return [..._cachedSdk.VALID_GEMINI_MODELS].filter(
+      (m) => !m.includes('customtools'), // internal variant
+    )
   }
 
   override getAvailableModelInfo(): ModelOption[] {
-    return [
-      {
-        value: 'gemini-2.5-pro',
-        displayName: 'Gemini 2.5 Pro',
-        description: 'Most capable model for complex tasks',
-      },
-      {
-        value: 'gemini-2.5-flash',
-        displayName: 'Gemini 2.5 Flash',
-        description: 'Fast and efficient for most tasks',
-      },
-      {
-        value: 'gemini-2.5-flash-lite',
-        displayName: 'Gemini 2.5 Flash Lite',
-        description: 'Lightweight model for simple tasks',
-      },
-      {
-        value: 'gemini-3-pro-preview',
-        displayName: 'Gemini 3 Pro (Preview)',
-        description: 'Next-gen model with advanced reasoning',
-      },
-      {
-        value: 'gemini-3.1-pro-preview',
-        displayName: 'Gemini 3.1 Pro (Preview)',
-        description: 'Latest preview with enhanced capabilities',
-      },
-      {
-        value: 'gemini-3-flash-preview',
-        displayName: 'Gemini 3 Flash (Preview)',
-        description: 'Fast next-gen model preview',
-      },
-    ]
+    return this.getAvailableModels().map((id) => ({
+      value: id,
+      displayName: id
+        .split('-')
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' '),
+    }))
   }
 
   override getPlanMode(): boolean {
