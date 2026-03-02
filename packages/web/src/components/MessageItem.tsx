@@ -532,11 +532,11 @@ export const MessageItem = memo(function MessageItem({
             <div className="flex items-center space-x-2 mb-1">
               <span className="font-semibold text-text-primary text-sm">
                 {message.senderName}
-                {message.metadata?.targetAgentName && (
+                {typeof message.metadata?.targetAgentName === 'string' && (
                   <span className="text-text-muted font-normal">
                     {' → '}
                     <span className="font-semibold text-text-primary">
-                      {String(message.metadata.targetAgentName)}
+                      {message.metadata.targetAgentName}
                     </span>
                   </span>
                 )}
