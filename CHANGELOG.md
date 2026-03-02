@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Gemini CLI adapter**: Full implementation using @google/gemini-cli-core v0.31.0 — streaming, thinking, tool use, model switching, token tracking, plan mode, chat compression
 
+### Removed
+
+- **OpenCode adapter**: Removed third-party OpenCode adapter; use the generic adapter to integrate non-first-party CLI tools
+
 ### Fixed
 
 - **CRITICAL: Gateway WS crash** — replaced reserved WebSocket close code `1006` with `ws.terminate()` in ping/pong timeout handlers, preventing uncaught exceptions and process exit

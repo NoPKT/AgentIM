@@ -380,7 +380,7 @@ export class AgentManager {
     const mcpCtx = this.createMcpContext(agentId, opts.name)
     adapter.setMcpContext(mcpCtx)
 
-    // Start IPC server for stdio-based MCP (OpenCode, Codex) and set env
+    // Start IPC server for stdio-based MCP (Codex) and set env
     this.getIpcPort()
       .then((port) => {
         process.env.AGENTIM_IPC_PORT = String(port)

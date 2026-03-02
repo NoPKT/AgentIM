@@ -147,20 +147,18 @@ program
       agentType = await promptSelect('Select agent type:', [
         { label: 'Claude Code', value: 'claude-code' },
         { label: 'Codex', value: 'codex' },
-        { label: 'OpenCode', value: 'opencode' },
         { label: 'Gemini', value: 'gemini' },
       ])
     }
     await runSetupWizard(agentType)
   })
 
-// ─── Agent commands (claude, codex, opencode) ───
+// ─── Agent commands (claude, codex, gemini) ───
 
 /** Map agent type to a display name for CLI descriptions and log messages. */
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
-  opencode: 'OpenCode',
   gemini: 'Gemini',
 }
 
@@ -215,8 +213,6 @@ registerAgentCommand(
   'Start a Claude Code agent (background daemon)',
 )
 registerAgentCommand(program, 'codex', 'codex', 'Start a Codex agent (background daemon)')
-registerAgentCommand(program, 'opencode', 'opencode', 'Start an OpenCode agent (background daemon)')
-
 registerAgentCommand(program, 'gemini', 'gemini', 'Start a Gemini CLI agent (background daemon)')
 
 // ─── agentim daemon ───
@@ -490,7 +486,6 @@ async function spawnDaemon(opts: {
   const TYPE_TO_COMMAND: Record<string, string> = {
     'claude-code': 'claude',
     codex: 'codex',
-    opencode: 'opencode',
     gemini: 'gemini',
   }
 

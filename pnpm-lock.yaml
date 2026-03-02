@@ -62,9 +62,6 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.106.0
         version: 0.106.0
-      '@opencode-ai/sdk':
-        specifier: ^1.2.15
-        version: 1.2.15
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -1589,9 +1586,6 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
-
-  '@opencode-ai/sdk@1.2.15':
-    resolution: {integrity: sha512-NUJNlyBCdZ4R0EBLjJziEQOp2XbRPJosaMcTcWSWO5XJPKGUpz0u8ql+5cR8K+v2RJ+hp2NobtNwpjEYfe6BRQ==}
 
   '@opentelemetry/api-logs@0.207.0':
     resolution: {integrity: sha512-lAb0jQRVyleQQGiuuvCOTDVspc14nx6XJjP4FspJ1sNARo3Regq4ZZbrc3rN4b1TYSuUCvgH+UXUPug4SLOqEQ==}
@@ -8146,8 +8140,6 @@ snapshots:
 
   '@openai/codex@0.106.0-win32-x64':
     optional: true
-
-  '@opencode-ai/sdk@1.2.15': {}
 
   '@opentelemetry/api-logs@0.207.0':
     dependencies:

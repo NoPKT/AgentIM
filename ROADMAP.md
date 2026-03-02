@@ -8,7 +8,7 @@ The initial release establishing the core platform.
 
 - [x] Hub server with PostgreSQL + Redis (Hono, Drizzle ORM)
 - [x] React 19 PWA web client with dark mode
-- [x] CLI gateway with agent adapters (Claude Code, Codex, OpenCode, Generic)
+- [x] CLI gateway with agent adapters (Claude Code, Codex, Gemini, Generic)
 - [x] Real-time streaming with thinking/tool-use visualization
 - [x] Smart routing: broadcast + direct mode with @mention targeting
 - [x] Agent-to-agent communication with loop protection

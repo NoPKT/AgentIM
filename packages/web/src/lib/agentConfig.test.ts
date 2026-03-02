@@ -53,12 +53,11 @@ describe('getStatusConfig', () => {
 describe('getTypeConfig', () => {
   const typeConfig = getTypeConfig(t)
 
-  it('returns config for all six agent types', () => {
+  it('returns config for all five agent types', () => {
     const keys = Object.keys(typeConfig)
     expect(keys).toContain('claude-code')
     expect(keys).toContain('codex')
     expect(keys).toContain('gemini')
-    expect(keys).toContain('opencode')
     expect(keys).toContain('cursor')
     expect(keys).toContain('generic')
   })
@@ -77,7 +76,6 @@ describe('getTypeConfig', () => {
     expect(typeConfig['claude-code'].label).toBe('agent.claudeCode')
     expect(typeConfig['codex'].label).toBe('agent.codex')
     expect(typeConfig['gemini'].label).toBe('agent.gemini')
-    expect(typeConfig['opencode'].label).toBe('agent.opencode')
     expect(typeConfig['cursor'].label).toBe('agent.cursor')
     expect(typeConfig['generic'].label).toBe('agent.generic')
   })
@@ -91,12 +89,11 @@ describe('getTypeConfig', () => {
 })
 
 describe('agentGradients', () => {
-  it('has gradient strings for all six agent types', () => {
+  it('has gradient strings for all five agent types', () => {
     expect(Object.keys(agentGradients)).toEqual([
       'claude-code',
       'codex',
       'gemini',
-      'opencode',
       'cursor',
       'generic',
     ])

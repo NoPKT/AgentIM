@@ -8,7 +8,6 @@ const log = createLogger('Setup')
 const SUBSCRIPTION_LABELS: Record<string, string> = {
   'claude-code': 'Claude Max / Claude Pro',
   codex: 'ChatGPT Plus / ChatGPT Pro',
-  opencode: 'OpenCode Subscription',
   gemini: 'Gemini Advanced',
 }
 
@@ -20,10 +19,6 @@ const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
   codex: {
     cmd: 'codex login',
     description: 'Codex subscription login',
-  },
-  opencode: {
-    cmd: 'opencode auth login',
-    description: 'OpenCode subscription login',
   },
   gemini: {
     cmd: 'gemini auth login',

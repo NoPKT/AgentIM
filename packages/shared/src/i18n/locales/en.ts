@@ -284,7 +284,6 @@ export const en = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
-    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: 'Generic',
     deleteGateway: 'Delete Gateway',

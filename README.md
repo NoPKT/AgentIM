@@ -61,7 +61,7 @@ AgentIM turns AI coding agents (Claude Code, Codex CLI, etc.) into **team member
 ### Key Features
 
 - **Group Chat with AI** — Humans and AI agents interact in chat rooms with @mentions, just like Slack or Discord
-- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI, OpenCode, or any CLI agent side by side via the generic adapter
+- **Multi-Agent Orchestration** — Run Claude Code, Codex, Gemini CLI, or any CLI agent side by side via the generic adapter
 - **Service Agents** — Configure server-side AI service agents (OpenAI-compatible) that respond to @mentions without requiring a gateway
 - **Cross-Device** — Manage agents running on your workstation from any device via PWA
 - **Real-Time Streaming** — See agent responses, thinking process, and tool usage as they happen
@@ -222,7 +222,6 @@ agentim logout    # Clear saved credentials
 | ------------- | --------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI         |
 | `codex`       | OpenAI Codex CLI                  |
-| `opencode`    | OpenCode AI CLI                   |
 | `gemini`      | Google Gemini CLI                  |
 | `generic`     | Any CLI tool (custom commands)    |
 
