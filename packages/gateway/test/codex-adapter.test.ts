@@ -174,12 +174,18 @@ describe('CodexAdapter metadata methods', () => {
     a.dispose()
   })
 
-  it('getAvailableModels returns known models', () => {
+  it('getAvailableModels returns array (empty before API fetch)', () => {
     const a = make()
     const models = a.getAvailableModels()
-    assert.ok(models.length >= 4)
-    assert.ok(models.includes('codex-mini'))
-    assert.ok(models.includes('o3'))
+    // Models are fetched asynchronously from API — starts empty
+    assert.ok(Array.isArray(models))
+    a.dispose()
+  })
+
+  it('getAvailableModelInfo returns array (empty before API fetch)', () => {
+    const a = make()
+    const info = a.getAvailableModelInfo()
+    assert.ok(Array.isArray(info))
     a.dispose()
   })
 
@@ -192,8 +198,8 @@ describe('CodexAdapter metadata methods', () => {
   })
 
   it('getModel reads env CODEX_MODEL', () => {
-    const a = make({ CODEX_MODEL: 'o4-mini' })
-    assert.equal(a.getModel(), 'o4-mini')
+    const a = make({ CODEX_MODEL: 'gpt-5.3-codex' })
+    assert.equal(a.getModel(), 'gpt-5.3-codex')
     a.dispose()
   })
 

@@ -26,7 +26,7 @@ The initial release establishing the core platform.
 
 Expanding agent support and improving the agent development experience.
 
-- [ ] Gemini CLI adapter (pending Google SDK release)
+- [x] Gemini CLI adapter (implemented with @google/gemini-cli-core)
 - [ ] Agent marketplace / registry for sharing custom adapters
 - [ ] Agent templates for common workflows (code review, testing, deployment)
 - [ ] Improved agent permission system with granular controls

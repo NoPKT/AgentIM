@@ -1,4 +1,4 @@
-import type { ParsedChunk } from '@agentim/shared'
+import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -55,6 +55,9 @@ export class CodexAdapter extends BaseAgentAdapter {
   private webSearchMode?: WebSearchMode
   private networkAccess?: boolean
 
+  // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
+  private cachedModelInfo: ModelOption[] = []
+
   // Abort controller for the current turn
   private turnAbort?: AbortController
 
@@ -63,6 +66,8 @@ export class CodexAdapter extends BaseAgentAdapter {
     // Enable prompt-based permissions when interactive mode is requested but the
     // SDK cannot support it natively (i.e. daemon mode / no TTY).
     this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
+    // Fetch model list from OpenAI API (async, non-blocking)
+    this.fetchModels().catch(() => {})
   }
 
   get type() {
@@ -77,6 +82,44 @@ export class CodexAdapter extends BaseAgentAdapter {
         baseUrl: this.env.OPENAI_BASE_URL || undefined,
         env: Object.keys(this.env).length > 0 ? (this.env as Record<string, string>) : undefined,
       })
+    }
+  }
+
+  /**
+   * Fetch available models from the OpenAI /v1/models endpoint.
+   * Credentials (API key or OAuth token) are already resolved into
+   * env by agentConfigToEnv() at connection time.
+   */
+  private async fetchModels(): Promise<void> {
+    const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
+    if (!token) return
+
+    const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) return
+      const body = (await res.json()) as { data?: Array<{ id: string }> }
+      if (!body.data) return
+      const models = body.data
+        .filter((m) => /codex/i.test(m.id))
+        .map((m) => m.id)
+        .sort()
+        .reverse()
+      if (models.length === 0) return
+      this.cachedModelInfo = models.map((id) => ({
+        value: id,
+        displayName: id
+          .split('-')
+          .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
+          .join(' '),
+      }))
+      log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
+    } catch {
+      // Network error — model list stays empty
     }
   }
 
@@ -398,8 +441,14 @@ export class CodexAdapter extends BaseAgentAdapter {
     return this.modelOverride || this.env.CODEX_MODEL || undefined
   }
 
+  // Models are fetched dynamically from the OpenAI /v1/models API.
+  // Returns empty arrays until the async fetch completes.
   override getAvailableModels(): string[] {
-    return ['codex-mini', 'o4-mini', 'o3', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano']
+    return this.cachedModelInfo.map((m) => m.value)
+  }
+
+  override getAvailableModelInfo(): ModelOption[] {
+    return this.cachedModelInfo
   }
 
   override getAvailableEffortLevels(): string[] {

@@ -64,32 +64,54 @@ export function deleteAgentConfig(agentType: string): void {
 /**
  * Convert agent auth config to environment variables for the adapter.
  */
+/**
+ * Read OAuth access_token from a CLI tool's auth file.
+ * Returns undefined if the file does not exist or is unreadable.
+ */
+function readOAuthToken(authFilePath: string): string | undefined {
+  try {
+    const auth = JSON.parse(readFileSync(authFilePath, 'utf-8')) as {
+      access_token?: string
+    }
+    return auth.access_token || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Convert agent auth config to environment variables for the adapter.
+ * Both API-key and subscription (OAuth) credentials are resolved here so
+ * that adapters receive a ready-to-use token without needing to know the
+ * auth mode.
+ */
 export function agentConfigToEnv(
   agentType: string,
   config: AgentAuthConfig,
 ): Record<string, string> {
-  if (config.mode === 'subscription') {
-    // Subscription mode: no env needed (user already logged in via CLI)
-    return {}
-  }
-
   const env: Record<string, string> = {}
 
   switch (agentType) {
     case 'claude-code':
+      // Claude Code SDK handles OAuth internally — only API-key mode needs env
       if (config.apiKey) env.ANTHROPIC_API_KEY = config.apiKey
       if (config.baseUrl) env.ANTHROPIC_BASE_URL = config.baseUrl
       if (config.model) env.ANTHROPIC_MODEL = config.model
       break
     case 'codex':
-      if (config.apiKey) {
+      if (config.mode === 'api' && config.apiKey) {
         env.OPENAI_API_KEY = config.apiKey
         env.CODEX_API_KEY = config.apiKey
+      } else if (config.mode === 'subscription') {
+        // Read the OAuth token that `codex login` stored
+        const token = readOAuthToken(join(homedir(), '.codex', 'auth.json'))
+        if (token) env.CODEX_API_KEY = token
       }
       if (config.baseUrl) env.OPENAI_BASE_URL = config.baseUrl
       if (config.model) env.CODEX_MODEL = config.model
       break
     case 'gemini':
+      // Gemini CLI SDK handles OAuth internally — only API-key mode needs env
       if (config.apiKey) env.GEMINI_API_KEY = config.apiKey
       if (config.baseUrl) env.GEMINI_BASE_URL = config.baseUrl
       if (config.model) env.GEMINI_MODEL = config.model

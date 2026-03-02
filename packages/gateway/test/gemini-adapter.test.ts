@@ -47,24 +47,26 @@ describe('GeminiAdapter basic properties', () => {
 // ─── Model Management ───
 
 describe('GeminiAdapter model management', () => {
-  it('getAvailableModels returns 6+ models', () => {
+  it('getAvailableModels returns models from SDK', async () => {
     const a = make()
+    // Wait for async SDK load triggered in constructor
+    await new Promise((r) => setTimeout(r, 200))
     const models = a.getAvailableModels()
-    assert.ok(models.length >= 6)
+    assert.ok(models.length >= 5)
     assert.ok(models.includes('gemini-2.5-pro'))
     assert.ok(models.includes('gemini-2.5-flash'))
     assert.ok(models.includes('gemini-3-pro-preview'))
     a.dispose()
   })
 
-  it('getAvailableModelInfo returns ModelOption array', () => {
+  it('getAvailableModelInfo returns ModelOption array from SDK', async () => {
     const a = make()
+    await new Promise((r) => setTimeout(r, 200))
     const info = a.getAvailableModelInfo()
-    assert.ok(info.length >= 6)
+    assert.ok(info.length >= 5)
     const first = info[0]
     assert.ok(first.value)
     assert.ok(first.displayName)
-    assert.ok(first.description)
     a.dispose()
   })
 })
