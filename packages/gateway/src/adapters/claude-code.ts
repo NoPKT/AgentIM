@@ -21,6 +21,8 @@ import type {
   SDKPartialAssistantMessage,
   Options,
   ModelInfo,
+  HookCallbackMatcher,
+  HookEvent,
 } from '@anthropic-ai/claude-agent-sdk'
 
 const log = createLogger('ClaudeCode')
@@ -47,6 +49,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private effort?: 'low' | 'medium' | 'high' | 'max'
   private planMode = false
   private modelOverride?: string
+  private toolUseCount = 0
+  private maxBudgetUsd?: number
+  private maxTurns?: number
+  private sandboxEnabled = false
+  private checkpointingEnabled = false
   private lastModelUsage?: Record<
     string,
     {
@@ -61,6 +68,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
   constructor(opts: AdapterOptions) {
     super(opts)
+    if (opts.sandbox) this.sandboxEnabled = true
+    if (this.env.CLAUDE_FILE_CHECKPOINT === 'true') this.checkpointingEnabled = true
   }
 
   get type() {
@@ -139,6 +148,54 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (this.thinkingConfig) options.thinking = this.thinkingConfig
       if (this.effort) options.effort = this.effort
       if (this.modelOverride) options.model = this.modelOverride
+
+      // Budget, turns, and fallback model
+      if (this.maxBudgetUsd !== undefined) options.maxBudgetUsd = this.maxBudgetUsd
+      if (this.maxTurns !== undefined) options.maxTurns = this.maxTurns
+      if (this.env.CLAUDE_FALLBACK_MODEL) options.fallbackModel = this.env.CLAUDE_FALLBACK_MODEL
+
+      // Sandbox configuration
+      if (this.sandboxEnabled) {
+        options.sandbox = { enabled: true, autoAllowBashIfSandboxed: true }
+      }
+
+      // Beta features
+      if (this.env.CLAUDE_ENABLE_1M_CONTEXT === 'true') {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        options.betas = ['context-1m-2025-08-07' as any]
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+      }
+
+      // Additional directories
+      if (this.env.CLAUDE_ADDITIONAL_DIRS) {
+        options.additionalDirectories = this.env.CLAUDE_ADDITIONAL_DIRS.split(':')
+      }
+
+      // File checkpointing
+      if (this.checkpointingEnabled) {
+        options.enableFileCheckpointing = true
+      }
+
+      // Subagent definitions from env
+      if (this.env.CLAUDE_AGENTS_CONFIG) {
+        try {
+          const config = this.env.CLAUDE_AGENTS_CONFIG
+          let parsed: Record<string, unknown>
+          if (config.startsWith('{')) {
+            parsed = JSON.parse(config)
+          } else {
+            parsed = JSON.parse(readFileSync(config, 'utf-8'))
+          }
+          /* eslint-disable @typescript-eslint/no-explicit-any */
+          options.agents = parsed as any
+          /* eslint-enable @typescript-eslint/no-explicit-any */
+        } catch (err) {
+          log.warn(`Failed to parse CLAUDE_AGENTS_CONFIG: ${(err as Error).message}`)
+        }
+      }
+
+      // Hooks for lifecycle events
+      options.hooks = this.buildHooks(onChunk)
 
       // Inject AgentIM MCP server for agent-to-agent communication
       if (this.mcpContext && !this.mcpServerConfig) {
@@ -322,6 +379,88 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
   }
 
+  private buildHooks(onChunk: ChunkCallback): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
+    return {
+      SubagentStart: [
+        {
+          hooks: [
+            async (input) => {
+              const data = input as { hook_event_name: string; [key: string]: unknown }
+              const name = (data.agent_name ?? data.subagent_type ?? 'unknown') as string
+              onChunk({
+                type: 'text',
+                content: `[Subagent started: ${name}]`,
+                metadata: { hookEvent: 'SubagentStart' },
+              })
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      SubagentStop: [
+        {
+          hooks: [
+            async (input) => {
+              const data = input as { hook_event_name: string; [key: string]: unknown }
+              const name = (data.agent_name ?? data.subagent_type ?? 'unknown') as string
+              onChunk({
+                type: 'text',
+                content: `[Subagent stopped: ${name}]`,
+                metadata: { hookEvent: 'SubagentStop' },
+              })
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      Notification: [
+        {
+          hooks: [
+            async (input) => {
+              const data = input as {
+                hook_event_name: string
+                message?: string
+                [key: string]: unknown
+              }
+              if (data.message) {
+                onChunk({
+                  type: 'text',
+                  content: `[Notification: ${data.message}]`,
+                  metadata: { hookEvent: 'Notification' },
+                })
+              }
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      TaskCompleted: [
+        {
+          hooks: [
+            async () => {
+              onChunk({
+                type: 'text',
+                content: '[Task completed]',
+                metadata: { hookEvent: 'TaskCompleted' },
+              })
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          hooks: [
+            async () => {
+              this.toolUseCount++
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+    }
+  }
+
   override getSlashCommands(): Array<{
     name: string
     description: string
@@ -374,6 +513,42 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         name: 'context',
         description: 'Show context window and model info',
         usage: '/context',
+        source: 'builtin',
+      },
+      {
+        name: 'plan',
+        description: 'Toggle plan mode (read-only)',
+        usage: '/plan [on|off]',
+        source: 'builtin',
+      },
+      {
+        name: 'budget',
+        description: 'Set max budget in USD',
+        usage: '/budget [amount]',
+        source: 'builtin',
+      },
+      {
+        name: 'turns',
+        description: 'Set max turns per message',
+        usage: '/turns [count]',
+        source: 'builtin',
+      },
+      {
+        name: 'sandbox',
+        description: 'Toggle sandbox mode',
+        usage: '/sandbox [on|off]',
+        source: 'builtin',
+      },
+      {
+        name: 'checkpoint',
+        description: 'Toggle file checkpointing',
+        usage: '/checkpoint [on|off]',
+        source: 'builtin',
+      },
+      {
+        name: 'rewind',
+        description: 'Rewind files to a previous message state',
+        usage: '/rewind [messageId]',
         source: 'builtin',
       },
     ]
@@ -507,6 +682,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           }
         }
         this.modelOverride = name
+        // Apply immediately if a query is active
+        if (this.currentQuery) {
+          await this.currentQuery.setModel(name)
+        }
         return { success: true, message: `Model set to: ${name}` }
       }
       case 'think': {
@@ -607,6 +786,85 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           lines.push('  No model usage data yet (send a message first)')
         }
         return { success: true, message: lines.join('\n') }
+      }
+      case 'budget': {
+        const val = args.trim()
+        if (!val) {
+          return {
+            success: true,
+            message: `Max budget: ${this.maxBudgetUsd !== undefined ? `$${this.maxBudgetUsd}` : '(none)'}\nUse /budget <amount> to set`,
+          }
+        }
+        const amount = parseFloat(val)
+        if (isNaN(amount) || amount <= 0) {
+          return { success: false, message: 'Budget must be a positive number' }
+        }
+        this.maxBudgetUsd = amount
+        return { success: true, message: `Max budget set to: $${amount}` }
+      }
+      case 'turns': {
+        const val = args.trim()
+        if (!val) {
+          return {
+            success: true,
+            message: `Max turns: ${this.maxTurns !== undefined ? this.maxTurns : '(none)'}\nUse /turns <count> to set`,
+          }
+        }
+        const count = parseInt(val, 10)
+        if (isNaN(count) || count <= 0 || !Number.isInteger(parseFloat(val))) {
+          return { success: false, message: 'Turns must be a positive integer' }
+        }
+        this.maxTurns = count
+        return { success: true, message: `Max turns set to: ${count}` }
+      }
+      case 'sandbox': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.sandboxEnabled = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.sandboxEnabled = false
+        } else {
+          this.sandboxEnabled = !this.sandboxEnabled
+        }
+        return {
+          success: true,
+          message: `Sandbox: ${this.sandboxEnabled ? 'enabled' : 'disabled'}`,
+        }
+      }
+      case 'checkpoint': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.checkpointingEnabled = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.checkpointingEnabled = false
+        } else {
+          this.checkpointingEnabled = !this.checkpointingEnabled
+        }
+        return {
+          success: true,
+          message: `File checkpointing: ${this.checkpointingEnabled ? 'enabled' : 'disabled'}`,
+        }
+      }
+      case 'rewind': {
+        const messageId = args.trim()
+        if (!messageId) {
+          return { success: false, message: 'Usage: /rewind <messageId>' }
+        }
+        if (!this.currentQuery) {
+          return { success: false, message: 'No active query to rewind' }
+        }
+        if (!this.checkpointingEnabled) {
+          return {
+            success: false,
+            message: 'File checkpointing is not enabled. Use /checkpoint on',
+          }
+        }
+        try {
+          await this.currentQuery.rewindFiles(messageId)
+          return { success: true, message: `Files rewound to message: ${messageId}` }
+        } catch (err) {
+          return { success: false, message: `Rewind failed: ${(err as Error).message}` }
+        }
       }
       default:
         return { success: false, message: `Unknown command: ${command}` }

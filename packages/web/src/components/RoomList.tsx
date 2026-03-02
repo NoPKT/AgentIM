@@ -9,7 +9,7 @@ import { PlusIcon, GroupIcon, StarIcon, ChatBubbleIcon } from './icons.js'
 import { Button, Input, Modal, ModalPanel } from './ui.js'
 import { CachedDataBanner } from './CachedDataBanner.js'
 
-function formatTimeAgo(dateStr: string, locale: string): string {
+export function formatTimeAgo(dateStr: string, locale: string): string {
   const date = new Date(dateStr)
   const now = Date.now()
   const diffMs = now - date.getTime()
