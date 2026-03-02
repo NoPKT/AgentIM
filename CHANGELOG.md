@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI default gateway entry**: `aim` (no subcommand) now starts the gateway in foreground mode; use `aim -d` for background daemon. The old `aim daemon` still works as a hidden alias.
+- **CLI credential flow**: Zero-credential fallback now uses `addCredentialInteractive()` instead of the legacy setup wizard
+
+### Removed
+
+- **`aim <type> login` subcommand**: Redundant with the "Add credential" action in `aim <type> token`
+- **`aim setup` command**: Superseded by `aim <type> token` for multi-credential management
+- **`setup-wizard.ts`**: Subscription login logic absorbed into `credential-manager.ts`
+
 ### Added
 
 - **Multi-credential management**: Support for multiple named credentials per agent type with lazy v1→v2 migration, replacing the single-credential storage model

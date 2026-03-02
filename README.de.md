@@ -24,7 +24,7 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 ### Hauptfunktionen
 
 - **Gruppenchat mit KI** — Menschen und KI-Agenten interagieren in Chaträumen mit @Erwähnungen, genau wie bei Slack oder Discord
-- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI *(demnächst verfügbar)* oder jeden anderen CLI-Agenten parallel über den generischen Adapter aus
+- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI oder jeden anderen CLI-Agenten parallel über den generischen Adapter aus
 - **Service-Agenten** — Konfigurieren Sie serverseitige KI-Service-Agenten (OpenAI-kompatibel), die auf @Erwähnungen ohne Gateway reagieren
 - **Geräteübergreifend** — Verwalten Sie Agenten auf Ihrem Arbeitsrechner von jedem Gerät aus über PWA
 - **Echtzeit-Streaming** — Sehen Sie Agentenantworten, Denkprozesse und Werkzeugnutzung in Echtzeit
@@ -150,17 +150,14 @@ AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ### 3. Anmeldedaten konfigurieren
 
 ```bash
-# Anmeldedaten hinzufügen (API-Schlüssel oder Abonnement-Login)
-agentim claude login
-
 # Anmeldedaten verwalten (auflisten, hinzufügen, umbenennen, löschen, Standard setzen)
 agentim claude token
 
-# Beim Start bestimmte Anmeldedaten angeben
-agentim claude --credential work-api /path/to/project
+# Beim Start bestimmte Anmeldedaten angeben (Kurzform -c)
+agentim claude -c work-api /path/to/project
 ```
 
-Jeder Agententyp unterstützt mehrere benannte Anmeldedaten. Wenn nur eine vorhanden ist, wird sie automatisch verwendet.
+Jeder Agententyp unterstützt mehrere benannte Anmeldedaten. Wenn nur eine vorhanden ist, wird sie automatisch verwendet. Beim ersten Start ohne Anmeldedaten werden Sie aufgefordert, welche hinzuzufügen.
 
 ### 4. Einen Agenten starten
 
@@ -179,17 +176,22 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
-### Daemon-Modus
+### Gateway-Modus
 
-Starten Sie einen dauerhaften Hintergrundprozess, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
+Starten Sie das Gateway, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
 
 ```bash
-agentim daemon
+# Vordergrund (Standard)
+agentim
+
+# Hintergrund-Daemon
+agentim -d
 ```
 
 ### Weitere Befehle
 
 ```bash
+agentim list      # Laufende Daemons auflisten
 agentim status    # Konfigurationsstatus anzeigen
 agentim logout    # Gespeicherte Anmeldedaten löschen
 ```
@@ -200,7 +202,7 @@ agentim logout    # Gespeicherte Anmeldedaten löschen
 | ------------- | ------------------------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI                        |
 | `codex`       | OpenAI Codex CLI                                 |
-| `gemini`      | Google Gemini CLI *(demnächst verfügbar)*          |
+| `gemini`      | Google Gemini CLI                                  |
 | `generic`     | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
 
 ## Für Entwickler

@@ -21,7 +21,6 @@ import {
   findCredentialByNameOrId,
   credentialToAuthConfig,
 } from './agent-config.js'
-import { runSetupWizard } from './setup-wizard.js'
 import { manageCredentials, addCredentialInteractive } from './credential-manager.js'
 import { createLogger } from './lib/logger.js'
 import { printSecurityBanner } from './lib/security-banner.js'
@@ -143,22 +142,6 @@ program
     log.info('Logged out. Credentials cleared.')
   })
 
-// ─── agentim setup [agent-type] ───
-
-program
-  .command('setup [agent-type]')
-  .description('Interactive setup wizard for agent credentials')
-  .action(async (agentType) => {
-    if (!agentType) {
-      agentType = await promptSelect('Select agent type:', [
-        { label: 'Claude Code', value: 'claude-code' },
-        { label: 'Codex', value: 'codex' },
-        { label: 'Gemini', value: 'gemini' },
-      ])
-    }
-    await runSetupWizard(agentType)
-  })
-
 // ─── Agent commands (claude, codex, gemini) ───
 
 /** Map agent type to a display name for CLI descriptions and log messages. */
@@ -220,14 +203,6 @@ function registerAgentCommand(
     .action(async () => {
       await manageCredentials(agentType)
     })
-
-  // Subcommand: login — add a new credential (shortcut)
-  cmd
-    .command('login')
-    .description(`Add a new ${AGENT_DISPLAY_NAMES[agentType] ?? agentType} credential`)
-    .action(async () => {
-      await addCredentialInteractive(agentType)
-    })
 }
 
 /**
@@ -259,12 +234,10 @@ async function resolveAgentCredential(
   // 0 credentials → prompt to add
   if (creds.length === 0) {
     log.info(`No credentials configured for ${displayName}.`)
-    log.info('Running setup wizard...')
-    await runSetupWizard(agentType)
-    // After setup, resolve the newly created credential
-    const newCreds = listCredentials(agentType)
-    if (newCreds.length === 0) return null
-    return credentialToAuthConfig(newCreds[0])
+    log.info('Add a credential to continue...')
+    const entry = await addCredentialInteractive(agentType)
+    if (!entry) return null
+    return credentialToAuthConfig(entry)
   }
 
   // 1 credential → auto-use
@@ -301,11 +274,46 @@ registerAgentCommand(
 registerAgentCommand(program, 'codex', 'codex', 'Start a Codex agent (background daemon)')
 registerAgentCommand(program, 'gemini', 'gemini', 'Start a Gemini CLI agent (background daemon)')
 
-// ─── agentim daemon ───
+// ─── Default action: aim = foreground gateway, aim -d = background ───
+
+/** Shared gateway logic used by both foreground and background modes. */
+function runGateway(opts: { agent?: string[]; yes?: boolean; securityWarning?: boolean }) {
+  printSecurityBanner(!opts.securityWarning)
+  const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
+
+  const { start } = createGatewaySession({
+    permissionLevel,
+    onAuthenticated: (agentManager, isReconnect) => {
+      if (isReconnect) {
+        agentManager.reRegisterAll()
+      } else {
+        registerAgents(agentManager, opts.agent ?? [])
+      }
+    },
+  })
+
+  start()
+}
 
 program
-  .command('daemon')
-  .description('Start the gateway daemon (multi-agent mode)')
+  .option(
+    '-a, --agent <spec...>',
+    'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
+  )
+  .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
+  .option('--no-security-warning', 'Suppress the security warning banner')
+  .option('-d, --detach', 'Run the gateway as a background daemon')
+  .action(async (opts) => {
+    if (opts.detach) {
+      spawnGatewayDaemon(opts)
+    } else {
+      runGateway(opts)
+    }
+  })
+
+// Hidden alias: `aim daemon` still works
+program
+  .command('daemon', { hidden: true })
   .option(
     '-a, --agent <spec...>',
     'Agent spec: name:type[:workdir] (e.g., claude:claude-code:/path)',
@@ -313,21 +321,7 @@ program
   .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
   .option('--no-security-warning', 'Suppress the security warning banner')
   .action(async (opts) => {
-    printSecurityBanner(!opts.securityWarning)
-    const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
-
-    const { start } = createGatewaySession({
-      permissionLevel,
-      onAuthenticated: (agentManager, isReconnect) => {
-        if (isReconnect) {
-          agentManager.reRegisterAll()
-        } else {
-          registerAgents(agentManager, opts.agent ?? [])
-        }
-      },
-    })
-
-    start()
+    runGateway(opts)
   })
 
 // ─── agentim list ───
@@ -678,6 +672,114 @@ async function spawnDaemon(opts: {
     // Spawn failed — clean up the reservation
     removeDaemonInfo(name)
     log.error('Failed to start daemon process')
+    process.exit(1)
+  }
+}
+
+/**
+ * Spawn a detached gateway daemon process.
+ * The parent (CLI) exits immediately after spawning.
+ */
+async function spawnGatewayDaemon(opts: {
+  agent?: string[]
+  yes?: boolean
+  securityWarning?: boolean
+}) {
+  const config = loadConfig()
+  if (!config) {
+    log.error('Not logged in. Run `agentim login` first.')
+    process.exit(1)
+  }
+
+  const daemonName = 'gateway'
+
+  // Check for existing gateway daemon
+  const existing = readDaemonInfo(daemonName)
+  if (existing) {
+    try {
+      process.kill(existing.pid, 0)
+      log.error(
+        `Gateway daemon is already running (PID ${existing.pid}). Use 'agentim stop ${daemonName}' first.`,
+      )
+      process.exit(1)
+    } catch {
+      // Process is dead, clean up stale PID file
+    }
+  }
+
+  const logDir = join(homedir(), '.agentim', 'logs')
+  mkdirSync(logDir, { recursive: true })
+  const logFile = join(logDir, `${daemonName}.log`)
+  rotateLogIfNeeded(logFile)
+  const logFd = openSync(logFile, 'a')
+
+  // Build args: re-run ourselves in foreground mode (no -d flag)
+  const daemonArgs = [...process.execArgv, ...getEntryArgs()]
+  if (opts.agent?.length) {
+    for (const spec of opts.agent) {
+      daemonArgs.push('--agent', spec)
+    }
+  }
+  if (opts.yes) {
+    daemonArgs.push('--yes')
+  }
+  daemonArgs.push('--no-security-warning')
+
+  const reservationInfo = {
+    pid: process.pid,
+    name: daemonName,
+    type: 'gateway',
+    workDir: process.cwd(),
+    startedAt: new Date().toISOString(),
+    gatewayId: config.gatewayId,
+  }
+  try {
+    writeDaemonInfo(reservationInfo, true)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+      log.error('Gateway daemon is already being started by another process.')
+      process.exit(1)
+    }
+    throw err
+  }
+
+  const child = cpSpawn(process.execPath, daemonArgs, {
+    detached: true,
+    stdio: ['ignore', logFd, logFd],
+    cwd: process.cwd(),
+    env: { ...process.env },
+  })
+
+  child.unref()
+  closeSync(logFd)
+
+  if (child.pid) {
+    writeDaemonInfo({ ...reservationInfo, pid: child.pid })
+
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        child.removeAllListeners('exit')
+        resolve()
+      }, 500)
+      timer.unref()
+      child.once('exit', (code) => {
+        clearTimeout(timer)
+        log.error(`Gateway daemon exited immediately with code ${code}`)
+        removeDaemonInfo(daemonName)
+        resolve()
+      })
+    })
+
+    if (child.exitCode !== null) {
+      process.exit(1)
+    }
+
+    log.info(`Gateway daemon started in background (PID ${child.pid})`)
+    log.info(`Log file: ${logFile}`)
+    log.info(`Use 'agentim list' to see running daemons`)
+  } else {
+    removeDaemonInfo(daemonName)
+    log.error('Failed to start gateway daemon')
     process.exit(1)
   }
 }

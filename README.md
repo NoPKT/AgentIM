@@ -187,17 +187,14 @@ AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ### 3. Configure Credentials
 
 ```bash
-# Add a credential (API key or subscription login)
-agentim claude login
-
 # Manage credentials (list, add, rename, delete, set default)
 agentim claude token
 
-# Use a specific credential when starting an agent
-agentim claude --credential work-api /path/to/project
+# Use a specific credential (-c shorthand) when starting an agent
+agentim claude -c work-api /path/to/project
 ```
 
-Each agent type supports multiple named credentials. When only one exists, it is used automatically.
+Each agent type supports multiple named credentials. When only one exists, it is used automatically. If none exist, you will be prompted to add one on first launch.
 
 ### 4. Start an Agent
 
@@ -216,17 +213,22 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
-### Daemon Mode
+### Gateway Mode
 
-Start a persistent background process so the server can remotely launch and manage agents on your machine:
+Start the gateway so the server can remotely launch and manage agents on your machine:
 
 ```bash
-agentim daemon
+# Foreground (default)
+agentim
+
+# Background daemon
+agentim -d
 ```
 
 ### Other Commands
 
 ```bash
+agentim list      # List running daemons
 agentim status    # Show configuration status
 agentim logout    # Clear saved credentials
 ```

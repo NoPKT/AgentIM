@@ -16,26 +16,23 @@ Both `agentim` and `aim` are available as CLI commands.
 # Login to your AgentIM server
 AGENTIM_PASSWORD=YourPassword aim login -s http://localhost:3000 -u admin
 
-# Configure agent credentials (interactive wizard)
-aim setup claude-code
-
-# Add a new credential (API key or subscription)
-aim claude login
-
 # Manage credentials (list, add, rename, delete, set default)
 aim claude token
 
-# Start a Claude Code agent in the current directory (interactive mode)
+# Start a Claude Code agent in the current directory
 aim claude
 
-# Start with a specific credential
-aim claude --credential work-api /path/to/project
+# Start with a specific credential (-c shorthand)
+aim claude -c work-api /path/to/project
 
 # Start with bypass permissions (auto-approve all tool calls)
 aim claude /path/to/project -y
 
-# Start the daemon (server can remotely launch agents)
-aim daemon
+# Start the gateway (foreground)
+aim
+
+# Start the gateway as a background daemon
+aim -d
 ```
 
 ## Supported Agents
@@ -50,19 +47,16 @@ aim daemon
 
 ## Commands
 
+- `aim` -- Start the gateway in foreground mode (server can remotely launch agents)
+- `aim -d` -- Start the gateway as a background daemon
 - `aim login` -- Authenticate with an AgentIM server
 - `aim logout` -- Clear saved credentials
-- `aim setup [agent-type]` -- Interactive setup wizard for agent credentials
 - `aim claude [path]` -- Start a Claude Code agent (default: current directory)
-- `aim claude login` -- Add a new Claude Code credential
 - `aim claude token` -- Manage Claude Code credentials (list, add, rename, delete, set default)
 - `aim codex [path]` -- Start a Codex agent
-- `aim codex login` -- Add a new Codex credential
 - `aim codex token` -- Manage Codex credentials
 - `aim gemini [path]` -- Start a Gemini CLI agent
-- `aim gemini login` -- Add a new Gemini credential
 - `aim gemini token` -- Manage Gemini credentials
-- `aim daemon` -- Start daemon mode (server-managed agents)
 - `aim list` -- List running agent daemons
 - `aim stop <name>` -- Gracefully stop a running agent daemon
 - `aim rm <name>` -- Stop and clean up an agent daemon
@@ -73,19 +67,19 @@ aim daemon
 
 Each agent type supports multiple named credentials. When starting an agent:
 
-- **0 credentials**: Setup wizard runs automatically
+- **0 credentials**: You are prompted to add one interactively
 - **1 credential**: Used automatically
 - **N credentials**: Default credential is used, or you are prompted to select
 
 Use `-c, --credential <name>` to specify a credential by name or ID prefix:
 
 ```bash
-aim claude --credential work-api /path/to/project
+aim claude -c work-api /path/to/project
 ```
 
 ### Permission Modes
 
-Agent commands (`claude`, `codex`, `gemini`, `daemon`) support a `-y, --yes` flag to control permission behavior:
+Agent commands (`claude`, `codex`, `gemini`) and the default gateway action support a `-y, --yes` flag to control permission behavior:
 
 | Flag | Mode | Description |
 |------|------|-------------|
@@ -114,17 +108,20 @@ Custom adapters use the `GenericAdapter` under the hood. List all available adap
 
 ## Running as a Service
 
-The built-in daemon mode (`aim claude .`) spawns a detached background process but does not automatically restart on crashes. For long-running production use, wrap the command with a process manager:
+The built-in daemon mode (`aim -d` or `aim claude .`) spawns a detached background process but does not automatically restart on crashes. For long-running production use, wrap the command with a process manager:
 
 ```bash
-# PM2
+# PM2 — gateway mode
+pm2 start "aim" --name agentim-gateway
+
+# PM2 — single agent mode
 pm2 start "aim claude /path/to/project --foreground" --name my-agent
 
 # systemd (create a unit file)
-# ExecStart=/usr/bin/aim claude /path/to/project --foreground
+# ExecStart=/usr/bin/aim
 ```
 
-Use `--foreground` when managed by an external supervisor so the process stays in the foreground.
+When managed by an external supervisor, `aim` (no subcommand) runs in the foreground by default. Use `--foreground` for agent subcommands (`aim claude --foreground`).
 
 ## License
 

@@ -24,7 +24,7 @@ AgentIM transforme les agents de programmation IA (Claude Code, Codex CLI, Gemin
 ### Fonctionnalités clés
 
 - **Discussion de groupe avec l'IA** — Humains et agents IA interagissent dans des salons de discussion avec @mentions, comme sur Slack ou Discord
-- **Orchestration multi-agents** — Exécutez Claude Code, Codex, Gemini CLI *(bientôt disponible)* ou tout autre agent CLI côte à côte via l'adaptateur générique
+- **Orchestration multi-agents** — Exécutez Claude Code, Codex, Gemini CLI ou tout autre agent CLI côte à côte via l'adaptateur générique
 - **Agents de service** — Configurez des agents IA côté serveur (compatibles OpenAI) qui répondent aux @mentions sans passerelle
 - **Multi-appareils** — Gérez les agents exécutés sur votre poste de travail depuis n'importe quel appareil via PWA
 - **Streaming en temps réel** — Visualisez les réponses des agents, leur processus de réflexion et l'utilisation des outils au fur et à mesure
@@ -150,17 +150,14 @@ AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ### 3. Configurer les identifiants
 
 ```bash
-# Ajouter un identifiant (clé API ou connexion par abonnement)
-agentim claude login
-
 # Gérer les identifiants (lister, ajouter, renommer, supprimer, définir par défaut)
 agentim claude token
 
-# Spécifier un identifiant au démarrage
-agentim claude --credential work-api /path/to/project
+# Spécifier un identifiant au démarrage (raccourci -c)
+agentim claude -c work-api /path/to/project
 ```
 
-Chaque type d'agent prend en charge plusieurs identifiants nommés. S'il n'y en a qu'un, il est utilisé automatiquement.
+Chaque type d'agent prend en charge plusieurs identifiants nommés. S'il n'y en a qu'un, il est utilisé automatiquement. Au premier lancement sans identifiant, vous serez invité à en ajouter un.
 
 ### 4. Démarrer un agent
 
@@ -179,17 +176,22 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
-### Mode démon
+### Mode passerelle
 
-Démarrez un processus d'arrière-plan persistant pour que le serveur puisse lancer et gérer les agents à distance sur votre machine :
+Démarrez la passerelle pour que le serveur puisse lancer et gérer les agents à distance sur votre machine :
 
 ```bash
-agentim daemon
+# Premier plan (par défaut)
+agentim
+
+# Démon en arrière-plan
+agentim -d
 ```
 
 ### Autres commandes
 
 ```bash
+agentim list      # Lister les démons en cours d'exécution
 agentim status    # Afficher l'état de la configuration
 agentim logout    # Effacer les identifiants enregistrés
 ```
@@ -200,7 +202,7 @@ agentim logout    # Effacer les identifiants enregistrés
 | ------------- | --------------------------------------------------- |
 | `claude-code` | Anthropic Claude Code CLI                           |
 | `codex`       | OpenAI Codex CLI                                    |
-| `gemini`      | Google Gemini CLI *(bientôt disponible)*             |
+| `gemini`      | Google Gemini CLI                                    |
 | `generic`     | N'importe quel outil CLI (commandes personnalisées) |
 
 ## Pour les développeurs
