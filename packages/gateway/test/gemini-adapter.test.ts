@@ -74,16 +74,17 @@ describe('GeminiAdapter model management', () => {
 // ─── Slash Commands ───
 
 describe('GeminiAdapter slash commands', () => {
-  it('getSlashCommands returns 5 commands', () => {
+  it('getSlashCommands returns 6 commands', () => {
     const a = make()
     const cmds = a.getSlashCommands()
-    assert.equal(cmds.length, 5)
+    assert.equal(cmds.length, 6)
     const names = cmds.map((c) => c.name)
     assert.ok(names.includes('clear'))
     assert.ok(names.includes('compact'))
     assert.ok(names.includes('model'))
     assert.ok(names.includes('cost'))
     assert.ok(names.includes('plan'))
+    assert.ok(names.includes('think'))
     a.dispose()
   })
 
