@@ -896,6 +896,18 @@ async function handlePermissionRequest(
     return
   }
 
+  // Auto-approve AgentIM's own MCP tools — these are safe internal operations
+  // (send_message, request_reply, get_room_messages, list_room_members)
+  if (msg.toolName.startsWith('mcp__agentim__')) {
+    connectionManager.sendToGateway(msg.agentId, {
+      type: 'server:permission_response',
+      requestId: msg.requestId,
+      agentId: msg.agentId,
+      decision: 'allow',
+    })
+    return
+  }
+
   const [agent] = await db
     .select({ name: agents.name })
     .from(agents)

@@ -1,17 +1,13 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../stores/chat.js'
 import { useAuthStore } from '../stores/auth.js'
-import { useAgentStore } from '../stores/agents.js'
 import { useRouterStore } from '../stores/routers.js'
-import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
-import { AddAgentDialog } from './AddAgentDialog.js'
-import { AgentPanel } from './AgentPanel.js'
 import { toast } from '../stores/toast.js'
 import { Button, Input, Textarea, Select } from './ui.js'
-import { CloseIcon, PencilIcon, PlusIcon } from './icons.js'
-import type { RoomMember, Room, AgentCommandRole } from '@agentim/shared'
+import { CloseIcon, PencilIcon } from './icons.js'
+import type { Room, AgentCommandRole } from '@agentim/shared'
 import { AGENT_COMMAND_ROLES } from '@agentim/shared'
 import type { TFunction } from 'i18next'
 
@@ -143,131 +139,6 @@ function NotificationSection({
   )
 }
 
-interface MemberListSectionProps {
-  members: RoomMember[]
-  agentMap: Map<string, { id: string; name: string; status: string; type: string }>
-  onlineUsers: Set<string>
-  t: TFunction
-  statusConfig: ReturnType<typeof getStatusConfig>
-  typeConfig: ReturnType<typeof getTypeConfig>
-  roleLabel: (role: string) => string
-  onRemoveMember: (memberId: string) => void
-  onAddAgent: () => void
-  onAgentClick: (agentId: string) => void
-}
-
-function MemberListSection({
-  members,
-  agentMap,
-  onlineUsers,
-  t,
-  statusConfig,
-  typeConfig,
-  roleLabel,
-  onRemoveMember,
-  onAddAgent,
-  onAgentClick,
-}: MemberListSectionProps) {
-  return (
-    <div className="px-5 py-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-          {t('chat.members')} ({members.length})
-        </h3>
-        <button
-          onClick={onAddAgent}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-accent bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-        >
-          <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
-          {t('chat.addAgent')}
-        </button>
-      </div>
-
-      <div className="space-y-1">
-        {members.map((member) => {
-          const agent = member.memberType === 'agent' ? agentMap.get(member.memberId) : null
-          const status = agent
-            ? statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
-            : null
-          const type = agent ? typeConfig[agent.type] || typeConfig.generic : null
-          const displayName = agent ? agent.name : (member.displayName ?? member.memberId)
-
-          return (
-            <div
-              key={member.memberId}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors group"
-            >
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <div
-                  className={`
-                    w-8 h-8 rounded-full flex items-center justify-center
-                    ${
-                      member.memberType === 'agent'
-                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                        : 'bg-gradient-to-br from-gray-400 to-gray-500'
-                    }
-                  `}
-                >
-                  <span className="text-xs font-medium text-white">
-                    {displayName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                {member.memberType === 'user' && onlineUsers.has(member.memberId) && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-surface rounded-full" />
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {agent ? (
-                    <button
-                      onClick={() => onAgentClick(agent.id)}
-                      className="text-sm font-medium text-text-primary truncate hover:text-accent transition-colors text-left"
-                    >
-                      {displayName}
-                    </button>
-                  ) : (
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {displayName}
-                    </span>
-                  )}
-                  {status && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.color} flex-shrink-0`} />
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {type && (
-                    <span
-                      className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${type.color}`}
-                    >
-                      {type.label}
-                    </span>
-                  )}
-                  <span className="text-[10px] text-text-muted">{roleLabel(member.role)}</span>
-                </div>
-              </div>
-
-              {/* Remove Button (not for owner) */}
-              {member.role !== 'owner' && (
-                <button
-                  onClick={() => onRemoveMember(member.memberId)}
-                  className="p-1 rounded-md text-text-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                  title={t('chat.removeMember')}
-                  aria-label={t('chat.removeMember')}
-                >
-                  <CloseIcon className="w-4 h-4" aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main exported component ─────────────────────────────────────────────────
 
 export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDrawerProps) {
@@ -281,9 +152,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const togglePin = useChatStore((s) => s.togglePin)
   const toggleArchive = useChatStore((s) => s.toggleArchive)
   const deleteRoom = useChatStore((s) => s.deleteRoom)
-  const removeRoomMember = useChatStore((s) => s.removeRoomMember)
-  const agents = useAgentStore((s) => s.agents)
-  const onlineUsers = useChatStore((s) => s.onlineUsers)
   const routers = useRouterStore((s) => s.routers)
   const loadRouters = useRouterStore((s) => s.loadRouters)
 
@@ -297,15 +165,10 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
   const [nameValue, setNameValue] = useState('')
   const [editingPrompt, setEditingPrompt] = useState(false)
   const [promptValue, setPromptValue] = useState('')
-  const [showAddAgent, setShowAddAgent] = useState(false)
-  const [showAgentInfo, setShowAgentInfo] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [pinLoading, setPinLoading] = useState(false)
   const [archiveLoading, setArchiveLoading] = useState(false)
-
-  const statusConfig = getStatusConfig(t)
-  const typeConfig = getTypeConfig(t)
 
   useEffect(() => {
     if (isOpen && roomId) {
@@ -329,13 +192,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
       setPromptValue(room.systemPrompt ?? '')
     }
   }, [room])
-
-  const existingMemberIds = useMemo(
-    () => new Set(members.filter((m) => m.memberType === 'agent').map((m) => m.memberId)),
-    [members],
-  )
-
-  const agentMap = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])
 
   const handleSaveName = async () => {
     if (!nameValue.trim() || nameValue === room?.name) {
@@ -386,15 +242,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
     }
   }
 
-  const handleRemoveMember = async (memberId: string) => {
-    try {
-      await removeRoomMember(roomId, memberId)
-      toast.success(t('chat.agentRemoved'))
-    } catch {
-      toast.error(t('common.error'))
-    }
-  }
-
   const handleDeleteRoom = async () => {
     try {
       await deleteRoom(roomId)
@@ -403,17 +250,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
       navigate('/')
     } catch {
       toast.error(t('common.error'))
-    }
-  }
-
-  const roleLabel = (role: string) => {
-    switch (role) {
-      case 'owner':
-        return t('chat.roleOwner')
-      case 'admin':
-        return t('chat.roleAdmin')
-      default:
-        return t('chat.roleMember')
     }
   }
 
@@ -616,19 +452,6 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
               t={t}
               updateNotificationPref={updateNotificationPref}
             />
-
-            <MemberListSection
-              members={members}
-              agentMap={agentMap}
-              onlineUsers={onlineUsers}
-              t={t}
-              statusConfig={statusConfig}
-              typeConfig={typeConfig}
-              roleLabel={roleLabel}
-              onRemoveMember={handleRemoveMember}
-              onAddAgent={() => setShowAddAgent(true)}
-              onAgentClick={(id) => setShowAgentInfo(id)}
-            />
           </div>
 
           {/* Footer: Pin / Archive / Delete */}
@@ -706,22 +529,7 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
         </div>
       </div>
 
-      {/* Add Agent Dialog */}
-      <AddAgentDialog
-        roomId={roomId}
-        existingMemberIds={existingMemberIds}
-        isOpen={showAddAgent}
-        onClose={() => setShowAddAgent(false)}
-        onAdded={() => loadRoomMembers(roomId)}
-      />
-
-      {/* Agent Panel */}
-      <AgentPanel
-        agentId={showAgentInfo}
-        isOpen={!!showAgentInfo}
-        onClose={() => setShowAgentInfo(null)}
-        isOwner
-      />
+      {/* Members are now managed via MemberListPanel in ChatPage */}
     </>
   )
 }

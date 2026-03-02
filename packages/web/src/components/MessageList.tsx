@@ -122,28 +122,30 @@ export function MessageList({ onImageClick }: MessageListProps) {
     }
   }, [currentMessages, virtualizer])
 
-  // ResizeObserver to re-measure when any message item changes size
-  // (handles dynamic content: expanded/collapsed sections, lazy markdown, images)
+  // Debounced re-measure for dynamic content changes (expanded/collapsed
+  // sections, lazy markdown, images).  We observe the virtualised container
+  // (the single child that holds all absolutely-positioned items) rather than
+  // every individual message element to avoid a measure→layout→observe loop
+  // that caused visible jitter.
+  const measureRAF = useRef(0)
   useEffect(() => {
     const el = parentRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
-      virtualizer.measure()
+      cancelAnimationFrame(measureRAF.current)
+      measureRAF.current = requestAnimationFrame(() => {
+        virtualizer.measure()
+      })
     })
-    const mo = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node instanceof HTMLElement) ro.observe(node)
-        }
-      }
-    })
-    for (const child of el.children) {
-      if (child instanceof HTMLElement) ro.observe(child)
+    // Observe only the single virtualised-list container (first child with
+    // position:relative), not every message element.
+    const listContainer = el.querySelector('[style*="position: relative"]')
+    if (listContainer instanceof HTMLElement) {
+      ro.observe(listContainer)
     }
-    mo.observe(el, { childList: true })
     return () => {
+      cancelAnimationFrame(measureRAF.current)
       ro.disconnect()
-      mo.disconnect()
     }
   }, [virtualizer])
 

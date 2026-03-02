@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
-import { AgentPanel } from '../components/AgentPanel.js'
 import { toast } from '../stores/toast.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
@@ -102,17 +101,13 @@ export default function AgentsPage() {
                 <AgentRow
                   key={agent.id}
                   agent={agent}
-                  onInfoClick={() => setSelectedAgentId(agent.id)}
+                  expanded={selectedAgentId === agent.id}
+                  onToggle={() =>
+                    setSelectedAgentId((prev) => (prev === agent.id ? null : agent.id))
+                  }
                 />
               ))}
             </div>
-
-            <AgentPanel
-              agentId={selectedAgentId}
-              isOpen={!!selectedAgentId}
-              onClose={() => setSelectedAgentId(null)}
-              isOwner
-            />
           </>
         ) : (
           <div data-testid="agents-empty" className="text-center py-12">
@@ -153,8 +148,16 @@ export default function AgentsPage() {
   )
 }
 
-function AgentRow({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => void }) {
-  const { t } = useTranslation()
+function AgentRow({
+  agent,
+  expanded,
+  onToggle,
+}: {
+  agent: Agent
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { t, i18n } = useTranslation()
   const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
   const deleteAgent = useAgentStore((s) => s.deleteAgent)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -175,12 +178,8 @@ function AgentRow({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => voi
     updateAgentVisibility(agent.id, newVisibility)
   }
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const handleDeleteConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
     setDeleting(true)
     try {
       await deleteAgent(agent.id)
@@ -198,97 +197,195 @@ function AgentRow({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => voi
     : null
 
   return (
-    <div className="bg-surface rounded-lg border border-border px-3 py-2.5 flex items-center gap-3 hover:bg-surface-hover/50 transition-colors group">
-      {/* Status dot */}
-      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-        {agent.status === 'online' && (
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-        )}
-        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
-      </span>
-
-      {/* Avatar + Name */}
-      <button
-        onClick={onInfoClick}
-        className="flex items-center gap-2.5 min-w-0 flex-shrink-0 text-left"
+    <div className="bg-surface rounded-lg border border-border overflow-hidden transition-colors">
+      {/* Header row */}
+      <div
+        className="px-3 py-2.5 flex items-center gap-3 hover:bg-surface-hover/50 cursor-pointer"
+        onClick={onToggle}
       >
-        <div
-          className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-        >
-          <span className="text-xs font-semibold text-white">
-            {agent.name.charAt(0).toUpperCase()}
+        {/* Status dot */}
+        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+          {agent.status === 'online' && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          )}
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
+        </span>
+
+        {/* Avatar + Name */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
+          <div
+            className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+          >
+            <span className="text-xs font-semibold text-white">
+              {agent.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <span className="text-sm font-medium text-text-primary truncate max-w-[160px]">
+            {agent.name}
           </span>
         </div>
-        <span className="text-sm font-medium text-text-primary truncate max-w-[160px] hover:text-accent transition-colors">
-          {agent.name}
-        </span>
-      </button>
 
-      {/* Type badge */}
-      <span
-        className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${type.color}`}
-      >
-        {type.label}
-      </span>
-
-      {/* Device info (hidden on small screens) */}
-      {deviceLabel && (
-        <span className="hidden md:inline text-xs text-text-muted truncate max-w-[200px]">
-          {deviceLabel}
-        </span>
-      )}
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Visibility toggle */}
-      <button
-        onClick={handleToggleVisibility}
-        role="switch"
-        aria-checked={isShared}
-        aria-label={t('agent.visibility')}
-        className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
-          isShared ? 'bg-accent' : 'bg-surface-hover'
-        }`}
-        title={isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
-      >
+        {/* Type badge */}
         <span
-          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-            isShared ? 'translate-x-4' : 'translate-x-0.5'
+          className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${type.color}`}
+        >
+          {type.label}
+        </span>
+
+        {/* Device info (hidden on small screens) */}
+        {deviceLabel && (
+          <span className="hidden md:inline text-xs text-text-muted truncate max-w-[200px]">
+            {deviceLabel}
+          </span>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Visibility toggle */}
+        <button
+          onClick={handleToggleVisibility}
+          role="switch"
+          aria-checked={isShared}
+          aria-label={t('agent.visibility')}
+          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+            isShared ? 'bg-accent' : 'bg-surface-hover'
           }`}
-        />
-      </button>
-
-      {/* Info button */}
-      <button
-        onClick={onInfoClick}
-        className="p-1.5 rounded-md text-text-muted hover:text-text-secondary hover:bg-surface-hover transition-colors flex-shrink-0"
-        title={t('agentPanel.title')}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          title={isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+              isShared ? 'translate-x-4' : 'translate-x-0.5'
+            }`}
           />
-        </svg>
-      </button>
+        </button>
 
-      {/* Delete button with inline confirm */}
-      <button
-        onClick={handleDelete}
-        onBlur={() => setConfirmDelete(false)}
-        disabled={deleting}
-        className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${
-          confirmDelete
-            ? 'text-danger-text bg-danger-subtle hover:bg-danger-subtle/80'
-            : 'text-text-muted/50 hover:text-danger-text hover:bg-surface-hover'
-        } disabled:opacity-50`}
-        title={confirmDelete ? t('agent.confirmDeleteAgent') : t('agent.deleteAgent')}
-      >
-        <TrashIcon className="w-4 h-4" />
-      </button>
+        {/* Delete button / confirm */}
+        {confirmDelete ? (
+          <div
+            className="flex items-center gap-1 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              className="px-2 py-1 text-xs font-medium text-danger-text bg-danger-subtle rounded hover:bg-danger-subtle/80 transition-colors disabled:opacity-50"
+            >
+              {t('common.confirm')}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setConfirmDelete(false)
+              }}
+              className="px-2 py-1 text-xs font-medium text-text-secondary bg-surface-hover rounded hover:bg-surface-hover/80 transition-colors"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setConfirmDelete(true)
+            }}
+            className="p-1.5 rounded-md text-text-muted/50 hover:text-danger-text hover:bg-surface-hover transition-colors flex-shrink-0"
+            title={t('agent.deleteAgent')}
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Expand/collapse chevron */}
+        <svg
+          className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
+          {/* Model */}
+          {agent.model && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agentPanel.model')}</span>
+              <span className="text-xs font-mono text-text-primary truncate">{agent.model}</span>
+            </div>
+          )}
+
+          {/* Working directory */}
+          {agent.workingDirectory && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agent.workingDir')}</span>
+              <span
+                className="text-xs font-mono text-text-primary truncate"
+                title={agent.workingDirectory}
+              >
+                {agent.workingDirectory}
+              </span>
+            </div>
+          )}
+
+          {/* Device info */}
+          {agent.deviceInfo && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agent.device')}</span>
+              <span className="text-xs text-text-primary">
+                {agent.deviceInfo.hostname || agent.deviceInfo.platform}
+                {agent.deviceInfo.arch ? ` (${agent.deviceInfo.arch})` : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Session cost */}
+          {agent.sessionCostUSD != null && agent.sessionCostUSD > 0 && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agentPanel.cost')}</span>
+              <span className="text-xs font-mono text-text-primary">
+                ${agent.sessionCostUSD.toFixed(4)}
+              </span>
+            </div>
+          )}
+
+          {/* Last seen */}
+          {agent.lastSeenAt && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agent.lastSeen')}</span>
+              <span className="text-xs text-text-primary">
+                {new Date(agent.lastSeenAt).toLocaleString(i18n.language, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          )}
+
+          {/* Slash commands */}
+          {agent.slashCommands && agent.slashCommands.length > 0 && (
+            <div>
+              <span className="text-xs text-text-muted">{t('agentPanel.slashCommands')}</span>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {agent.slashCommands.map((cmd) => (
+                  <span
+                    key={cmd.name}
+                    className="px-1.5 py-0.5 text-[10px] font-mono bg-surface-hover rounded text-text-secondary"
+                    title={cmd.description}
+                  >
+                    /{cmd.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

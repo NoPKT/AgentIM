@@ -40,7 +40,7 @@ export async function getWorkspaceStatus(
   try {
     const [branch, diffStat, diffContent, logOutput, statusOutput] = await Promise.all([
       execGit(['rev-parse', '--abbrev-ref', 'HEAD'], workingDirectory),
-      execGit(['diff', '--stat', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', '--stat=300', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['diff', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['log', '--oneline', '-3'], workingDirectory).catch(() => ''),
       execGit(['status', '--porcelain', '--no-renames'], workingDirectory).catch(() => ''),
