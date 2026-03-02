@@ -283,7 +283,7 @@ function AgentRow({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => voi
         className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${
           confirmDelete
             ? 'text-danger-text bg-danger-subtle hover:bg-danger-subtle/80'
-            : 'text-text-muted hover:text-danger-text hover:bg-surface-hover opacity-0 group-hover:opacity-100'
+            : 'text-text-muted/50 hover:text-danger-text hover:bg-surface-hover'
         } disabled:opacity-50`}
         title={confirmDelete ? t('agent.confirmDeleteAgent') : t('agent.deleteAgent')}
       >
