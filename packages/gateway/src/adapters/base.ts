@@ -27,6 +27,7 @@ export interface AdapterOptions {
   passEnv?: string[]
   permissionLevel?: PermissionLevel
   onPermissionRequest?: PermissionRequestCallback
+  sandbox?: boolean
 }
 
 export interface MessageContext {
