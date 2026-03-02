@@ -1,3 +1,4 @@
+import { type ExecSyncOptions, execSync } from 'node:child_process'
 import { promptSelect, prompt, promptPassword } from './interactive.js'
 import {
   listCredentials,
@@ -15,6 +16,45 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
   gemini: 'Gemini',
+}
+
+const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
+  'claude-code': {
+    cmd: 'claude setup-token',
+    description: 'Claude Code subscription login',
+  },
+  codex: {
+    cmd: 'codex login',
+    description: 'Codex subscription login',
+  },
+  gemini: {
+    cmd: 'gemini auth login',
+    description: 'Gemini subscription login',
+  },
+}
+
+/**
+ * Run the native subscription login command for an agent type.
+ * Returns true on success, false on failure.
+ */
+function runSubscriptionLogin(agentType: string): boolean {
+  const loginInfo = LOGIN_COMMANDS[agentType]
+  if (!loginInfo) {
+    log.error(`No subscription login command configured for agent type: ${agentType}`)
+    return false
+  }
+
+  log.info(`Running: ${loginInfo.cmd}`)
+  log.info('Please complete the login process in the prompt below...\n')
+
+  try {
+    const execOpts: ExecSyncOptions = { stdio: 'inherit' }
+    execSync(loginInfo.cmd, execOpts)
+    return true
+  } catch (err) {
+    log.error(`Login command failed: ${(err as Error).message}`)
+    return false
+  }
 }
 
 /** Mask an API key for display: show first 3 and last 4 chars. */
@@ -113,8 +153,7 @@ export async function addCredentialInteractive(agentType: string): Promise<Crede
     return entry
   } else {
     // Subscription mode — run the native login command
-    const { runSubscriptionLogin } = await import('./setup-wizard.js')
-    const success = await runSubscriptionLogin(agentType)
+    const success = runSubscriptionLogin(agentType)
     if (!success) return null
 
     const name = await prompt('Name for this credential: ')

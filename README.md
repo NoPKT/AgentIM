@@ -184,7 +184,19 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Start an Agent
+### 3. Configure Credentials
+
+```bash
+# Manage credentials (list, add, rename, delete, set default)
+agentim claude token
+
+# Use a specific credential (-c shorthand) when starting an agent
+agentim claude -c work-api /path/to/project
+```
+
+Each agent type supports multiple named credentials. When only one exists, it is used automatically. If none exist, you will be prompted to add one on first launch.
+
+### 4. Start an Agent
 
 ```bash
 # Start a Claude Code agent in the current directory
@@ -201,17 +213,26 @@ agentim codex /path/to/project
 agentim gemini /path/to/project
 ```
 
-### Daemon Mode
+### TUI Management Panel
 
-Start a persistent background process so the server can remotely launch and manage agents on your machine:
+Running `agentim` (no subcommand) opens an interactive TUI panel built with Ink/React. It shows a login screen if you are not authenticated, then a dashboard with an agent list, details panel, log viewer, and a hotkey action bar. Use arrow keys to navigate; press `G` to toggle the gateway, `R` to rename, `S` to stop, `D` to delete, `L` to view logs, `C` to manage credentials, `O` to log out, and `Q` to quit.
+
+### Gateway Mode
+
+Start the gateway so the server can remotely launch and manage agents on your machine:
 
 ```bash
-agentim daemon
+# Foreground
+agentim gateway
+
+# Background daemon
+agentim gateway -d
 ```
 
 ### Other Commands
 
 ```bash
+agentim list      # List running daemons
 agentim status    # Show configuration status
 agentim logout    # Clear saved credentials
 ```

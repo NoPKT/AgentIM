@@ -31,6 +31,8 @@ export interface GatewaySessionOptions {
   gatewayId?: string
   /** Exit process when all agents are removed. */
   exitOnEmpty?: boolean
+  /** Called during graceful shutdown (before disposeAll). */
+  onCleanup?: () => void
 }
 
 /**
@@ -214,6 +216,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     if (shuttingDown) return
     shuttingDown = true
     log.info('Shutting down...')
+    opts.onCleanup?.()
     try {
       await Promise.race([
         agentManager.disposeAll(),

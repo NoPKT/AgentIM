@@ -1,0 +1,259 @@
+import React, { useState, useCallback } from 'react'
+import { Box, Text, useInput, useApp } from 'ink'
+import { StatusBar } from './status-bar.js'
+import { AgentList } from './agent-list.js'
+import { AgentDetails } from './agent-details.js'
+import { LogViewer } from './log-viewer.js'
+import { ActionBar } from './action-bar.js'
+import { RenameDialog, ConfirmDialog, MessageBox } from './dialogs.js'
+import { useDaemons } from './hooks/use-daemons.js'
+import { useLogs } from './hooks/use-logs.js'
+import { useGateway } from './hooks/use-gateway.js'
+import { stopDaemon, removeDaemon } from '../lib/daemon-manager.js'
+import { ServerApi } from '../lib/server-api.js'
+
+type DialogState =
+  | { type: 'none' }
+  | { type: 'rename'; daemonName: string; agentId?: string }
+  | { type: 'confirm-stop'; daemonName: string }
+  | { type: 'confirm-delete'; daemonName: string }
+  | { type: 'credentials' }
+  | { type: 'full-log'; daemonName: string }
+
+interface DashboardProps {
+  serverUrl: string | null
+  onLogout: () => void
+}
+
+export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
+  const { exit } = useApp()
+  const daemons = useDaemons()
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
+  const [message, setMessage] = useState<{ text: string; color: string } | null>(null)
+  const { gateway, refresh: refreshGateway } = useGateway()
+
+  const selectedDaemon = daemons.length > 0 ? (daemons[selectedIndex] ?? null) : null
+  const logs = useLogs(selectedDaemon?.info.name ?? null)
+
+  const showMessage = useCallback((text: string, color = 'green') => {
+    setMessage({ text, color })
+    setTimeout(() => setMessage(null), 3000)
+  }, [])
+
+  useInput((input, key) => {
+    if (dialog.type !== 'none') return
+
+    // Navigation
+    if (key.upArrow && daemons.length > 0) {
+      setSelectedIndex((i) => Math.max(0, i - 1))
+    }
+    if (key.downArrow && daemons.length > 0) {
+      setSelectedIndex((i) => Math.min(daemons.length - 1, i + 1))
+    }
+
+    // Hotkeys
+    const k = input.toLowerCase()
+    if (k === 'q') {
+      exit()
+      return
+    }
+    if (k === 'o') {
+      onLogout()
+      return
+    }
+    if (k === 'g') {
+      if (gateway.running) {
+        const ok = stopDaemon('gateway')
+        refreshGateway()
+        showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
+      } else {
+        showMessage('Start gateway with: aim gateway -d', 'yellow')
+      }
+      return
+    }
+
+    if (!selectedDaemon) return
+
+    if (k === 'r') {
+      setDialog({
+        type: 'rename',
+        daemonName: selectedDaemon.info.name,
+        agentId: selectedDaemon.status?.agentId ?? selectedDaemon.info.agentId,
+      })
+    }
+    if (k === 's') {
+      setDialog({ type: 'confirm-stop', daemonName: selectedDaemon.info.name })
+    }
+    if (k === 'd') {
+      setDialog({ type: 'confirm-delete', daemonName: selectedDaemon.info.name })
+    }
+    if (k === 'l') {
+      setDialog({ type: 'full-log', daemonName: selectedDaemon.info.name })
+    }
+    if (k === 'c') {
+      setDialog({ type: 'credentials' })
+    }
+  })
+
+  const handleRename = useCallback(
+    async (newName: string) => {
+      if (dialog.type !== 'rename') return
+      const agentId = dialog.agentId
+      if (agentId) {
+        const api = new ServerApi()
+        const result = await api.renameAgent(agentId, newName)
+        if (result.ok) {
+          showMessage(`Renamed to "${newName}".`)
+        } else {
+          showMessage(result.error ?? 'Rename failed.', 'red')
+        }
+      } else {
+        showMessage('Cannot rename: no agent ID available.', 'yellow')
+      }
+      setDialog({ type: 'none' })
+    },
+    [dialog, showMessage],
+  )
+
+  const handleStop = useCallback(() => {
+    if (dialog.type !== 'confirm-stop') return
+    const ok = stopDaemon(dialog.daemonName)
+    showMessage(
+      ok ? `Stopped "${dialog.daemonName}".` : `Failed to stop "${dialog.daemonName}".`,
+      ok ? 'green' : 'red',
+    )
+    setDialog({ type: 'none' })
+  }, [dialog, showMessage])
+
+  const handleDelete = useCallback(() => {
+    if (dialog.type !== 'confirm-delete') return
+    removeDaemon(dialog.daemonName)
+    showMessage(`Removed "${dialog.daemonName}".`)
+    setDialog({ type: 'none' })
+    if (selectedIndex >= daemons.length - 1) {
+      setSelectedIndex(Math.max(0, daemons.length - 2))
+    }
+  }, [dialog, showMessage, selectedIndex, daemons.length])
+
+  // Full log view
+  if (dialog.type === 'full-log') {
+    return (
+      <FullLogView daemonName={dialog.daemonName} onClose={() => setDialog({ type: 'none' })} />
+    )
+  }
+
+  // Credentials view
+  if (dialog.type === 'credentials') {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Text bold>Credentials Management</Text>
+        <Text dimColor>
+          Use `aim claude token`, `aim codex token`, or `aim gemini token` to manage credentials.
+        </Text>
+        <Text dimColor>Press any key to return.</Text>
+        <CredentialsReturn onReturn={() => setDialog({ type: 'none' })} />
+      </Box>
+    )
+  }
+
+  return (
+    <Box flexDirection="column">
+      <StatusBar serverUrl={serverUrl} loggedIn gatewayRunning={gateway.running} />
+
+      <Box>
+        {/* Agent list panel */}
+        <Box flexDirection="column" borderStyle="single" borderRight={false} width="50%">
+          <Text bold color="cyan">
+            {' '}
+            Agents{' '}
+          </Text>
+          <AgentList daemons={daemons} selectedIndex={selectedIndex} />
+        </Box>
+
+        {/* Details panel */}
+        <Box flexDirection="column" borderStyle="single" width="50%">
+          <Text bold color="cyan">
+            {' '}
+            Details{' '}
+          </Text>
+          <AgentDetails entry={selectedDaemon} />
+        </Box>
+      </Box>
+
+      {/* Log panel */}
+      <Box flexDirection="column" borderStyle="single" borderTop={false}>
+        <Text bold color="cyan">
+          {' '}
+          Log{' '}
+        </Text>
+        <LogViewer logs={logs} />
+      </Box>
+
+      {/* Dialog overlay */}
+      {dialog.type === 'rename' && (
+        <RenameDialog
+          currentName={dialog.daemonName}
+          onSubmit={(name) => void handleRename(name)}
+          onCancel={() => setDialog({ type: 'none' })}
+        />
+      )}
+      {dialog.type === 'confirm-stop' && (
+        <ConfirmDialog
+          message={`Stop "${dialog.daemonName}"?`}
+          onConfirm={handleStop}
+          onCancel={() => setDialog({ type: 'none' })}
+        />
+      )}
+      {dialog.type === 'confirm-delete' && (
+        <ConfirmDialog
+          message={`Delete "${dialog.daemonName}"? This will stop it and remove all files.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDialog({ type: 'none' })}
+        />
+      )}
+
+      {/* Message toast */}
+      {message && <MessageBox message={message.text} color={message.color} />}
+
+      {/* Action bar */}
+      <ActionBar hasSelection={!!selectedDaemon} loggedIn />
+    </Box>
+  )
+}
+
+/** Simple full-log view that returns on Esc/q. */
+function FullLogView({ daemonName, onClose }: { daemonName: string; onClose: () => void }) {
+  const logs = useLogs(daemonName)
+
+  useInput((input, key) => {
+    if (key.escape || input.toLowerCase() === 'q') onClose()
+  })
+
+  return (
+    <Box flexDirection="column">
+      <Text bold color="cyan">
+        Logs: {daemonName} (Esc to return)
+      </Text>
+      <Box flexDirection="column" paddingX={1}>
+        {logs.length === 0 ? (
+          <Text dimColor>No log output.</Text>
+        ) : (
+          logs.map((entry, i) => (
+            <Text key={i} wrap="truncate">
+              {entry.line}
+            </Text>
+          ))
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+/** Helper to close credentials view on any key press. */
+function CredentialsReturn({ onReturn }: { onReturn: () => void }) {
+  useInput(() => {
+    onReturn()
+  })
+  return null
+}

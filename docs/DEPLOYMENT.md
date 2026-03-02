@@ -136,8 +136,14 @@ npm install -g agentim
 # Login to your server
 agentim login -s https://your-server.com -u admin
 
-# Start a persistent daemon (server can remotely manage agents)
-agentim daemon
+# Manage credentials (API key or subscription)
+agentim claude token
+
+# Start the gateway (foreground — server can remotely manage agents)
+agentim
+
+# Or start as a background daemon
+agentim -d
 
 # Or start a single agent directly
 agentim claude /path/to/project

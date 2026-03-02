@@ -24,7 +24,7 @@ AgentIM verwandelt KI-Programmieragenten (Claude Code, Codex CLI, Gemini CLI, et
 ### Hauptfunktionen
 
 - **Gruppenchat mit KI** — Menschen und KI-Agenten interagieren in Chaträumen mit @Erwähnungen, genau wie bei Slack oder Discord
-- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI *(demnächst verfügbar)* oder jeden anderen CLI-Agenten parallel über den generischen Adapter aus
+- **Multi-Agenten-Orchestrierung** — Führen Sie Claude Code, Codex, Gemini CLI oder jeden anderen CLI-Agenten parallel über den generischen Adapter aus
 - **Service-Agenten** — Konfigurieren Sie serverseitige KI-Service-Agenten (OpenAI-kompatibel), die auf @Erwähnungen ohne Gateway reagieren
 - **Geräteübergreifend** — Verwalten Sie Agenten auf Ihrem Arbeitsrechner von jedem Gerät aus über PWA
 - **Echtzeit-Streaming** — Sehen Sie Agentenantworten, Denkprozesse und Werkzeugnutzung in Echtzeit
@@ -147,7 +147,19 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Einen Agenten starten
+### 3. Anmeldedaten konfigurieren
+
+```bash
+# Anmeldedaten verwalten (auflisten, hinzufügen, umbenennen, löschen, Standard setzen)
+agentim claude token
+
+# Beim Start bestimmte Anmeldedaten angeben (Kurzform -c)
+agentim claude -c work-api /path/to/project
+```
+
+Jeder Agententyp unterstützt mehrere benannte Anmeldedaten. Wenn nur eine vorhanden ist, wird sie automatisch verwendet. Beim ersten Start ohne Anmeldedaten werden Sie aufgefordert, welche hinzuzufügen.
+
+### 4. Einen Agenten starten
 
 ```bash
 # Einen Claude Code Agenten im aktuellen Verzeichnis starten
@@ -161,20 +173,29 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Andere Agententypen
 agentim codex /path/to/project
-agentim gemini /path/to/project   # demnächst verfügbar
+agentim gemini /path/to/project
 ```
 
-### Daemon-Modus
+### TUI-Verwaltungspanel
 
-Starten Sie einen dauerhaften Hintergrundprozess, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
+Das Ausführen von `agentim` ohne Unterbefehl öffnet ein interaktives TUI-Verwaltungspanel auf Basis von Ink/React. Bei fehlender Authentifizierung erscheint ein Anmeldebildschirm; danach öffnet sich ein Dashboard mit Agentenliste, Detailbereich, Log-Viewer und einer Aktionsleiste mit Tastenkombinationen. Navigieren Sie mit den Pfeiltasten; `G` schaltet das Gateway um, `R` benennt um, `S` stoppt, `D` löscht, `L` zeigt Logs, `C` verwaltet Anmeldedaten, `O` meldet ab, `Q` beendet das Panel.
+
+### Gateway-Modus
+
+Starten Sie das Gateway, damit der Server Agenten auf Ihrem Rechner ferngesteuert starten und verwalten kann:
 
 ```bash
-agentim daemon
+# Vordergrund
+agentim gateway
+
+# Hintergrund-Daemon
+agentim gateway -d
 ```
 
 ### Weitere Befehle
 
 ```bash
+agentim list      # Laufende Daemons auflisten
 agentim status    # Konfigurationsstatus anzeigen
 agentim logout    # Gespeicherte Anmeldedaten löschen
 ```
@@ -185,7 +206,7 @@ agentim logout    # Gespeicherte Anmeldedaten löschen
 | ------------- | ------------------------------------------------ |
 | `claude-code` | Anthropic Claude Code CLI                        |
 | `codex`       | OpenAI Codex CLI                                 |
-| `gemini`      | Google Gemini CLI *(demnächst verfügbar)*          |
+| `gemini`      | Google Gemini CLI                                  |
 | `generic`     | Beliebiges CLI-Tool (benutzerdefinierte Befehle) |
 
 ## Für Entwickler

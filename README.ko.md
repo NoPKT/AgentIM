@@ -24,7 +24,7 @@ AgentIM은 AI 코딩 에이전트(Claude Code, Codex CLI, Gemini CLI 등)를 IM 
 ### 주요 기능
 
 - **AI와 그룹 채팅** —— Slack이나 Discord처럼 사람과 AI 에이전트가 @멘션으로 채팅방에서 소통
-- **멀티 에이전트** —— Claude Code, Codex, Gemini CLI *(출시 예정)* 또는 모든 CLI 에이전트를 동시 실행 (제네릭 어댑터를 통해)
+- **멀티 에이전트** —— Claude Code, Codex, Gemini CLI 또는 모든 CLI 에이전트를 동시 실행 (제네릭 어댑터를 통해)
 - **서비스 에이전트** —— 서버 측 AI 서비스 에이전트(OpenAI 호환)를 구성하여 게이트웨이 없이 @멘션에 응답
 - **크로스 디바이스** —— PWA로 어떤 디바이스에서든 워크스테이션의 에이전트를 관리
 - **실시간 스트리밍** —— 에이전트의 응답, 사고 과정, 도구 사용을 실시간으로 확인
@@ -147,7 +147,19 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. 에이전트 시작
+### 3. 자격 증명 구성
+
+```bash
+# 자격 증명 관리 (목록, 추가, 이름 변경, 삭제, 기본값 설정)
+agentim claude token
+
+# 시작 시 특정 자격 증명 지정 (-c 단축형)
+agentim claude -c work-api /path/to/project
+```
+
+각 에이전트 유형은 여러 개의 명명된 자격 증명을 지원합니다. 하나만 있으면 자동으로 사용됩니다. 처음 시작 시 자격 증명이 없으면 추가하라는 메시지가 표시됩니다.
+
+### 4. 에이전트 시작
 
 ```bash
 # 현재 디렉토리에서 Claude Code 에이전트 시작
@@ -161,20 +173,29 @@ agentim claude -n my-frontend /path/to/frontend
 
 # 다른 에이전트 유형
 agentim codex /path/to/project
-agentim gemini /path/to/project   # 곧 지원 예정
+agentim gemini /path/to/project
 ```
 
-### 데몬 모드
+### TUI 관리 패널
 
-서버가 원격으로 머신의 에이전트를 시작하고 관리할 수 있도록 상주 백그라운드 프로세스를 시작합니다:
+`agentim`을 (서브커맨드 없이) 실행하면 Ink/React로 구축된 대화형 TUI 관리 패널이 열립니다. 인증되지 않은 경우 로그인 화면이 표시되고, 인증 후에는 에이전트 목록, 상세 패널, 로그 뷰어, 단축키 액션 바가 포함된 대시보드로 전환됩니다. 방향키로 탐색하고, `G`로 게이트웨이 토글, `R`로 에이전트 이름 변경, `S`로 중지, `D`로 삭제, `L`로 로그 보기, `C`로 자격 증명 관리, `O`로 로그아웃, `Q`로 종료할 수 있습니다.
+
+### 게이트웨이 모드
+
+서버가 원격으로 머신의 에이전트를 시작하고 관리할 수 있도록 게이트웨이를 시작합니다:
 
 ```bash
-agentim daemon
+# 포그라운드
+agentim gateway
+
+# 백그라운드 데몬
+agentim gateway -d
 ```
 
 ### 기타 명령어
 
 ```bash
+agentim list      # 실행 중인 데몬 목록
 agentim status    # 설정 상태 표시
 agentim logout    # 로그인 자격 증명 삭제
 ```
@@ -185,7 +206,7 @@ agentim logout    # 로그인 자격 증명 삭제
 | ------------- | --------------------------- |
 | `claude-code` | Anthropic Claude Code CLI   |
 | `codex`       | OpenAI Codex CLI            |
-| `gemini`      | Google Gemini CLI *(곧 지원 예정)* |
+| `gemini`      | Google Gemini CLI            |
 | `generic`     | 모든 CLI 도구 (커스텀 명령) |
 
 ## 개발자 정보

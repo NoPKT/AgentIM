@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI default gateway entry**: `aim` (no subcommand) now starts the gateway in foreground mode; use `aim -d` for background daemon. The old `aim daemon` still works as a hidden alias.
+- **CLI credential flow**: Zero-credential fallback now uses `addCredentialInteractive()` instead of the legacy setup wizard
+
+### Removed
+
+- **`aim <type> login` subcommand**: Redundant with the "Add credential" action in `aim <type> token`
+- **`aim setup` command**: Superseded by `aim <type> token` for multi-credential management
+- **`setup-wizard.ts`**: Subscription login logic absorbed into `credential-manager.ts`
+
 ### Added
 
+- **TUI management panel**: `aim` (no subcommand) now launches an interactive terminal UI built with Ink/React — shows a login screen when unauthenticated, then a dashboard with an agent list, details panel, log viewer, and a hotkey action bar. Hotkeys: arrow keys to navigate, `G`=gateway toggle, `R`=rename, `S`=stop, `D`=delete, `L`=logs, `C`=credentials, `O`=logout, `Q`=quit. The previous default gateway action is now `aim gateway` (foreground) and `aim gateway -d` (daemon).
+- **Multi-credential management**: Support for multiple named credentials per agent type with lazy v1→v2 migration, replacing the single-credential storage model
+- **CLI credential commands**: `aim <type> login` to add credentials, `aim <type> token` for interactive credential management (list, add, rename, delete, set default), `--credential` flag to select a specific credential
+- **Remote credential management**: WebSocket protocol for managing gateway credentials from the Web UI (zero-trust design — secrets never leave the gateway)
+- **Web UI credential selector**: Credential dropdown in the spawn dialog when multiple credentials exist, with automatic loading and selection
 - **Gemini CLI adapter**: Full implementation using @google/gemini-cli-core v0.31.0 — streaming, thinking, tool use, model switching, token tracking, plan mode, chat compression
 
 ### Removed
