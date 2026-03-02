@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
 import { StatusBar } from './status-bar.js'
 import { AgentList } from './agent-list.js'
 import { AgentDetails } from './agent-details.js'
 import { LogViewer } from './log-viewer.js'
 import { ActionBar } from './action-bar.js'
+import type { ActionDef } from './action-bar.js'
 import { RenameDialog, ConfirmDialog, MessageBox } from './dialogs.js'
 import { useDaemons } from './hooks/use-daemons.js'
 import { useLogs } from './hooks/use-logs.js'
@@ -41,10 +42,72 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
     setTimeout(() => setMessage(null), 3000)
   }, [])
 
+  const handleAction = useCallback(
+    (id: string) => {
+      switch (id) {
+        case 'gateway':
+          if (gateway.running) {
+            const ok = stopDaemon('gateway')
+            refreshGateway()
+            showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
+          } else {
+            showMessage('Start gateway with: aim gateway -d', 'yellow')
+          }
+          break
+        case 'rename':
+          if (selectedDaemon) {
+            setDialog({
+              type: 'rename',
+              daemonName: selectedDaemon.info.name,
+              agentId: selectedDaemon.status?.agentId ?? selectedDaemon.info.agentId,
+            })
+          }
+          break
+        case 'stop':
+          if (selectedDaemon) {
+            setDialog({ type: 'confirm-stop', daemonName: selectedDaemon.info.name })
+          }
+          break
+        case 'delete':
+          if (selectedDaemon) {
+            setDialog({ type: 'confirm-delete', daemonName: selectedDaemon.info.name })
+          }
+          break
+        case 'logs':
+          if (selectedDaemon) {
+            setDialog({ type: 'full-log', daemonName: selectedDaemon.info.name })
+          }
+          break
+        case 'credentials':
+          setDialog({ type: 'credentials' })
+          break
+        case 'logout':
+          onLogout()
+          break
+        case 'quit':
+          exit()
+          break
+      }
+    },
+    [gateway.running, refreshGateway, selectedDaemon, showMessage, onLogout, exit],
+  )
+
+  // Map single-letter hotkeys to action IDs
+  const hotkeyMap: Record<string, string> = {
+    g: 'gateway',
+    r: 'rename',
+    s: 'stop',
+    d: 'delete',
+    l: 'logs',
+    c: 'credentials',
+    o: 'logout',
+    q: 'quit',
+  }
+
   useInput((input, key) => {
     if (dialog.type !== 'none') return
 
-    // Navigation
+    // Arrow navigation
     if (key.upArrow && daemons.length > 0) {
       setSelectedIndex((i) => Math.max(0, i - 1))
     }
@@ -52,49 +115,27 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
       setSelectedIndex((i) => Math.min(daemons.length - 1, i + 1))
     }
 
-    // Hotkeys
-    const k = input.toLowerCase()
-    if (k === 'q') {
-      exit()
-      return
-    }
-    if (k === 'o') {
-      onLogout()
-      return
-    }
-    if (k === 'g') {
-      if (gateway.running) {
-        const ok = stopDaemon('gateway')
-        refreshGateway()
-        showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
-      } else {
-        showMessage('Start gateway with: aim gateway -d', 'yellow')
-      }
-      return
-    }
-
-    if (!selectedDaemon) return
-
-    if (k === 'r') {
-      setDialog({
-        type: 'rename',
-        daemonName: selectedDaemon.info.name,
-        agentId: selectedDaemon.status?.agentId ?? selectedDaemon.info.agentId,
-      })
-    }
-    if (k === 's') {
-      setDialog({ type: 'confirm-stop', daemonName: selectedDaemon.info.name })
-    }
-    if (k === 'd') {
-      setDialog({ type: 'confirm-delete', daemonName: selectedDaemon.info.name })
-    }
-    if (k === 'l') {
-      setDialog({ type: 'full-log', daemonName: selectedDaemon.info.name })
-    }
-    if (k === 'c') {
-      setDialog({ type: 'credentials' })
-    }
+    // Single-letter hotkeys
+    const actionId = hotkeyMap[input.toLowerCase()]
+    if (actionId) handleAction(actionId)
   })
+
+  // Build dynamic action list for the bar
+  const actions = useMemo(() => {
+    const list: ActionDef[] = [{ id: 'gateway', hotkey: 'G', label: 'ateway' }]
+    if (selectedDaemon) {
+      list.push(
+        { id: 'rename', hotkey: 'R', label: 'ename' },
+        { id: 'stop', hotkey: 'S', label: 'top' },
+        { id: 'delete', hotkey: 'D', label: 'elete' },
+        { id: 'logs', hotkey: 'L', label: 'ogs' },
+      )
+    }
+    list.push({ id: 'credentials', hotkey: 'C', label: 'redentials' })
+    if (serverUrl) list.push({ id: 'logout', hotkey: 'O', label: 'ut' })
+    list.push({ id: 'quit', hotkey: 'Q', label: 'uit' })
+    return list
+  }, [selectedDaemon, serverUrl])
 
   const handleRename = useCallback(
     async (newName: string) => {
@@ -217,7 +258,7 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
       {message && <MessageBox message={message.text} color={message.color} />}
 
       {/* Action bar */}
-      <ActionBar hasSelection={!!selectedDaemon} loggedIn />
+      <ActionBar actions={actions} onAction={handleAction} />
     </Box>
   )
 }
