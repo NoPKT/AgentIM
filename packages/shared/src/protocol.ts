@@ -86,6 +86,33 @@ export interface ClientRequestWorkspace {
   request: { kind: 'status' } | { kind: 'tree'; path?: string } | { kind: 'file'; path: string }
 }
 
+// ─── Client → Server: Credential Management ───
+
+export interface ClientListGatewayCredentials {
+  type: 'client:list_gateway_credentials'
+  gatewayId: string
+  agentType: string
+}
+
+export interface ClientAddGatewayCredential {
+  type: 'client:add_gateway_credential'
+  gatewayId: string
+  agentType: string
+  name: string
+  apiKey: string
+  baseUrl?: string
+  model?: string
+}
+
+export interface ClientManageGatewayCredential {
+  type: 'client:manage_gateway_credential'
+  gatewayId: string
+  agentType: string
+  credentialId: string
+  action: 'rename' | 'delete' | 'set_default'
+  name?: string
+}
+
 export interface ClientPing {
   type: 'client:ping'
   ts: number
@@ -102,6 +129,9 @@ export type ClientMessage =
   | ClientAgentCommand
   | ClientQueryAgentInfo
   | ClientRequestWorkspace
+  | ClientListGatewayCredentials
+  | ClientAddGatewayCredential
+  | ClientManageGatewayCredential
   | ClientPing
 
 // ─── Server → Client Messages ───
@@ -261,6 +291,39 @@ export interface ServerSpawnResult {
   success: boolean
   agentId?: string
   error?: string
+  /** Included when error is CREDENTIAL_SELECTION_REQUIRED */
+  credentials?: Array<{
+    id: string
+    name: string
+    mode: 'subscription' | 'api'
+    isDefault: boolean
+  }>
+}
+
+// ─── Server → Client: Credential Management Responses ───
+
+export interface ServerGatewayCredentialList {
+  type: 'server:gateway_credential_list'
+  gatewayId: string
+  agentType: string
+  credentials: Array<{
+    id: string
+    name: string
+    mode: 'subscription' | 'api'
+    hasApiKey: boolean
+    baseUrl?: string
+    model?: string
+    isDefault: boolean
+    createdAt: string
+  }>
+}
+
+export interface ServerGatewayCredentialResult {
+  type: 'server:gateway_credential_result'
+  requestId: string
+  success: boolean
+  error?: string
+  credential?: { id: string; name: string }
 }
 
 export type ServerMessage =
@@ -285,6 +348,8 @@ export type ServerMessage =
   | ServerPermissionRequestExpired
   | ServerRoomCleared
   | ServerSpawnResult
+  | ServerGatewayCredentialList
+  | ServerGatewayCredentialResult
   | ServerWorkspaceResponse
   | ServerPong
   | ServerError
@@ -404,6 +469,39 @@ export interface GatewaySpawnResult {
   success: boolean
   agentId?: string
   error?: string
+  /** Included when error is CREDENTIAL_SELECTION_REQUIRED */
+  credentials?: Array<{
+    id: string
+    name: string
+    mode: 'subscription' | 'api'
+    isDefault: boolean
+  }>
+}
+
+// ─── Gateway → Server: Credential Management Responses ───
+
+export interface GatewayCredentialList {
+  type: 'gateway:credential_list'
+  requestId: string
+  agentType: string
+  credentials: Array<{
+    id: string
+    name: string
+    mode: 'subscription' | 'api'
+    hasApiKey: boolean
+    baseUrl?: string
+    model?: string
+    isDefault: boolean
+    createdAt: string
+  }>
+}
+
+export interface GatewayCredentialResult {
+  type: 'gateway:credential_result'
+  requestId: string
+  success: boolean
+  error?: string
+  credential?: { id: string; name: string }
 }
 
 export interface GatewayWorkspaceResponse {
@@ -435,6 +533,8 @@ export type GatewayMessage =
   | GatewayAgentCommandResult
   | GatewayAgentInfo
   | GatewaySpawnResult
+  | GatewayCredentialList
+  | GatewayCredentialResult
   | GatewayWorkspaceResponse
   | GatewayPing
 
@@ -502,6 +602,7 @@ export interface ServerSpawnAgent {
   agentType: AgentType
   name: string
   workingDirectory?: string
+  credentialId?: string
 }
 
 export interface ServerRequestWorkspace {
@@ -510,6 +611,34 @@ export interface ServerRequestWorkspace {
   roomId: string
   requestId: string
   request: { kind: 'status' } | { kind: 'tree'; path?: string } | { kind: 'file'; path: string }
+}
+
+// ─── Server → Gateway: Credential Management ───
+
+export interface ServerListCredentials {
+  type: 'server:list_credentials'
+  requestId: string
+  agentType: string
+}
+
+export interface ServerAddCredential {
+  type: 'server:add_credential'
+  requestId: string
+  agentType: string
+  name: string
+  mode: 'api'
+  apiKey: string
+  baseUrl?: string
+  model?: string
+}
+
+export interface ServerManageCredential {
+  type: 'server:manage_credential'
+  requestId: string
+  agentType: string
+  credentialId: string
+  action: 'rename' | 'delete' | 'set_default'
+  name?: string
 }
 
 export interface ServerPong {
@@ -528,6 +657,9 @@ export type ServerGatewayMessage =
   | ServerQueryAgentInfo
   | ServerSpawnAgent
   | ServerRequestWorkspace
+  | ServerListCredentials
+  | ServerAddCredential
+  | ServerManageCredential
   | ServerPong
   | ServerError
 
@@ -549,6 +681,9 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'client:agent_command',
   'client:query_agent_info',
   'client:request_workspace',
+  'client:list_gateway_credentials',
+  'client:add_gateway_credential',
+  'client:manage_gateway_credential',
   'client:ping',
 ])
 
@@ -566,6 +701,8 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:agent_command_result',
   'gateway:agent_info',
   'gateway:spawn_result',
+  'gateway:credential_list',
+  'gateway:credential_result',
   'gateway:workspace_response',
   'gateway:ping',
 ])
@@ -593,6 +730,8 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:permission_request_expired',
   'server:room_cleared',
   'server:spawn_result',
+  'server:gateway_credential_list',
+  'server:gateway_credential_result',
   'server:workspace_response',
   'server:pong',
   'server:error',
@@ -647,6 +786,9 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:query_agent_info',
   'server:spawn_agent',
   'server:request_workspace',
+  'server:list_credentials',
+  'server:add_credential',
+  'server:manage_credential',
 ])
 
 /** Type guard for ServerGatewayMessage */

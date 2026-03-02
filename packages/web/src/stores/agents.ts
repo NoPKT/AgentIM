@@ -3,12 +3,26 @@ import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 import { api } from '../lib/api.js'
 import { registerStoreReset } from './reset.js'
 
+/** Credential metadata (secrets never leave gateway) */
+export interface CredentialInfo {
+  id: string
+  name: string
+  mode: 'subscription' | 'api'
+  hasApiKey: boolean
+  baseUrl?: string
+  model?: string
+  isDefault: boolean
+  createdAt: string
+}
+
 interface AgentState {
   agents: Agent[]
   sharedAgents: Agent[]
   gateways: Gateway[]
   isLoading: boolean
   loadError: boolean
+  /** Per-gateway, per-agent-type credential cache */
+  gatewayCredentials: Map<string, CredentialInfo[]>
   loadAgents: () => Promise<void>
   loadSharedAgents: () => Promise<void>
   loadGateways: () => Promise<void>
@@ -22,7 +36,13 @@ interface AgentState {
     agentType: string,
     name: string,
     workingDirectory?: string,
+    credentialId?: string,
   ) => Promise<void>
+  setGatewayCredentials: (
+    gatewayId: string,
+    agentType: string,
+    credentials: CredentialInfo[],
+  ) => void
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -31,6 +51,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   gateways: [],
   isLoading: false,
   loadError: false,
+  gatewayCredentials: new Map(),
 
   loadAgents: async () => {
     set({ isLoading: true, loadError: false })
@@ -103,9 +124,22 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  spawnAgent: async (gatewayId, agentType, name, workingDirectory) => {
-    const res = await api.post('/agents/spawn', { gatewayId, agentType, name, workingDirectory })
+  spawnAgent: async (gatewayId, agentType, name, workingDirectory, credentialId) => {
+    const res = await api.post('/agents/spawn', {
+      gatewayId,
+      agentType,
+      name,
+      workingDirectory,
+      credentialId,
+    })
     if (!res.ok) throw new Error(res.error ?? 'Failed to spawn agent')
+  },
+
+  setGatewayCredentials: (gatewayId, agentType, credentials) => {
+    const key = `${gatewayId}:${agentType}`
+    const map = new Map(get().gatewayCredentials)
+    map.set(key, credentials)
+    set({ gatewayCredentials: map })
   },
 }))
 
@@ -116,5 +150,6 @@ registerStoreReset(() =>
     gateways: [],
     isLoading: false,
     loadError: false,
+    gatewayCredentials: new Map(),
   }),
 )

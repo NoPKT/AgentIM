@@ -15,6 +15,9 @@ import type {
   ServerQueryAgentInfo,
   ServerSpawnAgent,
   ServerRequestWorkspace,
+  ServerListCredentials,
+  ServerAddCredential,
+  ServerManageCredential,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
@@ -167,7 +170,10 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         msg.type === 'server:agent_command' ||
         msg.type === 'server:query_agent_info' ||
         msg.type === 'server:spawn_agent' ||
-        msg.type === 'server:request_workspace'
+        msg.type === 'server:request_workspace' ||
+        msg.type === 'server:list_credentials' ||
+        msg.type === 'server:add_credential' ||
+        msg.type === 'server:manage_credential'
       ) {
         agentManager.handleServerMessage(
           msg as
@@ -179,7 +185,10 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             | ServerAgentCommand
             | ServerQueryAgentInfo
             | ServerSpawnAgent
-            | ServerRequestWorkspace,
+            | ServerRequestWorkspace
+            | ServerListCredentials
+            | ServerAddCredential
+            | ServerManageCredential,
         )
       }
     },

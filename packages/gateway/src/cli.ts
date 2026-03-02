@@ -15,8 +15,14 @@ import { TokenManager } from './token-manager.js'
 import { generateAgentName } from './name-generator.js'
 import { prompt, promptPassword, promptSelect } from './interactive.js'
 import { runWrapper } from './wrapper.js'
-import { loadAgentConfig, agentConfigToEnv } from './agent-config.js'
+import {
+  agentConfigToEnv,
+  listCredentials,
+  findCredentialByNameOrId,
+  credentialToAuthConfig,
+} from './agent-config.js'
 import { runSetupWizard } from './setup-wizard.js'
+import { manageCredentials, addCredentialInteractive } from './credential-manager.js'
 import { createLogger } from './lib/logger.js'
 import { printSecurityBanner } from './lib/security-banner.js'
 import { listCustomAdapters, getCustomAdaptersPath } from './custom-adapters.js'
@@ -172,10 +178,11 @@ function registerAgentCommand(
   agentType: string,
   description: string,
 ) {
-  parentProgram
+  const cmd = parentProgram
     .command(`${commandName} [path]`)
     .description(description)
     .option('-n, --name <name>', 'Agent name')
+    .option('-c, --credential <name>', 'Use a specific credential by name or ID')
     .option('-y, --yes', 'Bypass permission prompts (auto-approve all tool use)')
     .option('--foreground', 'Run in foreground instead of daemonizing')
     .option(
@@ -189,14 +196,15 @@ function registerAgentCommand(
       const name = opts.name ?? generateAgentName(agentType, workDir)
       const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
       const displayName = AGENT_DISPLAY_NAMES[agentType] ?? agentType
-      let agentConfig = loadAgentConfig(agentType)
+
+      // Multi-credential resolution
+      const agentConfig = await resolveAgentCredential(agentType, displayName, opts.credential)
       if (!agentConfig) {
-        log.info(`No credentials configured for ${displayName}.`)
-        log.info('Running setup wizard...')
-        await runSetupWizard(agentType)
-        agentConfig = loadAgentConfig(agentType)
+        // User cancelled or no credential could be resolved
+        return
       }
-      const env = agentConfig ? agentConfigToEnv(agentType, agentConfig) : {}
+
+      const env = agentConfigToEnv(agentType, agentConfig)
       const passEnv = parsePassEnv(opts.passEnv)
       if (opts.foreground) {
         await runWrapper({ type: agentType, name, workDir, env, passEnv, permissionLevel })
@@ -204,6 +212,82 @@ function registerAgentCommand(
         spawnDaemon({ name, type: agentType, workDir, env, permissionLevel, passEnv })
       }
     })
+
+  // Subcommand: token — interactive credential management TUI
+  cmd
+    .command('token')
+    .description(`Manage ${AGENT_DISPLAY_NAMES[agentType] ?? agentType} credentials`)
+    .action(async () => {
+      await manageCredentials(agentType)
+    })
+
+  // Subcommand: login — add a new credential (shortcut)
+  cmd
+    .command('login')
+    .description(`Add a new ${AGENT_DISPLAY_NAMES[agentType] ?? agentType} credential`)
+    .action(async () => {
+      await addCredentialInteractive(agentType)
+    })
+}
+
+/**
+ * Resolve which credential to use for an agent type.
+ * Handles: --credential flag, 0/1/N credentials, interactive selection.
+ */
+async function resolveAgentCredential(
+  agentType: string,
+  displayName: string,
+  credentialFlag?: string,
+): Promise<import('./agent-config.js').AgentAuthConfig | null> {
+  // If --credential flag is provided, find by name or id
+  if (credentialFlag) {
+    const cred = findCredentialByNameOrId(agentType, credentialFlag)
+    if (!cred) {
+      log.error(`Credential "${credentialFlag}" not found for ${displayName}.`)
+      log.error(
+        'Use `agentim ' +
+          agentType.replace('claude-code', 'claude') +
+          ' token` to manage credentials.',
+      )
+      process.exit(1)
+    }
+    return credentialToAuthConfig(cred)
+  }
+
+  const creds = listCredentials(agentType)
+
+  // 0 credentials → prompt to add
+  if (creds.length === 0) {
+    log.info(`No credentials configured for ${displayName}.`)
+    log.info('Running setup wizard...')
+    await runSetupWizard(agentType)
+    const config = loadAgentConfig(agentType)
+    return config
+  }
+
+  // 1 credential → auto-use
+  if (creds.length === 1) {
+    return credentialToAuthConfig(creds[0])
+  }
+
+  // N credentials → check for default, otherwise prompt
+  const defaultCred = creds.find((c) => c.isDefault)
+  if (defaultCred) {
+    return credentialToAuthConfig(defaultCred)
+  }
+
+  // No default set — prompt user to select
+  const options = creds.map((c, i) => ({
+    label: `${i + 1}) ${c.name} (${c.mode === 'api' ? 'API Key' : 'Subscription'})`,
+    value: c.id,
+  }))
+  const selectedId = await promptSelect(
+    `Multiple credentials for ${displayName}. Select one:`,
+    options,
+  )
+  const selected = creds.find((c) => c.id === selectedId)
+  if (!selected) return null
+  return credentialToAuthConfig(selected)
 }
 
 registerAgentCommand(

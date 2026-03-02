@@ -271,8 +271,39 @@ export function useWebSocket() {
             if (msg.success) {
               toast.success(i18next.t('agent.spawnSuccess'))
               agentStore.loadAgents()
+            } else if (msg.error === 'CREDENTIAL_SELECTION_REQUIRED' && msg.credentials) {
+              // Gateway has multiple credentials — dispatch event for UI to show selector
+              window.dispatchEvent(
+                new CustomEvent('agentim:credential_selection_required', {
+                  detail: {
+                    gatewayId: msg.gatewayId,
+                    credentials: msg.credentials,
+                    requestId: msg.requestId,
+                  },
+                }),
+              )
             } else {
               toast.error(msg.error ?? i18next.t('agent.spawnFailed'))
+            }
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:gateway_credential_list':
+          try {
+            useAgentStore
+              .getState()
+              .setGatewayCredentials(msg.gatewayId, msg.agentType, msg.credentials)
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:gateway_credential_result':
+          try {
+            if (msg.success) {
+              toast.success(i18next.t('common.success'))
+            } else {
+              toast.error(msg.error ?? i18next.t('common.error'))
             }
           } catch (err) {
             console.error('[WS] Error handling message:', msg.type, err)

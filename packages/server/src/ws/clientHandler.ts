@@ -272,6 +272,27 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
         return await handleQueryAgentInfo(ws, msg.agentId)
       case 'client:request_workspace':
         return await handleRequestWorkspace(ws, msg.roomId, msg.agentId, msg.request)
+      case 'client:list_gateway_credentials':
+        return handleListGatewayCredentials(ws, msg.gatewayId, msg.agentType)
+      case 'client:add_gateway_credential':
+        return handleAddGatewayCredential(
+          ws,
+          msg.gatewayId,
+          msg.agentType,
+          msg.name,
+          msg.apiKey,
+          msg.baseUrl,
+          msg.model,
+        )
+      case 'client:manage_gateway_credential':
+        return handleManageGatewayCredential(
+          ws,
+          msg.gatewayId,
+          msg.agentType,
+          msg.credentialId,
+          msg.action,
+          msg.name,
+        )
       case 'client:ping':
         connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
@@ -1190,6 +1211,91 @@ export function handleClientDisconnect(ws: WSContext) {
       }
     }, OFFLINE_DEBOUNCE_MS)
     offlineTimers.set(client.userId, timer)
+  }
+}
+
+// ─── Credential Management (Client → Server → Gateway relay) ───
+
+function handleListGatewayCredentials(ws: WSContext, gatewayId: string, agentType: string) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const requestId = nanoid()
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:list_credentials',
+    requestId,
+    agentType,
+  })
+
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'GATEWAY_OFFLINE',
+      message: 'Gateway is offline',
+    })
+  }
+}
+
+function handleAddGatewayCredential(
+  ws: WSContext,
+  gatewayId: string,
+  agentType: string,
+  name: string,
+  apiKey: string,
+  baseUrl?: string,
+  model?: string,
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const requestId = nanoid()
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:add_credential',
+    requestId,
+    agentType,
+    name,
+    mode: 'api',
+    apiKey,
+    baseUrl,
+    model,
+  })
+
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'GATEWAY_OFFLINE',
+      message: 'Gateway is offline',
+    })
+  }
+}
+
+function handleManageGatewayCredential(
+  ws: WSContext,
+  gatewayId: string,
+  agentType: string,
+  credentialId: string,
+  action: 'rename' | 'delete' | 'set_default',
+  name?: string,
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const requestId = nanoid()
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:manage_credential',
+    requestId,
+    agentType,
+    credentialId,
+    action,
+    name,
+  })
+
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'GATEWAY_OFFLINE',
+      message: 'Gateway is offline',
+    })
   }
 }
 

@@ -17,9 +17,22 @@ import type {
   ServerQueryAgentInfo,
   ServerSpawnAgent,
   ServerRequestWorkspace,
+  ServerListCredentials,
+  ServerAddCredential,
+  ServerManageCredential,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
+import {
+  resolveCredential,
+  listCredentialInfo,
+  addCredential,
+  removeCredential,
+  updateCredential,
+  setDefaultCredential,
+  credentialToAuthConfig,
+  agentConfigToEnv,
+} from './agent-config.js'
 import { getWorkspaceStatus } from './lib/git-utils.js'
 import { getDirectoryListing, getFileContent } from './lib/fs-utils.js'
 import type { McpContext, RoomMemberInfo, RoomMessage } from './mcp/mcp-context.js'
@@ -482,7 +495,10 @@ export class AgentManager {
       | ServerAgentCommand
       | ServerQueryAgentInfo
       | ServerSpawnAgent
-      | ServerRequestWorkspace,
+      | ServerRequestWorkspace
+      | ServerListCredentials
+      | ServerAddCredential
+      | ServerManageCredential,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -502,6 +518,12 @@ export class AgentManager {
       this.handleSpawnAgent(msg)
     } else if (msg.type === 'server:request_workspace') {
       this.handleRequestWorkspace(msg)
+    } else if (msg.type === 'server:list_credentials') {
+      this.handleListCredentials(msg)
+    } else if (msg.type === 'server:add_credential') {
+      this.handleAddCredential(msg)
+    } else if (msg.type === 'server:manage_credential') {
+      this.handleManageCredential(msg)
     }
   }
 
@@ -787,10 +809,43 @@ export class AgentManager {
 
   private handleSpawnAgent(msg: ServerSpawnAgent) {
     try {
+      // Resolve credential from local store
+      const credential = resolveCredential(msg.agentType, msg.credentialId)
+      if (!credential) {
+        const credInfos = listCredentialInfo(msg.agentType)
+        if (credInfos.length === 0) {
+          // No credentials configured
+          this.wsClient.send({
+            type: 'gateway:spawn_result',
+            requestId: msg.requestId,
+            success: false,
+            error: `No credentials configured for ${msg.agentType}. Run \`aim ${msg.agentType === 'claude-code' ? 'claude' : msg.agentType} login\` on the gateway machine.`,
+          })
+          return
+        }
+        // Multiple credentials, no default, no selection — tell server to ask user
+        this.wsClient.send({
+          type: 'gateway:spawn_result',
+          requestId: msg.requestId,
+          success: false,
+          error: 'CREDENTIAL_SELECTION_REQUIRED',
+          credentials: credInfos.map((c) => ({
+            id: c.id,
+            name: c.name,
+            mode: c.mode,
+            isDefault: c.isDefault,
+          })),
+        })
+        return
+      }
+
+      const config = credentialToAuthConfig(credential)
+      const env = agentConfigToEnv(msg.agentType, config)
       const agentId = this.addAgent({
         type: msg.agentType,
         name: msg.name,
         workingDirectory: msg.workingDirectory,
+        env,
       })
       this.wsClient.send({
         type: 'gateway:spawn_result',
@@ -1026,6 +1081,76 @@ export class AgentManager {
         const result = await getFileContent(workingDir, request.path)
         return { kind: 'file' as const, path: request.path, ...result }
       }
+    }
+  }
+
+  private handleListCredentials(msg: ServerListCredentials) {
+    try {
+      const credentials = listCredentialInfo(msg.agentType)
+      this.wsClient.send({
+        type: 'gateway:credential_list',
+        requestId: msg.requestId,
+        agentType: msg.agentType,
+        credentials,
+      })
+    } catch (err) {
+      log.error(`Failed to list credentials for ${msg.agentType}: ${(err as Error).message}`)
+    }
+  }
+
+  private handleAddCredential(msg: ServerAddCredential) {
+    try {
+      const entry = addCredential(msg.agentType, {
+        name: msg.name,
+        mode: 'api',
+        apiKey: msg.apiKey,
+        baseUrl: msg.baseUrl,
+        model: msg.model,
+      })
+      this.wsClient.send({
+        type: 'gateway:credential_result',
+        requestId: msg.requestId,
+        success: true,
+        credential: { id: entry.id, name: entry.name },
+      })
+      log.info(`Added credential "${msg.name}" for ${msg.agentType}`)
+    } catch (err) {
+      this.wsClient.send({
+        type: 'gateway:credential_result',
+        requestId: msg.requestId,
+        success: false,
+        error: (err as Error).message,
+      })
+    }
+  }
+
+  private handleManageCredential(msg: ServerManageCredential) {
+    try {
+      let success = false
+      if (msg.action === 'rename' && msg.name) {
+        success = updateCredential(msg.agentType, msg.credentialId, { name: msg.name })
+      } else if (msg.action === 'delete') {
+        success = removeCredential(msg.agentType, msg.credentialId)
+      } else if (msg.action === 'set_default') {
+        success = setDefaultCredential(msg.agentType, msg.credentialId)
+      }
+
+      this.wsClient.send({
+        type: 'gateway:credential_result',
+        requestId: msg.requestId,
+        success,
+        error: success ? undefined : 'Credential not found',
+      })
+      if (success) {
+        log.info(`${msg.action} credential ${msg.credentialId} for ${msg.agentType}`)
+      }
+    } catch (err) {
+      this.wsClient.send({
+        type: 'gateway:credential_result',
+        requestId: msg.requestId,
+        success: false,
+        error: (err as Error).message,
+      })
     }
   }
 

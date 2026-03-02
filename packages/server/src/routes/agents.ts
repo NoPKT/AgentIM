@@ -239,11 +239,12 @@ agentRoutes.post('/spawn', async (c) => {
   const body = await parseJsonBody(c)
   if (body instanceof Response) return body
 
-  const { gatewayId, agentType, name, workingDirectory } = body as {
+  const { gatewayId, agentType, name, workingDirectory, credentialId } = body as {
     gatewayId?: string
     agentType?: string
     name?: string
     workingDirectory?: string
+    credentialId?: string
   }
 
   if (!gatewayId || !agentType || !name) {
@@ -275,6 +276,7 @@ agentRoutes.post('/spawn', async (c) => {
     agentType,
     name,
     workingDirectory,
+    credentialId,
   })
   if (!sent) {
     return c.json({ ok: false, error: 'Gateway is offline' }, 503)

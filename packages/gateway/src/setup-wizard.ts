@@ -26,6 +26,36 @@ const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
   },
 }
 
+/**
+ * Run the native subscription login command for an agent type.
+ * Returns true on success, false on failure.
+ * Exported for use by credential-manager.ts.
+ */
+export async function runSubscriptionLogin(agentType: string): Promise<boolean> {
+  const loginInfo = LOGIN_COMMANDS[agentType]
+  if (!loginInfo) {
+    log.error(`No subscription login command configured for agent type: ${agentType}`)
+    return false
+  }
+
+  log.info(`Running: ${loginInfo.cmd}`)
+  log.info('Please complete the login process in the prompt below...\n')
+
+  try {
+    const execOpts: ExecSyncOptions = { stdio: 'inherit' }
+    execSync(loginInfo.cmd, execOpts)
+    return true
+  } catch (err) {
+    log.error(`Login command failed: ${(err as Error).message}`)
+    log.error('You can retry with: agentim setup ' + agentType)
+    return false
+  }
+}
+
+/**
+ * Original setup wizard — backward compatible.
+ * Uses saveAgentConfig to create/update the default credential.
+ */
 export async function runSetupWizard(agentType: string): Promise<void> {
   const subscriptionLabel = SUBSCRIPTION_LABELS[agentType] ?? 'Subscription'
 
@@ -42,23 +72,8 @@ export async function runSetupWizard(agentType: string): Promise<void> {
 }
 
 async function handleSubscription(agentType: string): Promise<void> {
-  const loginInfo = LOGIN_COMMANDS[agentType]
-  if (!loginInfo) {
-    log.error(`No subscription login command configured for agent type: ${agentType}`)
-    return
-  }
-
-  log.info(`Running: ${loginInfo.cmd}`)
-  log.info('Please complete the login process in the prompt below...\n')
-
-  try {
-    const execOpts: ExecSyncOptions = { stdio: 'inherit' }
-    execSync(loginInfo.cmd, execOpts)
-  } catch (err) {
-    log.error(`Login command failed: ${(err as Error).message}`)
-    log.error('You can retry with: agentim setup ' + agentType)
-    return
-  }
+  const success = await runSubscriptionLogin(agentType)
+  if (!success) return
 
   const config: AgentAuthConfig = { mode: 'subscription' }
   saveAgentConfig(agentType, config)
