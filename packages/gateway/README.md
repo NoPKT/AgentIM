@@ -36,7 +36,7 @@ aim daemon
 | `claude-code` | Anthropic Claude Code CLI      |
 | `codex`       | OpenAI Codex CLI               |
 | `opencode`    | OpenCode AI CLI                |
-| `gemini`      | Google Gemini CLI *(coming soon)* |
+| `gemini`      | Google Gemini CLI                 |
 | `generic`     | Any CLI tool (custom commands) |
 | Custom        | User-defined via `~/.agentim/adapters.json` |
 

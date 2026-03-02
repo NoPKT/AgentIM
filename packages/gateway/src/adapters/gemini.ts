@@ -1,5 +1,4 @@
-import type { ParsedChunk } from '@agentim/shared'
-import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
+import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -10,116 +9,34 @@ import {
 } from './base.js'
 import { createLogger } from '../lib/logger.js'
 
-// Hypothetical SDK type declarations based on known Gemini CLI patterns.
-// These mirror the structure of @anthropic-ai/claude-agent-sdk but adapted
-// for the Gemini CLI tool-use / streaming interface.
-//
-// The SDK is expected to export:
-//   - createSession(): creates a persistent conversation session
-//   - GeminiSession: manages queries within a session
-//   - Stream event types for incremental output
-interface GeminiSessionOptions {
-  apiKey?: string
-  model?: string
-  cwd?: string
-  env?: Record<string, string>
-  systemPrompt?: string
-  allowedTools?: string[]
-  permissionMode?: 'auto_approve' | 'interactive'
-  canUseTool?: (
-    toolName: string,
-    toolInput: Record<string, unknown>,
-  ) => Promise<{ behavior: 'allow' | 'deny'; message?: string }>
-}
-
-interface GeminiSession {
-  readonly sessionId: string
-  query(prompt: string): GeminiQuery
-  close(): void
-}
-
-interface GeminiQuery {
-  [Symbol.asyncIterator](): AsyncIterator<GeminiStreamEvent>
-  abort(): void
-}
-
-// Stream event types the SDK is expected to emit
-type GeminiStreamEvent =
-  | GeminiInitEvent
-  | GeminiTextDeltaEvent
-  | GeminiThinkingDeltaEvent
-  | GeminiToolCallEvent
-  | GeminiToolResultEvent
-  | GeminiTurnCompleteEvent
-  | GeminiErrorEvent
-
-interface GeminiInitEvent {
-  type: 'init'
-  sessionId: string
-}
-
-interface GeminiTextDeltaEvent {
-  type: 'text_delta'
-  text: string
-}
-
-interface GeminiThinkingDeltaEvent {
-  type: 'thinking_delta'
-  thought: string
-}
-
-interface GeminiToolCallEvent {
-  type: 'tool_call'
-  id: string
-  name: string
-  input: Record<string, unknown>
-}
-
-interface GeminiToolResultEvent {
-  type: 'tool_result'
-  toolCallId: string
-  output: string | Record<string, unknown>
-}
-
-interface GeminiTurnCompleteEvent {
-  type: 'turn_complete'
-  text?: string
-}
-
-interface GeminiErrorEvent {
-  type: 'error'
-  message: string
-  code?: string
-}
-
-// Hypothetical SDK module shape
-interface GeminiSdkModule {
-  createSession(options: GeminiSessionOptions): Promise<GeminiSession>
-}
-
 const log = createLogger('Gemini')
 
-// Set to true once @google/gemini-cli-sdk is published to npm
-const GEMINI_SDK_AVAILABLE = false
-
 // Cache the dynamically imported SDK module to avoid repeated import() calls
-let _cachedSdkModule: GeminiSdkModule | null = null
+let _cachedSdk: typeof import('@google/gemini-cli-core') | null = null
 
 /**
- * Gemini adapter — full implementation gated behind SDK availability.
+ * Gemini adapter — full implementation using @google/gemini-cli-core.
  *
  * Architecture mirrors ClaudeCodeAdapter:
  * - Lazy dynamic import of the SDK (cached after first load)
- * - Persistent session management across messages
- * - Streaming support via async iteration over query events
- * - Permission handling delegated to the hub via onPermissionRequest callback
- * - Maps all Gemini stream events to ParsedChunk types
- *
- * Will be activated once @google/gemini-cli-sdk is published to npm.
+ * - Persistent client management across messages
+ * - Streaming support via async iteration over sendMessageStream events
+ * - Maps all 18 Gemini stream events to ParsedChunk types
+ * - Slash commands: /clear, /compact, /model, /cost, /plan
  */
 export class GeminiAdapter extends BaseAgentAdapter {
-  private session?: GeminiSession
-  private currentQuery?: GeminiQuery
+  // SDK instances (lazy)
+  private config?: InstanceType<typeof import('@google/gemini-cli-core').Config>
+  private client?: InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>
+  private initialized = false
+
+  // Stream control
+  private streamAbort?: AbortController
+  private promptCounter = 0
+
+  // Runtime settings
+  private modelOverride?: string
+  private planMode = false
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -134,73 +51,57 @@ export class GeminiAdapter extends BaseAgentAdapter {
    * Uses dynamic import so the gateway does not fail at startup
    * when the SDK is not installed.
    */
-  private async ensureSdk(): Promise<GeminiSdkModule> {
-    if (!_cachedSdkModule) {
-      // Dynamic import — will throw if the package is not installed
-      const mod = (await import('@google/gemini-cli-sdk' as string)) as unknown as GeminiSdkModule
-      _cachedSdkModule = mod
+  private async ensureSdk() {
+    if (!_cachedSdk) {
+      _cachedSdk = await import('@google/gemini-cli-core')
     }
-    return _cachedSdkModule
+    return _cachedSdk
   }
 
   /**
-   * Ensure we have an active session, creating one if needed.
-   * Reuses an existing session for multi-turn conversations.
+   * Ensure we have an initialized GeminiClient, creating Config + Client if needed.
    */
-  private async ensureSession(context?: MessageContext): Promise<GeminiSession> {
-    if (this.session) {
-      return this.session
+  private async ensureClient(
+    _context?: MessageContext,
+  ): Promise<InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>> {
+    if (this.client && this.initialized) {
+      return this.client
     }
 
     const sdk = await this.ensureSdk()
 
-    const options: GeminiSessionOptions = {
-      apiKey: this.env.GOOGLE_API_KEY || this.env.GEMINI_API_KEY || undefined,
-      model: this.env.GEMINI_MODEL || undefined,
-      cwd: this.workingDirectory,
-      env: Object.keys(this.env).length > 0 ? this.env : undefined,
-      allowedTools: [
-        'read_file',
-        'write_file',
-        'edit_file',
-        'run_command',
-        'search_files',
-        'web_search',
-      ],
-    }
-
-    // Configure permission handling
+    // Determine approval mode
+    let approvalMode = sdk.ApprovalMode.DEFAULT
     if (this.permissionLevel === 'bypass') {
-      options.permissionMode = 'auto_approve'
-    } else {
-      options.permissionMode = 'interactive'
-      if (this.onPermissionRequest) {
-        const requestPermission = this.onPermissionRequest
-        options.canUseTool = async (toolName: string, toolInput: Record<string, unknown>) => {
-          const { nanoid } = await import('nanoid')
-          const requestId = nanoid()
-          const result = await requestPermission({
-            requestId,
-            toolName,
-            toolInput,
-            timeoutMs: PERMISSION_TIMEOUT_MS,
-          })
-          if (result.behavior === 'allow') {
-            return { behavior: 'allow' as const }
-          }
-          return { behavior: 'deny' as const, message: 'Permission denied by user' }
-        }
-      }
+      approvalMode = sdk.ApprovalMode.YOLO
+    } else if (this.planMode) {
+      approvalMode = sdk.ApprovalMode.PLAN
     }
 
-    // Inject system prompt from room context if available
-    if (context?.roomContext?.systemPrompt) {
-      options.systemPrompt = context.roomContext.systemPrompt
-    }
+    const model = this.modelOverride ?? this.env.GEMINI_MODEL ?? sdk.DEFAULT_GEMINI_MODEL
 
-    this.session = await sdk.createSession(options)
-    log.info(`Gemini session started: ${this.session.sessionId}`)
-    return this.session
+    const { nanoid } = await import('nanoid')
+    const sessionId = nanoid()
+
+    this.config = new sdk.Config({
+      sessionId,
+      model,
+      targetDir: this.workingDirectory ?? process.cwd(),
+      cwd: this.workingDirectory ?? process.cwd(),
+      debugMode: false,
+      interactive: false,
+      approvalMode,
+    })
+
+    await this.config.initialize()
+
+    this.client = new sdk.GeminiClient(this.config)
+    await this.client.initialize()
+    await this.client.startChat()
+    this.initialized = true
+
+    log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
+    return this.client
   }
 
   async sendMessage(
@@ -210,16 +111,6 @@ export class GeminiAdapter extends BaseAgentAdapter {
     onError: ErrorCallback,
     context?: MessageContext,
   ) {
-    // Gate behind SDK availability flag
-    if (!GEMINI_SDK_AVAILABLE) {
-      onError(
-        'Gemini SDK (@google/gemini-cli-sdk) is not yet published to npm. ' +
-          'Gemini agent support will be enabled once the SDK is available. ' +
-          'Follow https://github.com/NoPKT/AgentIM for updates.',
-      )
-      return
-    }
-
     if (this.isRunning) {
       onError('Agent is already processing a message')
       return
@@ -229,14 +120,18 @@ export class GeminiAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     try {
-      const session = await this.ensureSession(context)
+      const client = await this.ensureClient(context)
+      const sdk = await this.ensureSdk()
       const prompt = this.buildPrompt(content, context)
 
-      const query = session.query(prompt)
-      this.currentQuery = query
+      this.streamAbort = new AbortController()
+      this.promptCounter++
+      const promptId = `prompt-${this.promptCounter}`
 
-      for await (const event of query) {
-        const chunks = this.mapEventToChunks(event)
+      const stream = client.sendMessageStream(prompt, this.streamAbort.signal, promptId)
+
+      for await (const event of stream) {
+        const chunks = this.processEvent(event, sdk)
         for (const chunk of chunks) {
           if (chunk.type === 'text') {
             fullContent += chunk.content
@@ -244,21 +139,28 @@ export class GeminiAdapter extends BaseAgentAdapter {
           onChunk(chunk)
         }
 
-        // If the SDK emits an error event, report and bail out
-        if (event.type === 'error') {
+        // Extract usage from Finished events
+        if (event.type === sdk.GeminiEventType.Finished) {
+          this.extractUsage(event, sdk)
+        }
+
+        // Bail on error events
+        if (event.type === sdk.GeminiEventType.Error) {
+          const errVal = (event as { value: { error: unknown } }).value
+          const errMsg = errVal.error instanceof Error ? errVal.error.message : String(errVal.error)
           this.isRunning = false
-          this.currentQuery = undefined
-          onError((event as GeminiErrorEvent).message)
+          this.streamAbort = undefined
+          onError(errMsg)
           return
         }
       }
 
       this.isRunning = false
-      this.currentQuery = undefined
+      this.streamAbort = undefined
       onComplete(fullContent)
     } catch (err: unknown) {
       this.isRunning = false
-      this.currentQuery = undefined
+      this.streamAbort = undefined
       if ((err as Error).name === 'AbortError') {
         onComplete(fullContent || 'Interrupted')
       } else {
@@ -270,74 +172,208 @@ export class GeminiAdapter extends BaseAgentAdapter {
   }
 
   /**
-   * Map a single Gemini stream event to zero or more ParsedChunks.
-   *
-   * Event type mapping:
-   *   init            -> (captured internally, no chunk emitted)
-   *   text_delta      -> ParsedChunk { type: 'text' }
-   *   thinking_delta  -> ParsedChunk { type: 'thinking' }
-   *   tool_call       -> ParsedChunk { type: 'tool_use' }
-   *   tool_result     -> ParsedChunk { type: 'tool_result' }
-   *   turn_complete   -> ParsedChunk { type: 'text' } (if final text present)
-   *   error           -> ParsedChunk { type: 'error' }
+   * Map a ServerGeminiStreamEvent to zero or more ParsedChunks.
    */
-  private mapEventToChunks(event: GeminiStreamEvent): ParsedChunk[] {
+  private processEvent(
+    event: import('@google/gemini-cli-core').ServerGeminiStreamEvent,
+    sdk: typeof import('@google/gemini-cli-core'),
+  ): ParsedChunk[] {
     switch (event.type) {
-      case 'init':
-        // Session ID already captured during ensureSession;
-        // log it here in case it is re-emitted during a query
-        log.debug(`Gemini query init, session: ${event.sessionId}`)
-        return []
+      case sdk.GeminiEventType.Content:
+        return [{ type: 'text', content: (event as { value: string }).value }]
 
-      case 'text_delta':
-        return [{ type: 'text', content: event.text }]
+      case sdk.GeminiEventType.Thought: {
+        const thought = (event as { value: { subject: string; description: string } }).value
+        const text = thought.subject
+          ? `**${thought.subject}** ${thought.description}`
+          : thought.description
+        return [{ type: 'thinking', content: text }]
+      }
 
-      case 'thinking_delta':
-        return [{ type: 'thinking', content: event.thought }]
-
-      case 'tool_call':
+      case sdk.GeminiEventType.ToolCallRequest: {
+        const req = (
+          event as {
+            value: { callId: string; name: string; args: Record<string, unknown> }
+          }
+        ).value
         return [
           {
             type: 'tool_use',
-            content: JSON.stringify(
-              { name: event.name, id: event.id, input: event.input },
-              null,
-              2,
-            ),
-            metadata: { toolName: event.name, toolId: event.id },
-          },
-        ]
-
-      case 'tool_result': {
-        const output =
-          typeof event.output === 'string' ? event.output : JSON.stringify(event.output)
-        return [
-          {
-            type: 'tool_result',
-            content: output,
-            metadata: { toolId: event.toolCallId },
+            content: JSON.stringify({ name: req.name, id: req.callId, input: req.args }, null, 2),
+            metadata: { toolName: req.name, toolId: req.callId },
           },
         ]
       }
 
-      case 'turn_complete':
-        // If the turn_complete event carries final assembled text,
-        // emit it as a text chunk (it may be empty if all text was
-        // already streamed via text_delta events)
-        if (event.text) {
-          return [{ type: 'text', content: event.text }]
-        }
+      case sdk.GeminiEventType.ToolCallResponse: {
+        const resp = (
+          event as {
+            value: {
+              callId: string
+              resultDisplay: unknown
+              error: Error | undefined
+            }
+          }
+        ).value
+        const display = resp.error
+          ? `Error: ${resp.error.message}`
+          : typeof resp.resultDisplay === 'string'
+            ? resp.resultDisplay
+            : JSON.stringify(resp.resultDisplay ?? '')
+        return [
+          {
+            type: 'tool_result',
+            content: display,
+            metadata: { toolId: resp.callId },
+          },
+        ]
+      }
+
+      case sdk.GeminiEventType.ToolCallConfirmation:
+        // Permission was processed internally; no chunk emitted
         return []
 
-      case 'error':
-        return [{ type: 'error', content: event.message }]
+      case sdk.GeminiEventType.Error: {
+        const errVal = (event as { value: { error: unknown } }).value
+        const errMsg = errVal.error instanceof Error ? errVal.error.message : String(errVal.error)
+        return [{ type: 'error', content: errMsg }]
+      }
+
+      case sdk.GeminiEventType.Finished:
+        // Usage extracted separately; no chunk emitted
+        return []
+
+      case sdk.GeminiEventType.ChatCompressed: {
+        const info = (
+          event as { value: { originalTokenCount: number; newTokenCount: number } | null }
+        ).value
+        if (info) {
+          return [
+            {
+              type: 'text',
+              content: `[Chat compressed: ${info.originalTokenCount} → ${info.newTokenCount} tokens]`,
+              metadata: { compressed: true },
+            },
+          ]
+        }
+        return []
+      }
+
+      case sdk.GeminiEventType.Retry:
+        return [
+          {
+            type: 'text',
+            content: '[Retrying request...]',
+            metadata: { retry: true },
+          },
+        ]
+
+      case sdk.GeminiEventType.Citation: {
+        const citation = (event as { value: string }).value
+        return [
+          {
+            type: 'text',
+            content: `[Citation: ${citation}]`,
+            metadata: { citation: true },
+          },
+        ]
+      }
+
+      case sdk.GeminiEventType.ModelInfo: {
+        const modelInfo = (event as { value: string }).value
+        return [
+          {
+            type: 'text',
+            content: `[Model: ${modelInfo}]`,
+            metadata: { modelInfo: true },
+          },
+        ]
+      }
+
+      case sdk.GeminiEventType.LoopDetected:
+        return [{ type: 'error', content: 'Loop detected — stopping execution' }]
+
+      case sdk.GeminiEventType.MaxSessionTurns:
+        return [{ type: 'error', content: 'Maximum session turns reached' }]
+
+      case sdk.GeminiEventType.ContextWindowWillOverflow: {
+        const overflow = (
+          event as {
+            value: { estimatedRequestTokenCount: number; remainingTokenCount: number }
+          }
+        ).value
+        return [
+          {
+            type: 'text',
+            content: `[Context window warning: ${overflow.estimatedRequestTokenCount} tokens requested, ${overflow.remainingTokenCount} remaining]`,
+            metadata: { contextWarning: true },
+          },
+        ]
+      }
+
+      case sdk.GeminiEventType.InvalidStream:
+        // Internal retry; log but don't emit
+        log.debug('Invalid stream detected, SDK will retry')
+        return []
+
+      case sdk.GeminiEventType.UserCancelled:
+        return []
+
+      case sdk.GeminiEventType.AgentExecutionStopped: {
+        const stopped = (event as { value: { reason: string; systemMessage?: string } }).value
+        return [
+          {
+            type: 'text',
+            content: `[Agent stopped: ${stopped.reason}${stopped.systemMessage ? ` — ${stopped.systemMessage}` : ''}]`,
+          },
+        ]
+      }
+
+      case sdk.GeminiEventType.AgentExecutionBlocked: {
+        const blocked = (event as { value: { reason: string; systemMessage?: string } }).value
+        return [
+          {
+            type: 'text',
+            content: `[Agent blocked: ${blocked.reason}${blocked.systemMessage ? ` — ${blocked.systemMessage}` : ''}]`,
+          },
+        ]
+      }
 
       default:
-        // Unknown event type — ignore gracefully
         log.debug(`Ignoring unknown Gemini event type: ${(event as { type: string }).type}`)
         return []
     }
   }
+
+  /**
+   * Extract token usage from a Finished event.
+   */
+  private extractUsage(
+    event: import('@google/gemini-cli-core').ServerGeminiStreamEvent,
+    sdk: typeof import('@google/gemini-cli-core'),
+  ) {
+    if (event.type !== sdk.GeminiEventType.Finished) return
+
+    const finished = (
+      event as {
+        value: {
+          usageMetadata?: {
+            promptTokenCount?: number
+            candidatesTokenCount?: number
+            cachedContentTokenCount?: number
+          }
+        }
+      }
+    ).value
+
+    if (finished.usageMetadata) {
+      this.accumulatedInputTokens += finished.usageMetadata.promptTokenCount ?? 0
+      this.accumulatedOutputTokens += finished.usageMetadata.candidatesTokenCount ?? 0
+      this.accumulatedCacheReadTokens += finished.usageMetadata.cachedContentTokenCount ?? 0
+    }
+  }
+
+  // ─── Slash Commands ───
 
   override getSlashCommands(): Array<{
     name: string
@@ -345,54 +381,196 @@ export class GeminiAdapter extends BaseAgentAdapter {
     usage: string
     source: 'builtin' | 'skill'
   }> {
-    return [{ name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' }]
+    return [
+      { name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' },
+      {
+        name: 'compact',
+        description: 'Compress chat context',
+        usage: '/compact',
+        source: 'builtin',
+      },
+      {
+        name: 'model',
+        description: 'Switch model or show current',
+        usage: '/model [name]',
+        source: 'builtin',
+      },
+      {
+        name: 'cost',
+        description: 'Show token usage summary',
+        usage: '/cost',
+        source: 'builtin',
+      },
+      {
+        name: 'plan',
+        description: 'Toggle plan mode (read-only)',
+        usage: '/plan [on|off]',
+        source: 'builtin',
+      },
+    ]
   }
 
   override async handleSlashCommand(
     command: string,
-    _args: string,
+    args: string,
   ): Promise<{ success: boolean; message?: string }> {
-    if (command === 'clear') {
-      this.session = undefined
-      return { success: true, message: 'Session cleared' }
+    switch (command) {
+      case 'clear': {
+        this.resetSession()
+        return { success: true, message: 'Session cleared' }
+      }
+      case 'compact': {
+        if (!this.client || !this.initialized) {
+          return { success: true, message: 'No active session to compress' }
+        }
+        try {
+          const { nanoid } = await import('nanoid')
+          const info = await this.client.tryCompressChat(nanoid(), true)
+          return {
+            success: true,
+            message: `Chat compressed: ${info.originalTokenCount} → ${info.newTokenCount} tokens`,
+          }
+        } catch (err) {
+          return {
+            success: false,
+            message: `Compression failed: ${(err as Error).message}`,
+          }
+        }
+      }
+      case 'model': {
+        const name = args.trim()
+        if (!name) {
+          const current = this.getModel() ?? '(default)'
+          return {
+            success: true,
+            message: `Current model: ${current}\nUse /model <name> to switch`,
+          }
+        }
+        this.modelOverride = name
+        // Reset session so next message uses the new model
+        this.resetSession()
+        return { success: true, message: `Model set to: ${name} (session will restart)` }
+      }
+      case 'cost': {
+        const summary = this.getCostSummary()
+        const lines = [
+          'Token Usage Summary',
+          `  Input tokens:  ${summary.inputTokens.toLocaleString()}`,
+          `  Output tokens: ${summary.outputTokens.toLocaleString()}`,
+          `  Cache read:    ${summary.cacheReadTokens.toLocaleString()}`,
+        ]
+        return { success: true, message: lines.join('\n') }
+      }
+      case 'plan': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.planMode = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.planMode = false
+        } else {
+          this.planMode = !this.planMode
+        }
+        // Reset session so approval mode updates
+        this.resetSession()
+        return {
+          success: true,
+          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
+        }
+      }
+      default:
+        return { success: false, message: `Unknown command: ${command}` }
     }
-    return { success: false, message: `Unknown command: ${command}` }
   }
 
-  /**
-   * Abort the current query and reset session state.
-   * The session is discarded so the next sendMessage() starts fresh.
-   */
+  // ─── Model Management ───
+
+  override getModel(): string | undefined {
+    return this.modelOverride ?? this.env.GEMINI_MODEL ?? undefined
+  }
+
+  override getAvailableModels(): string[] {
+    return [
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-3-pro-preview',
+      'gemini-3.1-pro-preview',
+      'gemini-3-flash-preview',
+    ]
+  }
+
+  override getAvailableModelInfo(): ModelOption[] {
+    return [
+      {
+        value: 'gemini-2.5-pro',
+        displayName: 'Gemini 2.5 Pro',
+        description: 'Most capable model for complex tasks',
+      },
+      {
+        value: 'gemini-2.5-flash',
+        displayName: 'Gemini 2.5 Flash',
+        description: 'Fast and efficient for most tasks',
+      },
+      {
+        value: 'gemini-2.5-flash-lite',
+        displayName: 'Gemini 2.5 Flash Lite',
+        description: 'Lightweight model for simple tasks',
+      },
+      {
+        value: 'gemini-3-pro-preview',
+        displayName: 'Gemini 3 Pro (Preview)',
+        description: 'Next-gen model with advanced reasoning',
+      },
+      {
+        value: 'gemini-3.1-pro-preview',
+        displayName: 'Gemini 3.1 Pro (Preview)',
+        description: 'Latest preview with enhanced capabilities',
+      },
+      {
+        value: 'gemini-3-flash-preview',
+        displayName: 'Gemini 3 Flash (Preview)',
+        description: 'Fast next-gen model preview',
+      },
+    ]
+  }
+
+  override getPlanMode(): boolean {
+    return this.planMode
+  }
+
+  // ─── Session Lifecycle ───
+
+  private resetSession() {
+    if (this.config) {
+      try {
+        this.config.dispose()
+      } catch {
+        // Ignore disposal errors
+      }
+    }
+    this.config = undefined
+    this.client = undefined
+    this.initialized = false
+    log.info('Gemini session reset')
+  }
+
   stop() {
-    if (this.currentQuery) {
-      this.currentQuery.abort()
-      log.info('Gemini query aborted')
+    if (this.streamAbort) {
+      this.streamAbort.abort()
+      log.info('Gemini stream aborted')
     }
-    this.currentQuery = undefined
+    this.streamAbort = undefined
     this.isRunning = false
-    // Discard session so a new one is created on next message,
-    // avoiding stale conversation context after interruption
-    if (this.session) {
-      this.session.close()
-      this.session = undefined
-    }
+    this.resetSession()
   }
 
-  /**
-   * Fully dispose of the adapter: close session and release all resources.
-   */
   dispose() {
-    if (this.currentQuery) {
-      this.currentQuery.abort()
+    if (this.streamAbort) {
+      this.streamAbort.abort()
     }
-    this.currentQuery = undefined
+    this.streamAbort = undefined
     this.isRunning = false
-    if (this.session) {
-      this.session.close()
-      this.session = undefined
-    }
-    // Clear the cached SDK module reference so it can be garbage collected
-    // (only relevant if no other GeminiAdapter instances exist)
-    _cachedSdkModule = null
+    this.resetSession()
+    _cachedSdk = null
   }
 }

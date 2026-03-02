@@ -148,7 +148,7 @@ program
         { label: 'Claude Code', value: 'claude-code' },
         { label: 'Codex', value: 'codex' },
         { label: 'OpenCode', value: 'opencode' },
-        { label: 'Gemini (Coming Soon)', value: 'gemini' },
+        { label: 'Gemini', value: 'gemini' },
       ])
     }
     await runSetupWizard(agentType)
@@ -161,6 +161,7 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
   opencode: 'OpenCode',
+  gemini: 'Gemini',
 }
 
 /**
@@ -216,15 +217,7 @@ registerAgentCommand(
 registerAgentCommand(program, 'codex', 'codex', 'Start a Codex agent (background daemon)')
 registerAgentCommand(program, 'opencode', 'opencode', 'Start an OpenCode agent (background daemon)')
 
-// ─── agentim gemini [path] ───
-
-program
-  .command('gemini')
-  .description('Start a Gemini CLI agent (coming soon — SDK not yet published)')
-  .action(() => {
-    log.info('Gemini CLI integration is coming soon. Stay tuned!')
-    process.exit(0)
-  })
+registerAgentCommand(program, 'gemini', 'gemini', 'Start a Gemini CLI agent (background daemon)')
 
 // ─── agentim daemon ───
 
@@ -498,6 +491,7 @@ async function spawnDaemon(opts: {
     'claude-code': 'claude',
     codex: 'codex',
     opencode: 'opencode',
+    gemini: 'gemini',
   }
 
   const cliCommand = TYPE_TO_COMMAND[type]

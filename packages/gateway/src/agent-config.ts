@@ -96,6 +96,8 @@ export function agentConfigToEnv(
       break
     case 'gemini':
       if (config.apiKey) env.GEMINI_API_KEY = config.apiKey
+      if (config.baseUrl) env.GEMINI_BASE_URL = config.baseUrl
+      if (config.model) env.GEMINI_MODEL = config.model
       break
   }
 
