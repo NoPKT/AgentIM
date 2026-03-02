@@ -97,7 +97,7 @@ function DiffView({ diff }: { diff: string }) {
                   ? 'text-red-700 dark:text-red-300'
                   : r.type === 'hunk'
                     ? 'text-blue-600 dark:text-blue-400'
-                    : ''
+                    : 'text-text-primary'
             return (
               <tr key={i} className={rowBg}>
                 <td className="select-none text-right pr-2 pl-2 text-text-muted/50 w-[1%] whitespace-nowrap">
@@ -165,9 +165,11 @@ function WorkspaceChangesView({ roomId, agentId }: { roomId: string; agentId: st
   const statusEntry = useWorkspaceStore((s) => s.statuses.get(agentId))
   const loading = useWorkspaceStore((s) => s.loading)
 
-  // Auto-request workspace status when no data exists
+  // Auto-request workspace status on mount or when agent changes.
+  // Always fetch fresh data — stale entries from previous (possibly errored)
+  // runs may contain outdated file paths or missing diff info.
   useEffect(() => {
-    if (!statusEntry && !(loading?.agentId === agentId && loading?.kind === 'status')) {
+    if (!(loading?.agentId === agentId && loading?.kind === 'status')) {
       useWorkspaceStore.getState().setLoading({ agentId, kind: 'status' })
       wsClient.send({
         type: 'client:request_workspace',

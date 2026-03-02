@@ -713,18 +713,51 @@ export class AgentManager {
           if (completed) return
           completed = true
           allChunks.push({ type: 'error', content: error })
-          this.wsClient.send({
-            type: 'gateway:message_complete',
-            roomId: msg.roomId,
-            agentId: msg.agentId,
-            messageId,
-            fullContent: `Error: ${error}`,
-            chunks: allChunks,
-            conversationId: msg.conversationId,
-            depth: msg.depth,
-          })
-          // Process next queued message or set error status
-          this.processNextQueued(msg.agentId)
+
+          const workingDir = adapter.workingDirectory
+          const sendErrorComplete = () => {
+            this.wsClient.send({
+              type: 'gateway:message_complete',
+              roomId: msg.roomId,
+              agentId: msg.agentId,
+              messageId,
+              fullContent: `Error: ${error}`,
+              chunks: allChunks,
+              conversationId: msg.conversationId,
+              depth: msg.depth,
+            })
+            // Process next queued message or set error status
+            this.processNextQueued(msg.agentId)
+          }
+
+          // Collect workspace status even on error — the agent may have
+          // made file changes before failing, and stale data causes UI bugs.
+          if (workingDir) {
+            getWorkspaceStatus(workingDir)
+              .then((status) => {
+                if (status) {
+                  const wsChunk: ParsedChunk = {
+                    type: 'workspace_status',
+                    content: JSON.stringify(status),
+                    metadata: { workingDirectory: workingDir },
+                  }
+                  allChunks.push(wsChunk)
+                  this.wsClient.send({
+                    type: 'gateway:message_chunk',
+                    roomId: msg.roomId,
+                    agentId: msg.agentId,
+                    messageId,
+                    chunk: wsChunk,
+                  })
+                }
+                sendErrorComplete()
+              })
+              .catch(() => {
+                sendErrorComplete()
+              })
+          } else {
+            sendErrorComplete()
+          }
         },
         {
           roomId: msg.roomId,
