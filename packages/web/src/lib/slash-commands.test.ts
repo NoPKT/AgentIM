@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock dependencies before importing the module under test
 const mockClearChat = vi.fn()
+const mockAddMessage = vi.fn()
 vi.mock('../stores/chat.js', () => ({
   useChatStore: {
     getState: vi.fn(() => ({
@@ -9,6 +10,7 @@ vi.mock('../stores/chat.js', () => ({
       messages: new Map([['room-1', [{ id: 'msg-1', content: 'hello' }]]]),
       streaming: new Map(),
       clearChat: mockClearChat,
+      addMessage: mockAddMessage,
     })),
     setState: vi.fn(),
   },
@@ -141,10 +143,16 @@ describe('slash-commands', () => {
       expect(mockClearChat).toHaveBeenCalledWith('room-1')
     })
 
-    it('/help shows a toast with command list', () => {
+    it('/help adds a system message with command list', () => {
       const cmd = getCommand('help')
       cmd?.execute('')
-      expect(toast.info).toHaveBeenCalled()
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          roomId: 'room-1',
+          senderType: 'system',
+          type: 'system',
+        }),
+      )
     })
 
     it('/stop with @agent sends stop_generation for that agent', () => {
