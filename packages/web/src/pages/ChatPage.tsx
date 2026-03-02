@@ -48,6 +48,7 @@ export default function ChatPage() {
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null)
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [agentConfigOpen, setAgentConfigOpen] = useState(false)
+  const [workspaceMaximized, setWorkspaceMaximized] = useState(false)
   const [permissionRequests, setPermissionRequests] = useState<Map<string, PermissionRequestData>>(
     () => new Map(),
   )
@@ -219,6 +220,14 @@ export default function ChatPage() {
         next.set(requestId, { ...existing, resolved: decision })
         return next
       })
+      // Auto-remove resolved permission requests after 2 seconds
+      setTimeout(() => {
+        setPermissionRequests((prev) => {
+          const next = new Map(prev)
+          next.delete(requestId)
+          return next
+        })
+      }, 2000)
     },
     [],
   )
@@ -398,108 +407,113 @@ export default function ChatPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Chat content */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* Cached data banner */}
-          {showingCachedMessages && <CachedDataBanner type="messages" />}
+          {/* Hide messages and indicators when workspace is maximized */}
+          {!workspaceMaximized && (
+            <>
+              {/* Cached data banner */}
+              {showingCachedMessages && <CachedDataBanner type="messages" />}
 
-          {/* Messages */}
-          <MessageList onImageClick={lightbox.openLightbox} />
+              {/* Messages */}
+              <MessageList onImageClick={lightbox.openLightbox} />
 
-          {/* Permission request cards */}
-          {activePermissionRequests.length > 0 && (
-            <div className="border-t border-border">
-              {activePermissionRequests.map((req) => (
-                <PermissionCard
-                  key={req.requestId}
-                  request={req}
-                  onResolved={handlePermissionResolved}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Routing indicator (broadcast mode) */}
-          {showRouting && (
-            <div
-              className="px-6 py-1.5 text-xs text-info-text bg-info-subtle flex items-center gap-1.5"
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex space-x-0.5">
-                <span
-                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-                  style={{ animationDelay: '150ms' }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
-                  style={{ animationDelay: '300ms' }}
-                />
-              </div>
-              <span>{t('chat.routingToAgents')}</span>
-            </div>
-          )}
-
-          {/* Typing indicator */}
-          {typingNames.length > 0 && (
-            <div
-              className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
-              role="status"
-              aria-live="polite"
-            >
-              <div className="flex space-x-0.5">
-                <span
-                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-                  style={{ animationDelay: '0ms' }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-                  style={{ animationDelay: '150ms' }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
-                  style={{ animationDelay: '300ms' }}
-                />
-              </div>
-              <span>
-                {typingNames.length === 1
-                  ? t('chat.typing', { name: typingNames[0] })
-                  : t('chat.typingMultiple', { names: typingNames.join(', ') })}
-              </span>
-            </div>
-          )}
-
-          {/* Terminal Viewer */}
-          {terminalAgentId && (
-            <ErrorBoundary
-              fallback={(_err, retry) => (
-                <div className="border-t border-border bg-surface-secondary px-4 py-3 flex items-center justify-between">
-                  <p className="text-sm text-text-secondary">{t('chat.terminalUnavailable')}</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={retry}
-                      className="text-xs text-accent hover:text-accent-hover font-medium"
-                    >
-                      {t('common.retry')}
-                    </button>
-                    <button
-                      onClick={() => setTerminalAgentId(null)}
-                      className="text-xs text-text-muted hover:text-text-primary"
-                    >
-                      {t('common.close')}
-                    </button>
-                  </div>
+              {/* Permission request cards */}
+              {activePermissionRequests.length > 0 && (
+                <div className="border-t border-border">
+                  {activePermissionRequests.map((req) => (
+                    <PermissionCard
+                      key={req.requestId}
+                      request={req}
+                      onResolved={handlePermissionResolved}
+                    />
+                  ))}
                 </div>
               )}
-            >
-              <TerminalViewer
-                agentId={terminalAgentId}
-                agentName={terminalAgent?.agentName ?? terminalAgentId}
-                onClose={() => setTerminalAgentId(null)}
-              />
-            </ErrorBoundary>
+
+              {/* Routing indicator (broadcast mode) */}
+              {showRouting && (
+                <div
+                  className="px-6 py-1.5 text-xs text-info-text bg-info-subtle flex items-center gap-1.5"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="flex space-x-0.5">
+                    <span
+                      className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                      style={{ animationDelay: '0ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-info-text rounded-full animate-bounce"
+                      style={{ animationDelay: '300ms' }}
+                    />
+                  </div>
+                  <span>{t('chat.routingToAgents')}</span>
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {typingNames.length > 0 && (
+                <div
+                  className="px-6 py-1.5 text-xs text-text-muted flex items-center gap-1.5"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="flex space-x-0.5">
+                    <span
+                      className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                      style={{ animationDelay: '0ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-text-muted rounded-full animate-bounce"
+                      style={{ animationDelay: '300ms' }}
+                    />
+                  </div>
+                  <span>
+                    {typingNames.length === 1
+                      ? t('chat.typing', { name: typingNames[0] })
+                      : t('chat.typingMultiple', { names: typingNames.join(', ') })}
+                  </span>
+                </div>
+              )}
+
+              {/* Terminal Viewer */}
+              {terminalAgentId && (
+                <ErrorBoundary
+                  fallback={(_err, retry) => (
+                    <div className="border-t border-border bg-surface-secondary px-4 py-3 flex items-center justify-between">
+                      <p className="text-sm text-text-secondary">{t('chat.terminalUnavailable')}</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={retry}
+                          className="text-xs text-accent hover:text-accent-hover font-medium"
+                        >
+                          {t('common.retry')}
+                        </button>
+                        <button
+                          onClick={() => setTerminalAgentId(null)}
+                          className="text-xs text-text-muted hover:text-text-primary"
+                        >
+                          {t('common.close')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                >
+                  <TerminalViewer
+                    agentId={terminalAgentId}
+                    agentName={terminalAgent?.agentName ?? terminalAgentId}
+                    onClose={() => setTerminalAgentId(null)}
+                  />
+                </ErrorBoundary>
+              )}
+            </>
           )}
 
           {/* Workspace Panel */}
@@ -507,7 +521,11 @@ export default function ChatPage() {
             <WorkspacePanel
               roomId={currentRoomId}
               agentMembers={agentMembers}
-              onClose={() => setWorkspaceOpen(false)}
+              onClose={() => {
+                setWorkspaceOpen(false)
+                setWorkspaceMaximized(false)
+              }}
+              onMaximizedChange={setWorkspaceMaximized}
             />
           )}
 
@@ -519,6 +537,7 @@ export default function ChatPage() {
         {membersOpen && (
           <MemberListPanel
             members={members}
+            roomId={currentRoomId}
             onClose={() => setMembersOpen(false)}
             onAddAgent={() => setAddAgentOpen(true)}
             onRemoveMember={handleRemoveMember}

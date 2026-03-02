@@ -7,6 +7,7 @@ import { AgentPanel } from '../components/AgentPanel.js'
 import { toast } from '../stores/toast.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
+import { TrashIcon } from '../components/icons.js'
 
 export default function AgentsPage() {
   const { t } = useTranslation()
@@ -30,24 +31,21 @@ export default function AgentsPage() {
         data-testid="agents-loading"
         className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="mb-6 animate-pulse">
             <div className="h-8 w-32 bg-skeleton rounded" />
             <div className="mt-2 h-4 w-48 bg-surface-hover rounded" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-surface rounded-xl border border-border p-5 animate-pulse">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-skeleton" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-24 bg-skeleton rounded" />
-                    <div className="h-3 w-16 bg-surface-hover rounded" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-surface-hover rounded" />
-                  <div className="h-3 w-2/3 bg-surface-hover rounded" />
+              <div
+                key={i}
+                className="bg-surface rounded-lg border border-border p-3 animate-pulse flex items-center gap-3"
+              >
+                <div className="w-8 h-8 rounded-full bg-skeleton flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 w-32 bg-skeleton rounded" />
+                  <div className="h-3 w-20 bg-surface-hover rounded" />
                 </div>
               </div>
             ))}
@@ -88,23 +86,20 @@ export default function AgentsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Agents Section */}
         {agents.length > 0 ? (
           <>
-            <div className="mb-6">
+            <div className="mb-4">
               <h1 className="text-2xl font-bold text-text-primary">{t('agent.agents')}</h1>
               <p className="mt-1 text-sm text-text-secondary">
                 {t('agent.agentsConnected', { count: agents.length })}
               </p>
             </div>
 
-            <div
-              data-testid="agents-list"
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            >
+            <div data-testid="agents-list" className="space-y-1.5">
               {agents.map((agent) => (
-                <AgentCard
+                <AgentRow
                   key={agent.id}
                   agent={agent}
                   onInfoClick={() => setSelectedAgentId(agent.id)}
@@ -158,9 +153,12 @@ export default function AgentsPage() {
   )
 }
 
-function AgentCard({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => void }) {
-  const { t, i18n } = useTranslation()
+function AgentRow({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => void }) {
+  const { t } = useTranslation()
   const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
+  const deleteAgent = useAgentStore((s) => s.deleteAgent)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const statusConfig = getStatusConfig(t)
   const typeConfig = getTypeConfig(t)
@@ -171,131 +169,126 @@ function AgentCard({ agent, onInfoClick }: { agent: Agent; onInfoClick: () => vo
 
   const isShared = agent.visibility === 'shared'
 
-  const handleToggleVisibility = () => {
+  const handleToggleVisibility = (e: React.MouseEvent) => {
+    e.stopPropagation()
     const newVisibility: AgentVisibility = isShared ? 'private' : 'shared'
     updateAgentVisibility(agent.id, newVisibility)
   }
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
+    setDeleting(true)
+    try {
+      await deleteAgent(agent.id)
+      toast.success(t('agent.agentDeleted'))
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
+  const deviceLabel = agent.deviceInfo
+    ? `${agent.deviceInfo.platform}${agent.deviceInfo.hostname ? ` · ${agent.deviceInfo.hostname}` : ''}`
+    : null
+
   return (
-    <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <button onClick={onInfoClick} className="flex items-center gap-3 min-w-0 text-left group">
-          <div
-            className={`w-10 h-10 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-          >
-            <span className="text-sm font-semibold text-white">
-              {agent.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-text-primary truncate group-hover:text-accent transition-colors">
-              {agent.name}
-            </h3>
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${type.color}`}
-            >
-              {type.label}
-            </span>
-          </div>
-        </button>
-      </div>
-
-      {/* Status */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="relative flex h-2.5 w-2.5">
-          {agent.status === 'online' && (
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          )}
-          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
-        </span>
-        <span className="text-sm font-medium text-text-secondary">{status.label}</span>
-      </div>
-
-      {/* Details */}
-      <div className="space-y-2 text-sm">
-        {agent.workingDirectory && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.workingDir')}</dt>
-            <dd
-              className="text-text-primary truncate font-mono text-xs"
-              title={agent.workingDirectory}
-            >
-              {agent.workingDirectory}
-            </dd>
-          </div>
+    <div className="bg-surface rounded-lg border border-border px-3 py-2.5 flex items-center gap-3 hover:bg-surface-hover/50 transition-colors group">
+      {/* Status dot */}
+      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+        {agent.status === 'online' && (
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
         )}
+        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
+      </span>
 
-        {agent.deviceInfo && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.device')}</dt>
-            <dd className="text-text-primary truncate">
-              {agent.deviceInfo.platform}{' '}
-              {agent.deviceInfo.hostname && `· ${agent.deviceInfo.hostname}`}
-            </dd>
-          </div>
-        )}
-
-        {agent.capabilities && agent.capabilities.length > 0 && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-1">{t('agent.capabilities')}</dt>
-            <dd className="flex flex-wrap gap-1">
-              {agent.capabilities.map((cap) => (
-                <span
-                  key={cap}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                >
-                  {cap}
-                </span>
-              ))}
-            </dd>
-          </div>
-        )}
-
-        {agent.lastSeenAt && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.lastSeen')}</dt>
-            <dd className="text-text-primary">
-              {new Date(agent.lastSeenAt).toLocaleString(i18n.language, {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </dd>
-          </div>
-        )}
-      </div>
-
-      {/* Visibility Toggle */}
-      <div className="mt-4 pt-3 border-t border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-text-muted">{t('agent.visibility')}</span>
-            <span
-              className={`ml-2 text-xs font-medium ${isShared ? 'text-success-text' : 'text-text-muted'}`}
-            >
-              {isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
-            </span>
-          </div>
-          <button
-            onClick={handleToggleVisibility}
-            role="switch"
-            aria-checked={isShared}
-            aria-label={t('agent.visibility')}
-            className={`relative inline-flex h-5 w-10 flex-shrink-0 items-center rounded-full transition-colors ${
-              isShared ? 'bg-accent' : 'bg-surface-hover'
-            }`}
-            title={t('agent.visibilityDesc')}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                isShared ? 'translate-x-5' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
+      {/* Avatar + Name */}
+      <button
+        onClick={onInfoClick}
+        className="flex items-center gap-2.5 min-w-0 flex-shrink-0 text-left"
+      >
+        <div
+          className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+        >
+          <span className="text-xs font-semibold text-white">
+            {agent.name.charAt(0).toUpperCase()}
+          </span>
         </div>
-      </div>
+        <span className="text-sm font-medium text-text-primary truncate max-w-[160px] hover:text-accent transition-colors">
+          {agent.name}
+        </span>
+      </button>
+
+      {/* Type badge */}
+      <span
+        className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${type.color}`}
+      >
+        {type.label}
+      </span>
+
+      {/* Device info (hidden on small screens) */}
+      {deviceLabel && (
+        <span className="hidden md:inline text-xs text-text-muted truncate max-w-[200px]">
+          {deviceLabel}
+        </span>
+      )}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Visibility toggle */}
+      <button
+        onClick={handleToggleVisibility}
+        role="switch"
+        aria-checked={isShared}
+        aria-label={t('agent.visibility')}
+        className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+          isShared ? 'bg-accent' : 'bg-surface-hover'
+        }`}
+        title={isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+            isShared ? 'translate-x-4' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
+
+      {/* Info button */}
+      <button
+        onClick={onInfoClick}
+        className="p-1.5 rounded-md text-text-muted hover:text-text-secondary hover:bg-surface-hover transition-colors flex-shrink-0"
+        title={t('agentPanel.title')}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      </button>
+
+      {/* Delete button with inline confirm */}
+      <button
+        onClick={handleDelete}
+        onBlur={() => setConfirmDelete(false)}
+        disabled={deleting}
+        className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${
+          confirmDelete
+            ? 'text-danger-text bg-danger-subtle hover:bg-danger-subtle/80'
+            : 'text-text-muted hover:text-danger-text hover:bg-surface-hover opacity-0 group-hover:opacity-100'
+        } disabled:opacity-50`}
+        title={confirmDelete ? t('agent.confirmDeleteAgent') : t('agent.deleteAgent')}
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
     </div>
   )
 }

@@ -68,7 +68,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
 
       // Agent messages with chunks: only count visible text (not collapsed
       // thinking/tool_use blocks which are hidden by default).
-      // Process sections collapse multiple blocks into a single ~32px header.
+      // Process sections collapse multiple blocks into a single ~28px header.
       if (msg.chunks?.length) {
         const visibleText = msg.chunks.reduce(
           (acc: number, c: { type?: string; content?: string }) => {
@@ -80,19 +80,19 @@ export function MessageList({ onImageClick }: MessageListProps) {
         )
         const lineEstimate = Math.ceil(visibleText / 80)
         // Count process blocks; groups of >=3 consecutive process chunks become
-        // a single collapsed ProcessSection (~32px). Fewer remain individual (~32px each).
+        // a single collapsed ProcessSection (~28px). Fewer remain individual (~28px each).
         const processChunks = msg.chunks.filter(
           (c: { type?: string }) =>
             c.type === 'thinking' || c.type === 'tool_use' || c.type === 'tool_result',
         ).length
         // Approximate: if >=3 process chunks, they collapse into 1 section header
-        const processHeight = processChunks >= 3 ? 32 : processChunks * 32
-        return baseHeight + Math.max(20, lineEstimate * 22) + processHeight
+        const processHeight = processChunks >= 3 ? 28 : processChunks * 28
+        return baseHeight + Math.max(20, lineEstimate * 20) + processHeight
       }
 
       const contentLength = msg.content?.length ?? 0
       const lineEstimate = Math.ceil(contentLength / 80)
-      const contentHeight = Math.max(20, lineEstimate * 22)
+      const contentHeight = Math.max(20, lineEstimate * 20)
       return baseHeight + contentHeight
     },
     [currentMessages],
@@ -121,6 +121,31 @@ export function MessageList({ onImageClick }: MessageListProps) {
       clearTimeout(t2)
     }
   }, [currentMessages, virtualizer])
+
+  // ResizeObserver to re-measure when any message item changes size
+  // (handles dynamic content: expanded/collapsed sections, lazy markdown, images)
+  useEffect(() => {
+    const el = parentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      virtualizer.measure()
+    })
+    const mo = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node instanceof HTMLElement) ro.observe(node)
+        }
+      }
+    })
+    for (const child of el.children) {
+      if (child instanceof HTMLElement) ro.observe(child)
+    }
+    mo.observe(el, { childList: true })
+    return () => {
+      ro.disconnect()
+      mo.disconnect()
+    }
+  }, [virtualizer])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)

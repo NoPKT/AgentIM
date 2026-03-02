@@ -93,6 +93,7 @@ export const zhCN = {
     members: '成员',
     addMember: '添加成员',
     removeMember: '移除成员',
+    backToMembers: '返回成员列表',
     sendMessage: '发送消息...',
     sendWithCmd: 'Cmd+Enter 发送',
     selectRoomToChat: '选择一个房间开始聊天',

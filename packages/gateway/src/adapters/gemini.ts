@@ -100,13 +100,23 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
     await this.config.initialize()
 
-    this.client = new sdk.GeminiClient(this.config)
-    await this.client.initialize()
-    // Note: initialize() already calls startChat() internally — do NOT call startChat() again
+    // Use the Config's own pre-initialized geminiClient — it has a properly
+    // initialized contentGenerator from the Config's internal auth setup.
+    // Creating a separate GeminiClient would fail with "Content generator not initialized".
+    const configClient = (this.config as any).geminiClient as
+      | InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>
+      | undefined
+    if (!configClient) {
+      // Fallback: create a new client if Config doesn't expose geminiClient
+      this.client = new sdk.GeminiClient(this.config)
+      await this.client.initialize()
+    } else {
+      this.client = configClient
+    }
     this.initialized = true
 
     log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
-    return this.client
+    return this.client!
   }
 
   async sendMessage(
