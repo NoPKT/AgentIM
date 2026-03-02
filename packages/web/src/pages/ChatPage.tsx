@@ -505,8 +505,8 @@ export default function ChatPage() {
             />
           )}
 
-          {/* Input */}
-          <MessageInput />
+          {/* Input — hidden when workspace is maximized */}
+          {!workspaceMaximized && <MessageInput />}
         </div>
 
         {/* Member list drawer */}

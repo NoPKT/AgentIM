@@ -73,6 +73,20 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
     const sdk = await this.ensureSdk()
 
+    // The Gemini SDK reads API keys and auth from process.env.
+    // Agent-specific env vars are stored in this.env, so we must bridge them.
+    const envKeys = [
+      'GEMINI_API_KEY',
+      'GOOGLE_API_KEY',
+      'GOOGLE_CLOUD_PROJECT',
+      'GOOGLE_CLOUD_REGION',
+    ]
+    for (const key of envKeys) {
+      if (this.env[key] && !process.env[key]) {
+        process.env[key] = this.env[key]
+      }
+    }
+
     // Determine approval mode
     let approvalMode = sdk.ApprovalMode.DEFAULT
     if (this.permissionLevel === 'bypass') {

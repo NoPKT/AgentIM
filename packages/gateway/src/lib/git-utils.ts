@@ -38,9 +38,9 @@ export async function getWorkspaceStatus(
   }
 
   try {
-    const [branch, diffStat, diffContent, logOutput, statusOutput] = await Promise.all([
+    const [branch, numstatOutput, diffContent, logOutput, statusOutput] = await Promise.all([
       execGit(['rev-parse', '--abbrev-ref', 'HEAD'], workingDirectory),
-      execGit(['diff', '--stat=300', '--no-renames', 'HEAD'], workingDirectory).catch(() => ''),
+      execGit(['diff', '--numstat', '--no-renames', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['diff', '--no-renames', 'HEAD'], workingDirectory).catch(() => ''),
       execGit(['log', '--oneline', '-3'], workingDirectory).catch(() => ''),
       execGit(['status', '--porcelain', '--no-renames'], workingDirectory).catch(() => ''),
@@ -57,38 +57,28 @@ export async function getWorkspaceStatus(
 
     if (statusFiles.size === 0) return null
 
-    // ── 2. Parse diff --stat for +/- counts only ──
-    // We match stat paths to git status paths; stat paths are NEVER used directly.
+    // ── 2. Parse diff --numstat for exact per-file counts ──
+    // Format: "ADDITIONS\tDELETIONS\tPATH" (tab-separated, "-" for binary)
+    // We match numstat paths to git status paths; numstat paths are NEVER used directly.
 
     const statCounts = new Map<string, { additions: number; deletions: number }>()
     let totalAdditions = 0
     let totalDeletions = 0
 
-    for (const line of diffStat.split('\n').filter(Boolean)) {
-      // Summary line: "3 files changed, 10 insertions(+), 5 deletions(-)"
-      if (line.includes('file') && line.includes('changed')) {
-        const addMatch = line.match(/(\d+) insertion/)
-        const delMatch = line.match(/(\d+) deletion/)
-        if (addMatch) totalAdditions = parseInt(addMatch[1])
-        if (delMatch) totalDeletions = parseInt(delMatch[1])
-        continue
-      }
+    for (const line of numstatOutput.split('\n').filter(Boolean)) {
+      const parts = line.split('\t')
+      if (parts.length < 3) continue
+      const [addStr, delStr, ...pathParts] = parts
+      const filePath = pathParts.join('\t') // Handle paths with tabs (rare but possible)
+      if (addStr === '-' || delStr === '-') continue // Binary file
+      const additions = parseInt(addStr) || 0
+      const deletions = parseInt(delStr) || 0
+      totalAdditions += additions
+      totalDeletions += deletions
 
-      // Individual file stat line: " path/to/file | 5 ++--"
-      // Use lastIndexOf to split on the LAST " | " separator (more robust)
-      const pipeIdx = line.lastIndexOf(' | ')
-      if (pipeIdx < 0) continue
-      const rawPath = line.slice(0, pipeIdx).trim()
-      const statsStr = line.slice(pipeIdx + 3)
-      const numMatch = statsStr.match(/^(\d+)\s*([+-]*)/)
-      if (!numMatch) continue // Skip binary files ("Bin 0 -> 1234 bytes")
-
-      const additions = (numMatch[2].match(/\+/g) || []).length
-      const deletions = (numMatch[2].match(/-/g) || []).length
-
-      // Match raw stat path to git status path (exact match only)
-      if (statusFiles.has(rawPath)) {
-        statCounts.set(rawPath, { additions, deletions })
+      // Match numstat path to git status path (exact match only)
+      if (statusFiles.has(filePath)) {
+        statCounts.set(filePath, { additions, deletions })
       }
     }
 
