@@ -730,6 +730,129 @@ function TodoWriteBlock({ content, toolName }: { content: string; toolName: stri
   )
 }
 
+/** Map MCP tool names to friendly display labels */
+function getMcpToolLabel(toolName: string, t: ReturnType<typeof useTranslation>['t']): string {
+  // mcp__server__action format
+  const parts = toolName.split('__')
+  if (parts.length >= 3) {
+    const server = parts[1]
+    const action = parts.slice(2).join('_')
+    // Known AgentIM MCP tools
+    if (server === 'agentim') {
+      const actionMap: Record<string, string> = {
+        send_message: t('chat.toolMcpSendMessage'),
+        list_rooms: t('chat.toolMcpListRooms'),
+        list_members: t('chat.toolMcpListMembers'),
+        read_messages: t('chat.toolMcpReadMessages'),
+      }
+      return actionMap[action] || `AgentIM: ${action.replace(/_/g, ' ')}`
+    }
+    // Generic MCP: show server + action
+    return `${server}: ${action.replace(/_/g, ' ')}`
+  }
+  return toolName
+}
+
+const SIMPLE_TOOL_ICONS = {
+  search: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    />
+  ),
+  globe: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+    />
+  ),
+  agent: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+    />
+  ),
+  plug: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+    />
+  ),
+} as const
+
+/** Compact tool block for simple tools (ToolSearch, WebSearch, MCP tools, etc.) */
+function SimpleToolBlock({
+  content,
+  icon,
+  label,
+}: {
+  content: string
+  icon: keyof typeof SIMPLE_TOOL_ICONS
+  label: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const input = parseToolInput(content)
+  const preview = (() => {
+    if (!input) return ''
+    const q = (input.query ?? input.pattern ?? input.url ?? input.prompt) as string
+    if (q) return q.length > 60 ? q.slice(0, 60) + '...' : q
+    // For MCP tools, show first string value
+    for (const v of Object.values(input)) {
+      if (typeof v === 'string' && v.length > 0) return v.length > 60 ? v.slice(0, 60) + '...' : v
+    }
+    return ''
+  })()
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="inline-flex items-center gap-1">
+          <svg
+            className="w-3.5 h-3.5 text-blue-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            {SIMPLE_TOOL_ICONS[icon]}
+          </svg>
+          <span className="font-medium text-info-text">{label}</span>
+        </span>
+        {!expanded && preview && (
+          <span className="text-text-muted truncate flex-1 font-mono">{preview}</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-info-border">
+          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
+            {content}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolUseBlock({
   content,
   metadata,
@@ -761,6 +884,20 @@ export function ToolUseBlock({
     case 'TaskUpdate':
     case 'TaskList':
       return <TodoWriteBlock content={content} toolName={toolName} />
+    case 'ToolSearch':
+      return <SimpleToolBlock content={content} icon="search" label={t('chat.toolSearch')} />
+    case 'WebSearch':
+      return <SimpleToolBlock content={content} icon="search" label={t('chat.toolWebSearch')} />
+    case 'WebFetch':
+      return <SimpleToolBlock content={content} icon="globe" label={t('chat.toolWebFetch')} />
+    case 'Agent':
+      return <SimpleToolBlock content={content} icon="agent" label={t('chat.toolAgent')} />
+  }
+
+  // Handle MCP tools (mcp__*) with friendly display
+  if (toolName.startsWith('mcp__')) {
+    const friendlyName = getMcpToolLabel(toolName, t)
+    return <SimpleToolBlock content={content} icon="plug" label={friendlyName} />
   }
 
   // Extract a short preview from tool input for the collapsed state
