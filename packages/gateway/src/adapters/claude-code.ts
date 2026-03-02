@@ -19,10 +19,21 @@ import type {
   SDKAssistantMessage,
   SDKResultMessage,
   SDKPartialAssistantMessage,
+  SDKRateLimitEvent as SDKRateLimitEventType,
+  SDKPromptSuggestionMessage,
+  SDKLocalCommandOutputMessage,
+  SDKElicitationCompleteMessage,
+  SDKTaskNotificationMessage,
+  SDKTaskStartedMessage,
+  SDKTaskProgressMessage as SDKTaskProgressMsgType,
+  SDKToolUseSummaryMessage,
   Options,
   ModelInfo,
+  AgentInfo,
   HookCallbackMatcher,
   HookEvent,
+  ElicitationRequest,
+  ElicitationResult,
 } from '@anthropic-ai/claude-agent-sdk'
 
 const log = createLogger('ClaudeCode')
@@ -36,6 +47,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
   // Cached model info from SDK supportedModels()
   private cachedModelInfo: ModelInfo[] = []
+  private cachedAgentInfo: AgentInfo[] = []
   private modelInfoFetched = false
 
   // MCP server for agent-to-agent communication (lazy init)
@@ -194,6 +206,33 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         }
       }
 
+      // Enable prompt suggestions so UI can show predicted next prompts
+      options.promptSuggestions = true
+
+      // Handle MCP elicitation requests (form input / URL auth from MCP servers)
+      options.onElicitation = async (request: ElicitationRequest): Promise<ElicitationResult> => {
+        if (this.onPermissionRequest) {
+          const { nanoid } = await import('nanoid')
+          const requestId = nanoid()
+          const result = await this.onPermissionRequest({
+            requestId,
+            toolName: `elicitation:${request.serverName}`,
+            toolInput: {
+              message: request.message,
+              mode: request.mode,
+              url: request.url,
+              requestedSchema: request.requestedSchema,
+            },
+            timeoutMs: PERMISSION_TIMEOUT_MS,
+          })
+          if (result.behavior === 'allow') {
+            return { action: 'accept' as const, content: {} }
+          }
+          return { action: 'decline' as const }
+        }
+        return { action: 'decline' as const }
+      }
+
       // Hooks for lifecycle events
       options.hooks = this.buildHooks(onChunk)
 
@@ -228,7 +267,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         })
       }
 
-      // Fetch supported models after first successful query (async, non-blocking)
+      // Fetch supported models and agents after first successful query (async, non-blocking)
       if (!this.modelInfoFetched && response) {
         this.modelInfoFetched = true
         response
@@ -239,6 +278,15 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           })
           .catch((err) => {
             log.warn(`Failed to fetch supported models: ${err}`)
+          })
+        response
+          .supportedAgents()
+          .then((agents) => {
+            this.cachedAgentInfo = agents
+            log.info(`Cached ${agents.length} supported agents from SDK`)
+          })
+          .catch((err) => {
+            log.warn(`Failed to fetch supported agents: ${err}`)
           })
       }
 
@@ -263,8 +311,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     onChunk: ChunkCallback,
     appendText: (text: string) => void,
   ) {
+    // Use untyped access to avoid discriminated union narrowing issues.
+    // SDKMessage is a wide union where many subtypes share type === 'system'.
+    const msg = message as Record<string, unknown>
+    const msgType = msg.type as string
+    const msgSubtype = msg.subtype as string | undefined
+
     // Capture session ID from init message
-    if (message.type === 'system' && 'subtype' in message && message.subtype === 'init') {
+    if (msgType === 'system' && msgSubtype === 'init') {
       const initMsg = message as SDKSystemMessage
       this.sessionId = initMsg.session_id
       log.info(`Session started: ${this.sessionId}`)
@@ -272,7 +326,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
 
     // Process assistant messages with content blocks
-    if (message.type === 'assistant') {
+    if (msgType === 'assistant') {
       const assistantMsg = message as SDKAssistantMessage
       if (assistantMsg.message?.content) {
         for (const block of assistantMsg.message.content) {
@@ -287,7 +341,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
 
     // Process streaming events for incremental text
-    if (message.type === 'stream_event') {
+    if (msgType === 'stream_event') {
       const streamMsg = message as SDKPartialAssistantMessage
       const event = streamMsg.event
       if ('delta' in event) {
@@ -304,7 +358,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
 
     // Extract result — accumulate cost and token usage
-    if (message.type === 'result') {
+    if (msgType === 'result') {
       const resultMsg = message as SDKResultMessage
       if (resultMsg.subtype === 'success') {
         this.accumulatedCostUSD += resultMsg.total_cost_usd ?? 0
@@ -334,6 +388,89 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           this.accumulatedOutputTokens += resultMsg.usage.output_tokens ?? 0
         }
       }
+      return
+    }
+
+    // Rate limit events — surface to UI
+    if (msgType === 'rate_limit_event') {
+      const rlMsg = message as SDKRateLimitEventType
+      const info = rlMsg.rate_limit_info
+      if (info.status === 'rejected' || info.status === 'allowed_warning') {
+        const resetsAt = info.resetsAt ? new Date(info.resetsAt * 1000).toISOString() : 'unknown'
+        onChunk({
+          type: 'text',
+          content: `[Rate limit ${info.status}: ${info.rateLimitType ?? 'unknown'}, resets at ${resetsAt}]`,
+          metadata: { rateLimit: true },
+        })
+      }
+      return
+    }
+
+    // Prompt suggestions — emit for UI to display
+    if (msgType === 'prompt_suggestion') {
+      const psMsg = message as SDKPromptSuggestionMessage
+      onChunk({
+        type: 'text',
+        content: '',
+        metadata: { promptSuggestion: psMsg.suggestion },
+      })
+      return
+    }
+
+    // Task lifecycle messages
+    if (msgType === 'system' && msgSubtype === 'task_started') {
+      const taskMsg = message as SDKTaskStartedMessage
+      onChunk({
+        type: 'text',
+        content: `[Task started: ${taskMsg.description}]`,
+        metadata: { taskEvent: 'started', taskId: taskMsg.task_id },
+      })
+      return
+    }
+
+    if (msgType === 'system' && msgSubtype === 'task_progress') {
+      const taskMsg = message as SDKTaskProgressMsgType
+      onChunk({
+        type: 'text',
+        content: `[Task progress: ${taskMsg.description}]`,
+        metadata: { taskEvent: 'progress', taskId: taskMsg.task_id },
+      })
+      return
+    }
+
+    if (msgType === 'system' && msgSubtype === 'task_notification') {
+      const taskMsg = message as SDKTaskNotificationMessage
+      onChunk({
+        type: 'text',
+        content: `[Task ${taskMsg.status}: ${taskMsg.summary}]`,
+        metadata: { taskEvent: taskMsg.status, taskId: taskMsg.task_id },
+      })
+      return
+    }
+
+    // Local command output (e.g. /cost, /voice)
+    if (msgType === 'system' && msgSubtype === 'local_command_output') {
+      const cmdMsg = message as SDKLocalCommandOutputMessage
+      onChunk({ type: 'text', content: cmdMsg.content })
+      appendText(cmdMsg.content)
+      return
+    }
+
+    // Elicitation complete
+    if (msgType === 'system' && msgSubtype === 'elicitation_complete') {
+      const elMsg = message as SDKElicitationCompleteMessage
+      log.info(`Elicitation complete: ${elMsg.mcp_server_name} (${elMsg.elicitation_id})`)
+      return
+    }
+
+    // Tool use summary
+    if (msgType === 'system' && msgSubtype === 'tool_use_summary') {
+      const sumMsg = message as SDKToolUseSummaryMessage
+      onChunk({
+        type: 'text',
+        content: sumMsg.summary,
+        metadata: { toolUseSummary: true },
+      })
       return
     }
   }
@@ -453,6 +590,66 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           hooks: [
             async () => {
               this.toolUseCount++
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      Elicitation: [
+        {
+          hooks: [
+            async (input) => {
+              const data = input as {
+                hook_event_name: string
+                mcp_server_name?: string
+                message?: string
+                [key: string]: unknown
+              }
+              onChunk({
+                type: 'text',
+                content: `[Elicitation from ${data.mcp_server_name ?? 'unknown'}: ${data.message ?? ''}]`,
+                metadata: { hookEvent: 'Elicitation' },
+              })
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      ElicitationResult: [
+        {
+          hooks: [
+            async (input) => {
+              const data = input as {
+                hook_event_name: string
+                action?: string
+                mcp_server_name?: string
+                [key: string]: unknown
+              }
+              onChunk({
+                type: 'text',
+                content: `[Elicitation result: ${data.action ?? 'unknown'} (${data.mcp_server_name ?? 'unknown'})]`,
+                metadata: { hookEvent: 'ElicitationResult' },
+              })
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      SessionStart: [
+        {
+          hooks: [
+            async () => {
+              log.info('Session started (hook)')
+              return { continue: true }
+            },
+          ],
+        },
+      ],
+      SessionEnd: [
+        {
+          hooks: [
+            async () => {
+              log.info('Session ended (hook)')
               return { continue: true }
             },
           ],
@@ -633,6 +830,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       displayName: m.displayName,
       description: m.description,
     }))
+  }
+
+  /** Get cached agent info from SDK supportedAgents(). */
+  getAvailableAgents(): AgentInfo[] {
+    return this.cachedAgentInfo
   }
 
   override getAvailableEffortLevels(): string[] {

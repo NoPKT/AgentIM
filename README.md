@@ -24,6 +24,9 @@
   <img src="https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Node.js-24%2B-green?logo=node.js&logoColor=white" alt="Node.js">
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
+  <img src="https://img.shields.io/badge/tests-845%20passed-brightgreen?logo=vitest&logoColor=white" alt="Tests">
+  <img src="https://img.shields.io/badge/gateway_tests-221-blue?logo=node.js&logoColor=white" alt="Gateway Tests">
+  <img src="https://img.shields.io/badge/web_tests-624-blue?logo=react&logoColor=white" alt="Web Tests">
 </p>
 
 ---

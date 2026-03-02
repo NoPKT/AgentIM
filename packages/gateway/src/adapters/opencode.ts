@@ -15,6 +15,10 @@ import type {
   TextPart,
   ReasoningPart,
   ToolPart,
+  StepFinishPart,
+  CompactionPart,
+  AgentPart,
+  RetryPart,
   Part,
 } from '@opencode-ai/sdk'
 
@@ -481,6 +485,59 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       return []
     }
 
+    // Step finish — accumulate per-step cost and token data
+    if (part.type === 'step-finish') {
+      const step = part as StepFinishPart
+      this.accumulatedCostUSD += step.cost ?? 0
+      if (step.tokens) {
+        this.accumulatedInputTokens += step.tokens.input ?? 0
+        this.accumulatedOutputTokens += step.tokens.output ?? 0
+        this.accumulatedCacheReadTokens += step.tokens.cache?.read ?? 0
+      }
+      return []
+    }
+
+    // Compaction events
+    if (part.type === 'compaction') {
+      const comp = part as CompactionPart
+      log.info(`Session compacted (auto=${comp.auto})`)
+      return [
+        {
+          type: 'text' as const,
+          content: `[Session compacted${comp.auto ? ' (auto)' : ''}]`,
+          metadata: { compaction: true },
+        },
+      ]
+    }
+
+    // Agent switching events
+    if (part.type === 'agent') {
+      const agent = part as AgentPart
+      return [
+        {
+          type: 'text' as const,
+          content: `[Agent: ${agent.name}]`,
+          metadata: { agentSwitch: true, agentName: agent.name },
+        },
+      ]
+    }
+
+    // Retry events
+    if (part.type === 'retry') {
+      const retry = part as RetryPart
+      const errMsg =
+        retry.error && typeof retry.error === 'object' && 'message' in retry.error
+          ? (retry.error as { message: string }).message
+          : 'unknown error'
+      return [
+        {
+          type: 'text' as const,
+          content: `[Retry attempt ${retry.attempt}: ${errMsg}]`,
+          metadata: { retry: true, attempt: retry.attempt },
+        },
+      ]
+    }
+
     return []
   }
 
@@ -492,6 +549,12 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
   }> {
     return [
       { name: 'clear', description: 'Reset session', usage: '/clear', source: 'builtin' },
+      {
+        name: 'compact',
+        description: 'Compact session context',
+        usage: '/compact',
+        source: 'builtin',
+      },
       {
         name: 'model',
         description: 'Switch model/provider',
@@ -535,6 +598,11 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       case 'clear': {
         this.sessionId = undefined
         return { success: true, message: 'Session cleared' }
+      }
+      case 'compact': {
+        // Reset session to trigger compaction on next message
+        this.sessionId = undefined
+        return { success: true, message: 'Session compacted (reset)' }
       }
       case 'model': {
         const input = args.trim()

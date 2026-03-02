@@ -8,7 +8,7 @@ import {
   type MessageContext,
 } from './base.js'
 import { createLogger } from '../lib/logger.js'
-import type { Codex, Thread, ThreadItem } from '@openai/codex-sdk'
+import type { Codex, Thread, ThreadItem, SandboxMode, WebSearchMode } from '@openai/codex-sdk'
 
 const log = createLogger('Codex')
 
@@ -51,6 +51,12 @@ export class CodexAdapter extends BaseAgentAdapter {
   // Runtime settings configurable via slash commands
   private modelOverride?: string
   private reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+  private sandboxMode?: SandboxMode
+  private webSearchMode?: WebSearchMode
+  private networkAccess?: boolean
+
+  // Abort controller for the current turn
+  private turnAbort?: AbortController
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -69,6 +75,7 @@ export class CodexAdapter extends BaseAgentAdapter {
       this.codex = new CodexClass({
         apiKey: this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY || undefined,
         baseUrl: this.env.OPENAI_BASE_URL || undefined,
+        env: Object.keys(this.env).length > 0 ? (this.env as Record<string, string>) : undefined,
       })
     }
   }
@@ -142,6 +149,10 @@ export class CodexAdapter extends BaseAgentAdapter {
         modelReasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
         workingDirectory?: string
         approvalPolicy?: 'never' | 'on-request'
+        sandboxMode?: SandboxMode
+        networkAccessEnabled?: boolean
+        webSearchMode?: WebSearchMode
+        additionalDirectories?: string[]
       } = {
         workingDirectory: this.workingDirectory,
         approvalPolicy,
@@ -151,6 +162,18 @@ export class CodexAdapter extends BaseAgentAdapter {
       }
       if (this.reasoningEffort) {
         threadOpts.modelReasoningEffort = this.reasoningEffort
+      }
+      if (this.sandboxMode) {
+        threadOpts.sandboxMode = this.sandboxMode
+      }
+      if (this.networkAccess !== undefined) {
+        threadOpts.networkAccessEnabled = this.networkAccess
+      }
+      if (this.webSearchMode) {
+        threadOpts.webSearchMode = this.webSearchMode
+      }
+      if (this.env.CODEX_ADDITIONAL_DIRS) {
+        threadOpts.additionalDirectories = this.env.CODEX_ADDITIONAL_DIRS.split(':')
       }
       if (this.threadId) {
         this.thread = this.codex!.resumeThread(this.threadId, threadOpts)
@@ -199,7 +222,11 @@ export class CodexAdapter extends BaseAgentAdapter {
     try {
       await this.ensureThread()
       const prompt = this.buildPrompt(content, context)
-      const { events } = await this.thread!.runStreamed(prompt)
+      const abortController = new AbortController()
+      this.turnAbort = abortController
+      const { events } = await this.thread!.runStreamed(prompt, {
+        signal: abortController.signal,
+      })
 
       for await (const event of events) {
         // Capture thread ID
@@ -244,12 +271,18 @@ export class CodexAdapter extends BaseAgentAdapter {
       }
 
       this.isRunning = false
+      this.turnAbort = undefined
       onComplete(fullContent)
     } catch (err: unknown) {
       this.isRunning = false
-      const msg = err instanceof Error ? err.message : String(err)
-      log.error(`Codex SDK error: ${msg}`)
-      onError(msg)
+      this.turnAbort = undefined
+      if ((err as Error).name === 'AbortError') {
+        onComplete(fullContent || 'Interrupted')
+      } else {
+        const msg = err instanceof Error ? err.message : String(err)
+        log.error(`Codex SDK error: ${msg}`)
+        onError(msg)
+      }
     }
   }
 
@@ -340,6 +373,24 @@ export class CodexAdapter extends BaseAgentAdapter {
         usage: '/cost',
         source: 'builtin',
       },
+      {
+        name: 'sandbox',
+        description: 'Set sandbox mode: read-only, workspace-write, danger-full-access',
+        usage: '/sandbox [mode]',
+        source: 'builtin',
+      },
+      {
+        name: 'websearch',
+        description: 'Set web search mode: disabled, cached, live',
+        usage: '/websearch [mode]',
+        source: 'builtin',
+      },
+      {
+        name: 'network',
+        description: 'Toggle network access',
+        usage: '/network [on|off]',
+        source: 'builtin',
+      },
     ]
   }
 
@@ -413,6 +464,64 @@ export class CodexAdapter extends BaseAgentAdapter {
         ]
         return { success: true, message: lines.join('\n') }
       }
+      case 'sandbox': {
+        const mode = args.trim().toLowerCase()
+        if (!mode) {
+          return {
+            success: true,
+            message: `Sandbox mode: ${this.sandboxMode ?? '(default)'}\nOptions: read-only, workspace-write, danger-full-access`,
+          }
+        }
+        const valid = ['read-only', 'workspace-write', 'danger-full-access'] as const
+        if (!valid.includes(mode as (typeof valid)[number])) {
+          return {
+            success: false,
+            message: `Invalid sandbox mode: ${mode}\nOptions: read-only, workspace-write, danger-full-access`,
+          }
+        }
+        this.sandboxMode = mode as SandboxMode
+        this.thread = undefined
+        return { success: true, message: `Sandbox set to: ${mode} (thread will restart)` }
+      }
+      case 'websearch': {
+        const mode = args.trim().toLowerCase()
+        if (!mode) {
+          return {
+            success: true,
+            message: `Web search mode: ${this.webSearchMode ?? '(default)'}\nOptions: disabled, cached, live`,
+          }
+        }
+        const valid = ['disabled', 'cached', 'live'] as const
+        if (!valid.includes(mode as (typeof valid)[number])) {
+          return {
+            success: false,
+            message: `Invalid web search mode: ${mode}\nOptions: disabled, cached, live`,
+          }
+        }
+        this.webSearchMode = mode as WebSearchMode
+        this.thread = undefined
+        return { success: true, message: `Web search set to: ${mode} (thread will restart)` }
+      }
+      case 'network': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.networkAccess = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.networkAccess = false
+        } else if (!arg) {
+          return {
+            success: true,
+            message: `Network access: ${this.networkAccess === undefined ? '(default)' : this.networkAccess ? 'enabled' : 'disabled'}\nUse /network on|off`,
+          }
+        } else {
+          this.networkAccess = !this.networkAccess
+        }
+        this.thread = undefined
+        return {
+          success: true,
+          message: `Network access: ${this.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
+        }
+      }
       default:
         return { success: false, message: `Unknown command: ${command}` }
     }
@@ -421,14 +530,21 @@ export class CodexAdapter extends BaseAgentAdapter {
   stop() {
     log.info('Codex stop requested')
     this.isRunning = false
-    // Codex SDK doesn't expose a cancellation API on the Thread object,
-    // so we discard the current thread to prevent further event processing.
-    // threadId is preserved so ensureThread() can resume the conversation.
+    // Use AbortSignal to cancel the running turn, then discard the thread
+    if (this.turnAbort) {
+      this.turnAbort.abort()
+      this.turnAbort = undefined
+    }
+    // threadId is preserved so ensureThread() can resume the conversation
     this.thread = undefined
   }
 
   dispose() {
     this.isRunning = false
+    if (this.turnAbort) {
+      this.turnAbort.abort()
+      this.turnAbort = undefined
+    }
     this.thread = undefined
     this.threadId = undefined
     this.codex = undefined
