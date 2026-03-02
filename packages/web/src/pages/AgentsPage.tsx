@@ -212,7 +212,7 @@ function AgentRow({
         </span>
 
         {/* Avatar + Name */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div
             className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
           >
@@ -220,9 +220,7 @@ function AgentRow({
               {agent.name.charAt(0).toUpperCase()}
             </span>
           </div>
-          <span className="text-sm font-medium text-text-primary truncate max-w-[160px]">
-            {agent.name}
-          </span>
+          <span className="text-sm font-medium text-text-primary truncate">{agent.name}</span>
         </div>
 
         {/* Type badge */}
@@ -238,9 +236,6 @@ function AgentRow({
             {deviceLabel}
           </span>
         )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
 
         {/* Visibility toggle */}
         <button
