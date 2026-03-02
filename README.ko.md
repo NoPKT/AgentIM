@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. 에이전트 시작
+### 3. 자격 증명 구성
+
+```bash
+# 자격 증명 추가 (API 키 또는 구독 로그인)
+agentim claude login
+
+# 자격 증명 관리 (목록, 추가, 이름 변경, 삭제, 기본값 설정)
+agentim claude token
+
+# 시작 시 특정 자격 증명 지정
+agentim claude --credential work-api /path/to/project
+```
+
+각 에이전트 유형은 여러 개의 명명된 자격 증명을 지원합니다. 하나만 있으면 자동으로 사용됩니다.
+
+### 4. 에이전트 시작
 
 ```bash
 # 현재 디렉토리에서 Claude Code 에이전트 시작
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # 다른 에이전트 유형
 agentim codex /path/to/project
-agentim gemini /path/to/project   # 곧 지원 예정
+agentim gemini /path/to/project
 ```
 
 ### 데몬 모드

@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Запуск агента
+### 3. Настройка учётных данных
+
+```bash
+# Добавить учётные данные (API-ключ или вход по подписке)
+agentim claude login
+
+# Управление учётными данными (список, добавление, переименование, удаление, назначение по умолчанию)
+agentim claude token
+
+# Указать конкретные учётные данные при запуске
+agentim claude --credential work-api /path/to/project
+```
+
+Каждый тип агента поддерживает несколько именованных учётных данных. Если есть только одни, они используются автоматически.
+
+### 4. Запуск агента
 
 ```bash
 # Запустить агента Claude Code в текущей директории
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Другие типы агентов
 agentim codex /path/to/project
-agentim gemini /path/to/project   # скоро
+agentim gemini /path/to/project
 ```
 
 ### Режим демона

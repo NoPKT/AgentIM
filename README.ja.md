@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. エージェントを起動
+### 3. 資格情報の設定
+
+```bash
+# 資格情報を追加（APIキーまたはサブスクリプションログイン）
+agentim claude login
+
+# 資格情報の管理（一覧、追加、名前変更、削除、デフォルト設定）
+agentim claude token
+
+# 起動時に特定の資格情報を指定
+agentim claude --credential work-api /path/to/project
+```
+
+各エージェントタイプは複数の名前付き資格情報をサポートしています。1つしかない場合は自動的に使用されます。
+
+### 4. エージェントを起動
 
 ```bash
 # 現在のディレクトリで Claude Code エージェントを起動
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # その他のエージェントタイプ
 agentim codex /path/to/project
-agentim gemini /path/to/project   # 近日対応予定
+agentim gemini /path/to/project
 ```
 
 ### デーモンモード

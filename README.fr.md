@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Démarrer un agent
+### 3. Configurer les identifiants
+
+```bash
+# Ajouter un identifiant (clé API ou connexion par abonnement)
+agentim claude login
+
+# Gérer les identifiants (lister, ajouter, renommer, supprimer, définir par défaut)
+agentim claude token
+
+# Spécifier un identifiant au démarrage
+agentim claude --credential work-api /path/to/project
+```
+
+Chaque type d'agent prend en charge plusieurs identifiants nommés. S'il n'y en a qu'un, il est utilisé automatiquement.
+
+### 4. Démarrer un agent
 
 ```bash
 # Démarrer un agent Claude Code dans le répertoire courant
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Autres types d'agents
 agentim codex /path/to/project
-agentim gemini /path/to/project   # bientôt disponible
+agentim gemini /path/to/project
 ```
 
 ### Mode démon

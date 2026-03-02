@@ -184,7 +184,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Start an Agent
+### 3. Configure Credentials
+
+```bash
+# Add a credential (API key or subscription login)
+agentim claude login
+
+# Manage credentials (list, add, rename, delete, set default)
+agentim claude token
+
+# Use a specific credential when starting an agent
+agentim claude --credential work-api /path/to/project
+```
+
+Each agent type supports multiple named credentials. When only one exists, it is used automatically.
+
+### 4. Start an Agent
 
 ```bash
 # Start a Claude Code agent in the current directory

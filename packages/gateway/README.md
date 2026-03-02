@@ -19,8 +19,17 @@ AGENTIM_PASSWORD=YourPassword aim login -s http://localhost:3000 -u admin
 # Configure agent credentials (interactive wizard)
 aim setup claude-code
 
+# Add a new credential (API key or subscription)
+aim claude login
+
+# Manage credentials (list, add, rename, delete, set default)
+aim claude token
+
 # Start a Claude Code agent in the current directory (interactive mode)
 aim claude
+
+# Start with a specific credential
+aim claude --credential work-api /path/to/project
 
 # Start with bypass permissions (auto-approve all tool calls)
 aim claude /path/to/project -y
@@ -45,14 +54,34 @@ aim daemon
 - `aim logout` -- Clear saved credentials
 - `aim setup [agent-type]` -- Interactive setup wizard for agent credentials
 - `aim claude [path]` -- Start a Claude Code agent (default: current directory)
+- `aim claude login` -- Add a new Claude Code credential
+- `aim claude token` -- Manage Claude Code credentials (list, add, rename, delete, set default)
 - `aim codex [path]` -- Start a Codex agent
+- `aim codex login` -- Add a new Codex credential
+- `aim codex token` -- Manage Codex credentials
 - `aim gemini [path]` -- Start a Gemini CLI agent
+- `aim gemini login` -- Add a new Gemini credential
+- `aim gemini token` -- Manage Gemini credentials
 - `aim daemon` -- Start daemon mode (server-managed agents)
 - `aim list` -- List running agent daemons
 - `aim stop <name>` -- Gracefully stop a running agent daemon
 - `aim rm <name>` -- Stop and clean up an agent daemon
 - `aim adapters` -- List all available adapter types (built-in + custom)
 - `aim status` -- Show configuration status
+
+### Credential Management
+
+Each agent type supports multiple named credentials. When starting an agent:
+
+- **0 credentials**: Setup wizard runs automatically
+- **1 credential**: Used automatically
+- **N credentials**: Default credential is used, or you are prompted to select
+
+Use `-c, --credential <name>` to specify a credential by name or ID prefix:
+
+```bash
+aim claude --credential work-api /path/to/project
+```
 
 ### Permission Modes
 

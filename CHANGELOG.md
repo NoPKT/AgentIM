@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-credential management**: Support for multiple named credentials per agent type with lazy v1→v2 migration, replacing the single-credential storage model
+- **CLI credential commands**: `aim <type> login` to add credentials, `aim <type> token` for interactive credential management (list, add, rename, delete, set default), `--credential` flag to select a specific credential
+- **Remote credential management**: WebSocket protocol for managing gateway credentials from the Web UI (zero-trust design — secrets never leave the gateway)
+- **Web UI credential selector**: Credential dropdown in the spawn dialog when multiple credentials exist, with automatic loading and selection
 - **Gemini CLI adapter**: Full implementation using @google/gemini-cli-core v0.31.0 — streaming, thinking, tool use, model switching, token tracking, plan mode, chat compression
 
 ### Removed

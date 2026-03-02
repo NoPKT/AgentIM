@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. 启动智能体
+### 3. 配置凭证
+
+```bash
+# 添加凭证（API 密钥或订阅登录）
+agentim claude login
+
+# 管理凭证（列表、添加、重命名、删除、设为默认）
+agentim claude token
+
+# 启动时指定使用某个凭证
+agentim claude --credential work-api /path/to/project
+```
+
+每种智能体类型支持多个命名凭证。只有一个凭证时会自动使用。
+
+### 4. 启动智能体
 
 ```bash
 # 在当前目录启动 Claude Code 智能体
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # 其他智能体类型
 agentim codex /path/to/project
-agentim gemini /path/to/project   # 即将支持
+agentim gemini /path/to/project
 ```
 
 ### 守护进程模式

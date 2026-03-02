@@ -147,7 +147,22 @@ agentim login
 AGENTIM_PASSWORD=YourPassword agentim login -s https://your-server.com -u admin
 ```
 
-### 3. Einen Agenten starten
+### 3. Anmeldedaten konfigurieren
+
+```bash
+# Anmeldedaten hinzufügen (API-Schlüssel oder Abonnement-Login)
+agentim claude login
+
+# Anmeldedaten verwalten (auflisten, hinzufügen, umbenennen, löschen, Standard setzen)
+agentim claude token
+
+# Beim Start bestimmte Anmeldedaten angeben
+agentim claude --credential work-api /path/to/project
+```
+
+Jeder Agententyp unterstützt mehrere benannte Anmeldedaten. Wenn nur eine vorhanden ist, wird sie automatisch verwendet.
+
+### 4. Einen Agenten starten
 
 ```bash
 # Einen Claude Code Agenten im aktuellen Verzeichnis starten
@@ -161,7 +176,7 @@ agentim claude -n my-frontend /path/to/frontend
 
 # Andere Agententypen
 agentim codex /path/to/project
-agentim gemini /path/to/project   # demnächst verfügbar
+agentim gemini /path/to/project
 ```
 
 ### Daemon-Modus
