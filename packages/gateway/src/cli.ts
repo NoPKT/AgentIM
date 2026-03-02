@@ -261,8 +261,10 @@ async function resolveAgentCredential(
     log.info(`No credentials configured for ${displayName}.`)
     log.info('Running setup wizard...')
     await runSetupWizard(agentType)
-    const config = loadAgentConfig(agentType)
-    return config
+    // After setup, resolve the newly created credential
+    const newCreds = listCredentials(agentType)
+    if (newCreds.length === 0) return null
+    return credentialToAuthConfig(newCreds[0])
   }
 
   // 1 credential → auto-use
