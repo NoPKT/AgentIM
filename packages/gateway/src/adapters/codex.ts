@@ -108,7 +108,7 @@ export class CodexAdapter extends BaseAgentAdapter {
       const body = (await res.json()) as { data?: Array<{ id: string }> }
       if (!body.data) return
       const models = body.data
-        .filter((m) => /codex/i.test(m.id))
+        .filter((m) => /codex|^o[0-9]|^gpt-4o/i.test(m.id))
         .map((m) => m.id)
         .sort()
         .reverse()
@@ -441,7 +441,7 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   override getModel(): string | undefined {
-    return this.modelOverride || this.env.CODEX_MODEL || undefined
+    return this.modelOverride || this.env.CODEX_MODEL || 'codex-mini-latest'
   }
 
   // Models are fetched dynamically from the OpenAI /v1/models API.

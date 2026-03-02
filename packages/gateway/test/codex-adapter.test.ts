@@ -21,7 +21,7 @@ describe('CodexAdapter slash commands', () => {
     const a = make()
     const r = await a.handleSlashCommand('model', '')
     assert.ok(r.success)
-    assert.ok(r.message?.includes('(default)'))
+    assert.ok(r.message?.includes('codex-mini-latest'))
     a.dispose()
   })
 
@@ -203,9 +203,9 @@ describe('CodexAdapter metadata methods', () => {
     a.dispose()
   })
 
-  it('getModel returns undefined when no env', () => {
+  it('getModel returns default when no env', () => {
     const a = make()
-    assert.equal(a.getModel(), undefined)
+    assert.equal(a.getModel(), 'codex-mini-latest')
     a.dispose()
   })
 
