@@ -3,9 +3,14 @@ import assert from 'node:assert/strict'
 import { agentConfigToEnv, type AgentAuthConfig } from '../src/agent-config.js'
 
 describe('agentConfigToEnv', () => {
-  it('subscription mode returns empty env', () => {
+  it('claude-code subscription returns empty env (SDK handles OAuth)', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
     assert.deepEqual(agentConfigToEnv('claude-code', config), {})
+  })
+
+  it('gemini subscription returns empty env (SDK handles OAuth)', () => {
+    const config: AgentAuthConfig = { mode: 'subscription' }
+    assert.deepEqual(agentConfigToEnv('gemini', config), {})
   })
 
   it('claude-code: apiKey maps to ANTHROPIC_API_KEY', () => {

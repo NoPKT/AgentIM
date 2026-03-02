@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { homedir } from 'node:os'
 import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
@@ -90,27 +87,11 @@ export class CodexAdapter extends BaseAgentAdapter {
 
   /**
    * Fetch available models from the OpenAI /v1/models endpoint.
-   * Auth mode is already determined at adapter creation:
-   *   - API-key mode: OPENAI_API_KEY / CODEX_API_KEY is in env
-   *   - OAuth mode: access_token is in ~/.codex/auth.json (written by `codex login`)
+   * Credentials (API key or OAuth token) are already resolved into
+   * env by agentConfigToEnv() at connection time.
    */
   private async fetchModels(): Promise<void> {
-    const apiKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY
-    let token: string | undefined
-    if (apiKey) {
-      token = apiKey
-    } else {
-      // OAuth mode — read the token that `codex login` stored
-      try {
-        const authPath = join(homedir(), '.codex', 'auth.json')
-        const auth = JSON.parse(readFileSync(authPath, 'utf-8')) as {
-          access_token?: string
-        }
-        token = auth.access_token
-      } catch {
-        // auth.json missing — user hasn't logged in yet
-      }
-    }
+    const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
     if (!token) return
 
     const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
