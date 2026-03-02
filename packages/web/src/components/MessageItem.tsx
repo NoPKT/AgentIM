@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import { LazyMarkdown } from './LazyMarkdown.js'
 import { useChatStore } from '../stores/chat.js'
+import { useAgentStore } from '../stores/agents.js'
 import { getAvatarGradient } from '../lib/avatars.js'
+import { agentTypeIcons, agentGradients } from '../lib/agentConfig.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
 import { MediaMessage } from './MediaMessage.js'
 import { twMerge } from 'tailwind-merge'
@@ -409,6 +411,9 @@ export const MessageItem = memo(function MessageItem({
   }
 
   const isAgent = message.senderType === 'agent'
+  const agentInfo = useAgentStore((s) =>
+    isAgent ? s.agents.find((a) => a.id === message.senderId) : undefined,
+  )
 
   return (
     <div
@@ -515,11 +520,25 @@ export const MessageItem = memo(function MessageItem({
         {/* Avatar — hidden for grouped messages, placeholder keeps alignment */}
         {showHeader ? (
           <div
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${getAvatarGradient(message.senderName)}`}
+            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${
+              isAgent
+                ? agentGradients[agentInfo?.type ?? 'generic'] || agentGradients.generic
+                : getAvatarGradient(message.senderName)
+            }`}
           >
-            <span className="text-sm font-medium text-white">
-              {message.senderName.charAt(0).toUpperCase()}
-            </span>
+            {isAgent ? (
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                {(agentTypeIcons[agentInfo?.type ?? 'generic'] || agentTypeIcons.generic).paths.map(
+                  (d, i) => (
+                    <path key={i} d={d} />
+                  ),
+                )}
+              </svg>
+            ) : (
+              <span className="text-sm font-medium text-white">
+                {message.senderName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
         ) : (
           <div className="flex-shrink-0 w-8" />
@@ -541,11 +560,6 @@ export const MessageItem = memo(function MessageItem({
                   </span>
                 )}
               </span>
-              {isAgent && (
-                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
-                  {t('agent.agents')}
-                </span>
-              )}
               <span className="text-xs text-text-muted">
                 {new Date(message.createdAt).toLocaleString(i18n.language, {
                   month: 'numeric',

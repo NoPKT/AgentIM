@@ -131,7 +131,7 @@ function WorkspaceFileItem({ file }: { file: WorkspaceFileChange }) {
         className="flex items-center gap-2 text-xs w-full text-left py-0.5 hover:bg-surface-hover rounded px-1"
       >
         <FileStatusIcon status={file.status} />
-        <span className="font-mono truncate flex-1">{file.path}</span>
+        <span className="font-mono truncate flex-1 text-text-primary">{file.path}</span>
         {file.additions != null && file.additions > 0 && (
           <span className="text-green-600 dark:text-green-400 text-xs">+{file.additions}</span>
         )}
@@ -415,7 +415,7 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
                 ) : (
                   <FileIcon className="w-3.5 h-3.5 text-text-muted flex-shrink-0" />
                 )}
-                <span className="truncate flex-1">{entry.name}</span>
+                <span className="truncate flex-1 text-text-primary">{entry.name}</span>
                 {entry.size != null && entry.type === 'file' && (
                   <span className="text-text-muted text-[10px]">
                     {entry.size > 1024 ? `${Math.round(entry.size / 1024)}KB` : `${entry.size}B`}
