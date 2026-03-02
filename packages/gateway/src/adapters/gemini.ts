@@ -98,21 +98,24 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }
     this.config = new sdk.Config(configOpts)
 
+    // Config._initialize() calls geminiClient.initialize() which requires
+    // a contentGenerator, but contentGenerator is only set inside
+    // refreshAuth(). We must call refreshAuth() BEFORE initialize().
+    const authType = sdk.getAuthTypeFromEnv()
+    if (authType) {
+      await this.config.refreshAuth(authType)
+    } else {
+      // Default to API key auth — GEMINI_API_KEY should be set
+      await this.config.refreshAuth(sdk.AuthType.USE_GEMINI)
+    }
+
     await this.config.initialize()
 
-    // Use the Config's own pre-initialized geminiClient — it has a properly
-    // initialized contentGenerator from the Config's internal auth setup.
-    // Creating a separate GeminiClient would fail with "Content generator not initialized".
-    const configClient = (this.config as any).geminiClient as
-      | InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>
-      | undefined
-    if (!configClient) {
-      // Fallback: create a new client if Config doesn't expose geminiClient
-      this.client = new sdk.GeminiClient(this.config)
-      await this.client.initialize()
-    } else {
-      this.client = configClient
-    }
+    // Use the Config's own pre-initialized geminiClient — it shares the
+    // contentGenerator set by refreshAuth() above.
+    this.client = (this.config as any).geminiClient as InstanceType<
+      typeof import('@google/gemini-cli-core').GeminiClient
+    >
     this.initialized = true
 
     log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
