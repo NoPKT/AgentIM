@@ -6,12 +6,12 @@ interface ActionBarProps {
   loggedIn: boolean
 }
 
-function HotKey({ key, label }: { key: string; label: string }) {
+function HotKey({ hotkey, label }: { hotkey: string; label: string }) {
   return (
     <Text>
       [
       <Text bold color="cyan">
-        {key}
+        {hotkey}
       </Text>
       ]{label}
     </Text>
@@ -21,18 +21,18 @@ function HotKey({ key, label }: { key: string; label: string }) {
 export function ActionBar({ hasSelection, loggedIn }: ActionBarProps) {
   return (
     <Box paddingX={1} gap={1}>
-      <HotKey key="G" label="ateway" />
+      <HotKey hotkey="G" label="ateway" />
       {hasSelection && (
         <>
-          <HotKey key="R" label="ename" />
-          <HotKey key="S" label="top" />
-          <HotKey key="D" label="elete" />
-          <HotKey key="L" label="ogs" />
+          <HotKey hotkey="R" label="ename" />
+          <HotKey hotkey="S" label="top" />
+          <HotKey hotkey="D" label="elete" />
+          <HotKey hotkey="L" label="ogs" />
         </>
       )}
-      <HotKey key="C" label="redentials" />
-      {loggedIn && <HotKey key="O" label="ut" />}
-      <HotKey key="Q" label="uit" />
+      <HotKey hotkey="C" label="redentials" />
+      {loggedIn && <HotKey hotkey="O" label="ut" />}
+      <HotKey hotkey="Q" label="uit" />
     </Box>
   )
 }
