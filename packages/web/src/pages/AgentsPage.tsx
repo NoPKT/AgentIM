@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
-import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
+import {
+  getStatusConfig,
+  getTypeConfig,
+  agentGradients,
+  agentTypeIcons,
+} from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
 import { toast } from '../stores/toast.js'
 import { AGENT_TYPES } from '@agentim/shared'
@@ -211,24 +216,28 @@ function AgentRow({
           <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${status.color}`} />
         </span>
 
-        {/* Avatar + Name */}
+        {/* Avatar (official brand icon) + Name */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div
-            className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-          >
-            <span className="text-xs font-semibold text-white">
-              {agent.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
+          {(() => {
+            const icon = agentTypeIcons[agent.type] || agentTypeIcons.generic
+            return (
+              <div
+                className={`w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+              >
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="currentColor"
+                  viewBox={icon.viewBox || '0 0 24 24'}
+                >
+                  {icon.paths.map((d, idx) => (
+                    <path key={idx} d={d} />
+                  ))}
+                </svg>
+              </div>
+            )
+          })()}
           <span className="text-sm font-medium text-text-primary truncate">{agent.name}</span>
         </div>
-
-        {/* Type badge */}
-        <span
-          className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${type.color}`}
-        >
-          {type.label}
-        </span>
 
         {/* Device info (hidden on small screens) */}
         {deviceLabel && (
@@ -305,6 +314,24 @@ function AgentRow({
       {/* Expanded details */}
       {expanded && (
         <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
+          {/* Full name */}
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs text-text-muted shrink-0">{t('agent.agentName')}</span>
+            <span className="text-xs font-medium text-text-primary break-all text-right">
+              {agent.name}
+            </span>
+          </div>
+
+          {/* Agent type */}
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs text-text-muted shrink-0">{t('agent.agentType')}</span>
+            <span
+              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${type.color}`}
+            >
+              {type.label}
+            </span>
+          </div>
+
           {/* Model */}
           {agent.model && (
             <div className="flex items-baseline justify-between gap-4">

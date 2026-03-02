@@ -509,16 +509,15 @@ export default function ChatPage() {
           <MessageInput />
         </div>
 
-        {/* Member list side panel */}
-        {membersOpen && (
-          <MemberListPanel
-            members={members}
-            roomId={currentRoomId}
-            onClose={() => setMembersOpen(false)}
-            onAddAgent={() => setAddAgentOpen(true)}
-            onRemoveMember={handleRemoveMember}
-          />
-        )}
+        {/* Member list drawer */}
+        <MemberListPanel
+          members={members}
+          roomId={currentRoomId}
+          isOpen={membersOpen}
+          onClose={() => setMembersOpen(false)}
+          onAddAgent={() => setAddAgentOpen(true)}
+          onRemoveMember={handleRemoveMember}
+        />
       </div>
 
       {/* Room Settings Drawer */}

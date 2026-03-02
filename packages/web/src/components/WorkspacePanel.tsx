@@ -563,10 +563,99 @@ export function WorkspacePanel({
   const isLoading = loading?.agentId === selectedAgentId
   const effectiveHeight = isMaximized ? '100%' : `${panelHeight}px`
 
+  // When maximized, render as a fullscreen overlay (like RoomSettingsDrawer on mobile)
+  if (isMaximized) {
+    return (
+      <div className="fixed inset-0 z-modal bg-surface flex flex-col md:relative md:inset-auto md:z-auto md:flex-1 md:border-t md:border-border">
+        {/* Header bar */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-secondary border-b border-border flex-shrink-0">
+          {agentOptions.length === 1 ? (
+            <span className="text-xs font-medium text-text-primary truncate max-w-[120px]">
+              {agentOptions[0].name}
+            </span>
+          ) : (
+            <select
+              value={selectedAgentId}
+              onChange={(e) => setSelectedAgentId(e.target.value)}
+              className="text-xs bg-surface border border-border rounded px-1.5 py-0.5 text-text-primary max-w-[150px]"
+            >
+              {agentOptions.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div className="flex gap-0.5 ml-2">
+            <button
+              onClick={() => setActiveTab('changes')}
+              className={`px-2 py-0.5 text-xs rounded ${
+                activeTab === 'changes'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {t('chat.workspaceChanges')}
+            </button>
+            <button
+              onClick={() => setActiveTab('files')}
+              className={`px-2 py-0.5 text-xs rounded ${
+                activeTab === 'files'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {t('chat.workspaceFiles')}
+            </button>
+          </div>
+
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary disabled:opacity-50"
+              title={t('chat.workspaceRefresh')}
+            >
+              <RefreshIcon className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => {
+                setIsMaximized(false)
+                onMaximizedChange?.(false)
+              }}
+              className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary"
+              title={t('chat.workspaceMinimize')}
+            >
+              <MinimizeIcon className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary"
+              title={t('common.close')}
+            >
+              <CloseIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {activeTab === 'changes' && (
+            <WorkspaceChangesView roomId={roomId} agentId={selectedAgentId} />
+          )}
+          {activeTab === 'files' && (
+            <WorkspaceFilesView roomId={roomId} agentId={selectedAgentId} />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`border-t border-border flex flex-col min-w-0 overflow-hidden ${isMaximized ? 'flex-1' : ''}`}
-      style={isMaximized ? undefined : { height: effectiveHeight }}
+      className="border-t border-border flex flex-col min-w-0 overflow-hidden"
+      style={{ height: effectiveHeight }}
     >
       {/* Drag handle — wider touch area on mobile, hidden when maximized */}
       {!isMaximized && (

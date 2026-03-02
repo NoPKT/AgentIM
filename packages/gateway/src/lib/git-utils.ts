@@ -46,30 +46,26 @@ export async function getWorkspaceStatus(
       execGit(['status', '--porcelain', '--no-renames'], workingDirectory).catch(() => ''),
     ])
 
-    // ── 1. Parse git status (authoritative source for which files changed) ──
+    // ── 1. Parse git status — the SOLE authoritative source for file paths ──
 
-    // statusPaths = set of every real file path reported by git status
-    const statusPaths = new Set<string>()
-    const statusCodes = new Map<string, string>()
+    const statusFiles = new Map<string, string>()
     for (const line of statusOutput.split('\n').filter(Boolean)) {
       const code = line.slice(0, 2).trim()
       const path = line.slice(3).trim()
-      if (path) {
-        statusPaths.add(path)
-        statusCodes.set(path, code)
-      }
+      if (path) statusFiles.set(path, code)
     }
 
-    // ── 2. Parse diff --stat for additions/deletions counts ──
+    if (statusFiles.size === 0) return null
 
-    const statLines = diffStat.split('\n').filter(Boolean)
-    const changedFiles: WorkspaceFileChange[] = []
-    const knownPaths = new Set<string>()
+    // ── 2. Parse diff --stat for +/- counts only ──
+    // We match stat paths to git status paths; stat paths are NEVER used directly.
+
+    const statCounts = new Map<string, { additions: number; deletions: number }>()
     let totalAdditions = 0
     let totalDeletions = 0
 
-    for (const line of statLines) {
-      // Skip the summary line (e.g. "3 files changed, 10 insertions(+), 5 deletions(-)")
+    for (const line of diffStat.split('\n').filter(Boolean)) {
+      // Summary line: "3 files changed, 10 insertions(+), 5 deletions(-)"
       if (line.includes('file') && line.includes('changed')) {
         const addMatch = line.match(/(\d+) insertion/)
         const delMatch = line.match(/(\d+) deletion/)
@@ -78,55 +74,21 @@ export async function getWorkspaceStatus(
         continue
       }
 
-      // Parse individual file stat lines: " path/to/file | 5 ++--"
-      const match = line.match(/^\s*(.+?)\s+\|\s+(\d+)\s*([+-]*)/)
-      if (match) {
-        let path = match[1].trim()
-        const additions = (match[3].match(/\+/g) || []).length
-        const deletions = (match[3].match(/-/g) || []).length
+      // Individual file stat line: " path/to/file | 5 ++--"
+      // Use lastIndexOf to split on the LAST " | " separator (more robust)
+      const pipeIdx = line.lastIndexOf(' | ')
+      if (pipeIdx < 0) continue
+      const rawPath = line.slice(0, pipeIdx).trim()
+      const statsStr = line.slice(pipeIdx + 3)
+      const numMatch = statsStr.match(/^(\d+)\s*([+-]*)/)
+      if (!numMatch) continue // Skip binary files ("Bin 0 -> 1234 bytes")
 
-        let status: WorkspaceFileChange['status'] = 'modified'
-        // Handle rename format: "old => new" or "{prefix/}{old => new}{/suffix}"
-        if (path.includes('=>')) {
-          status = 'renamed'
-          let oldName: string
-          let newName: string
-          const renameMatch = path.match(/\{(.*)=> (.+?)\}/)
-          if (renameMatch) {
-            // Format: prefix/{old => new}/suffix — show both names
-            const prefix = path.slice(0, path.indexOf('{'))
-            const suffix = path.slice(path.indexOf('}') + 1)
-            oldName = prefix + renameMatch[1].trim() + suffix
-            newName = prefix + renameMatch[2].trim() + suffix
-          } else {
-            // Format: old => new — show both names
-            const parts = path.split('=>')
-            oldName = parts[0].trim()
-            newName = parts[1].trim()
-          }
-          path = `${oldName} \u2192 ${newName}`
-          // Register both old and new actual paths so git status won't
-          // re-add them as separate entries (--no-renames splits renames
-          // into D + A pairs).
-          knownPaths.add(oldName)
-          knownPaths.add(newName)
-        }
+      const additions = (numMatch[2].match(/\+/g) || []).length
+      const deletions = (numMatch[2].match(/-/g) || []).length
 
-        if (knownPaths.has(path)) continue
-        knownPaths.add(path)
-
-        // Only include files confirmed by git status. diff --stat can report
-        // stale entries (e.g. renames where one side no longer exists) that
-        // git status does not list; drop those to avoid phantom files.
-        if (status !== 'renamed' && !statusPaths.has(path)) continue
-
-        changedFiles.push({
-          path,
-          status,
-          additions,
-          deletions,
-          // diff is populated after parsing per-file diffs below
-        })
+      // Match raw stat path to git status path (exact match only)
+      if (statusFiles.has(rawPath)) {
+        statCounts.set(rawPath, { additions, deletions })
       }
     }
 
@@ -135,38 +97,28 @@ export async function getWorkspaceStatus(
     const truncatedDiff =
       diffContent.length > MAX_DIFF_SIZE ? diffContent.slice(0, MAX_DIFF_SIZE) : diffContent
 
-    if (truncatedDiff) {
-      const fileDiffs = splitDiffByFile(truncatedDiff)
-      for (const file of changedFiles) {
-        // For renames ("old → new"), try both the new name (used by diff --git b/)
-        // and the full path for diff lookup
-        const lookupPath =
-          file.status === 'renamed' && file.path.includes(' \u2192 ')
-            ? file.path.split(' \u2192 ').pop()!.trim()
-            : file.path
-        if (!isSensitivePath(lookupPath)) {
-          file.diff = fileDiffs.get(lookupPath)
-        }
-      }
-    }
+    const fileDiffs = truncatedDiff ? splitDiffByFile(truncatedDiff) : new Map<string, string>()
 
-    // ── 4. Add files from git status that diff --stat missed ──
+    // ── 4. Build changedFiles from git status paths (authoritative) ──
 
-    for (const [path, code] of statusCodes) {
-      if (knownPaths.has(path)) {
-        // Already in changedFiles — update status from git status
-        const existing = changedFiles.find((f) => f.path === path)
-        if (existing) {
-          if (code.startsWith('D')) existing.status = 'deleted'
-          else if (code === '??' || code.startsWith('A')) existing.status = 'added'
-        }
-      } else {
-        knownPaths.add(path)
-        let status: WorkspaceFileChange['status'] = 'modified'
-        if (code === '??' || code.startsWith('A')) status = 'added'
-        else if (code.startsWith('D')) status = 'deleted'
-        changedFiles.push({ path, status })
-      }
+    const changedFiles: WorkspaceFileChange[] = []
+
+    for (const [path, code] of statusFiles) {
+      let status: WorkspaceFileChange['status'] = 'modified'
+      if (code === '??' || code.startsWith('A')) status = 'added'
+      else if (code.startsWith('D')) status = 'deleted'
+
+      const counts = statCounts.get(path)
+      // Look up diff by exact path; also try as the b/ side may differ
+      const diff = !isSensitivePath(path) ? fileDiffs.get(path) : undefined
+
+      changedFiles.push({
+        path,
+        status,
+        additions: counts?.additions,
+        deletions: counts?.deletions,
+        diff,
+      })
     }
 
     // Parse recent commits
@@ -203,21 +155,30 @@ export async function getWorkspaceStatus(
   }
 }
 
-/** Split a unified diff string into per-file diffs */
+/** Split a unified diff string into per-file diffs, keyed by file path */
 function splitDiffByFile(diff: string): Map<string, string> {
   const result = new Map<string, string>()
+  // Match diff headers: "diff --git a/PATH b/PATH"
+  // With --no-renames the a/ and b/ paths are identical.
+  // We extract the b/ path (group 2) as the canonical key, and also
+  // store the a/ path (group 1) as a fallback key for robustness.
   const filePattern = /^diff --git a\/(.+?) b\/(.+?)$/gm
-  const matches: { path: string; start: number }[] = []
+  const matches: { aPath: string; bPath: string; start: number }[] = []
 
   let m: RegExpExecArray | null
   while ((m = filePattern.exec(diff)) !== null) {
-    matches.push({ path: m[2], start: m.index })
+    matches.push({ aPath: m[1], bPath: m[2], start: m.index })
   }
 
   for (let i = 0; i < matches.length; i++) {
     const start = matches[i].start
     const end = i + 1 < matches.length ? matches[i + 1].start : diff.length
-    result.set(matches[i].path, diff.slice(start, end).trim())
+    const chunk = diff.slice(start, end).trim()
+    // Store under both b/ path and a/ path for maximum lookup success
+    result.set(matches[i].bPath, chunk)
+    if (matches[i].aPath !== matches[i].bPath) {
+      result.set(matches[i].aPath, chunk)
+    }
   }
 
   return result
