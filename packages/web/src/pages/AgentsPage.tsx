@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAgentStore } from '../stores/agents.js'
+import { useAgentStore, type CredentialInfo } from '../stores/agents.js'
 import {
   getStatusConfig,
   getTypeConfig,
@@ -9,6 +9,7 @@ import {
 } from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
 import { toast } from '../stores/toast.js'
+import { wsClient } from '../lib/ws.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 import { TrashIcon } from '../components/icons.js'
@@ -417,6 +418,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
   const deleteGateway = useAgentStore((s) => s.deleteGateway)
   const spawnAgent = useAgentStore((s) => s.spawnAgent)
   const loadAgents = useAgentStore((s) => s.loadAgents)
+  const gatewayCredentials = useAgentStore((s) => s.gatewayCredentials)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showSpawn, setShowSpawn] = useState(false)
@@ -424,8 +426,43 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
   const [spawnName, setSpawnName] = useState('')
   const [spawnWorkDir, setSpawnWorkDir] = useState('')
   const [spawning, setSpawning] = useState(false)
+  const [credentialSelection, setCredentialSelection] = useState<CredentialInfo[] | null>(null)
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string>('')
 
   const isOnline = !!gateway.connectedAt && !gateway.disconnectedAt
+
+  // Load credentials when spawn form opens
+  const credKey = `${gateway.id}:${spawnType}`
+  const credentials = gatewayCredentials.get(credKey) ?? null
+
+  useEffect(() => {
+    if (showSpawn && isOnline) {
+      wsClient.send({
+        type: 'client:list_gateway_credentials',
+        gatewayId: gateway.id,
+        agentType: spawnType,
+      })
+    }
+  }, [showSpawn, spawnType, gateway.id, isOnline])
+
+  // Listen for credential selection required events from spawn results
+  const handleCredentialRequired = useCallback(
+    (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail.gatewayId === gateway.id) {
+        setCredentialSelection(detail.credentials)
+        setSpawning(false)
+      }
+    },
+    [gateway.id],
+  )
+
+  useEffect(() => {
+    window.addEventListener('agentim:credential_selection_required', handleCredentialRequired)
+    return () => {
+      window.removeEventListener('agentim:credential_selection_required', handleCredentialRequired)
+    }
+  }, [handleCredentialRequired])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -444,8 +481,41 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
   const handleSpawn = async () => {
     if (!spawnName.trim()) return
     setSpawning(true)
+    setCredentialSelection(null)
     try {
-      await spawnAgent(gateway.id, spawnType, spawnName.trim(), spawnWorkDir.trim() || undefined)
+      // If we have credentials loaded and there's more than one, include the selected credential
+      const credId =
+        credentials && credentials.length > 1 ? selectedCredentialId || undefined : undefined
+      await spawnAgent(
+        gateway.id,
+        spawnType,
+        spawnName.trim(),
+        spawnWorkDir.trim() || undefined,
+        credId,
+      )
+      toast.success(t('agent.spawnSuccess'))
+      setShowSpawn(false)
+      setSpawnName('')
+      setSpawnWorkDir('')
+    } catch (err) {
+      toast.error((err as Error).message ?? t('agent.spawnFailed'))
+    } finally {
+      setSpawning(false)
+    }
+  }
+
+  const handleSpawnWithCredential = async (credentialId: string) => {
+    if (!spawnName.trim()) return
+    setSpawning(true)
+    setCredentialSelection(null)
+    try {
+      await spawnAgent(
+        gateway.id,
+        spawnType,
+        spawnName.trim(),
+        spawnWorkDir.trim() || undefined,
+        credentialId,
+      )
       toast.success(t('agent.spawnSuccess'))
       setShowSpawn(false)
       setSpawnName('')
@@ -555,6 +625,62 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                 className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
+
+            {/* Credential selector — shown when multiple credentials exist */}
+            {credentials && credentials.length > 1 && (
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('credential.selectCredential')}
+                </label>
+                <select
+                  value={selectedCredentialId}
+                  onChange={(e) => setSelectedCredentialId(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">{t('credential.default')}</option>
+                  {credentials.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (
+                      {c.mode === 'api'
+                        ? t('credential.modeApi')
+                        : t('credential.modeSubscription')}
+                      ){c.isDefault ? ` [${t('credential.default')}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {credentials && credentials.length === 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t('credential.noCredentials')}
+              </p>
+            )}
+
+            {/* Credential selection required — returned from gateway */}
+            {credentialSelection && (
+              <div className="border border-amber-300 dark:border-amber-700 rounded-lg p-2 bg-amber-50 dark:bg-amber-900/20">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2">
+                  {t('credential.credentialRequired')}
+                </p>
+                <div className="space-y-1">
+                  {credentialSelection.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSpawnWithCredential(c.id)}
+                      className="w-full text-left px-2 py-1.5 text-xs rounded border border-border bg-surface hover:bg-surface-hover transition-colors"
+                    >
+                      {c.name} (
+                      {c.mode === 'api'
+                        ? t('credential.modeApi')
+                        : t('credential.modeSubscription')}
+                      )
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button
                 size="sm"

@@ -602,6 +602,33 @@ export const clientPingSchema = z.object({
   ts: z.number(),
 })
 
+// ─── Client → Server: Credential Management Schemas ───
+
+export const clientListGatewayCredentialsSchema = z.object({
+  type: z.literal('client:list_gateway_credentials'),
+  gatewayId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+})
+
+export const clientAddGatewayCredentialSchema = z.object({
+  type: z.literal('client:add_gateway_credential'),
+  gatewayId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  name: z.string().min(1).max(100),
+  apiKey: z.string().min(1).max(2000),
+  baseUrl: z.string().max(500).optional(),
+  model: z.string().max(200).optional(),
+})
+
+export const clientManageGatewayCredentialSchema = z.object({
+  type: z.literal('client:manage_gateway_credential'),
+  gatewayId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  credentialId: z.string().min(1).max(50),
+  action: z.enum(['rename', 'delete', 'set_default']),
+  name: z.string().min(1).max(100).optional(),
+})
+
 export const clientMessageSchema = z.discriminatedUnion('type', [
   clientAuthSchema,
   clientJoinRoomSchema,
@@ -613,6 +640,9 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientAgentCommandSchema,
   clientQueryAgentInfoSchema,
   clientRequestWorkspaceSchema,
+  clientListGatewayCredentialsSchema,
+  clientAddGatewayCredentialSchema,
+  clientManageGatewayCredentialSchema,
   clientPingSchema,
 ])
 
@@ -729,6 +759,16 @@ export const gatewaySpawnResultSchema = z.object({
   success: z.boolean(),
   agentId: z.string().optional(),
   error: z.string().optional(),
+  credentials: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        mode: z.enum(['subscription', 'api']),
+        isDefault: z.boolean(),
+      }),
+    )
+    .optional(),
 })
 
 export const gatewayWorkspaceResponseSchema = z.object({
@@ -764,6 +804,34 @@ export const gatewayPingSchema = z.object({
   ts: z.number(),
 })
 
+// ─── Gateway → Server: Credential Management Schemas ───
+
+const credentialInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mode: z.enum(['subscription', 'api']),
+  hasApiKey: z.boolean(),
+  baseUrl: z.string().optional(),
+  model: z.string().optional(),
+  isDefault: z.boolean(),
+  createdAt: z.string(),
+})
+
+export const gatewayCredentialListSchema = z.object({
+  type: z.literal('gateway:credential_list'),
+  requestId: z.string().min(1),
+  agentType: z.string().min(1),
+  credentials: z.array(credentialInfoSchema).max(100),
+})
+
+export const gatewayCredentialResultSchema = z.object({
+  type: z.literal('gateway:credential_result'),
+  requestId: z.string().min(1),
+  success: z.boolean(),
+  error: z.string().optional(),
+  credential: z.object({ id: z.string(), name: z.string() }).optional(),
+})
+
 export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAuthSchema,
   gatewayRegisterAgentSchema,
@@ -777,6 +845,8 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAgentCommandResultSchema,
   gatewayAgentInfoSchema,
   gatewaySpawnResultSchema,
+  gatewayCredentialListSchema,
+  gatewayCredentialResultSchema,
   gatewayWorkspaceResponseSchema,
   gatewayPingSchema,
 ])
@@ -1081,6 +1151,33 @@ export const serverSpawnResultSchema = z.object({
   success: z.boolean(),
   agentId: z.string().optional(),
   error: z.string().optional(),
+  credentials: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        mode: z.enum(['subscription', 'api']),
+        isDefault: z.boolean(),
+      }),
+    )
+    .optional(),
+})
+
+// ─── Server → Client: Credential Management Response Schemas ───
+
+export const serverGatewayCredentialListSchema = z.object({
+  type: z.literal('server:gateway_credential_list'),
+  gatewayId: z.string().min(1),
+  agentType: z.string().min(1),
+  credentials: z.array(credentialInfoSchema).max(100),
+})
+
+export const serverGatewayCredentialResultSchema = z.object({
+  type: z.literal('server:gateway_credential_result'),
+  requestId: z.string().min(1),
+  success: z.boolean(),
+  error: z.string().optional(),
+  credential: z.object({ id: z.string(), name: z.string() }).optional(),
 })
 
 export const serverErrorSchema = z.object({
@@ -1125,6 +1222,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverPermissionRequestExpiredSchema,
   serverRoomClearedSchema,
   serverSpawnResultSchema,
+  serverGatewayCredentialListSchema,
+  serverGatewayCredentialResultSchema,
   serverWorkspaceResponseSchema,
   serverPongSchema,
   serverErrorSchema,
@@ -1194,6 +1293,7 @@ export const serverSpawnAgentSchema = z.object({
   agentType: z.enum(AGENT_TYPES),
   name: z.string().min(1).max(100),
   workingDirectory: z.string().optional(),
+  credentialId: z.string().max(50).optional(),
 })
 
 export const serverRequestWorkspaceSchema = z.object({
@@ -1208,6 +1308,34 @@ export const serverRequestWorkspaceSchema = z.object({
   ]),
 })
 
+// ─── Server → Gateway: Credential Management Schemas ───
+
+export const serverListCredentialsSchema = z.object({
+  type: z.literal('server:list_credentials'),
+  requestId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+})
+
+export const serverAddCredentialSchema = z.object({
+  type: z.literal('server:add_credential'),
+  requestId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  name: z.string().min(1).max(100),
+  mode: z.literal('api'),
+  apiKey: z.string().min(1).max(2000),
+  baseUrl: z.string().max(500).optional(),
+  model: z.string().max(200).optional(),
+})
+
+export const serverManageCredentialSchema = z.object({
+  type: z.literal('server:manage_credential'),
+  requestId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  credentialId: z.string().min(1).max(50),
+  action: z.enum(['rename', 'delete', 'set_default']),
+  name: z.string().min(1).max(100).optional(),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
@@ -1219,6 +1347,9 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverQueryAgentInfoSchema,
   serverSpawnAgentSchema,
   serverRequestWorkspaceSchema,
+  serverListCredentialsSchema,
+  serverAddCredentialSchema,
+  serverManageCredentialSchema,
   serverPongSchema,
   serverErrorSchema,
 ])

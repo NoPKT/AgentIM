@@ -204,6 +204,10 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return handleSpawnResult(ws, msg)
       case 'gateway:workspace_response':
         return handleWorkspaceResponse(ws, msg)
+      case 'gateway:credential_list':
+        return handleCredentialList(ws, msg)
+      case 'gateway:credential_result':
+        return handleCredentialResult(ws, msg)
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return
@@ -1027,6 +1031,12 @@ function handleSpawnResult(
     success: boolean
     agentId?: string
     error?: string
+    credentials?: Array<{
+      id: string
+      name: string
+      mode: 'subscription' | 'api'
+      isDefault: boolean
+    }>
   },
 ) {
   const gw = connectionManager.getGateway(ws)
@@ -1040,6 +1050,7 @@ function handleSpawnResult(
     success: msg.success,
     agentId: msg.agentId,
     error: msg.error,
+    credentials: msg.credentials,
   })
 }
 
@@ -1148,6 +1159,59 @@ function handleWorkspaceResponse(
       connectionManager.sendToClient(client.ws, responseMsg)
     }
   }
+}
+
+// ─── Credential Management (Gateway → Server → Client relay) ───
+
+function handleCredentialList(
+  ws: WSContext,
+  msg: {
+    requestId: string
+    agentType: string
+    credentials: Array<{
+      id: string
+      name: string
+      mode: 'subscription' | 'api'
+      hasApiKey: boolean
+      baseUrl?: string
+      model?: string
+      isDefault: boolean
+      createdAt: string
+    }>
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw) return
+
+  // Forward credential list to all of this user's connected web clients
+  connectionManager.broadcastToUser(gw.userId, {
+    type: 'server:gateway_credential_list',
+    gatewayId: gw.gatewayId,
+    agentType: msg.agentType,
+    credentials: msg.credentials,
+  })
+}
+
+function handleCredentialResult(
+  ws: WSContext,
+  msg: {
+    requestId: string
+    success: boolean
+    error?: string
+    credential?: { id: string; name: string }
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw) return
+
+  // Forward credential result to all of this user's connected web clients
+  connectionManager.broadcastToUser(gw.userId, {
+    type: 'server:gateway_credential_result',
+    requestId: msg.requestId,
+    success: msg.success,
+    error: msg.error,
+    credential: msg.credential,
+  })
 }
 
 // ─── Agent-to-Agent Routing ───
