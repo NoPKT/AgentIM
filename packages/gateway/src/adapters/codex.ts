@@ -89,36 +89,30 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   /**
-   * Resolve an API bearer token for model listing.
-   * Checks env vars first (API-key mode), then falls back to reading the
-   * Codex CLI's OAuth credentials (~/.codex/auth.json) for subscription mode.
-   */
-  private resolveApiToken(): string | undefined {
-    const envKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY
-    if (envKey) return envKey
-    try {
-      const authPath = join(homedir(), '.codex', 'auth.json')
-      const auth = JSON.parse(readFileSync(authPath, 'utf-8')) as {
-        access_token?: string
-      }
-      return auth.access_token || undefined
-    } catch {
-      return undefined
-    }
-  }
-
-  /**
    * Fetch available models from the OpenAI /v1/models endpoint.
-   * Uses the API key from env (API-key mode) or the OAuth access_token
-   * from ~/.codex/auth.json (subscription mode) — the same auth the
-   * Codex CLI itself uses. Results are cached for the adapter lifetime.
+   * Auth mode is already determined at adapter creation:
+   *   - API-key mode: OPENAI_API_KEY / CODEX_API_KEY is in env
+   *   - OAuth mode: access_token is in ~/.codex/auth.json (written by `codex login`)
    */
   private async fetchModels(): Promise<void> {
-    const token = this.resolveApiToken()
-    if (!token) {
-      log.info('No API credentials available — model list will be empty')
-      return
+    const apiKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY
+    let token: string | undefined
+    if (apiKey) {
+      token = apiKey
+    } else {
+      // OAuth mode — read the token that `codex login` stored
+      try {
+        const authPath = join(homedir(), '.codex', 'auth.json')
+        const auth = JSON.parse(readFileSync(authPath, 'utf-8')) as {
+          access_token?: string
+        }
+        token = auth.access_token
+      } catch {
+        // auth.json missing — user hasn't logged in yet
+      }
     }
+    if (!token) return
+
     const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
     try {
@@ -126,22 +120,16 @@ export class CodexAdapter extends BaseAgentAdapter {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(10_000),
       })
-      if (!res.ok) {
-        log.warn(`Model fetch failed: HTTP ${res.status}`)
-        return
-      }
+      if (!res.ok) return
       const body = (await res.json()) as { data?: Array<{ id: string }> }
       if (!body.data) return
-      const codexModels = body.data
+      const models = body.data
         .filter((m) => /codex/i.test(m.id))
         .map((m) => m.id)
         .sort()
-        .reverse() // newest (highest version) first
-      if (codexModels.length === 0) {
-        log.info('No codex models found from API')
-        return
-      }
-      this.cachedModelInfo = codexModels.map((id) => ({
+        .reverse()
+      if (models.length === 0) return
+      this.cachedModelInfo = models.map((id) => ({
         value: id,
         displayName: id
           .split('-')
@@ -149,8 +137,8 @@ export class CodexAdapter extends BaseAgentAdapter {
           .join(' '),
       }))
       log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
-    } catch (err) {
-      log.warn(`Failed to fetch models: ${err}`)
+    } catch {
+      // Network error — model list stays empty
     }
   }
 
