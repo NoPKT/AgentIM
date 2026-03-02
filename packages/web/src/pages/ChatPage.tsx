@@ -210,24 +210,14 @@ export default function ChatPage() {
     return unsub
   }, [])
 
-  // Handle user decision on a permission request
+  // Handle user decision on a permission request — remove immediately
   const handlePermissionResolved = useCallback(
-    (requestId: string, decision: 'allowed' | 'denied') => {
+    (requestId: string, _decision: 'allowed' | 'denied') => {
       setPermissionRequests((prev) => {
-        const existing = prev.get(requestId)
-        if (!existing) return prev
         const next = new Map(prev)
-        next.set(requestId, { ...existing, resolved: decision })
+        next.delete(requestId)
         return next
       })
-      // Auto-remove resolved permission requests after 2 seconds
-      setTimeout(() => {
-        setPermissionRequests((prev) => {
-          const next = new Map(prev)
-          next.delete(requestId)
-          return next
-        })
-      }, 2000)
     },
     [],
   )
