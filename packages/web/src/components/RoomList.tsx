@@ -263,7 +263,7 @@ export function RoomList({ onRoomSelect }: { onRoomSelect?: () => void }) {
                       <GroupIcon className="w-4.5 h-4.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className="truncate text-sm flex items-center gap-1 min-w-0">
+                          <span className="flex-1 min-w-0 text-sm flex items-center gap-1">
                             {room.pinnedAt && (
                               <StarIcon className="w-3 h-3 text-amber-500 flex-shrink-0" />
                             )}

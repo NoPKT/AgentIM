@@ -549,6 +549,8 @@ export const de = {
     modelPlaceholder: 'Modellname eingeben',
     thinkingMode: 'Denkmodus',
     effortLevel: 'Aufwandsstufe',
+    planMode: 'Planmodus',
+    planModeDescription: 'Nur planen, nicht ausführen',
     session: 'Sitzung',
     cost: 'Kosten',
     inputTokens: 'Eingabe-Tokens',

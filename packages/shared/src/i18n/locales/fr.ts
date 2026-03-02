@@ -549,6 +549,8 @@ export const fr = {
     modelPlaceholder: 'Entrez le nom du modèle',
     thinkingMode: 'Mode de réflexion',
     effortLevel: "Niveau d'effort",
+    planMode: 'Mode plan',
+    planModeDescription: "Planifier uniquement, pas d'exécution",
     session: 'Session',
     cost: 'Coût',
     inputTokens: "Tokens d'entrée",

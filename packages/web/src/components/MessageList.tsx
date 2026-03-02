@@ -269,7 +269,6 @@ export function MessageList({ onImageClick }: MessageListProps) {
                   top: 0,
                   left: 0,
                   width: '100%',
-                  overflow: 'hidden',
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
                 ref={virtualizer.measureElement}

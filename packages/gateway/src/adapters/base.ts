@@ -201,6 +201,11 @@ export abstract class BaseAgentAdapter {
     return []
   }
 
+  /** Return whether plan mode is active. */
+  getPlanMode(): boolean {
+    return false
+  }
+
   /** Handle a slash command from a user. */
   async handleSlashCommand(
     _command: string,
