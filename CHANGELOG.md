@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Gemini CLI adapter**: Full implementation using @google/gemini-cli-core v0.31.0 — streaming, thinking, tool use, model switching, token tracking, plan mode, chat compression
+
+### Removed
+
+- **OpenCode adapter**: Removed third-party OpenCode adapter; use the generic adapter to integrate non-first-party CLI tools
+
 ### Fixed
 
 - **CRITICAL: Gateway WS crash** — replaced reserved WebSocket close code `1006` with `ws.terminate()` in ping/pong timeout handlers, preventing uncaught exceptions and process exit
@@ -44,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial scaffolding of AgentIM
 - Hub server with PostgreSQL + Redis, built on Hono and Drizzle ORM
 - React 19 PWA web client with dark mode support
-- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI *(coming soon)*, OpenCode, generic)
+- Client CLI for connecting AI agents (Claude Code, Codex, Gemini CLI, OpenCode, generic)
 - OpenCode adapter with auto-managed server lifecycle, SSE streaming, session persistence, and delta-based text tracking
 - Real-time streaming with thinking/tool-use visualization
 - Smart routing: broadcast and direct mode with @mention-based targeting

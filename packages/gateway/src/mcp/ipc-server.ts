@@ -2,7 +2,7 @@
  * IPC Server — localhost HTTP server for communication between
  * stdio MCP server processes and the gateway process.
  *
- * The stdio MCP server (spawned by OpenCode/Codex) sends HTTP requests
+ * The stdio MCP server (spawned by Codex) sends HTTP requests
  * to this IPC server, which bridges them to the McpContext.
  */
 

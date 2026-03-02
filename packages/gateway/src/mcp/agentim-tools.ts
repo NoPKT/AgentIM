@@ -2,7 +2,7 @@
  * AgentIM MCP Tools — expose room interaction capabilities to agents.
  *
  * For Claude Code: uses createSdkMcpServer() for in-process zero-overhead MCP.
- * For OpenCode/Codex: uses a stdio MCP server (see stdio-server.ts).
+ * For Codex: uses a stdio MCP server (see stdio-server.ts).
  */
 
 import type { McpContext } from './mcp-context.js'

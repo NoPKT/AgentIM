@@ -283,7 +283,6 @@ export const zhCN = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
-    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: '通用',
     deleteGateway: '删除网关',

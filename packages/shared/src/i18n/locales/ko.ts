@@ -285,7 +285,6 @@ export const ko = {
     claudeCode: 'Claude Code',
     codex: 'Codex',
     gemini: 'Gemini CLI',
-    opencode: 'OpenCode',
     cursor: 'Cursor',
     generic: '일반',
     deleteGateway: '게이트웨이 삭제',

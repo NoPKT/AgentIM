@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Standalone stdio MCP server for OpenCode and Codex.
+ * Standalone stdio MCP server for Codex.
  *
- * This script is spawned as a child process by OpenCode/Codex.
+ * This script is spawned as a child process by Codex.
  * It communicates with the gateway process via HTTP loopback (IPC server).
  *
  * Environment variables:

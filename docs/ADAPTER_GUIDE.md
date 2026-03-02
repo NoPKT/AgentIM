@@ -134,7 +134,6 @@ export const AGENT_TYPES = [
   'claude-code',
   'codex',
   'gemini',
-  'opencode',
   'generic',
   'my-agent',
 ] as const

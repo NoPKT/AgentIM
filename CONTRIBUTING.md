@@ -40,7 +40,7 @@ packages/
   server/    — Hono HTTP + WebSocket hub, Drizzle ORM, PostgreSQL + Redis
                Handles auth, rooms, messages, routing, file uploads
   gateway/   — CLI tool (agentim) that spawns AI agents as child processes
-               Adapters: Claude Code, Codex, OpenCode, Generic
+               Adapters: Claude Code, Codex, Gemini, Generic
   web/       — React 19 SPA/PWA, Vite, TailwindCSS v4, Zustand state
                Connects to server via WebSocket for real-time updates
 ```

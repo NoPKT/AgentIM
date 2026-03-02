@@ -19,7 +19,7 @@ const CustomAdapterSchema = z.object({
 export type CustomAdapterConfig = z.infer<typeof CustomAdapterSchema>
 
 /** Built-in adapter type names that custom adapters must not shadow. */
-const BUILTIN_ADAPTER_TYPES = new Set(['claude-code', 'codex', 'gemini', 'opencode', 'generic'])
+const BUILTIN_ADAPTER_TYPES = new Set(['claude-code', 'codex', 'gemini', 'generic'])
 
 const CustomAdaptersFileSchema = z.record(z.string().min(1), CustomAdapterSchema)
 
