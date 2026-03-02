@@ -1,5 +1,6 @@
 import i18next from 'i18next'
-import type { SlashCommand, Agent, AgentSlashCommand } from '@agentim/shared'
+import { nanoid } from 'nanoid'
+import type { SlashCommand, Agent, AgentSlashCommand, Message } from '@agentim/shared'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
 import { wsClient } from './ws.js'
@@ -80,9 +81,39 @@ registerCommand({
     clientOnly: true,
   },
   execute: () => {
+    const { currentRoomId } = useChatStore.getState()
+    if (!currentRoomId) return
+
     const commands = getAllCommands()
-    const lines = commands.map((c) => `/${c.command.name} — ${c.command.description}`)
-    toast.info(lines.join('\n'))
+    const agentCommands = getAgentCommands(useAgentStore.getState().agents)
+
+    const lines: string[] = ['**Available Commands**', '']
+    // Platform commands
+    lines.push('**Platform:**')
+    for (const c of commands) {
+      lines.push(`  \`${c.command.usage}\` — ${c.command.description}`)
+    }
+    // Agent commands
+    if (agentCommands.length > 0) {
+      lines.push('')
+      lines.push('**Agent:**')
+      for (const ac of agentCommands) {
+        lines.push(`  \`${ac.command.usage}\` — ${ac.command.description} *(${ac.agentName})*`)
+      }
+    }
+
+    const helpMessage: Message = {
+      id: nanoid(),
+      roomId: currentRoomId,
+      senderId: 'system',
+      senderType: 'system',
+      senderName: 'System',
+      type: 'system',
+      content: lines.join('\n'),
+      mentions: [],
+      createdAt: new Date().toISOString(),
+    }
+    useChatStore.getState().addMessage(helpMessage)
   },
 })
 

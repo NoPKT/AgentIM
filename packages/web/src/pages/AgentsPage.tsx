@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAgentStore } from '../stores/agents.js'
 import { getStatusConfig, getTypeConfig, agentGradients } from '../lib/agentConfig.js'
 import { Button } from '../components/ui.js'
-import { AgentInfoModal } from '../components/AgentInfoModal.js'
+import { AgentPanel } from '../components/AgentPanel.js'
 import { toast } from '../stores/toast.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
@@ -112,7 +112,7 @@ export default function AgentsPage() {
               ))}
             </div>
 
-            <AgentInfoModal
+            <AgentPanel
               agentId={selectedAgentId}
               isOpen={!!selectedAgentId}
               onClose={() => setSelectedAgentId(null)}

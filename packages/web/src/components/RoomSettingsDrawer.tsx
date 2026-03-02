@@ -7,7 +7,7 @@ import { useAgentStore } from '../stores/agents.js'
 import { useRouterStore } from '../stores/routers.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
 import { AddAgentDialog } from './AddAgentDialog.js'
-import { AgentInfoModal } from './AgentInfoModal.js'
+import { AgentPanel } from './AgentPanel.js'
 import { toast } from '../stores/toast.js'
 import { Button, Input, Textarea, Select } from './ui.js'
 import { CloseIcon, PencilIcon, PlusIcon } from './icons.js'
@@ -715,8 +715,8 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
         onAdded={() => loadRoomMembers(roomId)}
       />
 
-      {/* Agent Info Modal */}
-      <AgentInfoModal
+      {/* Agent Panel */}
+      <AgentPanel
         agentId={showAgentInfo}
         isOpen={!!showAgentInfo}
         onClose={() => setShowAgentInfo(null)}

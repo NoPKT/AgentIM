@@ -4,7 +4,7 @@ import type { RoomMember } from '@agentim/shared'
 import { useAgentStore } from '../stores/agents.js'
 import { useChatStore } from '../stores/chat.js'
 import { getStatusConfig, getTypeConfig } from '../lib/agentConfig.js'
-import { AgentInfoModal } from './AgentInfoModal.js'
+import { AgentPanel } from './AgentPanel.js'
 import { CloseIcon, PlusIcon } from './icons.js'
 
 interface MemberListPanelProps {
@@ -142,7 +142,7 @@ export function MemberListPanel({
         </div>
       </div>
 
-      <AgentInfoModal
+      <AgentPanel
         agentId={selectedAgentId}
         isOpen={!!selectedAgentId}
         onClose={() => setSelectedAgentId(null)}

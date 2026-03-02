@@ -515,10 +515,11 @@ export const ko = {
     noAgentFound: '에이전트를 찾을 수 없습니다: {{name}}',
     noActiveStreams: '중지할 활성 에이전트 스트림이 없습니다',
   },
-  agentInfo: {
+  agentPanel: {
     title: '에이전트 상세',
     general: '기본 정보',
     model: '모델',
+    modelPlaceholder: '모델 이름 입력',
     gateway: '게이트웨이',
     mcpServers: 'MCP 서버',
     slashCommands: '슬래시 명령',
@@ -529,11 +530,6 @@ export const ko = {
     rename: '이름 변경',
     renamed: '에이전트 이름이 변경되었습니다',
     renamePlaceholder: '새 이름을 입력하세요',
-  },
-  agentConfig: {
-    title: '에이전트 설정',
-    model: '모델',
-    modelPlaceholder: '모델 이름 입력',
     thinkingMode: '사고 모드',
     effortLevel: '추론 수준',
     planMode: '계획 모드',

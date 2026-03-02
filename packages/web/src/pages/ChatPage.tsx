@@ -22,7 +22,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary.js'
 import { MemberListPanel } from '../components/MemberListPanel.js'
 import { AddAgentDialog } from '../components/AddAgentDialog.js'
 import { toast } from '../stores/toast.js'
-import { AgentConfigPanel } from '../components/AgentConfigPanel.js'
+import { AgentPanelMulti } from '../components/AgentPanel.js'
 import {
   TerminalIcon,
   WorkspaceIcon,
@@ -278,7 +278,7 @@ export default function ChatPage() {
             <button
               onClick={() => setAgentConfigOpen(true)}
               className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-surface-secondary text-text-muted rounded-md hover:bg-surface-hover transition-colors flex-shrink-0"
-              title={t('agentConfig.clickToChange')}
+              title={t('agentPanel.clickToChange')}
             >
               {singleAgent.model}
             </button>
@@ -360,7 +360,7 @@ export default function ChatPage() {
               <button
                 onClick={() => setAgentConfigOpen(true)}
                 className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted hover:text-text-secondary flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                title={t('agentConfig.title')}
+                title={t('agentPanel.title')}
               >
                 <TuneIcon className="w-5 h-5" />
               </button>
@@ -555,9 +555,9 @@ export default function ChatPage() {
         />
       )}
 
-      {/* Agent Config Panel */}
+      {/* Agent Panel */}
       {agentMembers.length > 0 && (
-        <AgentConfigPanel
+        <AgentPanelMulti
           agentIds={agentMembers.map((m) => m.memberId)}
           roomId={currentRoomId}
           isOpen={agentConfigOpen}

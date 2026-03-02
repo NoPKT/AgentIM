@@ -517,10 +517,11 @@ export const ja = {
     noAgentFound: 'エージェントが見つかりません: {{name}}',
     noActiveStreams: '停止するアクティブなエージェントストリームはありません',
   },
-  agentInfo: {
+  agentPanel: {
     title: 'エージェント詳細',
     general: '基本情報',
     model: 'モデル',
+    modelPlaceholder: 'モデル名を入力',
     gateway: 'ゲートウェイ',
     mcpServers: 'MCPサーバー',
     slashCommands: 'スラッシュコマンド',
@@ -531,11 +532,6 @@ export const ja = {
     rename: '名前変更',
     renamed: 'エージェント名を変更しました',
     renamePlaceholder: '新しい名前を入力',
-  },
-  agentConfig: {
-    title: 'エージェント設定',
-    model: 'モデル',
-    modelPlaceholder: 'モデル名を入力',
     thinkingMode: '思考モード',
     effortLevel: '推論レベル',
     planMode: 'プランモード',

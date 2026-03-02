@@ -876,12 +876,15 @@ export class AgentManager {
     }
   }
 
-  private handleQueryAgentInfo(msg: ServerQueryAgentInfo) {
+  private async handleQueryAgentInfo(msg: ServerQueryAgentInfo) {
     const adapter = this.adapters.get(msg.agentId)
     if (!adapter) {
       log.warn(`Agent not found for info query: ${msg.agentId}`)
       return
     }
+
+    // Wait for model list to be ready (async adapters like Codex fetch from API)
+    await adapter.waitForModels(3000)
 
     const costSummary = adapter.getCostSummary()
     const availableModels = adapter.getAvailableModels()

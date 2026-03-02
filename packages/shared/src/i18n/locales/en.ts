@@ -623,10 +623,11 @@ export const en = {
     noAgentFound: 'Agent not found: {{name}}',
     noActiveStreams: 'No active agent streams to stop',
   },
-  agentInfo: {
+  agentPanel: {
     title: 'Agent Details',
     general: 'General',
     model: 'Model',
+    modelPlaceholder: 'Enter model name',
     gateway: 'Gateway',
     mcpServers: 'MCP Servers',
     slashCommands: 'Slash Commands',
@@ -637,11 +638,6 @@ export const en = {
     rename: 'Rename',
     renamed: 'Agent renamed',
     renamePlaceholder: 'Enter new name',
-  },
-  agentConfig: {
-    title: 'Agent Settings',
-    model: 'Model',
-    modelPlaceholder: 'Enter model name',
     thinkingMode: 'Thinking Mode',
     effortLevel: 'Effort Level',
     planMode: 'Plan Mode',
