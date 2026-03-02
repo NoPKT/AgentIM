@@ -777,7 +777,7 @@ export function MessageInput() {
                     ? `slash-cmd-${slashActiveIndex}`
                     : undefined
               }
-              className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent min-h-12 max-h-[200px]"
+              className="w-full px-2 py-3 resize-none focus:outline-none rounded-2xl bg-transparent text-text-primary placeholder:text-text-muted min-h-12 max-h-[200px]"
               rows={1}
             />
           </div>
