@@ -17,6 +17,14 @@ describe('OpenCodeAdapter slash commands', () => {
     a.dispose()
   })
 
+  it('/compact resets session', async () => {
+    const a = make()
+    const r = await a.handleSlashCommand('compact', '')
+    assert.ok(r.success)
+    assert.ok(r.message?.includes('compacted'))
+    a.dispose()
+  })
+
   it('/model query returns current', async () => {
     const a = make()
     const r = await a.handleSlashCommand('model', '')
@@ -60,12 +68,13 @@ describe('OpenCodeAdapter slash commands', () => {
 // ─── Metadata Methods ───
 
 describe('OpenCodeAdapter metadata methods', () => {
-  it('getSlashCommands returns 3 commands', () => {
+  it('getSlashCommands returns 4 commands', () => {
     const a = make()
     const cmds = a.getSlashCommands()
-    assert.equal(cmds.length, 3)
+    assert.equal(cmds.length, 4)
     const names = cmds.map((c) => c.name)
     assert.ok(names.includes('clear'))
+    assert.ok(names.includes('compact'))
     assert.ok(names.includes('model'))
     assert.ok(names.includes('cost'))
     a.dispose()
