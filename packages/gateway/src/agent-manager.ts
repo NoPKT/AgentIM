@@ -88,6 +88,7 @@ export class AgentManager {
   /** MCP: IPC server for stdio-based MCP servers */
   private ipcServer: IpcServer | null = null
   private ipcPort = 0
+  private ipcStartPromise: Promise<number> | null = null
 
   private onEmpty?: () => void
 
@@ -247,9 +248,13 @@ export class AgentManager {
   /** Get or create the IPC server for stdio-based MCP processes. */
   async getIpcPort(): Promise<number> {
     if (this.ipcPort > 0) return this.ipcPort
-    this.ipcServer = new IpcServer(this.mcpContexts)
-    this.ipcPort = await this.ipcServer.start()
-    return this.ipcPort
+    if (this.ipcStartPromise) return this.ipcStartPromise
+    this.ipcStartPromise = (async () => {
+      this.ipcServer = new IpcServer(this.mcpContexts)
+      this.ipcPort = await this.ipcServer.start()
+      return this.ipcPort
+    })()
+    return this.ipcStartPromise
   }
 
   /** Resolve a pending request_reply if a matching conversationId arrives. */
@@ -1036,7 +1041,11 @@ export class AgentManager {
       pending.resolve({ timeout: true })
       this.pendingReplies.delete(id)
     }
-    // Shut down IPC server
+    // Shut down IPC server (await pending start to prevent leak)
+    if (this.ipcStartPromise) {
+      await this.ipcStartPromise.catch(() => {})
+      this.ipcStartPromise = null
+    }
     if (this.ipcServer) {
       this.ipcServer.stop()
       this.ipcServer = null

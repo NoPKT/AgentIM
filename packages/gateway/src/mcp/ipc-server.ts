@@ -29,6 +29,8 @@ export class IpcServer {
           return
         }
         this.port = addr.port
+        // unref so the server does not prevent process exit during tests
+        this.server.unref()
         log.info(`IPC server listening on 127.0.0.1:${this.port}`)
         resolve(this.port)
       })
@@ -42,6 +44,7 @@ export class IpcServer {
 
   stop() {
     this.server.close()
+    this.server.unref()
   }
 
   private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
