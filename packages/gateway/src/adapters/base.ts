@@ -1,4 +1,11 @@
-import type { ParsedChunk, RoutingMode, RoomContext, PermissionLevel } from '@agentim/shared'
+import type {
+  ParsedChunk,
+  RoutingMode,
+  RoomContext,
+  PermissionLevel,
+  ModelOption,
+} from '@agentim/shared'
+import type { McpContext } from '../mcp/mcp-context.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('Adapter')
@@ -45,6 +52,9 @@ export abstract class BaseAgentAdapter {
   protected readonly onPermissionRequest?: PermissionRequestCallback
   protected isRunning = false
 
+  /** MCP context for agent-to-agent communication */
+  protected mcpContext?: McpContext
+
   // Cost/token tracking — accumulated across all messages in the session
   protected accumulatedCostUSD = 0
   protected accumulatedInputTokens = 0
@@ -62,6 +72,11 @@ export abstract class BaseAgentAdapter {
   }
 
   abstract get type(): string
+
+  /** Set the MCP context for agent-to-agent communication */
+  setMcpContext(ctx: McpContext) {
+    this.mcpContext = ctx
+  }
 
   /**
    * Build a contextual prompt by prepending room context and sender info.
@@ -168,6 +183,11 @@ export abstract class BaseAgentAdapter {
 
   /** Return the list of models this agent supports. */
   getAvailableModels(): string[] {
+    return []
+  }
+
+  /** Return rich model info (value + displayName). Override in adapters that support it. */
+  getAvailableModelInfo(): ModelOption[] {
     return []
   }
 

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'path'
-import type { ParsedChunk } from '@agentim/shared'
+import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
   BaseAgentAdapter,
@@ -20,6 +20,7 @@ import type {
   SDKResultMessage,
   SDKPartialAssistantMessage,
   Options,
+  ModelInfo,
 } from '@anthropic-ai/claude-agent-sdk'
 
 const log = createLogger('ClaudeCode')
@@ -30,6 +31,13 @@ let _cachedQueryFn: (typeof import('@anthropic-ai/claude-agent-sdk'))['query'] |
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private sessionId?: string
   private currentQuery?: Query
+
+  // Cached model info from SDK supportedModels()
+  private cachedModelInfo: ModelInfo[] = []
+  private modelInfoFetched = false
+
+  // MCP server for agent-to-agent communication (lazy init)
+  private mcpServerConfig?: unknown
 
   // Runtime settings configurable via slash commands
   private thinkingConfig?:
@@ -129,6 +137,24 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       if (this.effort) options.effort = this.effort
       if (this.modelOverride) options.model = this.modelOverride
 
+      // Inject AgentIM MCP server for agent-to-agent communication
+      if (this.mcpContext && !this.mcpServerConfig) {
+        try {
+          const { createAgentImMcpServer } = await import('../mcp/agentim-tools.js')
+          this.mcpServerConfig = await createAgentImMcpServer(this.mcpContext)
+          log.info('AgentIM MCP server created for agent-to-agent communication')
+        } catch (err) {
+          log.warn(`Failed to create AgentIM MCP server: ${(err as Error).message}`)
+        }
+      }
+      if (this.mcpServerConfig) {
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const servers = (options as any).mcpServers ?? {}
+        servers.agentim = this.mcpServerConfig
+        ;(options as any).mcpServers = servers
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+      }
+
       // systemPrompt is included by buildPrompt() via [System: ...] prefix,
       // so we do NOT set options.systemPrompt to avoid double injection.
       const prompt = this.buildPrompt(content, context)
@@ -140,6 +166,20 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         this.processMessage(message, onChunk, (text) => {
           fullContent += text
         })
+      }
+
+      // Fetch supported models after first successful query (async, non-blocking)
+      if (!this.modelInfoFetched && response) {
+        this.modelInfoFetched = true
+        response
+          .supportedModels()
+          .then((models) => {
+            this.cachedModelInfo = models
+            log.info(`Cached ${models.length} supported models from SDK`)
+          })
+          .catch((err) => {
+            log.warn(`Failed to fetch supported models: ${err}`)
+          })
       }
 
       this.isRunning = false
@@ -395,6 +435,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   override getAvailableModels(): string[] {
+    if (this.cachedModelInfo.length > 0) {
+      return this.cachedModelInfo.map((m) => m.value)
+    }
+    // Fallback until SDK models are fetched
     return [
       'sonnet',
       'opus',
@@ -403,6 +447,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       'claude-opus-4-6',
       'claude-haiku-4-5-20251001',
     ]
+  }
+
+  override getAvailableModelInfo(): ModelOption[] {
+    return this.cachedModelInfo.map((m) => ({
+      value: m.value,
+      displayName: m.displayName,
+      description: m.description,
+    }))
   }
 
   override getAvailableEffortLevels(): string[] {

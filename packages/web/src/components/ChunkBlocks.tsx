@@ -943,6 +943,13 @@ interface CollapsedBatch {
   toolName?: string
 }
 
+/** A process section wrapping consecutive non-text blocks */
+export interface ProcessSection {
+  type: 'process_section'
+  items: (ChunkGroup | CollapsedBatch)[]
+  stepCount: number
+}
+
 /** Collapse consecutive same-type tool_use/thinking groups into batched renders */
 function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | CollapsedBatch)[] {
   const result: (ChunkGroup | CollapsedBatch)[] = []
@@ -1006,6 +1013,73 @@ function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | Collapse
     }
   }
   flushBuffer()
+  return result
+}
+
+/**
+ * Wrap consecutive non-text/non-error items into collapsible ProcessSections.
+ * Trailing items (at the end of the array) are never wrapped so that the
+ * streaming experience remains unchanged.
+ */
+function wrapProcessSections(
+  items: (ChunkGroup | CollapsedBatch)[],
+  isStreaming: boolean,
+): (ChunkGroup | CollapsedBatch | ProcessSection)[] {
+  const result: (ChunkGroup | CollapsedBatch | ProcessSection)[] = []
+  let buffer: (ChunkGroup | CollapsedBatch)[] = []
+
+  const isProcessItem = (item: ChunkGroup | CollapsedBatch): boolean => {
+    const t = item.type
+    return (
+      t === 'thinking' ||
+      t === 'thinking_batch' ||
+      t === 'tool_use' ||
+      t === 'tool_result' ||
+      t === 'tool_batch' ||
+      t === 'read_batch'
+    )
+  }
+
+  const countSteps = (buf: (ChunkGroup | CollapsedBatch)[]): number => {
+    let count = 0
+    for (const item of buf) {
+      if ('contents' in item) {
+        count += item.contents.length
+      } else {
+        count += 1
+      }
+    }
+    return count
+  }
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) return
+    const steps = countSteps(buffer)
+    if (steps >= 3) {
+      result.push({ type: 'process_section', items: [...buffer], stepCount: steps })
+    } else {
+      for (const b of buffer) result.push(b)
+    }
+    buffer = []
+  }
+
+  for (const item of items) {
+    if (isProcessItem(item)) {
+      buffer.push(item)
+    } else {
+      flushBuffer()
+      result.push(item)
+    }
+  }
+
+  // Trailing buffer: if streaming, don't wrap (keep live blocks visible).
+  // If not streaming, wrap normally.
+  if (isStreaming) {
+    for (const b of buffer) result.push(b)
+  } else {
+    flushBuffer()
+  }
+
   return result
 }
 
@@ -1159,6 +1233,81 @@ function ThinkingBatchBlock({ contents }: { contents: string[] }) {
   )
 }
 
+/** Collapsible wrapper for a process section */
+function ProcessSectionBlock({ section }: { section: ProcessSection }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <svg
+          className="w-3.5 h-3.5 text-indigo-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 10h16M4 14h16M4 18h16"
+          />
+        </svg>
+        <span className="font-medium text-indigo-600 dark:text-indigo-400">
+          {t('chat.processSteps', { count: section.stepCount })}
+        </span>
+      </button>
+      {expanded && (
+        <div className="ml-5 mt-1 pl-3 border-l-2 border-indigo-200 dark:border-indigo-700 space-y-0.5">
+          {section.items.map((item, i) => {
+            const key = `${item.type}-${i}`
+            if (item.type === 'read_batch') {
+              return <ReadToolBlockGroup key={key} contents={(item as CollapsedBatch).contents} />
+            }
+            if (item.type === 'tool_batch') {
+              const batch = item as CollapsedBatch
+              return (
+                <ToolBatchBlock
+                  key={key}
+                  contents={batch.contents}
+                  toolName={batch.toolName || ''}
+                />
+              )
+            }
+            if (item.type === 'thinking_batch') {
+              return <ThinkingBatchBlock key={key} contents={(item as CollapsedBatch).contents} />
+            }
+            const g = item as ChunkGroup
+            switch (g.type) {
+              case 'thinking':
+                return <ThinkingBlock key={key} content={g.content} />
+              case 'tool_use':
+                return <ToolUseBlock key={key} content={g.content} metadata={g.metadata} />
+              case 'tool_result':
+                return <ToolResultBlock key={key} content={g.content} metadata={g.metadata} />
+              default:
+                return null
+            }
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Render an array of chunk groups */
 export function ChunkGroupRenderer({
   groups,
@@ -1168,12 +1317,20 @@ export function ChunkGroupRenderer({
   isStreaming?: boolean
 }) {
   const collapsed = useMemo(() => collapseConsecutiveGroups(groups), [groups])
+  const processed = useMemo(
+    () => wrapProcessSections(collapsed, isStreaming),
+    [collapsed, isStreaming],
+  )
 
   return (
     <>
-      {collapsed.map((group, i) => {
+      {processed.map((group, i) => {
         const key = `${group.type}-${i}`
-        const isLast = isStreaming && i === collapsed.length - 1
+        const isLast = isStreaming && i === processed.length - 1
+
+        if (group.type === 'process_section') {
+          return <ProcessSectionBlock key={key} section={group as ProcessSection} />
+        }
 
         if (group.type === 'read_batch') {
           return <ReadToolBlockGroup key={key} contents={(group as CollapsedBatch).contents} />

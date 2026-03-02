@@ -197,6 +197,7 @@ export const ja = {
     pattern: 'パターン',
     path: 'パス',
     toolBatch: '{{tool}} ×{{count}}',
+    processSteps: 'プロセス ({{count}} ステップ)',
     todoWrite: 'タスクリスト',
     taskList: 'タスク一覧',
     taskCreate: 'タスク作成',

@@ -22,6 +22,8 @@ import type {
 } from '@agentim/shared'
 import { getWorkspaceStatus } from './lib/git-utils.js'
 import { getDirectoryListing, getFileContent } from './lib/fs-utils.js'
+import type { McpContext, RoomMemberInfo, RoomMessage } from './mcp/mcp-context.js'
+import { IpcServer } from './mcp/ipc-server.js'
 
 const log = createLogger('AgentManager')
 
@@ -39,6 +41,18 @@ interface PendingPermission {
   timer: ReturnType<typeof setTimeout>
   reminderTimer: ReturnType<typeof setTimeout> | null
 }
+
+/** Pending reply for request_reply MCP tool */
+interface PendingReply {
+  resolve: (result: { reply: string; agentName: string } | { timeout: true }) => void
+  timer: ReturnType<typeof setTimeout>
+  targetAgentName: string
+}
+
+/** Maximum pending replies per agent */
+const MAX_PENDING_REPLIES = 10
+/** Maximum reply timeout in seconds */
+const MAX_REPLY_TIMEOUT_SECONDS = 300
 
 /** Max age for unused room contexts before they are cleaned up. */
 const ROOM_CONTEXT_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -66,6 +80,15 @@ export class AgentManager {
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
   private contextCleanupTimer: ReturnType<typeof setInterval> | null = null
+
+  /** MCP: pending request_reply promises keyed by conversationId */
+  private pendingReplies = new Map<string, PendingReply>()
+  /** MCP: per-agent McpContext instances */
+  private mcpContexts = new Map<string, McpContext>()
+  /** MCP: IPC server for stdio-based MCP servers */
+  private ipcServer: IpcServer | null = null
+  private ipcPort = 0
+  private ipcStartPromise: Promise<number> | null = null
 
   private onEmpty?: () => void
 
@@ -100,6 +123,148 @@ export class AgentManager {
     if (keysToDelete.length > 0) {
       log.info(`Cleaned up ${keysToDelete.length} stale room context(s)`)
     }
+  }
+
+  /** Create an McpContext for an agent, bridging MCP tools to the gateway. */
+  private createMcpContext(agentId: string, agentName: string): McpContext {
+    const ctx: McpContext = {
+      agentId,
+      agentName,
+
+      sendMessage: async (targetAgent: string, content: string) => {
+        const roomId = this.agentCurrentRoom.get(agentId)
+        if (!roomId) throw new Error('Agent is not in a room')
+
+        const messageId = nanoid()
+        // Send as a complete message through the gateway
+        this.wsClient.send({
+          type: 'gateway:message_chunk',
+          roomId,
+          agentId,
+          messageId,
+          chunk: { type: 'text', content },
+          targetAgentName: targetAgent,
+        })
+        this.wsClient.send({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId,
+          messageId,
+          fullContent: content,
+          chunks: [{ type: 'text', content }],
+          targetAgentName: targetAgent,
+        })
+        return { success: true, messageId }
+      },
+
+      requestReply: async (targetAgent: string, content: string, timeoutSeconds?: number) => {
+        const roomId = this.agentCurrentRoom.get(agentId)
+        if (!roomId) throw new Error('Agent is not in a room')
+
+        // Limit pending replies per agent
+        const agentPendingCount = [...this.pendingReplies.values()].filter(
+          (p) => p.targetAgentName === targetAgent,
+        ).length
+        if (agentPendingCount >= MAX_PENDING_REPLIES) {
+          throw new Error(`Too many pending replies to ${targetAgent}`)
+        }
+
+        const timeout = Math.min(timeoutSeconds ?? 120, MAX_REPLY_TIMEOUT_SECONDS)
+        const conversationId = nanoid()
+        const messageId = nanoid()
+
+        // Send the message with the conversationId so the server knows to route the reply back
+        this.wsClient.send({
+          type: 'gateway:message_chunk',
+          roomId,
+          agentId,
+          messageId,
+          chunk: { type: 'text', content },
+          targetAgentName: targetAgent,
+        })
+        this.wsClient.send({
+          type: 'gateway:message_complete',
+          roomId,
+          agentId,
+          messageId,
+          fullContent: content,
+          chunks: [{ type: 'text', content }],
+          conversationId,
+          targetAgentName: targetAgent,
+        })
+
+        // Wait for reply
+        return new Promise<{ reply: string; agentName: string } | { timeout: true }>((resolve) => {
+          const timer = setTimeout(() => {
+            this.pendingReplies.delete(conversationId)
+            resolve({ timeout: true })
+          }, timeout * 1000)
+          timer.unref()
+
+          this.pendingReplies.set(conversationId, {
+            resolve,
+            timer,
+            targetAgentName: targetAgent,
+          })
+        })
+      },
+
+      getRoomMessages: async (limit?: number): Promise<RoomMessage[]> => {
+        const roomId = this.agentCurrentRoom.get(agentId)
+        if (!roomId) return []
+
+        const roomCtx = this.getRoomContext(agentId, roomId)
+        if (!roomCtx?.recentMessages) return []
+
+        const maxLimit = Math.min(limit ?? 20, 50)
+        return roomCtx.recentMessages.slice(-maxLimit).map((m) => ({
+          sender: m.senderName || 'unknown',
+          senderType: m.senderType as 'user' | 'agent',
+          content: m.content,
+          timestamp: m.createdAt,
+        }))
+      },
+
+      listRoomMembers: async (): Promise<RoomMemberInfo[]> => {
+        const roomId = this.agentCurrentRoom.get(agentId)
+        if (!roomId) return []
+
+        const roomCtx = this.getRoomContext(agentId, roomId)
+        if (!roomCtx?.members) return []
+
+        return roomCtx.members.map((m) => ({
+          name: m.name,
+          type: m.type as 'user' | 'agent',
+          agentType: m.agentType,
+          status: m.status,
+        }))
+      },
+    }
+
+    this.mcpContexts.set(agentId, ctx)
+    return ctx
+  }
+
+  /** Get or create the IPC server for stdio-based MCP processes. */
+  async getIpcPort(): Promise<number> {
+    if (this.ipcPort > 0) return this.ipcPort
+    if (this.ipcStartPromise) return this.ipcStartPromise
+    this.ipcStartPromise = (async () => {
+      this.ipcServer = new IpcServer(this.mcpContexts)
+      this.ipcPort = await this.ipcServer.start()
+      return this.ipcPort
+    })()
+    return this.ipcStartPromise
+  }
+
+  /** Resolve a pending request_reply if a matching conversationId arrives. */
+  resolvePendingReply(conversationId: string, reply: string, agentName: string): boolean {
+    const pending = this.pendingReplies.get(conversationId)
+    if (!pending) return false
+    clearTimeout(pending.timer)
+    this.pendingReplies.delete(conversationId)
+    pending.resolve({ reply, agentName })
+    return true
   }
 
   addAgent(opts: {
@@ -210,6 +375,19 @@ export class AgentManager {
     if (opts.capabilities?.length) {
       this.agentCapabilities.set(agentId, opts.capabilities)
     }
+
+    // Create MCP context for agent-to-agent communication
+    const mcpCtx = this.createMcpContext(agentId, opts.name)
+    adapter.setMcpContext(mcpCtx)
+
+    // Start IPC server for stdio-based MCP (OpenCode, Codex) and set env
+    this.getIpcPort()
+      .then((port) => {
+        process.env.AGENTIM_IPC_PORT = String(port)
+      })
+      .catch((err) => {
+        log.warn(`Failed to start IPC server: ${(err as Error).message}`)
+      })
 
     // Register with server, including slash commands, MCP servers, and model
     this.wsClient.send({
@@ -349,6 +527,17 @@ export class AgentManager {
   }
 
   private handleSendToAgent(msg: ServerSendToAgent) {
+    // Check if this message resolves a pending request_reply
+    if (
+      msg.conversationId &&
+      this.resolvePendingReply(msg.conversationId, msg.content, msg.senderName)
+    ) {
+      log.info(
+        `Resolved pending reply for conversation ${msg.conversationId} from ${msg.senderName}`,
+      )
+      return
+    }
+
     const adapter = this.adapters.get(msg.agentId)
     if (!adapter) {
       log.warn(`Agent not found: ${msg.agentId}`)
@@ -696,6 +885,7 @@ export class AgentManager {
 
     const costSummary = adapter.getCostSummary()
     const availableModels = adapter.getAvailableModels()
+    const availableModelInfo = adapter.getAvailableModelInfo()
     const availableEffortLevels = adapter.getAvailableEffortLevels()
     const availableThinkingModes = adapter.getAvailableThinkingModes()
     this.wsClient.send({
@@ -708,6 +898,7 @@ export class AgentManager {
       effortLevel: adapter.getEffortLevel(),
       sessionCostUSD: costSummary.costUSD > 0 ? costSummary.costUSD : undefined,
       availableModels: availableModels.length > 0 ? availableModels : undefined,
+      availableModelInfo: availableModelInfo.length > 0 ? availableModelInfo : undefined,
       availableEffortLevels: availableEffortLevels.length > 0 ? availableEffortLevels : undefined,
       availableThinkingModes:
         availableThinkingModes.length > 0 ? availableThinkingModes : undefined,
@@ -844,5 +1035,22 @@ export class AgentManager {
       pending.resolve({ behavior: 'deny' })
     }
     this.pendingPermissions.clear()
+    // Resolve all pending MCP replies with timeout
+    for (const [id, pending] of this.pendingReplies) {
+      clearTimeout(pending.timer)
+      pending.resolve({ timeout: true })
+      this.pendingReplies.delete(id)
+    }
+    // Shut down IPC server (await pending start to prevent leak)
+    if (this.ipcStartPromise) {
+      await this.ipcStartPromise.catch(() => {})
+      this.ipcStartPromise = null
+    }
+    if (this.ipcServer) {
+      this.ipcServer.stop()
+      this.ipcServer = null
+      this.ipcPort = 0
+    }
+    this.mcpContexts.clear()
   }
 }

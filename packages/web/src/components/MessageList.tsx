@@ -68,6 +68,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
 
       // Agent messages with chunks: only count visible text (not collapsed
       // thinking/tool_use blocks which are hidden by default).
+      // Process sections collapse multiple blocks into a single ~32px header.
       if (msg.chunks?.length) {
         const visibleText = msg.chunks.reduce(
           (acc: number, c: { type?: string; content?: string }) => {
@@ -78,12 +79,15 @@ export function MessageList({ onImageClick }: MessageListProps) {
           0,
         )
         const lineEstimate = Math.ceil(visibleText / 80)
-        // Each collapsed block adds ~32px for its summary header
-        const collapsedBlocks = msg.chunks.filter(
+        // Count process blocks; groups of >=3 consecutive process chunks become
+        // a single collapsed ProcessSection (~32px). Fewer remain individual (~32px each).
+        const processChunks = msg.chunks.filter(
           (c: { type?: string }) =>
             c.type === 'thinking' || c.type === 'tool_use' || c.type === 'tool_result',
         ).length
-        return baseHeight + Math.max(20, lineEstimate * 22) + collapsedBlocks * 32
+        // Approximate: if >=3 process chunks, they collapse into 1 section header
+        const processHeight = processChunks >= 3 ? 32 : processChunks * 32
+        return baseHeight + Math.max(20, lineEstimate * 22) + processHeight
       }
 
       const contentLength = msg.content?.length ?? 0

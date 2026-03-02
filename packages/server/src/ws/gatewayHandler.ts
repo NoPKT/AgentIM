@@ -1,6 +1,6 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, desc } from 'drizzle-orm'
 import {
   gatewayMessageSchema,
   parseMentions,
@@ -17,6 +17,7 @@ import type {
   ServerRoomContext,
   RoomContext,
   RoomContextMember,
+  RoomContextMessage,
 } from '@agentim/shared'
 import { addPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
 import { incCounter } from '../lib/metrics.js'
@@ -570,6 +571,7 @@ async function handleMessageComplete(
     chunks?: Array<{ type: string; content: string; metadata?: Record<string, unknown> }>
     conversationId?: string
     depth?: number
+    targetAgentName?: string
   },
 ) {
   // Verify the agent belongs to this gateway
@@ -679,6 +681,7 @@ async function handleMessageComplete(
     mentions: [] as string[],
     chunks: msg.chunks,
     createdAt: now,
+    metadata: msg.targetAgentName ? { targetAgentName: msg.targetAgentName } : undefined,
   }
 
   // Record agent message metric
@@ -722,6 +725,25 @@ async function handleMessageComplete(
 
   // Skip agent-to-agent routing if rate limited
   if (rateLimited) return
+
+  // MCP-based direct agent-to-agent routing (targetAgentName from MCP tools)
+  if (msg.targetAgentName) {
+    const conversationId = msg.conversationId || nanoid()
+    const depth = msg.depth ?? 0
+
+    await routeAgentToAgent(
+      msg.roomId,
+      msg.agentId,
+      agentName,
+      msg.messageId,
+      msg.fullContent,
+      [msg.targetAgentName],
+      conversationId,
+      depth,
+      msgRouterCfg,
+    )
+    return
+  }
 
   // Agent-to-Agent routing: check if agent's message mentions other agents
   const mentionedNames = parseMentions(msg.fullContent)
@@ -1020,6 +1042,7 @@ async function handleAgentInfoResponse(
     effortLevel?: string
     sessionCostUSD?: number
     availableModels?: string[]
+    availableModelInfo?: Array<{ value: string; displayName: string; description?: string }>
     availableEffortLevels?: string[]
     availableThinkingModes?: string[]
   },
@@ -1050,6 +1073,7 @@ async function handleAgentInfoResponse(
     effortLevel: msg.effortLevel,
     sessionCostUSD: msg.sessionCostUSD,
     availableModels: msg.availableModels,
+    availableModelInfo: msg.availableModelInfo,
     availableEffortLevels: msg.availableEffortLevels,
     availableThinkingModes: msg.availableThinkingModes,
     deviceInfo: agentGw
@@ -1350,11 +1374,32 @@ async function _sendRoomContextToAgent(agentId: string, roomId: string) {
     }
   }
 
+  // Fetch recent messages for context (last 20)
+  const recentMsgRows = await db
+    .select({
+      content: messages.content,
+      senderName: messages.senderName,
+      senderType: messages.senderType,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(eq(messages.roomId, roomId))
+    .orderBy(desc(messages.createdAt))
+    .limit(20)
+
+  const recentMessages: RoomContextMessage[] = recentMsgRows.reverse().map((m) => ({
+    senderName: m.senderName ?? 'unknown',
+    senderType: m.senderType ?? 'user',
+    content: m.content?.slice(0, 500) ?? '',
+    createdAt: m.createdAt ?? new Date().toISOString(),
+  }))
+
   const context: RoomContext = {
     roomId,
     roomName: room.name,
     systemPrompt: room.systemPrompt ?? undefined,
     members: memberList,
+    recentMessages,
   }
 
   const msg: ServerRoomContext = {
