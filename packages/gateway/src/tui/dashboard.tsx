@@ -7,6 +7,7 @@ import { LogViewer } from './log-viewer.js'
 import { ActionBar } from './action-bar.js'
 import type { ActionDef } from './action-bar.js'
 import { RenameDialog, ConfirmDialog, MessageBox } from './dialogs.js'
+import { CredentialsScreen } from './credentials-screen.js'
 import { useDaemons } from './hooks/use-daemons.js'
 import { useLogs } from './hooks/use-logs.js'
 import { useGateway } from './hooks/use-gateway.js'
@@ -22,17 +23,19 @@ type DialogState =
   | { type: 'full-log'; daemonName: string }
 
 interface DashboardProps {
+  columns: number
+  rows: number
   serverUrl: string | null
   onLogout: () => void
 }
 
-export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
+export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps) {
   const { exit } = useApp()
   const daemons = useDaemons()
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
   const [message, setMessage] = useState<{ text: string; color: string } | null>(null)
-  const { gateway, refresh: refreshGateway } = useGateway()
+  const { gateway, refresh: refreshGateway, start: startGateway } = useGateway()
 
   const selectedDaemon = daemons.length > 0 ? (daemons[selectedIndex] ?? null) : null
   const logs = useLogs(selectedDaemon?.info.name ?? null)
@@ -51,7 +54,14 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
             refreshGateway()
             showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
           } else {
-            showMessage('Start gateway with: aim gateway -d', 'yellow')
+            // Start gateway daemon
+            void startGateway().then((result) => {
+              if (result.ok) {
+                showMessage(`Gateway started (PID ${result.pid}).`)
+              } else {
+                showMessage(result.error ?? 'Failed to start gateway.', 'red')
+              }
+            })
           }
           break
         case 'rename':
@@ -89,7 +99,7 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
           break
       }
     },
-    [gateway.running, refreshGateway, selectedDaemon, showMessage, onLogout, exit],
+    [gateway.running, refreshGateway, startGateway, selectedDaemon, showMessage, onLogout, exit],
   )
 
   // Map single-letter hotkeys to action IDs
@@ -180,29 +190,30 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
   // Full log view
   if (dialog.type === 'full-log') {
     return (
-      <FullLogView daemonName={dialog.daemonName} onClose={() => setDialog({ type: 'none' })} />
+      <FullLogView
+        columns={columns}
+        rows={rows}
+        daemonName={dialog.daemonName}
+        onClose={() => setDialog({ type: 'none' })}
+      />
     )
   }
 
   // Credentials view
   if (dialog.type === 'credentials') {
-    return (
-      <Box flexDirection="column" paddingX={1}>
-        <Text bold>Credentials Management</Text>
-        <Text dimColor>
-          Use `aim claude token`, `aim codex token`, or `aim gemini token` to manage credentials.
-        </Text>
-        <Text dimColor>Press any key to return.</Text>
-        <CredentialsReturn onReturn={() => setDialog({ type: 'none' })} />
-      </Box>
-    )
+    return <CredentialsScreen onClose={() => setDialog({ type: 'none' })} />
   }
 
+  // Reserve rows: status bar ~3, action bar ~1, message ~1 = ~5 fixed
+  // Log panel gets a fixed height, middle section gets the rest
+  const logHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
+  const middleHeight = Math.max(5, rows - logHeight - 5)
+
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" width={columns} height={rows}>
       <StatusBar serverUrl={serverUrl} loggedIn gatewayRunning={gateway.running} />
 
-      <Box>
+      <Box height={middleHeight}>
         {/* Agent list panel */}
         <Box flexDirection="column" borderStyle="single" borderRight={false} width="50%">
           <Text bold color="cyan">
@@ -223,7 +234,7 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
       </Box>
 
       {/* Log panel */}
-      <Box flexDirection="column" borderStyle="single" borderTop={false}>
+      <Box flexDirection="column" borderStyle="single" borderTop={false} height={logHeight}>
         <Text bold color="cyan">
           {' '}
           Log{' '}
@@ -264,7 +275,17 @@ export function Dashboard({ serverUrl, onLogout }: DashboardProps) {
 }
 
 /** Simple full-log view that returns on Esc/q. */
-function FullLogView({ daemonName, onClose }: { daemonName: string; onClose: () => void }) {
+function FullLogView({
+  columns,
+  rows,
+  daemonName,
+  onClose,
+}: {
+  columns: number
+  rows: number
+  daemonName: string
+  onClose: () => void
+}) {
   const logs = useLogs(daemonName)
 
   useInput((input, key) => {
@@ -272,11 +293,11 @@ function FullLogView({ daemonName, onClose }: { daemonName: string; onClose: () 
   })
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" width={columns} height={rows}>
       <Text bold color="cyan">
         Logs: {daemonName} (Esc to return)
       </Text>
-      <Box flexDirection="column" paddingX={1}>
+      <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {logs.length === 0 ? (
           <Text dimColor>No log output.</Text>
         ) : (
@@ -289,12 +310,4 @@ function FullLogView({ daemonName, onClose }: { daemonName: string; onClose: () 
       </Box>
     </Box>
   )
-}
-
-/** Helper to close credentials view on any key press. */
-function CredentialsReturn({ onReturn }: { onReturn: () => void }) {
-  useInput(() => {
-    onReturn()
-  })
-  return null
 }

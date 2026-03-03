@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { readDaemonInfo, stopDaemon } from '../../lib/daemon-manager.js'
+import { spawnGatewayDaemon, type SpawnGatewayResult } from '../../lib/spawn-gateway.js'
 
 export interface GatewayState {
   running: boolean
@@ -11,6 +12,7 @@ export function useGateway(): {
   gateway: GatewayState
   refresh: () => void
   stop: () => boolean
+  start: () => Promise<SpawnGatewayResult>
 } {
   const check = (): GatewayState => {
     const info = readDaemonInfo('gateway')
@@ -35,5 +37,11 @@ export function useGateway(): {
     return ok
   }, [])
 
-  return { gateway, refresh, stop }
+  const start = useCallback(async (): Promise<SpawnGatewayResult> => {
+    const result = await spawnGatewayDaemon()
+    setGateway(check())
+    return result
+  }, [])
+
+  return { gateway, refresh, stop, start }
 }

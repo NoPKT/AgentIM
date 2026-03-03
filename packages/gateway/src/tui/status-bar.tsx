@@ -9,7 +9,13 @@ interface StatusBarProps {
 
 export function StatusBar({ serverUrl, loggedIn, gatewayRunning }: StatusBarProps) {
   return (
-    <Box borderStyle="single" borderBottom={false} paddingX={1} justifyContent="space-between">
+    <Box
+      width="100%"
+      borderStyle="single"
+      borderBottom={false}
+      paddingX={1}
+      justifyContent="space-between"
+    >
       <Text bold color="cyan">
         AgentIM
       </Text>
