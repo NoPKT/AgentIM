@@ -45,7 +45,6 @@ function rotateLogIfNeeded(logFile: string) {
     renameSync(logFile, rotated)
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
-      // eslint-disable-next-line no-console
       console.error(`Log rotation failed: ${(err as Error).message}`)
     }
   } finally {
