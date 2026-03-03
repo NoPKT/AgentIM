@@ -208,6 +208,10 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return handleCredentialList(ws, msg)
       case 'gateway:credential_result':
         return handleCredentialResult(ws, msg)
+      case 'gateway:oauth_url':
+        return handleOAuthUrl(ws, msg)
+      case 'gateway:oauth_result':
+        return handleOAuthResult(ws, msg)
       case 'gateway:rewind_result': {
         if (msg.success) {
           log.info(`Rewind succeeded for agent ${msg.agentId} in room ${msg.roomId}`)
@@ -1215,6 +1219,42 @@ function handleCredentialResult(
   // Forward credential result to all of this user's connected web clients
   connectionManager.broadcastToUser(gw.userId, {
     type: 'server:gateway_credential_result',
+    requestId: msg.requestId,
+    success: msg.success,
+    error: msg.error,
+    credential: msg.credential,
+  })
+}
+
+// ─── Remote OAuth (Gateway → Server → Client relay) ───
+
+function handleOAuthUrl(ws: WSContext, msg: { requestId: string; authUrl: string }) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw) return
+
+  connectionManager.broadcastToUser(gw.userId, {
+    type: 'server:gateway_oauth_url',
+    gatewayId: gw.gatewayId,
+    requestId: msg.requestId,
+    authUrl: msg.authUrl,
+  })
+}
+
+function handleOAuthResult(
+  ws: WSContext,
+  msg: {
+    requestId: string
+    success: boolean
+    error?: string
+    credential?: { id: string; name: string }
+  },
+) {
+  const gw = connectionManager.getGateway(ws)
+  if (!gw) return
+
+  connectionManager.broadcastToUser(gw.userId, {
+    type: 'server:gateway_oauth_result',
+    gatewayId: gw.gatewayId,
     requestId: msg.requestId,
     success: msg.success,
     error: msg.error,

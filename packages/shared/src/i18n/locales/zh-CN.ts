@@ -779,5 +779,15 @@ export const zhCN = {
     subscriptionHint: '使用网关上已配置的 OAuth 令牌。如需配置，请先在网关上运行 CLI 登录命令。',
     selectCredential: '选择凭证',
     credentialRequired: '需要选择凭证',
+    oauthHint: '在远程网关上启动 OAuth 登录流程。授权完成后，从浏览器复制回调 URL 并粘贴到下方。',
+    oauthStart: '开始 OAuth 登录',
+    oauthStarting: '启动中...',
+    oauthStep1: '第 1 步：打开此 URL 并授权访问',
+    oauthStep2:
+      '第 2 步：授权后，浏览器将重定向到 localhost（可能显示错误页面）。从地址栏复制完整 URL 并粘贴到此处：',
+    oauthComplete: '完成 OAuth',
+    oauthCompleting: '完成中...',
+    oauthSuccess: 'OAuth 登录已成功完成',
+    oauthFailed: 'OAuth 登录失败',
   },
 }

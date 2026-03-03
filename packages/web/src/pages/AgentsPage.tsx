@@ -767,6 +767,8 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
   const addGatewayCredential = useAgentStore((s) => s.addGatewayCredential)
   const manageGatewayCredential = useAgentStore((s) => s.manageGatewayCredential)
   const refreshGatewayCredentials = useAgentStore((s) => s.refreshGatewayCredentials)
+  const startGatewayOAuth = useAgentStore((s) => s.startGatewayOAuth)
+  const completeGatewayOAuth = useAgentStore((s) => s.completeGatewayOAuth)
 
   const [credAgentType, setCredAgentType] = useState<string>(AGENT_TYPES[0])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -778,6 +780,13 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // OAuth flow state
+  const [oauthPending, setOauthPending] = useState(false)
+  const [oauthRequestId, setOauthRequestId] = useState<string | null>(null)
+  const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null)
+  const [callbackUrl, setCallbackUrl] = useState('')
+  const [oauthSubmitting, setOauthSubmitting] = useState(false)
 
   const credKey = `${gatewayId}:${credAgentType}`
   const creds = gatewayCredentials.get(credKey) ?? null
@@ -793,6 +802,39 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     window.addEventListener('agentim:credential_updated', handler)
     return () => window.removeEventListener('agentim:credential_updated', handler)
   }, [gatewayId, credAgentType, refreshGatewayCredentials])
+
+  // Listen for OAuth URL from gateway
+  useEffect(() => {
+    const handleOAuthUrl = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail.gatewayId === gatewayId) {
+        setOauthRequestId(detail.requestId)
+        setOauthAuthUrl(detail.authUrl)
+        setOauthPending(false)
+      }
+    }
+    const handleOAuthResult = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail.gatewayId === gatewayId) {
+        setOauthPending(false)
+        setOauthSubmitting(false)
+        setOauthAuthUrl(null)
+        setOauthRequestId(null)
+        setCallbackUrl('')
+        if (detail.success) {
+          setShowAddForm(false)
+          setAddName('')
+          setAddMode('api')
+        }
+      }
+    }
+    window.addEventListener('agentim:oauth_url', handleOAuthUrl)
+    window.addEventListener('agentim:oauth_result', handleOAuthResult)
+    return () => {
+      window.removeEventListener('agentim:oauth_url', handleOAuthUrl)
+      window.removeEventListener('agentim:oauth_result', handleOAuthResult)
+    }
+  }, [gatewayId])
 
   const canAdd = addName.trim() && (addMode === 'subscription' || addApiKey.trim())
 
@@ -1000,12 +1042,6 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
             </button>
           </div>
 
-          {addMode === 'subscription' && (
-            <p className="text-[10px] text-text-muted leading-relaxed">
-              {t('credential.subscriptionHint')}
-            </p>
-          )}
-
           <div>
             <label className="block text-[10px] font-medium text-text-muted mb-1">
               {t('credential.name')}
@@ -1019,67 +1055,175 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
             />
           </div>
 
-          {addMode === 'api' && (
-            <div>
-              <label className="block text-[10px] font-medium text-text-muted mb-1">
-                {t('credential.apiKey')}
-              </label>
-              <input
-                type="password"
-                value={addApiKey}
-                onChange={(e) => setAddApiKey(e.target.value)}
-                placeholder="sk-..."
-                className={inputCls}
-              />
-            </div>
-          )}
+          {addMode === 'api' ? (
+            <>
+              <div>
+                <label className="block text-[10px] font-medium text-text-muted mb-1">
+                  {t('credential.apiKey')}
+                </label>
+                <input
+                  type="password"
+                  value={addApiKey}
+                  onChange={(e) => setAddApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-text-muted mb-1">
+                  {t('credential.baseUrl')}
+                  <span className="ml-1 opacity-50">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={addBaseUrl}
+                  onChange={(e) => setAddBaseUrl(e.target.value)}
+                  placeholder="https://api.example.com"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-text-muted mb-1">
+                  {t('credential.model')}
+                  <span className="ml-1 opacity-50">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={addModel}
+                  onChange={(e) => setAddModel(e.target.value)}
+                  placeholder="claude-opus-4-6"
+                  className={inputCls}
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowAddForm(false)
+                    setAddName('')
+                    setAddApiKey('')
+                    setAddBaseUrl('')
+                    setAddModel('')
+                    setAddMode('api')
+                  }}
+                  className="flex-1"
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button size="sm" onClick={handleAdd} disabled={!canAdd} className="flex-1">
+                  {t('credential.add')}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* OAuth flow UI for subscription mode */}
+              {!oauthAuthUrl ? (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-text-muted leading-relaxed">
+                    {t('credential.oauthHint')}
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setShowAddForm(false)
+                        setAddName('')
+                        setAddMode('api')
+                        setOauthPending(false)
+                        setOauthAuthUrl(null)
+                        setOauthRequestId(null)
+                        setCallbackUrl('')
+                      }}
+                      className="flex-1"
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!addName.trim()) return
+                        setOauthPending(true)
+                        startGatewayOAuth(gatewayId, credAgentType, addName.trim())
+                      }}
+                      disabled={oauthPending || !addName.trim()}
+                      className="flex-1"
+                    >
+                      {oauthPending ? t('credential.oauthStarting') : t('credential.oauthStart')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {/* Auth URL display */}
+                  <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
+                      {t('credential.oauthStep1')}
+                    </p>
+                    <a
+                      href={oauthAuthUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
+                    >
+                      {oauthAuthUrl.length > 120
+                        ? oauthAuthUrl.slice(0, 120) + '...'
+                        : oauthAuthUrl}
+                    </a>
+                  </div>
 
-          <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
-              {t('credential.baseUrl')}
-              <span className="ml-1 opacity-50">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={addBaseUrl}
-              onChange={(e) => setAddBaseUrl(e.target.value)}
-              placeholder="https://api.example.com"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
-              {t('credential.model')}
-              <span className="ml-1 opacity-50">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={addModel}
-              onChange={(e) => setAddModel(e.target.value)}
-              placeholder="claude-opus-4-6"
-              className={inputCls}
-            />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setShowAddForm(false)
-                setAddName('')
-                setAddApiKey('')
-                setAddBaseUrl('')
-                setAddModel('')
-                setAddMode('api')
-              }}
-              className="flex-1"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button size="sm" onClick={handleAdd} disabled={!canAdd} className="flex-1">
-              {t('credential.add')}
-            </Button>
-          </div>
+                  {/* Callback URL paste */}
+                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 mb-1.5">
+                      {t('credential.oauthStep2')}
+                    </p>
+                    <input
+                      type="text"
+                      value={callbackUrl}
+                      onChange={(e) => setCallbackUrl(e.target.value)}
+                      placeholder="http://localhost:PORT/callback?code=..."
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setShowAddForm(false)
+                        setAddName('')
+                        setAddMode('api')
+                        setOauthPending(false)
+                        setOauthAuthUrl(null)
+                        setOauthRequestId(null)
+                        setCallbackUrl('')
+                      }}
+                      className="flex-1"
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!callbackUrl.trim() || !oauthRequestId) return
+                        setOauthSubmitting(true)
+                        completeGatewayOAuth(gatewayId, oauthRequestId, callbackUrl.trim())
+                      }}
+                      disabled={oauthSubmitting || !callbackUrl.trim()}
+                      className="flex-1"
+                    >
+                      {oauthSubmitting
+                        ? t('credential.oauthCompleting')
+                        : t('credential.oauthComplete')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <button

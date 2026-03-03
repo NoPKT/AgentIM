@@ -813,5 +813,16 @@ export const de = {
       'Verwendet das bereits am Gateway konfigurierte OAuth-Token. Führen Sie bei Bedarf zuerst den CLI-Login-Befehl am Gateway aus.',
     selectCredential: 'Anmeldedaten auswählen',
     credentialRequired: 'Auswahl der Anmeldedaten erforderlich',
+    oauthHint:
+      'Starten Sie den OAuth-Anmeldevorgang auf dem Remote-Gateway. Nach der Autorisierung kopieren Sie die Callback-URL aus Ihrem Browser und fügen Sie sie unten ein.',
+    oauthStart: 'OAuth-Anmeldung starten',
+    oauthStarting: 'Wird gestartet...',
+    oauthStep1: 'Schritt 1: Öffnen Sie diese URL und autorisieren Sie den Zugriff',
+    oauthStep2:
+      'Schritt 2: Nach der Autorisierung leitet der Browser zu localhost weiter (es kann ein Fehler angezeigt werden). Kopieren Sie die vollständige URL aus der Adressleiste und fügen Sie sie hier ein:',
+    oauthComplete: 'OAuth abschließen',
+    oauthCompleting: 'Wird abgeschlossen...',
+    oauthSuccess: 'OAuth-Anmeldung erfolgreich abgeschlossen',
+    oauthFailed: 'OAuth-Anmeldung fehlgeschlagen',
   },
 }

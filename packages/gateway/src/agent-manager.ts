@@ -1,5 +1,6 @@
 import { homedir } from 'node:os'
 import { resolve } from 'node:path'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
@@ -20,6 +21,8 @@ import type {
   ServerListCredentials,
   ServerAddCredential,
   ServerManageCredential,
+  ServerStartOAuth,
+  ServerCompleteOAuth,
   ServerRewindAgent,
   RoomContext,
   ParsedChunk,
@@ -103,6 +106,17 @@ export class AgentManager {
   private ipcServer: IpcServer | null = null
   private ipcPort = 0
   private ipcStartPromise: Promise<number> | null = null
+
+  /** Active remote OAuth login processes keyed by requestId */
+  private activeOAuthProcesses = new Map<
+    string,
+    {
+      process: ChildProcess
+      agentType: string
+      credentialName: string
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
 
   private onEmpty?: () => void
 
@@ -507,6 +521,8 @@ export class AgentManager {
       | ServerListCredentials
       | ServerAddCredential
       | ServerManageCredential
+      | ServerStartOAuth
+      | ServerCompleteOAuth
       | ServerRewindAgent,
   ) {
     if (msg.type === 'server:send_to_agent') {
@@ -533,6 +549,10 @@ export class AgentManager {
       this.handleAddCredential(msg)
     } else if (msg.type === 'server:manage_credential') {
       this.handleManageCredential(msg)
+    } else if (msg.type === 'server:start_oauth') {
+      this.handleStartOAuth(msg)
+    } else if (msg.type === 'server:complete_oauth') {
+      this.handleCompleteOAuth(msg)
     } else if (msg.type === 'server:rewind_agent') {
       this.handleRewindAgent(msg)
     }
@@ -1170,6 +1190,202 @@ export class AgentManager {
     }
   }
 
+  // ─── Remote OAuth ───
+
+  private static readonly OAUTH_LOGIN_COMMANDS: Record<string, { cmd: string; args: string[] }> = {
+    'claude-code': { cmd: 'claude', args: ['setup-token'] },
+    codex: { cmd: 'codex', args: ['login'] },
+    gemini: { cmd: 'gemini', args: ['auth', 'login'] },
+  }
+
+  private static readonly OAUTH_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+
+  private handleStartOAuth(msg: ServerStartOAuth) {
+    const loginInfo = AgentManager.OAUTH_LOGIN_COMMANDS[msg.agentType]
+    if (!loginInfo) {
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: false,
+        error: `No login command configured for agent type: ${msg.agentType}`,
+      })
+      return
+    }
+
+    // Prevent duplicate OAuth processes for the same request
+    if (this.activeOAuthProcesses.has(msg.requestId)) return
+
+    log.info(`Starting remote OAuth for ${msg.agentType} (request=${msg.requestId})`)
+
+    const child = spawn(loginInfo.cmd, loginInfo.args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, BROWSER: 'echo' },
+    })
+
+    const timer = setTimeout(() => {
+      const entry = this.activeOAuthProcesses.get(msg.requestId)
+      if (entry) {
+        log.warn(`OAuth process timed out (request=${msg.requestId})`)
+        entry.process.kill()
+        this.activeOAuthProcesses.delete(msg.requestId)
+        this.wsClient.send({
+          type: 'gateway:oauth_result',
+          requestId: msg.requestId,
+          success: false,
+          error: 'OAuth process timed out',
+        })
+      }
+    }, AgentManager.OAUTH_TIMEOUT_MS)
+
+    this.activeOAuthProcesses.set(msg.requestId, {
+      process: child,
+      agentType: msg.agentType,
+      credentialName: msg.credentialName,
+      timer,
+    })
+
+    let urlSent = false
+    const handleOutput = (data: Buffer) => {
+      const text = data.toString()
+      if (!urlSent) {
+        // Look for URLs in the output
+        const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/)
+        if (urlMatch) {
+          urlSent = true
+          log.info(`Captured OAuth URL for ${msg.agentType}`)
+          this.wsClient.send({
+            type: 'gateway:oauth_url',
+            requestId: msg.requestId,
+            authUrl: urlMatch[0],
+          })
+        }
+      }
+    }
+
+    child.stdout?.on('data', handleOutput)
+    child.stderr?.on('data', handleOutput)
+
+    child.on('error', (err) => {
+      log.error(`OAuth process error: ${err.message}`)
+      clearTimeout(timer)
+      this.activeOAuthProcesses.delete(msg.requestId)
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: false,
+        error: `Failed to start login command: ${err.message}`,
+      })
+    })
+
+    // If the process exits before complete_oauth arrives, it may have succeeded
+    // (e.g. claude setup-token exits immediately after user pastes token)
+    child.on('exit', (code) => {
+      const entry = this.activeOAuthProcesses.get(msg.requestId)
+      if (!entry) return // already handled by completeOAuth
+
+      clearTimeout(timer)
+      this.activeOAuthProcesses.delete(msg.requestId)
+
+      if (code === 0 && urlSent) {
+        // Process exited successfully — save credential
+        const credential = addCredential(msg.agentType, {
+          name: msg.credentialName,
+          mode: 'subscription',
+        })
+        this.wsClient.send({
+          type: 'gateway:oauth_result',
+          requestId: msg.requestId,
+          success: true,
+          credential: { id: credential.id, name: credential.name },
+        })
+        log.info(`OAuth completed successfully for ${msg.agentType}`)
+      } else if (code === 0 && !urlSent) {
+        // Process exited successfully without printing a URL — still save
+        const credential = addCredential(msg.agentType, {
+          name: msg.credentialName,
+          mode: 'subscription',
+        })
+        this.wsClient.send({
+          type: 'gateway:oauth_result',
+          requestId: msg.requestId,
+          success: true,
+          credential: { id: credential.id, name: credential.name },
+        })
+      } else {
+        this.wsClient.send({
+          type: 'gateway:oauth_result',
+          requestId: msg.requestId,
+          success: false,
+          error: `Login process exited with code ${code}`,
+        })
+      }
+    })
+  }
+
+  private async handleCompleteOAuth(msg: ServerCompleteOAuth) {
+    const entry = this.activeOAuthProcesses.get(msg.requestId)
+    if (!entry) {
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: false,
+        error: 'No active OAuth process for this request',
+      })
+      return
+    }
+
+    log.info(`Relaying OAuth callback for ${entry.agentType} (request=${msg.requestId})`)
+
+    try {
+      // Make HTTP request to the CLI tool's local server with the callback URL
+      // The callback URL looks like http://localhost:PORT/callback?code=xxx&state=yyy
+      const response = await fetch(msg.callbackUrl)
+      if (!response.ok) {
+        log.warn(`OAuth callback returned ${response.status}`)
+      }
+
+      // Wait for the process to exit (up to 30s)
+      await new Promise<void>((resolve, reject) => {
+        const exitTimeout = setTimeout(() => {
+          reject(new Error('Login process did not exit after receiving callback'))
+        }, 30_000)
+
+        entry.process.on('exit', (code) => {
+          clearTimeout(exitTimeout)
+          if (code === 0) resolve()
+          else reject(new Error(`Login process exited with code ${code}`))
+        })
+      })
+
+      // Process exited successfully — save credential
+      clearTimeout(entry.timer)
+      this.activeOAuthProcesses.delete(msg.requestId)
+
+      const credential = addCredential(entry.agentType, {
+        name: entry.credentialName,
+        mode: 'subscription',
+      })
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: true,
+        credential: { id: credential.id, name: credential.name },
+      })
+      log.info(`OAuth completed successfully for ${entry.agentType}`)
+    } catch (err) {
+      clearTimeout(entry.timer)
+      this.activeOAuthProcesses.delete(msg.requestId)
+      entry.process.kill()
+
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: false,
+        error: (err as Error).message,
+      })
+    }
+  }
+
   private handleRewindAgent(msg: ServerRewindAgent) {
     const adapter = this.adapters.get(msg.agentId)
     if (!adapter) {
@@ -1272,5 +1488,11 @@ export class AgentManager {
       this.ipcPort = 0
     }
     this.mcpContexts.clear()
+    // Kill active OAuth processes
+    for (const [id, entry] of this.activeOAuthProcesses) {
+      clearTimeout(entry.timer)
+      entry.process.kill()
+      this.activeOAuthProcesses.delete(id)
+    }
   }
 }

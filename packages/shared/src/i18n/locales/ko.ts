@@ -792,5 +792,16 @@ export const ko = {
       '게이트웨이에 이미 구성된 OAuth 토큰을 사용합니다. 필요한 경우 게이트웨이에서 CLI 로그인 명령을 먼저 실행하세요.',
     selectCredential: '자격 증명 선택',
     credentialRequired: '자격 증명 선택 필요',
+    oauthHint:
+      '원격 게이트웨이에서 OAuth 로그인 프로세스를 시작합니다. 인증 후 브라우저에서 콜백 URL을 복사하여 아래에 붙여넣으세요.',
+    oauthStart: 'OAuth 로그인 시작',
+    oauthStarting: '시작 중...',
+    oauthStep1: '1단계: 이 URL을 열고 접근을 인증하세요',
+    oauthStep2:
+      '2단계: 인증 후 브라우저가 localhost로 리디렉션됩니다(오류가 표시될 수 있음). 주소 표시줄에서 전체 URL을 복사하여 여기에 붙여넣으세요:',
+    oauthComplete: 'OAuth 완료',
+    oauthCompleting: '완료 중...',
+    oauthSuccess: 'OAuth 로그인이 성공적으로 완료되었습니다',
+    oauthFailed: 'OAuth 로그인에 실패했습니다',
   },
 }

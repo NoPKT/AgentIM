@@ -821,5 +821,16 @@ export const fr = {
       "Utilise le jeton OAuth déjà configuré sur la passerelle. Exécutez d'abord la commande de connexion CLI sur la passerelle si nécessaire.",
     selectCredential: 'Sélectionner un identifiant',
     credentialRequired: "Sélection d'identifiant requise",
+    oauthHint:
+      "Démarrez le processus de connexion OAuth sur la passerelle distante. Après autorisation, copiez l'URL de rappel depuis votre navigateur et collez-la ci-dessous.",
+    oauthStart: 'Démarrer la connexion OAuth',
+    oauthStarting: 'Démarrage...',
+    oauthStep1: "Étape 1 : Ouvrez cette URL et autorisez l'accès",
+    oauthStep2:
+      "Étape 2 : Après autorisation, le navigateur redirigera vers localhost (une erreur peut s'afficher). Copiez l'URL complète de la barre d'adresse et collez-la ici :",
+    oauthComplete: 'Terminer OAuth',
+    oauthCompleting: 'Finalisation...',
+    oauthSuccess: 'Connexion OAuth terminée avec succès',
+    oauthFailed: 'Échec de la connexion OAuth',
   },
 }

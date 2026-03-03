@@ -295,6 +295,10 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
           msg.action,
           msg.name,
         )
+      case 'client:start_gateway_oauth':
+        return handleStartGatewayOAuth(ws, msg.gatewayId, msg.agentType, msg.credentialName)
+      case 'client:complete_gateway_oauth':
+        return handleCompleteGatewayOAuth(ws, msg.gatewayId, msg.requestId, msg.callbackUrl)
       case 'client:rewind_room':
         return await handleRewindRoom(ws, msg.roomId, msg.messageId)
       case 'client:ping':
@@ -1303,6 +1307,58 @@ function handleManageGatewayCredential(
     credentialId,
     action,
     name,
+  })
+
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'GATEWAY_OFFLINE',
+      message: 'Gateway is offline',
+    })
+  }
+}
+
+// ─── Remote OAuth (Client → Server → Gateway relay) ───
+
+function handleStartGatewayOAuth(
+  ws: WSContext,
+  gatewayId: string,
+  agentType: string,
+  credentialName: string,
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const requestId = nanoid()
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:start_oauth',
+    requestId,
+    agentType,
+    credentialName,
+  })
+
+  if (!sent) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'GATEWAY_OFFLINE',
+      message: 'Gateway is offline',
+    })
+  }
+}
+
+function handleCompleteGatewayOAuth(
+  ws: WSContext,
+  gatewayId: string,
+  requestId: string,
+  callbackUrl: string,
+) {
+  const client = connectionManager.getClient(ws)
+  if (!client) return
+
+  const sent = connectionManager.sendToGatewayById(gatewayId, {
+    type: 'server:complete_oauth',
+    requestId,
+    callbackUrl,
   })
 
   if (!sent) {
