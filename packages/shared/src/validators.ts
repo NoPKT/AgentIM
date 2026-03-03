@@ -636,6 +636,20 @@ export const clientManageGatewayCredentialSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 })
 
+export const clientStartGatewayOAuthSchema = z.object({
+  type: z.literal('client:start_gateway_oauth'),
+  gatewayId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  credentialName: z.string().min(1).max(100),
+})
+
+export const clientCompleteGatewayOAuthSchema = z.object({
+  type: z.literal('client:complete_gateway_oauth'),
+  gatewayId: z.string().min(1),
+  requestId: z.string().min(1),
+  callbackUrl: z.string().min(1).max(4096),
+})
+
 export const clientMessageSchema = z.discriminatedUnion('type', [
   clientAuthSchema,
   clientJoinRoomSchema,
@@ -650,6 +664,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientListGatewayCredentialsSchema,
   clientAddGatewayCredentialSchema,
   clientManageGatewayCredentialSchema,
+  clientStartGatewayOAuthSchema,
+  clientCompleteGatewayOAuthSchema,
   clientPingSchema,
   clientRewindRoomSchema,
 ])
@@ -848,6 +864,20 @@ export const gatewayCredentialResultSchema = z.object({
   credential: z.object({ id: z.string(), name: z.string() }).optional(),
 })
 
+export const gatewayOAuthUrlSchema = z.object({
+  type: z.literal('gateway:oauth_url'),
+  requestId: z.string().min(1),
+  authUrl: z.string().min(1).max(4096),
+})
+
+export const gatewayOAuthResultSchema = z.object({
+  type: z.literal('gateway:oauth_result'),
+  requestId: z.string().min(1),
+  success: z.boolean(),
+  error: z.string().optional(),
+  credential: z.object({ id: z.string(), name: z.string() }).optional(),
+})
+
 export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayAuthSchema,
   gatewayRegisterAgentSchema,
@@ -863,6 +893,8 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewaySpawnResultSchema,
   gatewayCredentialListSchema,
   gatewayCredentialResultSchema,
+  gatewayOAuthUrlSchema,
+  gatewayOAuthResultSchema,
   gatewayWorkspaceResponseSchema,
   gatewayPingSchema,
   gatewayRewindResultSchema,
@@ -1362,6 +1394,19 @@ export const serverManageCredentialSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 })
 
+export const serverStartOAuthSchema = z.object({
+  type: z.literal('server:start_oauth'),
+  requestId: z.string().min(1),
+  agentType: z.string().min(1).max(50),
+  credentialName: z.string().min(1).max(100),
+})
+
+export const serverCompleteOAuthSchema = z.object({
+  type: z.literal('server:complete_oauth'),
+  requestId: z.string().min(1),
+  callbackUrl: z.string().min(1).max(4096),
+})
+
 export const serverRewindAgentSchema = z.object({
   type: z.literal('server:rewind_agent'),
   agentId: z.string().min(1),
@@ -1383,6 +1428,8 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverListCredentialsSchema,
   serverAddCredentialSchema,
   serverManageCredentialSchema,
+  serverStartOAuthSchema,
+  serverCompleteOAuthSchema,
   serverRewindAgentSchema,
   serverPongSchema,
   serverErrorSchema,

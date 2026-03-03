@@ -114,6 +114,20 @@ export interface ClientManageGatewayCredential {
   name?: string
 }
 
+export interface ClientStartGatewayOAuth {
+  type: 'client:start_gateway_oauth'
+  gatewayId: string
+  agentType: string
+  credentialName: string
+}
+
+export interface ClientCompleteGatewayOAuth {
+  type: 'client:complete_gateway_oauth'
+  gatewayId: string
+  requestId: string
+  callbackUrl: string
+}
+
 export interface ClientPing {
   type: 'client:ping'
   ts: number
@@ -139,6 +153,8 @@ export type ClientMessage =
   | ClientListGatewayCredentials
   | ClientAddGatewayCredential
   | ClientManageGatewayCredential
+  | ClientStartGatewayOAuth
+  | ClientCompleteGatewayOAuth
   | ClientPing
   | ClientRewindRoom
 
@@ -342,6 +358,22 @@ export interface ServerGatewayCredentialResult {
   credential?: { id: string; name: string }
 }
 
+export interface ServerGatewayOAuthUrl {
+  type: 'server:gateway_oauth_url'
+  gatewayId: string
+  requestId: string
+  authUrl: string
+}
+
+export interface ServerGatewayOAuthResult {
+  type: 'server:gateway_oauth_result'
+  gatewayId: string
+  requestId: string
+  success: boolean
+  error?: string
+  credential?: { id: string; name: string }
+}
+
 export type ServerMessage =
   | ServerAuthResult
   | ServerNewMessage
@@ -367,6 +399,8 @@ export type ServerMessage =
   | ServerSpawnResult
   | ServerGatewayCredentialList
   | ServerGatewayCredentialResult
+  | ServerGatewayOAuthUrl
+  | ServerGatewayOAuthResult
   | ServerWorkspaceResponse
   | ServerPong
   | ServerError
@@ -521,6 +555,20 @@ export interface GatewayCredentialResult {
   credential?: { id: string; name: string }
 }
 
+export interface GatewayOAuthUrl {
+  type: 'gateway:oauth_url'
+  requestId: string
+  authUrl: string
+}
+
+export interface GatewayOAuthResult {
+  type: 'gateway:oauth_result'
+  requestId: string
+  success: boolean
+  error?: string
+  credential?: { id: string; name: string }
+}
+
 export interface GatewayWorkspaceResponse {
   type: 'gateway:workspace_response'
   agentId: string
@@ -560,6 +608,8 @@ export type GatewayMessage =
   | GatewaySpawnResult
   | GatewayCredentialList
   | GatewayCredentialResult
+  | GatewayOAuthUrl
+  | GatewayOAuthResult
   | GatewayWorkspaceResponse
   | GatewayPing
   | GatewayRewindResult
@@ -667,6 +717,19 @@ export interface ServerManageCredential {
   name?: string
 }
 
+export interface ServerStartOAuth {
+  type: 'server:start_oauth'
+  requestId: string
+  agentType: string
+  credentialName: string
+}
+
+export interface ServerCompleteOAuth {
+  type: 'server:complete_oauth'
+  requestId: string
+  callbackUrl: string
+}
+
 export interface ServerRewindAgent {
   type: 'server:rewind_agent'
   agentId: string
@@ -693,6 +756,8 @@ export type ServerGatewayMessage =
   | ServerListCredentials
   | ServerAddCredential
   | ServerManageCredential
+  | ServerStartOAuth
+  | ServerCompleteOAuth
   | ServerRewindAgent
   | ServerPong
   | ServerError
@@ -718,6 +783,8 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'client:list_gateway_credentials',
   'client:add_gateway_credential',
   'client:manage_gateway_credential',
+  'client:start_gateway_oauth',
+  'client:complete_gateway_oauth',
   'client:ping',
   'client:rewind_room',
 ])
@@ -738,6 +805,8 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:spawn_result',
   'gateway:credential_list',
   'gateway:credential_result',
+  'gateway:oauth_url',
+  'gateway:oauth_result',
   'gateway:workspace_response',
   'gateway:ping',
   'gateway:rewind_result',
@@ -769,6 +838,8 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:spawn_result',
   'server:gateway_credential_list',
   'server:gateway_credential_result',
+  'server:gateway_oauth_url',
+  'server:gateway_oauth_result',
   'server:workspace_response',
   'server:pong',
   'server:error',
@@ -826,6 +897,8 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:list_credentials',
   'server:add_credential',
   'server:manage_credential',
+  'server:start_oauth',
+  'server:complete_oauth',
   'server:rewind_agent',
 ])
 

@@ -795,5 +795,16 @@ export const ja = {
       'ゲートウェイで設定済みのOAuthトークンを使用します。必要に応じて、ゲートウェイでCLIログインコマンドを実行してください。',
     selectCredential: '認証情報を選択',
     credentialRequired: '認証情報の選択が必要です',
+    oauthHint:
+      'リモートゲートウェイでOAuthログインプロセスを開始します。認可後、ブラウザからコールバックURLをコピーして以下に貼り付けてください。',
+    oauthStart: 'OAuthログインを開始',
+    oauthStarting: '開始中...',
+    oauthStep1: 'ステップ1：このURLを開いてアクセスを認可してください',
+    oauthStep2:
+      'ステップ2：認可後、ブラウザがlocalhostにリダイレクトされます（エラーが表示される場合があります）。アドレスバーから完全なURLをコピーしてここに貼り付けてください：',
+    oauthComplete: 'OAuthを完了',
+    oauthCompleting: '完了中...',
+    oauthSuccess: 'OAuthログインが正常に完了しました',
+    oauthFailed: 'OAuthログインに失敗しました',
   },
 }

@@ -326,6 +326,43 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:gateway_oauth_url':
+          try {
+            window.dispatchEvent(
+              new CustomEvent('agentim:oauth_url', {
+                detail: {
+                  gatewayId: msg.gatewayId,
+                  requestId: msg.requestId,
+                  authUrl: msg.authUrl,
+                },
+              }),
+            )
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
+        case 'server:gateway_oauth_result':
+          try {
+            if (msg.success) {
+              toast.success(i18next.t('credential.oauthSuccess'))
+              window.dispatchEvent(new CustomEvent('agentim:credential_updated'))
+            } else {
+              toast.error(msg.error ?? i18next.t('credential.oauthFailed'))
+            }
+            window.dispatchEvent(
+              new CustomEvent('agentim:oauth_result', {
+                detail: {
+                  gatewayId: msg.gatewayId,
+                  requestId: msg.requestId,
+                  success: msg.success,
+                  error: msg.error,
+                },
+              }),
+            )
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:workspace_response':
           try {
             const ws = useWorkspaceStore.getState()

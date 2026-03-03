@@ -794,5 +794,16 @@ export const en = {
       'Uses the OAuth token already configured on the gateway. Run the CLI login command on the gateway first if needed.',
     selectCredential: 'Select Credential',
     credentialRequired: 'Credential selection required',
+    oauthHint:
+      'Start the OAuth login process on the remote gateway. After authorizing, copy the callback URL from your browser and paste it below.',
+    oauthStart: 'Start OAuth Login',
+    oauthStarting: 'Starting...',
+    oauthStep1: 'Step 1: Open this URL and authorize access',
+    oauthStep2:
+      'Step 2: After authorizing, the browser will redirect to localhost (which may show an error). Copy the full URL from the address bar and paste it here:',
+    oauthComplete: 'Complete OAuth',
+    oauthCompleting: 'Completing...',
+    oauthSuccess: 'OAuth login completed successfully',
+    oauthFailed: 'OAuth login failed',
   },
 }

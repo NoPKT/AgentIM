@@ -63,6 +63,8 @@ interface AgentState {
     name?: string,
   ) => void
   refreshGatewayCredentials: (gatewayId: string, agentType: string) => void
+  startGatewayOAuth: (gatewayId: string, agentType: string, credentialName: string) => void
+  completeGatewayOAuth: (gatewayId: string, requestId: string, callbackUrl: string) => void
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -191,6 +193,24 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       type: 'client:list_gateway_credentials',
       gatewayId,
       agentType,
+    })
+  },
+
+  startGatewayOAuth: (gatewayId, agentType, credentialName) => {
+    wsClient.send({
+      type: 'client:start_gateway_oauth',
+      gatewayId,
+      agentType,
+      credentialName,
+    })
+  },
+
+  completeGatewayOAuth: (gatewayId, requestId, callbackUrl) => {
+    wsClient.send({
+      type: 'client:complete_gateway_oauth',
+      gatewayId,
+      requestId,
+      callbackUrl,
     })
   },
 }))
