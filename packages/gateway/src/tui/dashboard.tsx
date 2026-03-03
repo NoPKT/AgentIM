@@ -49,8 +49,10 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
   const selectedDaemon = daemons.length > 0 ? (daemons[selectedIndex] ?? null) : null
   const logs = useLogs(selectedDaemon?.info.name ?? null)
 
-  // Log panel dimensions
-  const logHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
+  // Log panel dimensions (resizable via +/- keys)
+  const [logHeightDelta, setLogHeightDelta] = useState(0)
+  const baseLogHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
+  const logHeight = Math.max(3, Math.min(rows - 8, baseLogHeight + logHeightDelta))
   const logVisibleLines = Math.max(1, logHeight - 3) // minus border + title + scroll indicator
   const scroll = useScroll(logs.length, logVisibleLines)
   const logSearch = useLogSearch(logs)
@@ -310,6 +312,15 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
       }
 
       if (region === 'logs') {
+        // Resize log panel
+        if (input === '+' || input === '=') {
+          setLogHeightDelta((d) => Math.min(rows - 8 - baseLogHeight, d + 2))
+          return
+        }
+        if (input === '-' || input === '_') {
+          setLogHeightDelta((d) => Math.max(3 - baseLogHeight, d - 2))
+          return
+        }
         // '/' activates search
         if (input === '/') {
           logSearch.activate()
@@ -393,7 +404,7 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
         if (logSearch.confirmedQuery) {
           return `Tab: switch | n/N: next/prev | Esc: clear | /: new search | q: quit`
         }
-        return 'Tab: switch focus | Up/Down/j/k: scroll | PgUp/PgDn: page | gg/G: top/bottom | /: search | q: quit'
+        return 'Tab: switch focus | Up/Down/j/k: scroll | PgUp/PgDn: page | gg/G: top/bottom | +/-: resize | /: search | q: quit'
     }
   }, [logSearch.active, logSearch.confirmedQuery, modal.type, region])
 
@@ -495,6 +506,12 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
             {' '}
             Log{' '}
           </Text>
+          {!scroll.autoFollow && (
+            <Text color="yellow" bold>
+              {' '}
+              PAUSED{' '}
+            </Text>
+          )}
           {/* Search indicator when not in search input mode */}
           {!logSearch.active && logSearch.confirmedQuery && (
             <Text dimColor>
