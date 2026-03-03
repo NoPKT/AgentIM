@@ -1,7 +1,7 @@
 import { homedir, tmpdir } from 'node:os'
 import { resolve, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { writeFileSync, readFileSync, unlinkSync } from 'node:fs'
+import { writeFileSync, readFileSync, unlinkSync, mkdtempSync, rmdirSync } from 'node:fs'
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
@@ -1222,8 +1222,11 @@ export class AgentManager {
     // (used by most CLI tools) spawns BROWSER with `stdio: 'ignore'`, so
     // `BROWSER=echo` won't work — echo's output is discarded. Instead, we
     // use a script that writes the URL to a temp file we can poll.
-    const urlFile = join(tmpdir(), `agentim-oauth-${msg.requestId}`)
-    const browserHelper = join(tmpdir(), `agentim-browser-${msg.requestId}.sh`)
+    // Create a secure temp directory (mkdtemp uses mode 0700) to avoid
+    // symlink attacks flagged by CodeQL for direct file creation in tmpdir.
+    const oauthTmpDir = mkdtempSync(join(tmpdir(), 'agentim-oauth-'))
+    const urlFile = join(oauthTmpDir, 'url')
+    const browserHelper = join(oauthTmpDir, 'browser.sh')
     try {
       writeFileSync(browserHelper, `#!/bin/sh\nprintf '%s' "$1" > "${urlFile}"\n`, { mode: 0o755 })
     } catch (err) {
@@ -1278,6 +1281,11 @@ export class AgentManager {
       }
       try {
         unlinkSync(urlFile)
+      } catch {
+        /* ignore */
+      }
+      try {
+        rmdirSync(oauthTmpDir)
       } catch {
         /* ignore */
       }
