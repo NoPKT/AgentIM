@@ -329,6 +329,19 @@ export class GatewayWsClient {
     }
   }
 
+  /** Re-enable reconnection after auth-revoked recovery (reset all backoff state). */
+  enableReconnect() {
+    this.shouldReconnect = true
+    this.reconnectAttempts = 0
+    this.reconnectInterval = 3000
+    this.probing = false
+    this.connecting = false
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat()
     this.pingTimer = setInterval(() => {

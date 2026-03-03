@@ -26,6 +26,8 @@ const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 const CONFIG_LOCK = CONFIG_FILE + '.lock'
 const CONFIG_TMP = CONFIG_FILE + '.tmp'
 const LOCK_STALE_MS = 60_000
+const AUTH_REVOKED_FILE = join(CONFIG_DIR, 'auth-revoked')
+const MARKER_STALE_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface RawConfigV1 {
   serverUrl: string
@@ -151,6 +153,40 @@ export function getConfigPath(): string {
 export function clearConfig(): void {
   if (existsSync(CONFIG_FILE)) {
     unlinkSync(CONFIG_FILE)
+  }
+}
+
+/** Write a marker file indicating auth was revoked (e.g. password change). */
+export function writeAuthRevokedMarker(serverUrl: string): void {
+  mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
+  writeFileSync(AUTH_REVOKED_FILE, JSON.stringify({ ts: Date.now(), serverUrl }), { mode: 0o600 })
+}
+
+/** Check if the auth-revoked marker exists and is not stale (auto-cleans after 24h). */
+export function hasAuthRevokedMarker(): boolean {
+  try {
+    const stats = statSync(AUTH_REVOKED_FILE)
+    if (Date.now() - stats.mtimeMs > MARKER_STALE_MS) {
+      // Stale marker — clean up
+      try {
+        unlinkSync(AUTH_REVOKED_FILE)
+      } catch {
+        /* best effort */
+      }
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Remove the auth-revoked marker (idempotent). */
+export function removeAuthRevokedMarker(): void {
+  try {
+    unlinkSync(AUTH_REVOKED_FILE)
+  } catch {
+    /* already removed or never existed */
   }
 }
 

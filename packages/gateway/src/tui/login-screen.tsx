@@ -12,12 +12,13 @@ interface LoginScreenProps {
     password: string,
   ) => Promise<{ ok: boolean; error?: string }>
   onQuit: () => void
+  sessionExpired?: boolean
 }
 
 type Field = 'server' | 'username' | 'password'
 const FIELDS: Field[] = ['server', 'username', 'password']
 
-export function LoginScreen({ columns, rows, onLogin, onQuit }: LoginScreenProps) {
+export function LoginScreen({ columns, rows, onLogin, onQuit, sessionExpired }: LoginScreenProps) {
   const [serverUrl, setServerUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -71,6 +72,15 @@ export function LoginScreen({ columns, rows, onLogin, onQuit }: LoginScreenProps
           Welcome to AgentIM
         </Text>
         <Box height={1} />
+
+        {sessionExpired && (
+          <>
+            <Text color="yellow" bold>
+              Session expired — please re-login to reconnect agents
+            </Text>
+            <Box height={1} />
+          </>
+        )}
 
         <Box>
           <Text>Server URL: </Text>

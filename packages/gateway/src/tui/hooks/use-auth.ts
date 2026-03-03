@@ -1,10 +1,16 @@
-import { useState, useCallback } from 'react'
-import { loadConfig, clearConfig } from '../../config.js'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import {
+  loadConfig,
+  clearConfig,
+  hasAuthRevokedMarker,
+  removeAuthRevokedMarker,
+} from '../../config.js'
 import { TokenManager } from '../../token-manager.js'
 
 export interface AuthState {
   loggedIn: boolean
   serverUrl: string | null
+  authRevoked: boolean
 }
 
 /** Check saved config for authentication state and provide login/logout. */
@@ -19,12 +25,34 @@ export function useAuth(): {
   refresh: () => void
 } {
   const check = (): AuthState => {
+    if (hasAuthRevokedMarker()) {
+      const config = loadConfig()
+      return { loggedIn: false, authRevoked: true, serverUrl: config?.serverBaseUrl ?? null }
+    }
     const config = loadConfig()
-    if (!config) return { loggedIn: false, serverUrl: null }
-    return { loggedIn: true, serverUrl: config.serverBaseUrl }
+    if (!config) return { loggedIn: false, authRevoked: false, serverUrl: null }
+    return { loggedIn: true, authRevoked: false, serverUrl: config.serverBaseUrl }
   }
 
   const [auth, setAuth] = useState<AuthState>(check)
+  const authRef = useRef(auth)
+  authRef.current = auth
+
+  // Poll for auth-revoked marker changes (e.g. daemon entered recovery mode)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = check()
+      const prev = authRef.current
+      if (
+        next.loggedIn !== prev.loggedIn ||
+        next.authRevoked !== prev.authRevoked ||
+        next.serverUrl !== prev.serverUrl
+      ) {
+        setAuth(next)
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
 
   const login = useCallback(
     async (
@@ -55,8 +83,9 @@ export function useAuth(): {
           refreshToken,
           gatewayId,
         })
+        removeAuthRevokedMarker()
 
-        setAuth({ loggedIn: true, serverUrl: serverBaseUrl })
+        setAuth({ loggedIn: true, authRevoked: false, serverUrl: serverBaseUrl })
         return { ok: true }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -67,7 +96,8 @@ export function useAuth(): {
 
   const logout = useCallback(() => {
     clearConfig()
-    setAuth({ loggedIn: false, serverUrl: null })
+    removeAuthRevokedMarker()
+    setAuth({ loggedIn: false, authRevoked: false, serverUrl: null })
   }, [])
 
   const refresh = useCallback(() => {
