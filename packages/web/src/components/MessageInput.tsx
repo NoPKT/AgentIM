@@ -90,6 +90,24 @@ export function MessageInput() {
     }
   }, [currentRoomId])
 
+  // Pre-fill input from rewind draft
+  const rewindDraft = useChatStore((s) => s.rewindDraft)
+  const setRewindDraft = useChatStore((s) => s.setRewindDraft)
+
+  useEffect(() => {
+    if (rewindDraft !== null) {
+      setContent(rewindDraft)
+      setRewindDraft(null)
+      // Focus textarea and place cursor at end
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus()
+          textareaRef.current.setSelectionRange(rewindDraft.length, rewindDraft.length)
+        }
+      }, 0)
+    }
+  }, [rewindDraft, setRewindDraft])
+
   // Auto-save draft to IndexedDB (debounced)
   useEffect(() => {
     if (!currentRoomId) return

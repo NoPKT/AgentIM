@@ -266,6 +266,21 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:room_rewound':
+          try {
+            chat.removeMessages(msg.roomId, msg.removedMessageIds)
+            chat.setRewindDraft(msg.messageContent)
+            // Clean up any active streaming state for agents in this room
+            const streamKeys = Array.from(chat.streaming.keys()).filter((k) =>
+              k.startsWith(`${msg.roomId}:`),
+            )
+            if (streamKeys.length > 0) {
+              chat.clearStreamingState()
+            }
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:spawn_result':
           try {
             if (msg.success) {
