@@ -55,5 +55,15 @@ export function useScroll(totalLines: number, visibleLines: number) {
     setAutoFollow(true)
   }, [maxOffset])
 
-  return { offset, scrollUp, scrollDown, pageUp, pageDown, goTop, goBottom }
+  /** Scroll to center a specific line index in the viewport. */
+  const scrollTo = useCallback(
+    (lineIndex: number) => {
+      const target = Math.max(0, Math.min(maxOffset, lineIndex - Math.floor(visibleLines / 2)))
+      setOffset(target)
+      setAutoFollow(target >= maxOffset)
+    },
+    [maxOffset, visibleLines],
+  )
+
+  return { offset, scrollUp, scrollDown, pageUp, pageDown, goTop, goBottom, scrollTo }
 }

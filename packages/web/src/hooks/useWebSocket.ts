@@ -317,6 +317,8 @@ export function useWebSocket() {
           try {
             if (msg.success) {
               toast.success(i18next.t('common.success'))
+              // Notify credential panels to refresh their lists
+              window.dispatchEvent(new CustomEvent('agentim:credential_updated'))
             } else {
               toast.error(msg.error ?? i18next.t('common.error'))
             }

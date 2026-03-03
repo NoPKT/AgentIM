@@ -7,9 +7,20 @@ interface LogViewerProps {
   maxLines?: number
   scrollOffset?: number
   focused?: boolean
+  /** Set of line indices that match the search query */
+  matchLineIndices?: Set<number>
+  /** The line index of the current (focused) match */
+  currentMatchLine?: number
 }
 
-export function LogViewer({ logs, maxLines = 6, scrollOffset, focused = false }: LogViewerProps) {
+export function LogViewer({
+  logs,
+  maxLines = 6,
+  scrollOffset,
+  focused = false,
+  matchLineIndices,
+  currentMatchLine,
+}: LogViewerProps) {
   // If scrollOffset is provided, use windowed rendering; otherwise show last N lines
   const total = logs.length
   const offset = scrollOffset ?? Math.max(0, total - maxLines)
@@ -28,11 +39,22 @@ export function LogViewer({ logs, maxLines = 6, scrollOffset, focused = false }:
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {visible.map((entry, i) => (
-        <Text key={offset + i} dimColor={!focused} wrap="truncate">
-          {entry.line}
-        </Text>
-      ))}
+      {visible.map((entry, i) => {
+        const lineIdx = offset + i
+        const isCurrentMatch = currentMatchLine === lineIdx
+        const isMatch = matchLineIndices?.has(lineIdx) ?? false
+        return (
+          <Text
+            key={lineIdx}
+            dimColor={!focused && !isMatch}
+            color={isMatch ? 'yellow' : undefined}
+            inverse={isCurrentMatch}
+            wrap="truncate"
+          >
+            {entry.line}
+          </Text>
+        )
+      })}
       {scrollIndicator && <Text dimColor>{scrollIndicator}</Text>}
     </Box>
   )

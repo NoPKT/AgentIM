@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
+import TextInput from 'ink-text-input'
 import { StatusBar } from './status-bar.js'
 import { AgentList } from './agent-list.js'
 import { AgentDetails } from './agent-details.js'
@@ -13,6 +14,7 @@ import { useLogs } from './hooks/use-logs.js'
 import { useGateway } from './hooks/use-gateway.js'
 import { useFocusRegion } from './hooks/use-focus-region.js'
 import { useScroll } from './hooks/use-scroll.js'
+import { useLogSearch } from './hooks/use-log-search.js'
 import { stopDaemon, removeDaemon } from '../lib/daemon-manager.js'
 import { ServerApi } from '../lib/server-api.js'
 
@@ -51,6 +53,11 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
   const logHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
   const logVisibleLines = Math.max(1, logHeight - 3) // minus border + title + scroll indicator
   const scroll = useScroll(logs.length, logVisibleLines)
+  const logSearch = useLogSearch(logs)
+  const matchLineSet = useMemo(
+    () => (logSearch.confirmedQuery ? new Set(logSearch.matchIndices) : undefined),
+    [logSearch.confirmedQuery, logSearch.matchIndices],
+  )
 
   const showMessage = useCallback((text: string, color = 'green') => {
     setMessage({ text, color })
@@ -230,6 +237,29 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
   // Context menu input is handled by the ContextMenu component itself
   // Confirm/Rename dialog input is handled by dialog components
 
+  // Search input handler — active when search bar is visible
+  useInput(
+    (_input, key) => {
+      if (key.escape) {
+        logSearch.deactivate()
+        return
+      }
+      if (key.return) {
+        logSearch.confirm()
+      }
+    },
+    { isActive: logSearch.active },
+  )
+
+  // Auto-scroll to current search match
+  const prevMatchLine = useRef(-1)
+  React.useEffect(() => {
+    if (logSearch.currentMatchLine >= 0 && logSearch.currentMatchLine !== prevMatchLine.current) {
+      prevMatchLine.current = logSearch.currentMatchLine
+      scroll.scrollTo(logSearch.currentMatchLine)
+    }
+  }, [logSearch.currentMatchLine, scroll])
+
   // Main input: routes to focused region or handles global keys
   useInput(
     (input, key) => {
@@ -280,6 +310,25 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
       }
 
       if (region === 'logs') {
+        // '/' activates search
+        if (input === '/') {
+          logSearch.activate()
+          return
+        }
+        // 'n' / 'N' navigate search results
+        if (input === 'n') {
+          logSearch.nextMatch()
+          return
+        }
+        if (input === 'N') {
+          logSearch.prevMatch()
+          return
+        }
+        // Escape clears search
+        if (key.escape) {
+          logSearch.clearSearch()
+          return
+        }
         if (key.upArrow || input === 'k') {
           scroll.scrollUp()
           return
@@ -321,17 +370,19 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
         }
       }
     },
-    { isActive: modal.type === 'none' },
+    { isActive: modal.type === 'none' && !logSearch.active },
   )
 
   // ─── Help bar hints ───
 
   const hints = useMemo(() => {
+    if (logSearch.active) return 'Enter: search | Esc: cancel'
     if (modal.type === 'context-menu') return 'Up/Down: navigate | Enter: select | Esc: close'
-    if (modal.type === 'confirm') return 'Y: confirm | N/Esc: cancel'
+    if (modal.type === 'confirm')
+      return 'Left/Right/Tab: navigate | Enter: confirm | Y/N: quick select | Esc: cancel'
     if (modal.type === 'rename') return 'Enter: confirm | Esc: cancel'
     if (modal.type === 'credentials')
-      return 'Enter: actions | Left/Right: agent type | A: add | Esc: close'
+      return 'Enter: actions/add | Left/Right: agent type | A: add | Esc: close'
 
     switch (region) {
       case 'agents':
@@ -339,9 +390,12 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
       case 'status':
         return 'Tab: switch focus | Enter: activate | Left/Right: navigate | q: quit'
       case 'logs':
-        return 'Tab: switch focus | Up/Down/j/k: scroll | PgUp/PgDn: page | gg/G: top/bottom | q: quit'
+        if (logSearch.confirmedQuery) {
+          return `Tab: switch | n/N: next/prev | Esc: clear | /: new search | q: quit`
+        }
+        return 'Tab: switch focus | Up/Down/j/k: scroll | PgUp/PgDn: page | gg/G: top/bottom | /: search | q: quit'
     }
-  }, [modal.type, region])
+  }, [logSearch.active, logSearch.confirmedQuery, modal.type, region])
 
   // ─── Layout ───
 
@@ -436,16 +490,43 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
         borderTop={false}
         height={logHeight}
       >
-        <Text bold color="cyan">
-          {' '}
-          Log{' '}
-        </Text>
+        <Box>
+          <Text bold color="cyan">
+            {' '}
+            Log{' '}
+          </Text>
+          {/* Search indicator when not in search input mode */}
+          {!logSearch.active && logSearch.confirmedQuery && (
+            <Text dimColor>
+              {' '}
+              /{logSearch.confirmedQuery} [
+              {logSearch.matchIndices.length > 0 ? logSearch.currentMatch + 1 : 0}/
+              {logSearch.matchIndices.length}]
+            </Text>
+          )}
+        </Box>
         <LogViewer
           logs={logs}
-          maxLines={logVisibleLines}
+          maxLines={logSearch.active ? Math.max(1, logVisibleLines - 1) : logVisibleLines}
           scrollOffset={scroll.offset}
           focused={region === 'logs' && modal.type === 'none'}
+          matchLineIndices={matchLineSet}
+          currentMatchLine={
+            logSearch.currentMatchLine >= 0 ? logSearch.currentMatchLine : undefined
+          }
         />
+        {/* Search input bar */}
+        {logSearch.active && (
+          <Box paddingX={1}>
+            <Text color="yellow">/</Text>
+            <TextInput
+              value={logSearch.query}
+              onChange={logSearch.setQuery}
+              onSubmit={() => logSearch.confirm()}
+              placeholder="search..."
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Inline dialogs */}
