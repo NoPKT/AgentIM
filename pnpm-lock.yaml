@@ -67,22 +67,22 @@ importers:
         version: 14.0.3
       ink:
         specifier: ^5.2.1
-        version: 5.2.1(@types/react@18.3.28)(react@18.3.1)
+        version: 5.2.1(@types/react@19.2.14)(react@19.2.4)
       ink-select-input:
         specifier: ^6.0.0
-        version: 6.2.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)
+        version: 6.2.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       ink-spinner:
         specifier: ^5.0.0
-        version: 5.0.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)
+        version: 5.0.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       ink-text-input:
         specifier: ^6.0.0
-        version: 6.0.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)
+        version: 6.0.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       nanoid:
         specifier: ^5.1.0
         version: 5.1.6
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       ws:
         specifier: ^8.18.0
         version: 8.19.0
@@ -91,8 +91,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@types/react':
-        specifier: ^18.3.0
-        version: 18.3.28
+        specifier: ^19.2.14
+        version: 19.2.14
       '@types/ws':
         specifier: ^8.5.0
         version: 8.18.1
@@ -216,7 +216,7 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
       react:
-        specifier: ^19.0.0
+        specifier: ^19.2.4
         version: 19.2.4
       react-dom:
         specifier: ^19.0.0
@@ -259,7 +259,7 @@ importers:
         specifier: ^14.5.0
         version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/react':
-        specifier: ^19.0.0
+        specifier: ^19.2.14
         version: 19.2.14
       '@types/react-dom':
         specifier: ^19.0.0
@@ -2722,9 +2722,6 @@ packages:
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
 
-  '@types/prop-types@15.7.15':
-    resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
-
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
 
@@ -2732,9 +2729,6 @@ packages:
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
       '@types/react': ^19.2.0
-
-  '@types/react@18.3.28':
-    resolution: {integrity: sha512-z9VXpC7MWrhfWipitjNdgCauoMLRdIILQsAEV+ZesIzBq/oUlxk0m3ApZuMFCXdnS4U7KrI+l3WRUEGQ8K1QKw==}
 
   '@types/react@19.2.14':
     resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
@@ -5439,10 +5433,6 @@ packages:
       react-dom:
         optional: true
 
-  react@18.3.1:
-    resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
-    engines: {node: '>=0.10.0'}
-
   react@19.2.4:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
@@ -5633,8 +5623,8 @@ packages:
     resolution: {integrity: sha512-1gnZf7DFcoIcajTjTwjwuDjzuz4PPcY2StKPlsGAQ1+YH20IRVrBaXSWmdjowTJ6u8Rc01PoYOGHXfP1mYcZNQ==}
     engines: {node: '>= 18'}
 
-  serialize-javascript@7.0.3:
-    resolution: {integrity: sha512-h+cZ/XXarqDgCjo+YSyQU/ulDEESGGf8AMK9pPNmhNSl/FzPl6L8pMp1leca5z6NuG6tvV/auC8/43tmovowww==}
+  serialize-javascript@7.0.4:
+    resolution: {integrity: sha512-DuGdB+Po43Q5Jxwpzt1lhyFSYKryqoNjQSA9M92tyw0lyHIOur+XCalOUe0KTJpyqzT8+fQ5A0Jf7vCx/NKmIg==}
     engines: {node: '>=20.0.0'}
 
   serve-static@2.2.1:
@@ -8893,7 +8883,7 @@ snapshots:
 
   '@rollup/plugin-terser@0.4.4(rollup@2.80.0)':
     dependencies:
-      serialize-javascript: 7.0.3
+      serialize-javascript: 7.0.4
       smob: 1.6.1
       terser: 5.46.0
     optionalDependencies:
@@ -9635,8 +9625,6 @@ snapshots:
       pg-protocol: 1.11.0
       pg-types: 2.2.0
 
-  '@types/prop-types@15.7.15': {}
-
   '@types/qrcode@1.5.6':
     dependencies:
       '@types/node': 25.3.0
@@ -9644,11 +9632,6 @@ snapshots:
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
       '@types/react': 19.2.14
-
-  '@types/react@18.3.28':
-    dependencies:
-      '@types/prop-types': 15.7.15
-      csstype: 3.2.3
 
   '@types/react@19.2.14':
     dependencies:
@@ -11308,27 +11291,27 @@ snapshots:
   ini@1.3.8:
     optional: true
 
-  ink-select-input@6.2.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1):
+  ink-select-input@6.2.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4):
     dependencies:
       figures: 6.1.0
-      ink: 5.2.1(@types/react@18.3.28)(react@18.3.1)
-      react: 18.3.1
+      ink: 5.2.1(@types/react@19.2.14)(react@19.2.4)
+      react: 19.2.4
       to-rotated: 1.0.0
 
-  ink-spinner@5.0.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1):
+  ink-spinner@5.0.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4):
     dependencies:
       cli-spinners: 2.9.2
-      ink: 5.2.1(@types/react@18.3.28)(react@18.3.1)
-      react: 18.3.1
+      ink: 5.2.1(@types/react@19.2.14)(react@19.2.4)
+      react: 19.2.4
 
-  ink-text-input@6.0.0(ink@5.2.1(@types/react@18.3.28)(react@18.3.1))(react@18.3.1):
+  ink-text-input@6.0.0(ink@5.2.1(@types/react@19.2.14)(react@19.2.4))(react@19.2.4):
     dependencies:
       chalk: 5.6.2
-      ink: 5.2.1(@types/react@18.3.28)(react@18.3.1)
-      react: 18.3.1
+      ink: 5.2.1(@types/react@19.2.14)(react@19.2.4)
+      react: 19.2.4
       type-fest: 4.41.0
 
-  ink@5.2.1(@types/react@18.3.28)(react@18.3.1):
+  ink@5.2.1(@types/react@19.2.14)(react@19.2.4):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.1.3
       ansi-escapes: 7.3.0
@@ -11343,8 +11326,8 @@ snapshots:
       indent-string: 5.0.0
       is-in-ci: 1.0.0
       patch-console: 2.0.0
-      react: 18.3.1
-      react-reconciler: 0.29.2(react@18.3.1)
+      react: 19.2.4
+      react-reconciler: 0.29.2(react@19.2.4)
       scheduler: 0.23.2
       signal-exit: 3.0.7
       slice-ansi: 7.1.2
@@ -11356,7 +11339,7 @@ snapshots:
       ws: 8.19.0
       yoga-layout: 3.2.1
     optionalDependencies:
-      '@types/react': 18.3.28
+      '@types/react': 19.2.14
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -12677,10 +12660,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  react-reconciler@0.29.2(react@18.3.1):
+  react-reconciler@0.29.2(react@19.2.4):
     dependencies:
       loose-envify: 1.4.0
-      react: 18.3.1
+      react: 19.2.4
       scheduler: 0.23.2
 
   react-refresh@0.18.0: {}
@@ -12692,10 +12675,6 @@ snapshots:
       set-cookie-parser: 2.7.2
     optionalDependencies:
       react-dom: 19.2.4(react@19.2.4)
-
-  react@18.3.1:
-    dependencies:
-      loose-envify: 1.4.0
 
   react@19.2.4: {}
 
@@ -12976,7 +12955,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serialize-javascript@7.0.3: {}
+  serialize-javascript@7.0.4: {}
 
   serve-static@2.2.1:
     dependencies:
