@@ -138,9 +138,19 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
               },
               (err: unknown) => {
                 if (refreshConnId !== connectionId) return
-                log.error(`Token refresh failed: ${err instanceof Error ? err.message : err}`)
-                log.error('Please re-login: agentim login')
-                process.exit(1)
+                refreshingToken = null
+                const errMsg = err instanceof Error ? err.message : String(err)
+                log.error(`Token refresh failed: ${errMsg}`)
+
+                // Permanent failure (4xx auth error) — must re-login
+                if (errMsg.includes('permanently')) {
+                  log.error('Please re-login: agentim login')
+                  process.exit(1)
+                }
+
+                // Transient failure (server down, network issue) — reconnect
+                log.warn('Token refresh failed due to transient error, will reconnect...')
+                wsClient.forceReconnect()
               },
             )
           } else {

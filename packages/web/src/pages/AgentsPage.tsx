@@ -851,57 +851,61 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
       ) : creds.length === 0 ? (
         <p className="text-xs text-text-muted py-1">{t('credential.noCredentials')}</p>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {creds.map((cred) => (
             <div
               key={cred.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-surface-secondary/50 text-xs"
+              className="px-2.5 py-2 rounded-lg bg-surface-secondary/50 text-xs space-y-1.5"
             >
-              <div className="flex-1 min-w-0">
-                {renamingId === cred.id ? (
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename(cred.id)
-                        if (e.key === 'Escape') setRenamingId(null)
-                      }}
-                      autoFocus
-                      className="flex-1 px-1.5 py-0.5 text-xs rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                    />
-                    <button
-                      onClick={() => handleRename(cred.id)}
-                      className="px-1.5 py-0.5 text-[10px] font-medium text-accent bg-accent/10 rounded hover:bg-accent/20"
-                    >
-                      OK
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <span className="font-medium text-text-primary truncate">{cred.name}</span>
-                    <span className="ml-1.5 text-text-muted">
-                      {cred.mode === 'api'
-                        ? t('credential.modeApi')
-                        : t('credential.modeSubscription')}
+              {/* Row 1: credential info */}
+              {renamingId === cred.id ? (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRename(cred.id)
+                      if (e.key === 'Escape') setRenamingId(null)
+                    }}
+                    autoFocus
+                    className="flex-1 px-1.5 py-0.5 text-xs rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button
+                    onClick={() => handleRename(cred.id)}
+                    className="px-1.5 py-0.5 text-[10px] font-medium text-accent bg-accent/10 rounded hover:bg-accent/20"
+                  >
+                    OK
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-medium text-text-primary truncate max-w-[140px]">
+                    {cred.name}
+                  </span>
+                  <span className="px-1 py-0.5 text-[9px] font-medium bg-surface-hover text-text-muted rounded">
+                    {cred.mode === 'api'
+                      ? t('credential.modeApi')
+                      : t('credential.modeSubscription')}
+                  </span>
+                  {cred.isDefault && (
+                    <span className="px-1 py-0.5 text-[9px] font-semibold bg-accent/10 text-accent rounded">
+                      {t('credential.default')}
                     </span>
-                    {cred.isDefault && (
-                      <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold bg-accent/10 text-accent rounded">
-                        {t('credential.default')}
-                      </span>
-                    )}
-                    {cred.baseUrl && (
-                      <span className="ml-1.5 text-text-muted truncate" title={cred.baseUrl}>
-                        {cred.baseUrl}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
+              {/* Optional baseUrl on its own line */}
+              {renamingId !== cred.id && cred.baseUrl && (
+                <div className="text-[10px] text-text-muted truncate" title={cred.baseUrl}>
+                  {cred.baseUrl}
+                </div>
+              )}
+
+              {/* Row 2: action buttons */}
               {renamingId !== cred.id && (
-                <div className="flex gap-0.5 flex-shrink-0">
+                <div className="flex gap-1 flex-wrap">
                   {!cred.isDefault && (
                     <button
                       onClick={() => handleSetDefault(cred.id)}
@@ -922,7 +926,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                     {t('credential.rename')}
                   </button>
                   {confirmDeleteId === cred.id ? (
-                    <div className="flex gap-0.5">
+                    <div className="flex gap-1">
                       <button
                         onClick={() => handleDelete(cred.id)}
                         className="px-1.5 py-0.5 text-[10px] font-medium text-danger-text bg-danger-subtle rounded hover:bg-danger-subtle/80"
