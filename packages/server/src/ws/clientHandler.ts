@@ -1338,10 +1338,14 @@ function handleStartGatewayOAuth(
   })
 
   if (!sent) {
+    // Send a typed OAuth failure so the client can reset its pending state
+    // immediately instead of waiting for the 30s timeout.
     connectionManager.sendToClient(ws, {
-      type: 'server:error',
-      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
-      message: 'Gateway is offline',
+      type: 'server:gateway_oauth_result',
+      gatewayId,
+      requestId,
+      success: false,
+      error: 'Gateway is offline',
     })
   }
 }
