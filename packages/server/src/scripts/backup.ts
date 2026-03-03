@@ -7,8 +7,8 @@
  * Requires `pg_dump` to be available on PATH.
  * Backup files are stored in ./backups/ with a timestamp.
  */
-import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createLogger } from '../lib/logger.js'
 
@@ -28,9 +28,10 @@ const backupFile = resolve(backupDir, `agentim-${timestamp}.sql`)
 log.info(`Backing up database to ${backupFile} ...`)
 
 try {
-  execSync(`pg_dump "${databaseUrl}" --no-owner --no-acl > "${backupFile}"`, {
+  const output = execFileSync('pg_dump', [databaseUrl, '--no-owner', '--no-acl'], {
     stdio: ['ignore', 'pipe', 'inherit'],
   })
+  writeFileSync(backupFile, output)
   log.info(`Backup complete: ${backupFile}`)
 } catch (err: unknown) {
   log.error(`Backup failed: ${err instanceof Error ? err.message : err}`)

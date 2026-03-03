@@ -20,7 +20,6 @@ import {
   saveAgentConfig,
   deleteAgentConfig,
   credentialToAuthConfig,
-  agentConfigToEnv,
   type CredentialEntry,
   type AgentAuthConfig,
 } from '../src/agent-config.js'
@@ -241,7 +240,7 @@ describe('credential store', () => {
 
     it('promotes first remaining credential to default when default is removed', () => {
       const first = addCredential(TEST_AGENT_TYPE, { name: 'first', mode: 'api' })
-      const second = addCredential(TEST_AGENT_TYPE, { name: 'second', mode: 'api' })
+      addCredential(TEST_AGENT_TYPE, { name: 'second', mode: 'api' })
 
       // First is default
       assert.equal(first.isDefault, true)
@@ -307,7 +306,7 @@ describe('credential store', () => {
     })
 
     it('returns null when multiple credentials exist with no default', () => {
-      const first = addCredential(TEST_AGENT_TYPE, { name: 'first', mode: 'api' })
+      addCredential(TEST_AGENT_TYPE, { name: 'first', mode: 'api' })
       addCredential(TEST_AGENT_TYPE, { name: 'second', mode: 'api' })
 
       // Clear the auto-default on first
