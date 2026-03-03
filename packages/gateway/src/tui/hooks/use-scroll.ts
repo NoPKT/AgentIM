@@ -70,5 +70,5 @@ export function useScroll(totalLines: number, visibleLines: number) {
     [maxOffset, visibleLines],
   )
 
-  return { offset, scrollUp, scrollDown, pageUp, pageDown, goTop, goBottom, scrollTo }
+  return { offset, autoFollow, scrollUp, scrollDown, pageUp, pageDown, goTop, goBottom, scrollTo }
 }
