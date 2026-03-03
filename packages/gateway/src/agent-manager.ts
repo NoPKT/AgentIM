@@ -1,6 +1,7 @@
-import { homedir } from 'node:os'
-import { resolve } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
+import { resolve, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
+import { writeFileSync, readFileSync, unlinkSync } from 'node:fs'
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
@@ -1217,10 +1218,70 @@ export class AgentManager {
 
     log.info(`Starting remote OAuth for ${msg.agentType} (request=${msg.requestId})`)
 
+    // Create a helper script as the BROWSER command. The `open` npm package
+    // (used by most CLI tools) spawns BROWSER with `stdio: 'ignore'`, so
+    // `BROWSER=echo` won't work — echo's output is discarded. Instead, we
+    // use a script that writes the URL to a temp file we can poll.
+    const urlFile = join(tmpdir(), `agentim-oauth-${msg.requestId}`)
+    const browserHelper = join(tmpdir(), `agentim-browser-${msg.requestId}.sh`)
+    try {
+      writeFileSync(browserHelper, `#!/bin/sh\nprintf '%s' "$1" > "${urlFile}"\n`, { mode: 0o755 })
+    } catch (err) {
+      log.error(`Failed to create browser helper script: ${(err as Error).message}`)
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: false,
+        error: `Failed to create browser helper: ${(err as Error).message}`,
+      })
+      return
+    }
+
     const child = spawn(loginInfo.cmd, loginInfo.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, BROWSER: 'echo' },
+      env: { ...process.env, BROWSER: browserHelper },
     })
+
+    let urlSent = false
+
+    const sendUrlIfFound = (url: string) => {
+      if (urlSent) return
+      urlSent = true
+      log.info(`Captured OAuth URL for ${msg.agentType}`)
+      this.wsClient.send({
+        type: 'gateway:oauth_url',
+        requestId: msg.requestId,
+        authUrl: url,
+      })
+    }
+
+    // Poll the URL file written by the browser helper script
+    const urlPoll = setInterval(() => {
+      if (urlSent) {
+        clearInterval(urlPoll)
+        return
+      }
+      try {
+        const url = readFileSync(urlFile, 'utf-8').trim()
+        if (url) sendUrlIfFound(url)
+      } catch {
+        // File not yet created — keep polling
+      }
+    }, 300)
+
+    const cleanupFiles = () => {
+      clearInterval(urlPoll)
+      try {
+        unlinkSync(browserHelper)
+      } catch {
+        /* ignore */
+      }
+      try {
+        unlinkSync(urlFile)
+      } catch {
+        /* ignore */
+      }
+    }
 
     const timer = setTimeout(() => {
       const entry = this.activeOAuthProcesses.get(msg.requestId)
@@ -1228,6 +1289,7 @@ export class AgentManager {
         log.warn(`OAuth process timed out (request=${msg.requestId})`)
         entry.process.kill()
         this.activeOAuthProcesses.delete(msg.requestId)
+        cleanupFiles()
         this.wsClient.send({
           type: 'gateway:oauth_result',
           requestId: msg.requestId,
@@ -1244,21 +1306,13 @@ export class AgentManager {
       timer,
     })
 
-    let urlSent = false
+    // Also monitor stdout/stderr directly (works if the CLI prints the URL
+    // to its own output, regardless of how BROWSER is handled)
     const handleOutput = (data: Buffer) => {
       const text = data.toString()
       if (!urlSent) {
-        // Look for URLs in the output
         const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/)
-        if (urlMatch) {
-          urlSent = true
-          log.info(`Captured OAuth URL for ${msg.agentType}`)
-          this.wsClient.send({
-            type: 'gateway:oauth_url',
-            requestId: msg.requestId,
-            authUrl: urlMatch[0],
-          })
-        }
+        if (urlMatch) sendUrlIfFound(urlMatch[0])
       }
     }
 
@@ -1268,6 +1322,7 @@ export class AgentManager {
     child.on('error', (err) => {
       log.error(`OAuth process error: ${err.message}`)
       clearTimeout(timer)
+      cleanupFiles()
       this.activeOAuthProcesses.delete(msg.requestId)
       this.wsClient.send({
         type: 'gateway:oauth_result',
@@ -1284,6 +1339,7 @@ export class AgentManager {
       if (!entry) return // already handled by completeOAuth
 
       clearTimeout(timer)
+      cleanupFiles()
       this.activeOAuthProcesses.delete(msg.requestId)
 
       if (code === 0 && urlSent) {
