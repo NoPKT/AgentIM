@@ -278,10 +278,26 @@ registerAgentCommand(program, 'gemini', 'gemini', 'Start a Gemini CLI agent (bac
 // ─── Default action: aim = TUI management panel ───
 
 program.action(async () => {
+  // Enter alternate screen buffer for clean fullscreen TUI
+  process.stdout.write('\x1b[?1049h')
+  process.stdout.write('\x1b[H')
+  const cleanup = () => process.stdout.write('\x1b[?1049l')
+  process.on('exit', cleanup)
+  process.on('SIGINT', () => {
+    cleanup()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    cleanup()
+    process.exit(0)
+  })
+
   const { render } = await import('ink')
   const React = await import('react')
   const { App } = await import('./tui/app.js')
-  render(React.createElement(App))
+  const instance = render(React.createElement(App))
+  await instance.waitUntilExit()
+  cleanup()
 })
 
 // ─── aim gateway ─── foreground gateway, aim gateway -d = background ───
@@ -326,7 +342,14 @@ program
   .option('-d, --detach', 'Run the gateway as a background daemon')
   .action(async (opts) => {
     if (opts.detach) {
-      spawnGatewayDaemon(opts)
+      const { spawnGatewayDaemon: spawnGw } = await import('./lib/spawn-gateway.js')
+      const result = await spawnGw(opts)
+      if (!result.ok) {
+        log.error(result.error ?? 'Failed to start gateway daemon')
+        process.exit(1)
+      }
+      log.info(`Gateway daemon started in background (PID ${result.pid})`)
+      log.info(`Use 'agentim list' to see running daemons`)
     } else {
       runGateway(opts)
     }
@@ -693,114 +716,6 @@ async function spawnDaemon(opts: {
     // Spawn failed — clean up the reservation
     removeDaemonInfo(name)
     log.error('Failed to start daemon process')
-    process.exit(1)
-  }
-}
-
-/**
- * Spawn a detached gateway daemon process.
- * The parent (CLI) exits immediately after spawning.
- */
-async function spawnGatewayDaemon(opts: {
-  agent?: string[]
-  yes?: boolean
-  securityWarning?: boolean
-}) {
-  const config = loadConfig()
-  if (!config) {
-    log.error('Not logged in. Run `agentim login` first.')
-    process.exit(1)
-  }
-
-  const daemonName = 'gateway'
-
-  // Check for existing gateway daemon
-  const existing = readDaemonInfo(daemonName)
-  if (existing) {
-    try {
-      process.kill(existing.pid, 0)
-      log.error(
-        `Gateway daemon is already running (PID ${existing.pid}). Use 'agentim stop ${daemonName}' first.`,
-      )
-      process.exit(1)
-    } catch {
-      // Process is dead, clean up stale PID file
-    }
-  }
-
-  const logDir = join(homedir(), '.agentim', 'logs')
-  mkdirSync(logDir, { recursive: true })
-  const logFile = join(logDir, `${daemonName}.log`)
-  rotateLogIfNeeded(logFile)
-  const logFd = openSync(logFile, 'a')
-
-  // Build args: re-run ourselves as `gateway` command in foreground mode (no -d flag)
-  const daemonArgs = [...process.execArgv, ...getEntryArgs(), 'gateway']
-  if (opts.agent?.length) {
-    for (const spec of opts.agent) {
-      daemonArgs.push('--agent', spec)
-    }
-  }
-  if (opts.yes) {
-    daemonArgs.push('--yes')
-  }
-  daemonArgs.push('--no-security-warning')
-
-  const reservationInfo = {
-    pid: process.pid,
-    name: daemonName,
-    type: 'gateway',
-    workDir: process.cwd(),
-    startedAt: new Date().toISOString(),
-    gatewayId: config.gatewayId,
-  }
-  try {
-    writeDaemonInfo(reservationInfo, true)
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
-      log.error('Gateway daemon is already being started by another process.')
-      process.exit(1)
-    }
-    throw err
-  }
-
-  const child = cpSpawn(process.execPath, daemonArgs, {
-    detached: true,
-    stdio: ['ignore', logFd, logFd],
-    cwd: process.cwd(),
-    env: { ...process.env },
-  })
-
-  child.unref()
-  closeSync(logFd)
-
-  if (child.pid) {
-    writeDaemonInfo({ ...reservationInfo, pid: child.pid })
-
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        child.removeAllListeners('exit')
-        resolve()
-      }, 500)
-      timer.unref()
-      child.once('exit', (code) => {
-        clearTimeout(timer)
-        log.error(`Gateway daemon exited immediately with code ${code}`)
-        removeDaemonInfo(daemonName)
-        resolve()
-      })
-    })
-
-    if (child.exitCode !== null) {
-      process.exit(1)
-    }
-
-    log.info(`Gateway daemon started in background (PID ${child.pid})`)
-    log.info(`Log file: ${logFile}`)
-    log.info(`Use 'agentim list' to see running daemons`)
-  } else {
-    removeDaemonInfo(daemonName)
-    log.error('Failed to start gateway daemon')
     process.exit(1)
   }
 }

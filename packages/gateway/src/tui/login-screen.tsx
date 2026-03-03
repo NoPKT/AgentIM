@@ -4,6 +4,8 @@ import TextInput from 'ink-text-input'
 import Spinner from 'ink-spinner'
 
 interface LoginScreenProps {
+  columns: number
+  rows: number
   onLogin: (
     serverUrl: string,
     username: string,
@@ -15,7 +17,7 @@ interface LoginScreenProps {
 type Field = 'server' | 'username' | 'password'
 const FIELDS: Field[] = ['server', 'username', 'password']
 
-export function LoginScreen({ onLogin, onQuit }: LoginScreenProps) {
+export function LoginScreen({ columns, rows, onLogin, onQuit }: LoginScreenProps) {
   const [serverUrl, setServerUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -57,56 +59,64 @@ export function LoginScreen({ onLogin, onQuit }: LoginScreenProps) {
   })
 
   return (
-    <Box flexDirection="column" borderStyle="single" paddingX={2} paddingY={1} alignItems="center">
-      <Text bold color="cyan">
-        Welcome to AgentIM
-      </Text>
-      <Box height={1} />
-
-      <Box>
-        <Text>Server URL: </Text>
-        <TextInput
-          value={serverUrl}
-          onChange={setServerUrl}
-          placeholder="https://my-server.com"
-          onSubmit={() => setActiveField('username')}
-          {...fieldProps('server')}
-        />
-      </Box>
-
-      <Box>
-        <Text>Username: </Text>
-        <TextInput
-          value={username}
-          onChange={setUsername}
-          placeholder="admin"
-          onSubmit={() => setActiveField('password')}
-          {...fieldProps('username')}
-        />
-      </Box>
-
-      <Box>
-        <Text>Password: </Text>
-        <TextInput
-          value={password}
-          onChange={setPassword}
-          mask="*"
-          onSubmit={() => void handleSubmit()}
-          {...fieldProps('password')}
-        />
-      </Box>
-
-      <Box height={1} />
-
-      {loading && (
-        <Text>
-          <Spinner type="dots" /> Logging in...
+    <Box width={columns} height={rows} justifyContent="center" alignItems="center">
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        paddingX={2}
+        paddingY={1}
+        alignItems="center"
+      >
+        <Text bold color="cyan">
+          Welcome to AgentIM
         </Text>
-      )}
+        <Box height={1} />
 
-      {error && <Text color="red">{error}</Text>}
+        <Box>
+          <Text>Server URL: </Text>
+          <TextInput
+            value={serverUrl}
+            onChange={setServerUrl}
+            placeholder="https://my-server.com"
+            onSubmit={() => setActiveField('username')}
+            {...fieldProps('server')}
+          />
+        </Box>
 
-      {!loading && <Text dimColor>Tab to switch fields, Enter to submit, Esc to quit</Text>}
+        <Box>
+          <Text>Username: </Text>
+          <TextInput
+            value={username}
+            onChange={setUsername}
+            placeholder="admin"
+            onSubmit={() => setActiveField('password')}
+            {...fieldProps('username')}
+          />
+        </Box>
+
+        <Box>
+          <Text>Password: </Text>
+          <TextInput
+            value={password}
+            onChange={setPassword}
+            mask="*"
+            onSubmit={() => void handleSubmit()}
+            {...fieldProps('password')}
+          />
+        </Box>
+
+        <Box height={1} />
+
+        {loading && (
+          <Text>
+            <Spinner type="dots" /> Logging in...
+          </Text>
+        )}
+
+        {error && <Text color="red">{error}</Text>}
+
+        {!loading && <Text dimColor>Tab to switch fields, Enter to submit, Esc to quit</Text>}
+      </Box>
     </Box>
   )
 }
