@@ -19,22 +19,44 @@ export class TokenManager {
     this.config = newConfig
   }
 
-  /** Refresh the access token using the refresh token via HTTP API */
-  async refresh(): Promise<string> {
+  /** Refresh the access token using the refresh token via HTTP API.
+   *  Pass an AbortSignal to cancel in-flight retries and requests. */
+  async refresh(signal?: AbortSignal): Promise<string> {
     const MAX_RETRIES = 6
     const BASE_DELAY = 2000
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (signal?.aborted) throw new Error('Token refresh aborted')
+
       if (attempt > 0) {
         // Exponential backoff with jitter: 2s, 4s, 8s + random
         const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 1000
         log.warn(`Token refresh retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms...`)
-        await new Promise<void>((resolve) => setTimeout(resolve, delay))
+        await new Promise<void>((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new Error('Token refresh aborted'))
+            return
+          }
+          const timer = setTimeout(resolve, delay)
+          signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer)
+              reject(new Error('Token refresh aborted'))
+            },
+            { once: true },
+          )
+        })
       }
+
+      if (signal?.aborted) throw new Error('Token refresh aborted')
 
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 10_000)
+      // Forward external abort to the per-request controller
+      const forwardAbort = () => controller.abort()
+      signal?.addEventListener('abort', forwardAbort, { once: true })
       try {
         const res = await fetch(`${this.config.serverBaseUrl}/api/auth/refresh`, {
           method: 'POST',
@@ -71,9 +93,11 @@ export class TokenManager {
         log.info('Tokens refreshed and saved')
         return json.data.accessToken
       } catch (err) {
+        if (signal?.aborted) throw new Error('Token refresh aborted', { cause: err })
         lastError = err instanceof Error ? err : new Error(String(err))
       } finally {
         clearTimeout(timeout)
+        signal?.removeEventListener('abort', forwardAbort)
       }
     }
 
