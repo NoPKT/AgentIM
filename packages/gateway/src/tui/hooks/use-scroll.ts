@@ -7,10 +7,15 @@ export function useScroll(totalLines: number, visibleLines: number) {
 
   const maxOffset = Math.max(0, totalLines - visibleLines)
 
-  // When new lines arrive and auto-follow is on, snap to bottom
+  // When new lines arrive and auto-follow is on, snap to bottom.
+  // When total shrinks (e.g. switched to a different log source), clamp offset.
   useEffect(() => {
     if (totalLines > prevTotal.current && autoFollow) {
       setOffset(Math.max(0, totalLines - visibleLines))
+    } else if (totalLines < prevTotal.current) {
+      // Log source changed — clamp offset to valid range and snap to bottom
+      setOffset(Math.max(0, totalLines - visibleLines))
+      setAutoFollow(true)
     }
     prevTotal.current = totalLines
   }, [totalLines, visibleLines, autoFollow])
