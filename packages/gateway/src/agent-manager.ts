@@ -1118,8 +1118,8 @@ export class AgentManager {
     try {
       const entry = addCredential(msg.agentType, {
         name: msg.name,
-        mode: 'api',
-        apiKey: msg.apiKey,
+        mode: msg.mode,
+        ...(msg.apiKey ? { apiKey: msg.apiKey } : {}),
         baseUrl: msg.baseUrl,
         model: msg.model,
       })

@@ -621,7 +621,8 @@ export const clientAddGatewayCredentialSchema = z.object({
   gatewayId: z.string().min(1),
   agentType: z.string().min(1).max(50),
   name: z.string().min(1).max(100),
-  apiKey: z.string().min(1).max(2000),
+  mode: z.enum(['api', 'subscription']).default('api'),
+  apiKey: z.string().min(1).max(2000).optional(),
   baseUrl: z.string().max(500).optional(),
   model: z.string().max(200).optional(),
 })
@@ -1346,8 +1347,8 @@ export const serverAddCredentialSchema = z.object({
   requestId: z.string().min(1),
   agentType: z.string().min(1).max(50),
   name: z.string().min(1).max(100),
-  mode: z.literal('api'),
-  apiKey: z.string().min(1).max(2000),
+  mode: z.enum(['api', 'subscription']),
+  apiKey: z.string().min(1).max(2000).optional(),
   baseUrl: z.string().max(500).optional(),
   model: z.string().max(200).optional(),
 })
