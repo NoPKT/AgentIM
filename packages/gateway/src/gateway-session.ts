@@ -40,7 +40,7 @@ export interface GatewaySessionOptions {
  * Shared gateway session logic used by both the daemon command and wrapper mode.
  *
  * Encapsulates:
- * - Token refresh with connectionId protection against stale callbacks
+ * - Token refresh with AbortController cancellation on reconnect
  * - Authentication message handling (gateway:auth → server:gateway_auth_result)
  * - Message dispatch to AgentManager
  * - Graceful shutdown with signal handlers
@@ -65,6 +65,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   // eslint-disable-next-line prefer-const
   let agentManager: AgentManager
   let refreshingToken: Promise<void> | null = null
+  let refreshAbort: AbortController | null = null
   // Track whether we already performed one token refresh this connection.
   // If auth fails *after* a successful refresh it is a permanent error
   // (e.g. gateway ID conflict, connection-limit) — not an expired-token issue.
@@ -74,6 +75,15 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   let connectionId = 0
   let authRevoked = false
   let authPollTimer: ReturnType<typeof setInterval> | null = null
+
+  /** Abort any in-flight token refresh to prevent concurrent refresh cycles. */
+  const abortRefresh = () => {
+    if (refreshAbort) {
+      refreshAbort.abort()
+      refreshAbort = null
+    }
+    refreshingToken = null
+  }
 
   /** Recover from auth-revoked state: update tokens, reconnect. */
   const recoverFromAuthRevoked = () => {
@@ -161,33 +171,12 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     url: config.serverUrl,
     onConnected: () => {
       connectionId++
-
-      if (refreshingToken) {
-        // A previous connection's token refresh is still in-flight.
-        // Don't reset hasRefreshed — we're continuing the same auth cycle.
-        const pending = refreshingToken
-        refreshingToken = null
-        const pendingConnId = connectionId
-        pending.then(
-          () => {
-            if (pendingConnId !== connectionId) return
-            // Refresh succeeded — authenticate with the new token.
-            hasRefreshed = true
-            authenticate(wsClient)
-          },
-          () => {
-            if (pendingConnId !== connectionId) return
-            // Refresh exhausted all retries — go straight to recovery.
-            // No point authenticating with the old (invalid) token.
-            enterAuthRevokedState()
-          },
-        )
-      } else {
-        // Clean reconnection (no pending refresh) — reset refresh state.
-        hasRefreshed = false
-        refreshingToken = null
-        authenticate(wsClient)
-      }
+      // Cancel any in-flight refresh from a previous connection to prevent
+      // multiple concurrent refresh cycles (the root cause of the infinite
+      // reconnect-during-refresh loop).
+      abortRefresh()
+      hasRefreshed = false
+      authenticate(wsClient)
     },
     onMessage: async (msg) => {
       if (msg.type === 'server:gateway_auth_result') {
@@ -206,18 +195,26 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
           if (!refreshingToken && config.refreshToken && !hasRefreshed) {
             const refreshConnId = connectionId
             log.info('Auth failed, refreshing token...')
-            refreshingToken = tokenManager.refresh().then(
+            refreshAbort = new AbortController()
+            refreshingToken = tokenManager.refresh(refreshAbort.signal).then(
               () => {
                 // Only act if this is still the same connection
                 if (refreshConnId !== connectionId) return
                 hasRefreshed = true
                 refreshingToken = null
+                refreshAbort = null
                 authenticate(wsClient)
               },
               (err: unknown) => {
                 if (refreshConnId !== connectionId) return
                 refreshingToken = null
+                refreshAbort = null
                 const errMsg = err instanceof Error ? err.message : String(err)
+
+                // Aborted refreshes are expected when a new connection cancels
+                // an old one — nothing to do.
+                if (errMsg === 'Token refresh aborted') return
+
                 log.error(`Token refresh failed: ${errMsg}`)
 
                 // All refresh retries exhausted (6 retries, ~2 min) — enter
