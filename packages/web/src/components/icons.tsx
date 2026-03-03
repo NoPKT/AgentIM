@@ -344,3 +344,27 @@ export function RewindIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+export function XMarkIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+export function ServerIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+    </svg>
+  )
+}
