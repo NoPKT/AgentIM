@@ -123,7 +123,7 @@ export async function verifyToken(token: string): Promise<TokenPayload> {
       if (prevSecret) {
         const { payload } = await jwtVerify(token, prevSecret, jwtVerifyOpts)
         if (!validatePayload(payload as Record<string, unknown>)) {
-          throw new Error('Invalid token payload')
+          throw new Error('Invalid token payload', { cause: err })
         }
         return payload as unknown as TokenPayload
       }
