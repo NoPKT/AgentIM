@@ -807,6 +807,155 @@ describe('useWebSocket', () => {
     })
   })
 
+  // ── server:gateway_credential_list ─────────────────────────────────────
+
+  it('calls setGatewayCredentials for server:gateway_credential_list', () => {
+    const mockSetGatewayCredentials = vi.fn()
+    mockAgentGetState.mockReturnValue({
+      updateAgent: mockUpdateAgent,
+      setGatewayCredentials: mockSetGatewayCredentials,
+    })
+    const handler = captureMessageHandler()
+    const credentials = [
+      {
+        id: 'c1',
+        name: 'Default',
+        mode: 'api',
+        hasApiKey: true,
+        isDefault: true,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    handler({
+      type: 'server:gateway_credential_list',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+      credentials,
+    } as any)
+    expect(mockSetGatewayCredentials).toHaveBeenCalledWith('g1', 'claude-code', credentials)
+  })
+
+  // ── server:gateway_credential_result ──────────────────────────────────
+
+  describe('server:gateway_credential_result', () => {
+    it('shows success toast and dispatches credential_updated event on success', async () => {
+      const { toast } = await import('../stores/toast.js')
+      const handler = captureMessageHandler()
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      handler({
+        type: 'server:gateway_credential_result',
+        gatewayId: 'g1',
+        success: true,
+      } as any)
+
+      expect(toast.success).toHaveBeenCalled()
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'agentim:credential_updated' }),
+      )
+      dispatchSpy.mockRestore()
+    })
+
+    it('shows error toast on failure', async () => {
+      const { toast } = await import('../stores/toast.js')
+      const handler = captureMessageHandler()
+
+      handler({
+        type: 'server:gateway_credential_result',
+        gatewayId: 'g1',
+        success: false,
+        error: 'Credential not found',
+      } as any)
+
+      expect(toast.error).toHaveBeenCalled()
+    })
+  })
+
+  // ── server:gateway_oauth_url ──────────────────────────────────────────
+
+  it('dispatches agentim:oauth_url custom event for server:gateway_oauth_url', () => {
+    const handler = captureMessageHandler()
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+    handler({
+      type: 'server:gateway_oauth_url',
+      gatewayId: 'g1',
+      requestId: 'req-123',
+      authUrl: 'https://accounts.google.com/o/oauth2/auth?...',
+    } as any)
+
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'agentim:oauth_url',
+        detail: {
+          gatewayId: 'g1',
+          requestId: 'req-123',
+          authUrl: 'https://accounts.google.com/o/oauth2/auth?...',
+        },
+      }),
+    )
+    dispatchSpy.mockRestore()
+  })
+
+  // ── server:gateway_oauth_result ───────────────────────────────────────
+
+  describe('server:gateway_oauth_result', () => {
+    it('shows success toast and dispatches both events on success', async () => {
+      const { toast } = await import('../stores/toast.js')
+      const handler = captureMessageHandler()
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      handler({
+        type: 'server:gateway_oauth_result',
+        gatewayId: 'g1',
+        requestId: 'req-123',
+        success: true,
+      } as any)
+
+      expect(toast.success).toHaveBeenCalled()
+      const events = dispatchSpy.mock.calls.map((c) => (c[0] as CustomEvent).type)
+      expect(events).toContain('agentim:credential_updated')
+      expect(events).toContain('agentim:oauth_result')
+
+      const oauthResultEvent = dispatchSpy.mock.calls.find(
+        (c) => (c[0] as CustomEvent).type === 'agentim:oauth_result',
+      )
+      expect((oauthResultEvent![0] as CustomEvent).detail).toEqual({
+        gatewayId: 'g1',
+        requestId: 'req-123',
+        success: true,
+        error: undefined,
+      })
+      dispatchSpy.mockRestore()
+    })
+
+    it('shows error toast and dispatches oauth_result event on failure', async () => {
+      const { toast } = await import('../stores/toast.js')
+      const handler = captureMessageHandler()
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      handler({
+        type: 'server:gateway_oauth_result',
+        gatewayId: 'g1',
+        requestId: 'req-123',
+        success: false,
+        error: 'OAuth failed',
+      } as any)
+
+      expect(toast.error).toHaveBeenCalled()
+      const oauthResultEvent = dispatchSpy.mock.calls.find(
+        (c) => (c[0] as CustomEvent).type === 'agentim:oauth_result',
+      )
+      expect((oauthResultEvent![0] as CustomEvent).detail).toEqual({
+        gatewayId: 'g1',
+        requestId: 'req-123',
+        success: false,
+        error: 'OAuth failed',
+      })
+      dispatchSpy.mockRestore()
+    })
+  })
+
   // ── ws:queue_full event ─────────────────────────────────────────────────
 
   it('shows toast error when ws:queue_full event is dispatched', async () => {

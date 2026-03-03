@@ -1,12 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useAgentStore } from './agents'
 
+// Mock the WS client module
+const { mockWsSend } = vi.hoisted(() => ({
+  mockWsSend: vi.fn(),
+}))
+vi.mock('../lib/ws.js', () => ({
+  wsClient: {
+    send: mockWsSend,
+  },
+}))
+
 // Mock the API module
 vi.mock('../lib/api.js', () => ({
   api: {
     get: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
+    post: vi.fn(),
   },
 }))
 
@@ -22,6 +33,7 @@ describe('useAgentStore', () => {
       gateways: [],
       isLoading: false,
       loadError: false,
+      gatewayCredentials: new Map(),
     })
     vi.clearAllMocks()
   })
@@ -145,5 +157,130 @@ describe('useAgentStore', () => {
 
     await expect(useAgentStore.getState().renameAgent('a1', 'NewName')).rejects.toThrow('Forbidden')
     expect(useAgentStore.getState().agents[0]).toHaveProperty('name', 'OldName')
+  })
+
+  it('setGatewayCredentials stores credentials by gateway+agentType key', () => {
+    const creds = [
+      {
+        id: 'c1',
+        name: 'Default',
+        mode: 'api' as const,
+        hasApiKey: true,
+        isDefault: true,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    useAgentStore.getState().setGatewayCredentials('g1', 'claude-code', creds)
+
+    const map = useAgentStore.getState().gatewayCredentials
+    expect(map.get('g1:claude-code')).toEqual(creds)
+  })
+
+  it('addGatewayCredential sends WS message with correct payload', () => {
+    useAgentStore.getState().addGatewayCredential('g1', 'claude-code', {
+      name: 'MyCred',
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.example.com',
+      model: 'claude-4',
+    })
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:add_gateway_credential',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+      name: 'MyCred',
+      mode: 'api',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.example.com',
+      model: 'claude-4',
+    })
+  })
+
+  it('addGatewayCredential defaults mode to api and omits apiKey when not provided', () => {
+    useAgentStore.getState().addGatewayCredential('g1', 'codex', {
+      name: 'Sub',
+    })
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:add_gateway_credential',
+      gatewayId: 'g1',
+      agentType: 'codex',
+      name: 'Sub',
+      mode: 'api',
+      baseUrl: undefined,
+      model: undefined,
+    })
+  })
+
+  it('manageGatewayCredential sends rename action', () => {
+    useAgentStore.getState().manageGatewayCredential('g1', 'claude-code', 'c1', 'rename', 'NewName')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:manage_gateway_credential',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+      credentialId: 'c1',
+      action: 'rename',
+      name: 'NewName',
+    })
+  })
+
+  it('manageGatewayCredential sends delete action without name', () => {
+    useAgentStore.getState().manageGatewayCredential('g1', 'claude-code', 'c1', 'delete')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:manage_gateway_credential',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+      credentialId: 'c1',
+      action: 'delete',
+    })
+  })
+
+  it('manageGatewayCredential sends set_default action', () => {
+    useAgentStore.getState().manageGatewayCredential('g1', 'codex', 'c2', 'set_default')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:manage_gateway_credential',
+      gatewayId: 'g1',
+      agentType: 'codex',
+      credentialId: 'c2',
+      action: 'set_default',
+    })
+  })
+
+  it('refreshGatewayCredentials sends list request', () => {
+    useAgentStore.getState().refreshGatewayCredentials('g1', 'claude-code')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:list_gateway_credentials',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+    })
+  })
+
+  it('startGatewayOAuth sends start_gateway_oauth message', () => {
+    useAgentStore.getState().startGatewayOAuth('g1', 'claude-code', 'my-cred')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:start_gateway_oauth',
+      gatewayId: 'g1',
+      agentType: 'claude-code',
+      credentialName: 'my-cred',
+    })
+  })
+
+  it('completeGatewayOAuth sends complete_gateway_oauth message', () => {
+    useAgentStore
+      .getState()
+      .completeGatewayOAuth('g1', 'req-123', 'http://localhost:3000/callback?code=abc')
+
+    expect(mockWsSend).toHaveBeenCalledWith({
+      type: 'client:complete_gateway_oauth',
+      gatewayId: 'g1',
+      requestId: 'req-123',
+      callbackUrl: 'http://localhost:3000/callback?code=abc',
+    })
   })
 })
