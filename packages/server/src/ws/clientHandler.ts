@@ -1,6 +1,6 @@
 import type { WSContext } from 'hono/ws'
 import { nanoid } from 'nanoid'
-import { eq, and, inArray, isNull } from 'drizzle-orm'
+import { eq, and, inArray, isNull, gte } from 'drizzle-orm'
 import {
   clientMessageSchema,
   parseMentions,
@@ -13,6 +13,7 @@ import type {
   ServerStopAgent,
   ServerAgentCommand,
   ServerQueryAgentInfo,
+  ServerRewindAgent,
   RoutingMode,
 } from '@agentim/shared'
 import { getPendingPermission, clearPendingPermission } from '../lib/permission-store.js'
@@ -293,6 +294,8 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
           msg.action,
           msg.name,
         )
+      case 'client:rewind_room':
+        return await handleRewindRoom(ws, msg.roomId, msg.messageId)
       case 'client:ping':
         connectionManager.sendToClient(ws, { type: 'server:pong', ts: msg.ts })
         return
@@ -1297,6 +1300,147 @@ function handleManageGatewayCredential(
       message: 'Gateway is offline',
     })
   }
+}
+
+async function handleRewindRoom(ws: WSContext, roomId: string, messageId: string) {
+  const client = connectionManager.getClient(ws)
+  if (!client || !client.joinedRooms.has(roomId)) return
+
+  // Verify user is a room member
+  const role = await getRoomMemberRole(client.userId, roomId)
+  if (!role) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.NOT_A_MEMBER,
+      message: 'You are not a member of this room',
+    })
+    return
+  }
+
+  // Validate the target message exists, belongs to this room, and was sent by this user
+  const [targetMsg] = await db
+    .select({
+      id: messages.id,
+      senderId: messages.senderId,
+      senderType: messages.senderType,
+      content: messages.content,
+      createdAt: messages.createdAt,
+    })
+    .from(messages)
+    .where(and(eq(messages.id, messageId), eq(messages.roomId, roomId)))
+    .limit(1)
+
+  if (!targetMsg) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.INVALID_MESSAGE,
+      message: 'Message not found in this room',
+    })
+    return
+  }
+
+  if (targetMsg.senderId !== client.userId) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.PERMISSION_DENIED,
+      message: 'You can only rewind to your own messages',
+    })
+    return
+  }
+
+  if (targetMsg.senderType !== 'user') {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.PERMISSION_DENIED,
+      message: 'Can only rewind to user messages',
+    })
+    return
+  }
+
+  // Validate ALL agents in the room have 'rewind' capability
+  const agentMembers = await db
+    .select({ memberId: roomMembers.memberId })
+    .from(roomMembers)
+    .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.memberType, 'agent')))
+
+  if (agentMembers.length > 0) {
+    const agentIds = agentMembers.map((m) => m.memberId)
+    const agentRows = await db
+      .select({ id: agents.id, capabilities: agents.capabilities })
+      .from(agents)
+      .where(inArray(agents.id, agentIds))
+
+    for (const agent of agentRows) {
+      if (
+        !agent.capabilities ||
+        !Array.isArray(agent.capabilities) ||
+        !agent.capabilities.includes('rewind')
+      ) {
+        connectionManager.sendToClient(ws, {
+          type: 'server:error',
+          code: WS_ERROR_CODES.PERMISSION_DENIED,
+          message: `Agent ${agent.id} does not support rewind`,
+        })
+        return
+      }
+    }
+  }
+
+  // In a transaction: collect and delete all messages at or after the target message
+  let removedMessageIds: string[]
+  try {
+    removedMessageIds = await db.transaction(async (tx) => {
+      // Find all messages in the room with createdAt >= target message's createdAt
+      const toDelete = await tx
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.roomId, roomId), gte(messages.createdAt, targetMsg.createdAt)))
+
+      const ids = toDelete.map((m) => m.id)
+      if (ids.length === 0) return []
+
+      // Delete associated attachments (cascade from messages.id FK handles this,
+      // but explicitly delete for clarity and to handle any edge cases)
+      await tx.delete(messageAttachments).where(inArray(messageAttachments.messageId, ids))
+
+      // Delete the messages
+      await tx.delete(messages).where(inArray(messages.id, ids))
+
+      return ids
+    })
+  } catch (err) {
+    log.error(`Transaction error in handleRewindRoom: ${(err as Error).message}`)
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: WS_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to rewind room',
+    })
+    return
+  }
+
+  // Send server:rewind_agent to each agent in the room via gateway
+  for (const member of agentMembers) {
+    const rewindMsg: ServerRewindAgent = {
+      type: 'server:rewind_agent',
+      agentId: member.memberId,
+      roomId,
+      messageId,
+    }
+    connectionManager.sendToGateway(member.memberId, rewindMsg)
+  }
+
+  // Broadcast server:room_rewound to all clients in the room
+  connectionManager.broadcastToRoom(roomId, {
+    type: 'server:room_rewound',
+    roomId,
+    messageId,
+    removedMessageIds,
+    messageContent: targetMsg.content,
+  })
+
+  log.info(
+    `Room ${roomId} rewound to message ${messageId} by user ${client.userId}, removed ${removedMessageIds.length} message(s)`,
+  )
 }
 
 /** Stop all periodic cleanup timers in clientHandler (for graceful shutdown / tests). */
