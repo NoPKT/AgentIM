@@ -497,8 +497,6 @@ export const ru = {
         'API-ключ обязателен для не-пользовательских типов сервисных агентов',
       serviceAgentModelRequired: 'Модель обязательна для сервисных агентов на основе OpenAI',
       serviceAgentVoiceIdRequired: 'ID голоса обязателен для сервисных агентов ElevenLabs',
-      passwordCommonWord: 'Пароль содержит распространённое слово',
-      passwordSequential: 'Пароль содержит последовательные или повторяющиеся символы',
       passwordMinLength: 'Пароль должен содержать не менее 8 символов',
       passwordMaxLength: 'Пароль должен содержать не более 128 символов',
       toolInputTooLarge: 'Ввод инструмента превышает максимально допустимый размер',
@@ -820,5 +818,6 @@ export const ru = {
     oauthCompleting: 'Завершение...',
     oauthSuccess: 'Вход через OAuth успешно завершён',
     oauthFailed: 'Не удалось выполнить вход через OAuth',
+    oauthTimeout: 'Время ожидания входа через OAuth истекло. Попробуйте ещё раз.',
   },
 }

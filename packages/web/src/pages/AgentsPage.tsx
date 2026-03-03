@@ -855,6 +855,16 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     return () => window.removeEventListener('agentim:credential_updated', handler)
   }, [gatewayId, credAgentType, refreshGatewayCredentials])
 
+  // OAuth timeout — reset pending state if no response within 30s
+  useEffect(() => {
+    if (!oauthPending) return
+    const timer = setTimeout(() => {
+      setOauthPending(false)
+      toast.error(t('credential.oauthTimeout'))
+    }, 30_000)
+    return () => clearTimeout(timer)
+  }, [oauthPending, t])
+
   // Listen for OAuth URL from gateway
   useEffect(() => {
     const handleOAuthUrl = (e: Event) => {

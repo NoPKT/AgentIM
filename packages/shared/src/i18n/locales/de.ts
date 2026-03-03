@@ -500,8 +500,6 @@ export const de = {
         'API-Schlüssel ist für nicht-benutzerdefinierte Service-Agent-Typen erforderlich',
       serviceAgentModelRequired: 'Modell ist für OpenAI-basierte Service-Agents erforderlich',
       serviceAgentVoiceIdRequired: 'Stimmen-ID ist für ElevenLabs Service-Agents erforderlich',
-      passwordCommonWord: 'Passwort enthält ein häufiges Wort',
-      passwordSequential: 'Passwort enthält aufeinanderfolgende oder wiederholte Zeichen',
       passwordMinLength: 'Passwort muss mindestens 8 Zeichen lang sein',
       passwordMaxLength: 'Passwort darf höchstens 128 Zeichen lang sein',
       toolInputTooLarge: 'Tool-Eingabe überschreitet die maximal zulässige Größe',
@@ -824,5 +822,6 @@ export const de = {
     oauthCompleting: 'Wird abgeschlossen...',
     oauthSuccess: 'OAuth-Anmeldung erfolgreich abgeschlossen',
     oauthFailed: 'OAuth-Anmeldung fehlgeschlagen',
+    oauthTimeout: 'OAuth-Anmeldung ist abgelaufen. Bitte versuchen Sie es erneut.',
   },
 }

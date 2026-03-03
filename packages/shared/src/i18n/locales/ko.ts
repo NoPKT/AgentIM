@@ -489,8 +489,6 @@ export const ko = {
       serviceAgentApiKeyRequired: '사용자 정의가 아닌 서비스 에이전트에는 API 키가 필요합니다',
       serviceAgentModelRequired: 'OpenAI 기반 서비스 에이전트에는 모델이 필요합니다',
       serviceAgentVoiceIdRequired: 'ElevenLabs 서비스 에이전트에는 음성 ID가 필요합니다',
-      passwordCommonWord: '비밀번호에 흔한 단어가 포함되어 있습니다',
-      passwordSequential: '비밀번호에 연속 또는 반복 문자가 포함되어 있습니다',
       passwordMinLength: '비밀번호는 8자 이상이어야 합니다',
       passwordMaxLength: '비밀번호는 128자 이하여야 합니다',
       toolInputTooLarge: '도구 입력이 최대 허용 크기를 초과합니다',
@@ -803,5 +801,6 @@ export const ko = {
     oauthCompleting: '완료 중...',
     oauthSuccess: 'OAuth 로그인이 성공적으로 완료되었습니다',
     oauthFailed: 'OAuth 로그인에 실패했습니다',
+    oauthTimeout: 'OAuth 로그인이 시간 초과되었습니다. 다시 시도해 주세요.',
   },
 }

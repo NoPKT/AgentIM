@@ -406,6 +406,8 @@ export function useWebSocket() {
           console.warn('[WS Server Error]', msg.code, msg.message)
           if (msg.code === WS_ERROR_CODES.PROTOCOL_VERSION_MISMATCH) {
             toast.error(t('error.wsProtocolMismatch'))
+          } else if (msg.code === WS_ERROR_CODES.GATEWAY_OFFLINE) {
+            toast.error(i18next.t('agent.gatewayOffline'))
           }
           break
       }

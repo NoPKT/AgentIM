@@ -489,8 +489,6 @@ export const en = {
       serviceAgentApiKeyRequired: 'API key is required for non-custom service agent types',
       serviceAgentModelRequired: 'Model is required for OpenAI-based service agents',
       serviceAgentVoiceIdRequired: 'Voice ID is required for ElevenLabs service agents',
-      passwordCommonWord: 'Password contains a common word',
-      passwordSequential: 'Password contains sequential or repeated characters',
       passwordMinLength: 'Password must be at least 8 characters',
       passwordMaxLength: 'Password must be at most 128 characters',
       toolInputTooLarge: 'Tool input exceeds the maximum allowed size',
@@ -805,5 +803,6 @@ export const en = {
     oauthCompleting: 'Completing...',
     oauthSuccess: 'OAuth login completed successfully',
     oauthFailed: 'OAuth login failed',
+    oauthTimeout: 'OAuth login timed out. Please try again.',
   },
 }

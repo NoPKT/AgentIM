@@ -1238,7 +1238,7 @@ function handleListGatewayCredentials(ws: WSContext, gatewayId: string, agentTyp
   if (!sent) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'GATEWAY_OFFLINE',
+      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
       message: 'Gateway is offline',
     })
   }
@@ -1282,7 +1282,7 @@ function handleAddGatewayCredential(
   if (!sent) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'GATEWAY_OFFLINE',
+      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
       message: 'Gateway is offline',
     })
   }
@@ -1312,7 +1312,7 @@ function handleManageGatewayCredential(
   if (!sent) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'GATEWAY_OFFLINE',
+      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
       message: 'Gateway is offline',
     })
   }
@@ -1340,7 +1340,7 @@ function handleStartGatewayOAuth(
   if (!sent) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'GATEWAY_OFFLINE',
+      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
       message: 'Gateway is offline',
     })
   }
@@ -1364,7 +1364,7 @@ function handleCompleteGatewayOAuth(
   if (!sent) {
     connectionManager.sendToClient(ws, {
       type: 'server:error',
-      code: 'GATEWAY_OFFLINE',
+      code: WS_ERROR_CODES.GATEWAY_OFFLINE,
       message: 'Gateway is offline',
     })
   }

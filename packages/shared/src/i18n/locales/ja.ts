@@ -491,8 +491,6 @@ export const ja = {
       serviceAgentApiKeyRequired: 'カスタム以外のサービスエージェントにはAPIキーが必要です',
       serviceAgentModelRequired: 'OpenAIベースのサービスエージェントにはモデルの指定が必要です',
       serviceAgentVoiceIdRequired: 'ElevenLabsのサービスエージェントにはボイスIDが必要です',
-      passwordCommonWord: 'パスワードに一般的な単語が含まれています',
-      passwordSequential: 'パスワードに連続または繰り返しの文字が含まれています',
       passwordMinLength: 'パスワードは8文字以上である必要があります',
       passwordMaxLength: 'パスワードは128文字以下である必要があります',
       toolInputTooLarge: 'ツール入力が最大許容サイズを超えています',
@@ -806,5 +804,6 @@ export const ja = {
     oauthCompleting: '完了中...',
     oauthSuccess: 'OAuthログインが正常に完了しました',
     oauthFailed: 'OAuthログインに失敗しました',
+    oauthTimeout: 'OAuthログインがタイムアウトしました。もう一度お試しください。',
   },
 }
