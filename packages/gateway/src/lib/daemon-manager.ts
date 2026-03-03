@@ -213,6 +213,8 @@ export function stopDaemon(name: string): boolean {
   try {
     process.kill(info.pid, 'SIGTERM')
     log.info(`Sent SIGTERM to daemon "${name}" (PID ${info.pid})`)
+    // Remove PID file immediately so status checks reflect the stop
+    removeDaemonInfo(name)
     return true
   } catch (err) {
     log.error(`Failed to stop daemon "${name}": ${(err as Error).message}`)
