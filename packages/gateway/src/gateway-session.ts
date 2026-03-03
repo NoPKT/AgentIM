@@ -160,27 +160,31 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   const wsClient = new GatewayWsClient({
     url: config.serverUrl,
     onConnected: () => {
-      // Reset per-connection refresh state on every new connection.
       connectionId++
-      hasRefreshed = false
 
       if (refreshingToken) {
         // A previous connection's token refresh is still in-flight.
-        // Wait for it to settle so we authenticate with the latest token
-        // and avoid a concurrent refresh that would race on the same
-        // refresh token (server rotates on use → second request gets 401).
+        // Don't reset hasRefreshed — we're continuing the same auth cycle.
         const pending = refreshingToken
         refreshingToken = null
         const pendingConnId = connectionId
         pending.then(
           () => {
-            if (pendingConnId === connectionId) authenticate(wsClient)
+            if (pendingConnId !== connectionId) return
+            // Refresh succeeded — authenticate with the new token.
+            hasRefreshed = true
+            authenticate(wsClient)
           },
           () => {
-            if (pendingConnId === connectionId) authenticate(wsClient)
+            if (pendingConnId !== connectionId) return
+            // Refresh exhausted all retries — go straight to recovery.
+            // No point authenticating with the old (invalid) token.
+            enterAuthRevokedState()
           },
         )
       } else {
+        // Clean reconnection (no pending refresh) — reset refresh state.
+        hasRefreshed = false
         refreshingToken = null
         authenticate(wsClient)
       }
