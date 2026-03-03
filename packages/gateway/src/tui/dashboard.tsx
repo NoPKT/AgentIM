@@ -1,26 +1,27 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useRef } from 'react'
 import { Box, Text, useInput, useApp } from 'ink'
 import { StatusBar } from './status-bar.js'
 import { AgentList } from './agent-list.js'
 import { AgentDetails } from './agent-details.js'
 import { LogViewer } from './log-viewer.js'
-import { ActionBar } from './action-bar.js'
-import type { ActionDef } from './action-bar.js'
+import { HelpBar } from './help-bar.js'
+import { ContextMenu, type MenuItem } from './context-menu.js'
 import { RenameDialog, ConfirmDialog, MessageBox } from './dialogs.js'
-import { CredentialsScreen } from './credentials-screen.js'
+import { CredentialsModal } from './credentials-modal.js'
 import { useDaemons } from './hooks/use-daemons.js'
 import { useLogs } from './hooks/use-logs.js'
 import { useGateway } from './hooks/use-gateway.js'
+import { useFocusRegion } from './hooks/use-focus-region.js'
+import { useScroll } from './hooks/use-scroll.js'
 import { stopDaemon, removeDaemon } from '../lib/daemon-manager.js'
 import { ServerApi } from '../lib/server-api.js'
 
-type DialogState =
+type ModalState =
   | { type: 'none' }
+  | { type: 'context-menu'; menuIndex: number }
+  | { type: 'confirm'; title: string; message: string; onConfirm: () => void }
   | { type: 'rename'; daemonName: string; agentId?: string }
-  | { type: 'confirm-stop'; daemonName: string }
-  | { type: 'confirm-delete'; daemonName: string }
   | { type: 'credentials' }
-  | { type: 'full-log'; daemonName: string }
 
 interface DashboardProps {
   columns: number
@@ -33,124 +34,74 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
   const { exit } = useApp()
   const daemons = useDaemons()
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [dialog, setDialog] = useState<DialogState>({ type: 'none' })
+  const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [message, setMessage] = useState<{ text: string; color: string } | null>(null)
   const { gateway, refresh: refreshGateway, start: startGateway } = useGateway()
+  const { region, setRegion, cycleNext, cyclePrev } = useFocusRegion('agents')
+  const [statusSelectedItem, setStatusSelectedItem] = useState(0)
+
+  // 'gg' double-press tracking for logs
+  const gPending = useRef(false)
+  const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectedDaemon = daemons.length > 0 ? (daemons[selectedIndex] ?? null) : null
   const logs = useLogs(selectedDaemon?.info.name ?? null)
+
+  // Log panel dimensions
+  const logHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
+  const logVisibleLines = Math.max(1, logHeight - 3) // minus border + title + scroll indicator
+  const scroll = useScroll(logs.length, logVisibleLines)
 
   const showMessage = useCallback((text: string, color = 'green') => {
     setMessage({ text, color })
     setTimeout(() => setMessage(null), 3000)
   }, [])
 
-  const handleAction = useCallback(
-    (id: string) => {
-      switch (id) {
-        case 'gateway':
-          if (gateway.running) {
-            const ok = stopDaemon('gateway')
-            refreshGateway()
-            showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
-          } else {
-            // Start gateway daemon
-            void startGateway().then((result) => {
-              if (result.ok) {
-                showMessage(`Gateway started (PID ${result.pid}).`)
-              } else {
-                showMessage(result.error ?? 'Failed to start gateway.', 'red')
-              }
-            })
-          }
-          break
-        case 'rename':
-          if (selectedDaemon) {
-            setDialog({
-              type: 'rename',
-              daemonName: selectedDaemon.info.name,
-              agentId: selectedDaemon.status?.agentId ?? selectedDaemon.info.agentId,
-            })
-          }
-          break
-        case 'stop':
-          if (selectedDaemon) {
-            setDialog({ type: 'confirm-stop', daemonName: selectedDaemon.info.name })
-          }
-          break
-        case 'delete':
-          if (selectedDaemon) {
-            setDialog({ type: 'confirm-delete', daemonName: selectedDaemon.info.name })
-          }
-          break
-        case 'logs':
-          if (selectedDaemon) {
-            setDialog({ type: 'full-log', daemonName: selectedDaemon.info.name })
-          }
-          break
-        case 'credentials':
-          setDialog({ type: 'credentials' })
-          break
-        case 'logout':
-          onLogout()
-          break
-        case 'quit':
-          exit()
-          break
-      }
-    },
-    [gateway.running, refreshGateway, startGateway, selectedDaemon, showMessage, onLogout, exit],
-  )
+  // Status bar navigable items count
+  const STATUS_ITEM_COUNT = serverUrl ? 3 : 2 // gateway, credentials, [logout]
 
-  // Map single-letter hotkeys to action IDs
-  const hotkeyMap: Record<string, string> = {
-    g: 'gateway',
-    r: 'rename',
-    s: 'stop',
-    d: 'delete',
-    l: 'logs',
-    c: 'credentials',
-    o: 'logout',
-    q: 'quit',
-  }
+  // ─── Context menu items for selected daemon ───
 
-  useInput((input, key) => {
-    if (dialog.type !== 'none') return
-
-    // Arrow navigation
-    if (key.upArrow && daemons.length > 0) {
-      setSelectedIndex((i) => Math.max(0, i - 1))
+  const contextMenuItems = useMemo((): MenuItem[] => {
+    if (!selectedDaemon) return []
+    if (selectedDaemon.info.type === 'gateway') {
+      return [
+        {
+          id: gateway.running ? 'stop-gateway' : 'start-gateway',
+          label: gateway.running ? 'Stop' : 'Start',
+        },
+        { id: 'view-logs', label: 'View Logs' },
+      ]
     }
-    if (key.downArrow && daemons.length > 0) {
-      setSelectedIndex((i) => Math.min(daemons.length - 1, i + 1))
-    }
+    return [
+      { id: 'rename', label: 'Rename' },
+      { id: 'remove', label: 'Remove' },
+      { id: 'view-logs', label: 'View Logs' },
+    ]
+  }, [selectedDaemon, gateway.running])
 
-    // Single-letter hotkeys
-    const actionId = hotkeyMap[input.toLowerCase()]
-    if (actionId) handleAction(actionId)
-  })
+  // ─── Action handlers ───
 
-  // Build dynamic action list for the bar
-  const actions = useMemo(() => {
-    const list: ActionDef[] = [{ id: 'gateway', hotkey: 'G', label: 'ateway' }]
-    if (selectedDaemon) {
-      list.push(
-        { id: 'rename', hotkey: 'R', label: 'ename' },
-        { id: 'stop', hotkey: 'S', label: 'top' },
-        { id: 'delete', hotkey: 'D', label: 'elete' },
-        { id: 'logs', hotkey: 'L', label: 'ogs' },
-      )
+  const handleGatewayToggle = useCallback(() => {
+    if (gateway.running) {
+      const ok = stopDaemon('gateway')
+      refreshGateway()
+      showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
+    } else {
+      void startGateway().then((result) => {
+        if (result.ok) {
+          showMessage(`Gateway started (PID ${result.pid}).`)
+        } else {
+          showMessage(result.error ?? 'Failed to start gateway.', 'red')
+        }
+      })
     }
-    list.push({ id: 'credentials', hotkey: 'C', label: 'redentials' })
-    if (serverUrl) list.push({ id: 'logout', hotkey: 'O', label: 'ut' })
-    list.push({ id: 'quit', hotkey: 'Q', label: 'uit' })
-    return list
-  }, [selectedDaemon, serverUrl])
+  }, [gateway.running, refreshGateway, startGateway, showMessage])
 
   const handleRename = useCallback(
     async (newName: string) => {
-      if (dialog.type !== 'rename') return
-      const agentId = dialog.agentId
+      if (modal.type !== 'rename') return
+      const agentId = modal.agentId
       if (agentId) {
         const api = new ServerApi()
         const result = await api.renameAgent(agentId, newName)
@@ -162,152 +113,363 @@ export function Dashboard({ columns, rows, serverUrl, onLogout }: DashboardProps
       } else {
         showMessage('Cannot rename: no agent ID available.', 'yellow')
       }
-      setDialog({ type: 'none' })
+      setModal({ type: 'none' })
     },
-    [dialog, showMessage],
+    [modal, showMessage],
   )
 
-  const handleStop = useCallback(() => {
-    if (dialog.type !== 'confirm-stop') return
-    const ok = stopDaemon(dialog.daemonName)
-    showMessage(
-      ok ? `Stopped "${dialog.daemonName}".` : `Failed to stop "${dialog.daemonName}".`,
-      ok ? 'green' : 'red',
-    )
-    setDialog({ type: 'none' })
-  }, [dialog, showMessage])
+  const handleRemove = useCallback(
+    (daemonName: string) => {
+      removeDaemon(daemonName)
+      showMessage(`Removed "${daemonName}".`)
+      setModal({ type: 'none' })
+      if (selectedIndex >= daemons.length - 1) {
+        setSelectedIndex(Math.max(0, daemons.length - 2))
+      }
+    },
+    [showMessage, selectedIndex, daemons.length],
+  )
 
-  const handleDelete = useCallback(() => {
-    if (dialog.type !== 'confirm-delete') return
-    removeDaemon(dialog.daemonName)
-    showMessage(`Removed "${dialog.daemonName}".`)
-    setDialog({ type: 'none' })
-    if (selectedIndex >= daemons.length - 1) {
-      setSelectedIndex(Math.max(0, daemons.length - 2))
+  const handleContextMenuSelect = useCallback(
+    (id: string) => {
+      setModal({ type: 'none' })
+      if (!selectedDaemon) return
+
+      switch (id) {
+        case 'start-gateway':
+          void startGateway().then((result) => {
+            if (result.ok) {
+              showMessage(`Gateway started (PID ${result.pid}).`)
+            } else {
+              showMessage(result.error ?? 'Failed to start gateway.', 'red')
+            }
+          })
+          break
+        case 'stop-gateway':
+          setModal({
+            type: 'confirm',
+            title: 'Stop Gateway',
+            message: 'Stop the gateway process?',
+            onConfirm: () => {
+              const ok = stopDaemon('gateway')
+              refreshGateway()
+              showMessage(ok ? 'Gateway stopped.' : 'Failed to stop gateway.', ok ? 'green' : 'red')
+              setModal({ type: 'none' })
+            },
+          })
+          break
+        case 'rename':
+          setModal({
+            type: 'rename',
+            daemonName: selectedDaemon.info.name,
+            agentId: selectedDaemon.status?.agentId ?? selectedDaemon.info.agentId,
+          })
+          break
+        case 'remove':
+          setModal({
+            type: 'confirm',
+            title: 'Remove Agent',
+            message: `Remove "${selectedDaemon.info.name}"? This will stop the process and remove all files.`,
+            onConfirm: () => handleRemove(selectedDaemon.info.name),
+          })
+          break
+        case 'view-logs':
+          setRegion('logs')
+          break
+      }
+    },
+    [selectedDaemon, startGateway, refreshGateway, showMessage, handleRemove, setRegion],
+  )
+
+  const handleStatusAction = useCallback(
+    (index: number) => {
+      const ids = serverUrl ? ['gateway', 'credentials', 'logout'] : ['gateway', 'credentials']
+      const id = ids[index]
+      switch (id) {
+        case 'gateway':
+          if (gateway.running) {
+            setModal({
+              type: 'confirm',
+              title: 'Stop Gateway',
+              message: 'Stop the gateway process?',
+              onConfirm: () => {
+                const ok = stopDaemon('gateway')
+                refreshGateway()
+                showMessage(
+                  ok ? 'Gateway stopped.' : 'Failed to stop gateway.',
+                  ok ? 'green' : 'red',
+                )
+                setModal({ type: 'none' })
+              },
+            })
+          } else {
+            handleGatewayToggle()
+          }
+          break
+        case 'credentials':
+          setModal({ type: 'credentials' })
+          break
+        case 'logout':
+          setModal({
+            type: 'confirm',
+            title: 'Logout',
+            message: 'Disconnect from the server?',
+            onConfirm: () => {
+              setModal({ type: 'none' })
+              onLogout()
+            },
+          })
+          break
+      }
+    },
+    [serverUrl, gateway.running, handleGatewayToggle, refreshGateway, showMessage, onLogout],
+  )
+
+  // ─── Input handling ───
+
+  // Context menu input is handled by the ContextMenu component itself
+  // Confirm/Rename dialog input is handled by dialog components
+
+  // Main input: routes to focused region or handles global keys
+  useInput(
+    (input, key) => {
+      // Global keys (always work unless modal is open)
+      if (key.tab && !key.shift) {
+        cycleNext()
+        return
+      }
+      // Shift+Tab: Ink sends key.tab with shift
+      if (key.tab && key.shift) {
+        cyclePrev()
+        return
+      }
+      if (input === 'q') {
+        exit()
+        return
+      }
+
+      // Route to focused region
+      if (region === 'agents') {
+        if (key.upArrow && daemons.length > 0) {
+          setSelectedIndex((i) => Math.max(0, i - 1))
+          return
+        }
+        if (key.downArrow && daemons.length > 0) {
+          setSelectedIndex((i) => Math.min(daemons.length - 1, i + 1))
+          return
+        }
+        if (key.return && selectedDaemon && contextMenuItems.length > 0) {
+          setModal({ type: 'context-menu', menuIndex: 0 })
+          return
+        }
+      }
+
+      if (region === 'status') {
+        if (key.leftArrow) {
+          setStatusSelectedItem((i) => Math.max(0, i - 1))
+          return
+        }
+        if (key.rightArrow) {
+          setStatusSelectedItem((i) => Math.min(STATUS_ITEM_COUNT - 1, i + 1))
+          return
+        }
+        if (key.return) {
+          handleStatusAction(statusSelectedItem)
+          return
+        }
+      }
+
+      if (region === 'logs') {
+        if (key.upArrow || input === 'k') {
+          scroll.scrollUp()
+          return
+        }
+        if (key.downArrow || input === 'j') {
+          scroll.scrollDown()
+          return
+        }
+        if (key.pageUp) {
+          scroll.pageUp()
+          return
+        }
+        if (key.pageDown) {
+          scroll.pageDown()
+          return
+        }
+        // 'G' (uppercase) goes to bottom
+        if (input === 'G') {
+          scroll.goBottom()
+          return
+        }
+        // 'g' press: handle gg (go to top)
+        if (input === 'g') {
+          if (gPending.current) {
+            // Second 'g' within timeout → go to top
+            gPending.current = false
+            if (gTimer.current) clearTimeout(gTimer.current)
+            gTimer.current = null
+            scroll.goTop()
+          } else {
+            // First 'g': start waiting for second
+            gPending.current = true
+            gTimer.current = setTimeout(() => {
+              gPending.current = false
+              gTimer.current = null
+            }, 500)
+          }
+          return
+        }
+      }
+    },
+    { isActive: modal.type === 'none' },
+  )
+
+  // ─── Help bar hints ───
+
+  const hints = useMemo(() => {
+    if (modal.type === 'context-menu') return 'Up/Down: navigate | Enter: select | Esc: close'
+    if (modal.type === 'confirm') return 'Y: confirm | N/Esc: cancel'
+    if (modal.type === 'rename') return 'Enter: confirm | Esc: cancel'
+    if (modal.type === 'credentials')
+      return 'Enter: actions | Left/Right: agent type | A: add | Esc: close'
+
+    switch (region) {
+      case 'agents':
+        return 'Tab: switch focus | Enter: actions | Up/Down: select | q: quit'
+      case 'status':
+        return 'Tab: switch focus | Enter: activate | Left/Right: navigate | q: quit'
+      case 'logs':
+        return 'Tab: switch focus | Up/Down/j/k: scroll | PgUp/PgDn: page | gg/G: top/bottom | q: quit'
     }
-  }, [dialog, showMessage, selectedIndex, daemons.length])
+  }, [modal.type, region])
 
-  // Full log view
-  if (dialog.type === 'full-log') {
-    return (
-      <FullLogView
-        columns={columns}
-        rows={rows}
-        daemonName={dialog.daemonName}
-        onClose={() => setDialog({ type: 'none' })}
-      />
-    )
-  }
+  // ─── Layout ───
 
-  // Credentials view
-  if (dialog.type === 'credentials') {
-    return <CredentialsScreen onClose={() => setDialog({ type: 'none' })} />
-  }
+  const middleHeight = Math.max(5, rows - logHeight - 5) // status ~3, help ~1, message ~1
 
-  // Reserve rows: status bar ~3, action bar ~1, message ~1 = ~5 fixed
-  // Log panel gets a fixed height, middle section gets the rest
-  const logHeight = Math.max(5, Math.min(8, Math.floor(rows * 0.2)))
-  const middleHeight = Math.max(5, rows - logHeight - 5)
+  // Build status bar items (hide logout if no server)
+  const statusItems = useMemo(() => {
+    const items = [
+      {
+        id: 'gateway',
+        label: 'Gateway',
+        indicator: gateway.running ? (
+          <Text color="green">● On</Text>
+        ) : (
+          <Text color="gray">○ Off</Text>
+        ),
+      },
+      { id: 'credentials', label: 'Credentials' },
+    ]
+    if (serverUrl) {
+      items.push({ id: 'logout', label: 'Logout' })
+    }
+    return items
+  }, [gateway.running, serverUrl])
 
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <StatusBar serverUrl={serverUrl} loggedIn gatewayRunning={gateway.running} />
+      {/* Status bar */}
+      <StatusBar
+        serverUrl={serverUrl}
+        loggedIn
+        gatewayRunning={gateway.running}
+        focused={region === 'status' && modal.type === 'none'}
+        selectedItem={statusSelectedItem}
+        items={statusItems}
+      />
 
+      {/* Middle section */}
       <Box height={middleHeight}>
-        {/* Agent list panel */}
-        <Box flexDirection="column" borderStyle="single" borderRight={false} width="50%">
-          <Text bold color="cyan">
-            {' '}
-            Agents{' '}
-          </Text>
-          <AgentList daemons={daemons} selectedIndex={selectedIndex} />
-        </Box>
+        {modal.type === 'credentials' ? (
+          <CredentialsModal onClose={() => setModal({ type: 'none' })} />
+        ) : (
+          <>
+            {/* Agent list panel */}
+            <Box
+              flexDirection="column"
+              borderStyle="single"
+              borderColor={region === 'agents' && modal.type === 'none' ? 'cyan' : undefined}
+              borderRight={false}
+              width="50%"
+            >
+              <Text bold color="cyan">
+                {' '}
+                Agents{' '}
+              </Text>
+              <AgentList
+                daemons={daemons}
+                selectedIndex={selectedIndex}
+                focused={region === 'agents' && modal.type === 'none'}
+              />
+              {/* Context menu appears below agent list within the panel */}
+              {modal.type === 'context-menu' && (
+                <Box marginLeft={2}>
+                  <ContextMenu
+                    items={contextMenuItems}
+                    selectedIndex={modal.menuIndex}
+                    onSelect={handleContextMenuSelect}
+                    onClose={() => setModal({ type: 'none' })}
+                    onNavigate={(i) => setModal({ type: 'context-menu', menuIndex: i })}
+                  />
+                </Box>
+              )}
+            </Box>
 
-        {/* Details panel */}
-        <Box flexDirection="column" borderStyle="single" width="50%">
-          <Text bold color="cyan">
-            {' '}
-            Details{' '}
-          </Text>
-          <AgentDetails entry={selectedDaemon} />
-        </Box>
+            {/* Details panel */}
+            <Box flexDirection="column" borderStyle="single" width="50%">
+              <Text bold color="cyan">
+                {' '}
+                Details{' '}
+              </Text>
+              <AgentDetails entry={selectedDaemon} />
+            </Box>
+          </>
+        )}
       </Box>
 
       {/* Log panel */}
-      <Box flexDirection="column" borderStyle="single" borderTop={false} height={logHeight}>
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor={region === 'logs' && modal.type === 'none' ? 'cyan' : undefined}
+        borderTop={false}
+        height={logHeight}
+      >
         <Text bold color="cyan">
           {' '}
           Log{' '}
         </Text>
-        <LogViewer logs={logs} />
+        <LogViewer
+          logs={logs}
+          maxLines={logVisibleLines}
+          scrollOffset={scroll.offset}
+          focused={region === 'logs' && modal.type === 'none'}
+        />
       </Box>
 
-      {/* Dialog overlay */}
-      {dialog.type === 'rename' && (
+      {/* Inline dialogs */}
+      {modal.type === 'rename' && (
         <RenameDialog
-          currentName={dialog.daemonName}
+          currentName={modal.daemonName}
           onSubmit={(name) => void handleRename(name)}
-          onCancel={() => setDialog({ type: 'none' })}
+          onCancel={() => setModal({ type: 'none' })}
         />
       )}
-      {dialog.type === 'confirm-stop' && (
+      {modal.type === 'confirm' && (
         <ConfirmDialog
-          message={`Stop "${dialog.daemonName}"?`}
-          onConfirm={handleStop}
-          onCancel={() => setDialog({ type: 'none' })}
-        />
-      )}
-      {dialog.type === 'confirm-delete' && (
-        <ConfirmDialog
-          message={`Delete "${dialog.daemonName}"? This will stop it and remove all files.`}
-          onConfirm={handleDelete}
-          onCancel={() => setDialog({ type: 'none' })}
+          title={modal.title}
+          message={modal.message}
+          onConfirm={modal.onConfirm}
+          onCancel={() => setModal({ type: 'none' })}
         />
       )}
 
       {/* Message toast */}
       {message && <MessageBox message={message.text} color={message.color} />}
 
-      {/* Action bar */}
-      <ActionBar actions={actions} onAction={handleAction} />
-    </Box>
-  )
-}
-
-/** Simple full-log view that returns on Esc/q. */
-function FullLogView({
-  columns,
-  rows,
-  daemonName,
-  onClose,
-}: {
-  columns: number
-  rows: number
-  daemonName: string
-  onClose: () => void
-}) {
-  const logs = useLogs(daemonName)
-
-  useInput((input, key) => {
-    if (key.escape || input.toLowerCase() === 'q') onClose()
-  })
-
-  return (
-    <Box flexDirection="column" width={columns} height={rows}>
-      <Text bold color="cyan">
-        Logs: {daemonName} (Esc to return)
-      </Text>
-      <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        {logs.length === 0 ? (
-          <Text dimColor>No log output.</Text>
-        ) : (
-          logs.map((entry, i) => (
-            <Text key={i} wrap="truncate">
-              {entry.line}
-            </Text>
-          ))
-        )}
-      </Box>
+      {/* Help bar */}
+      <HelpBar hints={hints} />
     </Box>
   )
 }

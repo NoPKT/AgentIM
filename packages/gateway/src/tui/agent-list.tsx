@@ -6,6 +6,7 @@ import { formatCost, truncate } from './lib/format.js'
 interface AgentListProps {
   daemons: DaemonEntry[]
   selectedIndex: number
+  focused?: boolean
 }
 
 function statusIndicator(entry: DaemonEntry): React.ReactElement {
@@ -16,12 +17,12 @@ function statusIndicator(entry: DaemonEntry): React.ReactElement {
   return <Text color="cyan">● idle</Text>
 }
 
-export function AgentList({ daemons, selectedIndex }: AgentListProps) {
+export function AgentList({ daemons, selectedIndex, focused = false }: AgentListProps) {
   if (daemons.length === 0) {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text dimColor>No running agents.</Text>
-        <Text dimColor>Press [G] to start gateway.</Text>
+        <Text dimColor>Start gateway from the status bar.</Text>
       </Box>
     )
   }
@@ -30,14 +31,14 @@ export function AgentList({ daemons, selectedIndex }: AgentListProps) {
     <Box flexDirection="column" paddingX={1}>
       {daemons.map((entry, i) => {
         const selected = i === selectedIndex
-        const prefix = selected ? '▸ ' : '  '
+        const prefix = selected && focused ? '> ' : selected ? '  ' : '  '
         const name = truncate(entry.info.name, 20)
         const type = truncate(entry.info.type || '—', 10)
         const cost = entry.status ? formatCost(entry.status.costUSD) : '—'
         const isGatewayChild = entry.info.gatewayId !== 'ephemeral' && entry.info.type !== 'gateway'
 
         return (
-          <Text key={entry.info.name} inverse={selected}>
+          <Text key={entry.info.name} inverse={selected && focused}>
             {isGatewayChild ? '  └ ' : ''}
             {prefix}
             {name.padEnd(isGatewayChild ? 16 : 20)}
