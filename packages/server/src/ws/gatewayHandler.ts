@@ -208,6 +208,14 @@ export async function handleGatewayMessage(ws: WSContext, raw: string) {
         return handleCredentialList(ws, msg)
       case 'gateway:credential_result':
         return handleCredentialResult(ws, msg)
+      case 'gateway:rewind_result': {
+        if (msg.success) {
+          log.info(`Rewind succeeded for agent ${msg.agentId} in room ${msg.roomId}`)
+        } else {
+          log.warn(`Rewind failed for agent ${msg.agentId}: ${msg.error}`)
+        }
+        return
+      }
       case 'gateway:ping':
         ws.send(JSON.stringify({ type: 'server:pong', ts: msg.ts }))
         return

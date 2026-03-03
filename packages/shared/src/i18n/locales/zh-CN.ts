@@ -260,6 +260,12 @@ export const zhCN = {
     workspaceSelectFile: '从目录树中选择文件以查看内容。',
     workspaceDragResize: '拖拽调整大小',
     workspaceMaximize: '最大化',
+    rewindTooltip: '回退到此消息之前',
+    confirmRewind: '将对话回退到此消息之前？这将删除此消息及其后的所有消息。',
+    rewindConfirm: '回退',
+    rewindSuccess: '对话已成功回退',
+    rewindFailed: '回退对话失败',
+    rewindNotSupported: '此房间中并非所有智能体都支持回退',
     workspaceMinimize: '还原',
   },
   agent: {

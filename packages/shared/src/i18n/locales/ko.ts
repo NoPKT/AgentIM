@@ -262,6 +262,13 @@ export const ko = {
     workspaceSelectFile: '트리에서 파일을 선택하여 내용을 확인하세요.',
     workspaceDragResize: '드래그하여 크기 조절',
     workspaceMaximize: '최대화',
+    rewindTooltip: '이 메시지 이전으로 되돌리기',
+    confirmRewind:
+      '이 메시지 이전으로 대화를 되돌리시겠습니까? 이 메시지와 이후의 모든 메시지가 삭제됩니다.',
+    rewindConfirm: '되돌리기',
+    rewindSuccess: '대화가 성공적으로 되돌려졌습니다',
+    rewindFailed: '대화 되돌리기에 실패했습니다',
+    rewindNotSupported: '이 방의 모든 에이전트가 되돌리기를 지원하지 않습니다',
     workspaceMinimize: '복원',
   },
   agent: {

@@ -118,6 +118,12 @@ export interface ClientPing {
   ts: number
 }
 
+export interface ClientRewindRoom {
+  type: 'client:rewind_room'
+  roomId: string
+  messageId: string
+}
+
 export type ClientMessage =
   | ClientAuth
   | ClientJoinRoom
@@ -133,6 +139,7 @@ export type ClientMessage =
   | ClientAddGatewayCredential
   | ClientManageGatewayCredential
   | ClientPing
+  | ClientRewindRoom
 
 // ─── Server → Client Messages ───
 
@@ -284,6 +291,14 @@ export interface ServerRoomCleared {
   clearedAt: string
 }
 
+export interface ServerRoomRewound {
+  type: 'server:room_rewound'
+  roomId: string
+  messageId: string
+  removedMessageIds: string[]
+  messageContent: string
+}
+
 export interface ServerSpawnResult {
   type: 'server:spawn_result'
   requestId: string
@@ -347,6 +362,7 @@ export type ServerMessage =
   | ServerPermissionRequest
   | ServerPermissionRequestExpired
   | ServerRoomCleared
+  | ServerRoomRewound
   | ServerSpawnResult
   | ServerGatewayCredentialList
   | ServerGatewayCredentialResult
@@ -520,6 +536,14 @@ export interface GatewayPing {
   ts: number
 }
 
+export interface GatewayRewindResult {
+  type: 'gateway:rewind_result'
+  agentId: string
+  roomId: string
+  success: boolean
+  error?: string
+}
+
 export type GatewayMessage =
   | GatewayAuth
   | GatewayRegisterAgent
@@ -537,6 +561,7 @@ export type GatewayMessage =
   | GatewayCredentialResult
   | GatewayWorkspaceResponse
   | GatewayPing
+  | GatewayRewindResult
 
 // ─── Server → Gateway Messages ───
 
@@ -641,6 +666,13 @@ export interface ServerManageCredential {
   name?: string
 }
 
+export interface ServerRewindAgent {
+  type: 'server:rewind_agent'
+  agentId: string
+  roomId: string
+  messageId: string
+}
+
 export interface ServerPong {
   type: 'server:pong'
   ts: number
@@ -660,6 +692,7 @@ export type ServerGatewayMessage =
   | ServerListCredentials
   | ServerAddCredential
   | ServerManageCredential
+  | ServerRewindAgent
   | ServerPong
   | ServerError
 
@@ -685,6 +718,7 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'client:add_gateway_credential',
   'client:manage_gateway_credential',
   'client:ping',
+  'client:rewind_room',
 ])
 
 /** All valid GatewayMessage type discriminants */
@@ -705,6 +739,7 @@ const GATEWAY_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'gateway:credential_result',
   'gateway:workspace_response',
   'gateway:ping',
+  'gateway:rewind_result',
 ])
 
 /** All valid ServerMessage type discriminants */
@@ -729,6 +764,7 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:permission_request',
   'server:permission_request_expired',
   'server:room_cleared',
+  'server:room_rewound',
   'server:spawn_result',
   'server:gateway_credential_list',
   'server:gateway_credential_result',
@@ -789,6 +825,7 @@ const SERVER_GATEWAY_ONLY_TYPES: ReadonlySet<string> = new Set([
   'server:list_credentials',
   'server:add_credential',
   'server:manage_credential',
+  'server:rewind_agent',
 ])
 
 /** Type guard for ServerGatewayMessage */

@@ -602,6 +602,12 @@ export const clientPingSchema = z.object({
   ts: z.number(),
 })
 
+export const clientRewindRoomSchema = z.object({
+  type: z.literal('client:rewind_room'),
+  roomId: z.string().min(1),
+  messageId: z.string().min(1),
+})
+
 // ─── Client → Server: Credential Management Schemas ───
 
 export const clientListGatewayCredentialsSchema = z.object({
@@ -644,6 +650,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   clientAddGatewayCredentialSchema,
   clientManageGatewayCredentialSchema,
   clientPingSchema,
+  clientRewindRoomSchema,
 ])
 
 // Gateway messages
@@ -804,6 +811,14 @@ export const gatewayPingSchema = z.object({
   ts: z.number(),
 })
 
+export const gatewayRewindResultSchema = z.object({
+  type: z.literal('gateway:rewind_result'),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  success: z.boolean(),
+  error: z.string().optional(),
+})
+
 // ─── Gateway → Server: Credential Management Schemas ───
 
 const credentialInfoSchema = z.object({
@@ -849,6 +864,7 @@ export const gatewayMessageSchema = z.discriminatedUnion('type', [
   gatewayCredentialResultSchema,
   gatewayWorkspaceResponseSchema,
   gatewayPingSchema,
+  gatewayRewindResultSchema,
 ])
 
 // ─── Entity Schemas (used by server messages) ───
@@ -1144,6 +1160,14 @@ export const serverRoomClearedSchema = z.object({
   clearedAt: z.string().min(1),
 })
 
+export const serverRoomRewoundSchema = z.object({
+  type: z.literal('server:room_rewound'),
+  roomId: z.string().min(1),
+  messageId: z.string().min(1),
+  removedMessageIds: z.array(z.string().min(1)).min(1),
+  messageContent: z.string(),
+})
+
 export const serverSpawnResultSchema = z.object({
   type: z.literal('server:spawn_result'),
   requestId: z.string().min(1),
@@ -1221,6 +1245,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverPermissionRequestSchema,
   serverPermissionRequestExpiredSchema,
   serverRoomClearedSchema,
+  serverRoomRewoundSchema,
   serverSpawnResultSchema,
   serverGatewayCredentialListSchema,
   serverGatewayCredentialResultSchema,
@@ -1336,6 +1361,13 @@ export const serverManageCredentialSchema = z.object({
   name: z.string().min(1).max(100).optional(),
 })
 
+export const serverRewindAgentSchema = z.object({
+  type: z.literal('server:rewind_agent'),
+  agentId: z.string().min(1),
+  roomId: z.string().min(1),
+  messageId: z.string().min(1),
+})
+
 export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverGatewayAuthResultSchema,
   serverSendToAgentSchema,
@@ -1350,6 +1382,7 @@ export const serverGatewayMessageSchema = z.discriminatedUnion('type', [
   serverListCredentialsSchema,
   serverAddCredentialSchema,
   serverManageCredentialSchema,
+  serverRewindAgentSchema,
   serverPongSchema,
   serverErrorSchema,
 ])
