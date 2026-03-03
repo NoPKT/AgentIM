@@ -72,7 +72,12 @@ const mockAuthGetState = vi.fn(() => ({
 }))
 
 const mockUpdateAgent = vi.fn()
-const mockAgentGetState = vi.fn(() => ({ updateAgent: mockUpdateAgent }))
+const mockSetGatewayCredentials = vi.fn()
+const mockAgentGetState = vi.fn(() => ({
+  updateAgent: mockUpdateAgent,
+  setGatewayCredentials: mockSetGatewayCredentials,
+  loadAgents: vi.fn(),
+}))
 
 vi.mock('../stores/chat.js', () => ({
   useChatStore: Object.assign(vi.fn(), { getState: mockChatGetState }),
@@ -810,11 +815,6 @@ describe('useWebSocket', () => {
   // ── server:gateway_credential_list ─────────────────────────────────────
 
   it('calls setGatewayCredentials for server:gateway_credential_list', () => {
-    const mockSetGatewayCredentials = vi.fn()
-    mockAgentGetState.mockReturnValue({
-      updateAgent: mockUpdateAgent,
-      setGatewayCredentials: mockSetGatewayCredentials,
-    })
     const handler = captureMessageHandler()
     const credentials = [
       {
