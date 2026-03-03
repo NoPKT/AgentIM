@@ -584,6 +584,17 @@ export class GeminiAdapter extends BaseAgentAdapter {
     return this.planMode
   }
 
+  override get supportsRewind() {
+    return true
+  }
+
+  override async rewind(_messageId: string) {
+    // Reset the session so next message starts clean.
+    // Server already deleted messages; room_context will resend truncated history.
+    this.resetSession()
+    return { success: true }
+  }
+
   override getThinkingMode(): string | undefined {
     return this.thinkingBudget
   }

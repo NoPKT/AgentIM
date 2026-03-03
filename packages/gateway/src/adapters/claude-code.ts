@@ -837,6 +837,18 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return this.cachedAgentInfo
   }
 
+  override get supportsRewind() {
+    return true
+  }
+
+  override async rewind(_messageId: string) {
+    // Clear session so the next message starts a fresh conversation.
+    // The server has already deleted messages; room_context will provide
+    // the truncated history on the next send_to_agent.
+    this.sessionId = undefined
+    return { success: true }
+  }
+
   override getAvailableEffortLevels(): string[] {
     return ['low', 'medium', 'high', 'max']
   }

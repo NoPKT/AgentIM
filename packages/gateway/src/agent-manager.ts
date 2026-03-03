@@ -20,6 +20,7 @@ import type {
   ServerListCredentials,
   ServerAddCredential,
   ServerManageCredential,
+  ServerRewindAgent,
   RoomContext,
   ParsedChunk,
 } from '@agentim/shared'
@@ -385,8 +386,15 @@ export class AgentManager {
     }
 
     this.adapters.set(agentId, adapter)
-    if (opts.capabilities?.length) {
-      this.agentCapabilities.set(agentId, opts.capabilities)
+
+    // Auto-add rewind capability if adapter supports it
+    const capabilities = [...(opts.capabilities ?? [])]
+    if (adapter.supportsRewind && !capabilities.includes('rewind')) {
+      capabilities.push('rewind')
+    }
+
+    if (capabilities.length) {
+      this.agentCapabilities.set(agentId, capabilities)
     }
 
     // Create MCP context for agent-to-agent communication
@@ -410,7 +418,7 @@ export class AgentManager {
         name: opts.name,
         type: opts.type as AgentType,
         workingDirectory: opts.workingDirectory,
-        capabilities: opts.capabilities,
+        capabilities,
         slashCommands: adapter.getSlashCommands(),
         mcpServers: adapter.getMcpServers(),
         model: adapter.getModel(),
@@ -498,7 +506,8 @@ export class AgentManager {
       | ServerRequestWorkspace
       | ServerListCredentials
       | ServerAddCredential
-      | ServerManageCredential,
+      | ServerManageCredential
+      | ServerRewindAgent,
   ) {
     if (msg.type === 'server:send_to_agent') {
       this.handleSendToAgent(msg)
@@ -524,6 +533,8 @@ export class AgentManager {
       this.handleAddCredential(msg)
     } else if (msg.type === 'server:manage_credential') {
       this.handleManageCredential(msg)
+    } else if (msg.type === 'server:rewind_agent') {
+      this.handleRewindAgent(msg)
     }
   }
 
@@ -1157,6 +1168,48 @@ export class AgentManager {
         error: (err as Error).message,
       })
     }
+  }
+
+  private handleRewindAgent(msg: ServerRewindAgent) {
+    const adapter = this.adapters.get(msg.agentId)
+    if (!adapter) {
+      log.warn(`Rewind: agent ${msg.agentId} not found`)
+      this.wsClient.send({
+        type: 'gateway:rewind_result',
+        agentId: msg.agentId,
+        roomId: msg.roomId,
+        success: false,
+        error: 'Agent not found',
+      })
+      return
+    }
+    // Stop current query if running
+    if (adapter.running) {
+      adapter.stop()
+    }
+    // Clear message queue for this agent
+    this.messageQueues.delete(msg.agentId)
+    // Call adapter rewind
+    adapter
+      .rewind(msg.messageId)
+      .then((result) => {
+        this.wsClient.send({
+          type: 'gateway:rewind_result',
+          agentId: msg.agentId,
+          roomId: msg.roomId,
+          success: result.success,
+          error: result.error,
+        })
+      })
+      .catch((err) => {
+        this.wsClient.send({
+          type: 'gateway:rewind_result',
+          agentId: msg.agentId,
+          roomId: msg.roomId,
+          success: false,
+          error: (err as Error).message,
+        })
+      })
   }
 
   async disposeAll() {
