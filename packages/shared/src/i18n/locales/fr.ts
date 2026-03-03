@@ -816,7 +816,9 @@ export const fr = {
     model: 'Modèle',
     default: 'Par défaut',
     noCredentials: 'Aucun identifiant configuré',
-    addViaCliHint: 'Les identifiants OAuth ne peuvent être ajoutés que via le CLI',
+    addViaCliHint: 'Les identifiants OAuth peuvent également être gérés via le CLI',
+    subscriptionHint:
+      "Utilise le jeton OAuth déjà configuré sur la passerelle. Exécutez d'abord la commande de connexion CLI sur la passerelle si nécessaire.",
     selectCredential: 'Sélectionner un identifiant',
     credentialRequired: "Sélection d'identifiant requise",
   },

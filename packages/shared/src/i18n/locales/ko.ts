@@ -787,7 +787,9 @@ export const ko = {
     model: '모델',
     default: '기본값',
     noCredentials: '구성된 자격 증명이 없습니다',
-    addViaCliHint: 'OAuth 자격 증명은 CLI에서만 추가할 수 있습니다',
+    addViaCliHint: 'OAuth 자격 증명은 CLI에서도 관리할 수 있습니다',
+    subscriptionHint:
+      '게이트웨이에 이미 구성된 OAuth 토큰을 사용합니다. 필요한 경우 게이트웨이에서 CLI 로그인 명령을 먼저 실행하세요.',
     selectCredential: '자격 증명 선택',
     credentialRequired: '자격 증명 선택 필요',
   },

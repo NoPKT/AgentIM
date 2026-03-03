@@ -804,7 +804,9 @@ export const ru = {
     model: 'Модель',
     default: 'По умолчанию',
     noCredentials: 'Учётные данные не настроены',
-    addViaCliHint: 'Учётные данные OAuth можно добавить только через CLI',
+    addViaCliHint: 'Учётными данными OAuth также можно управлять через CLI',
+    subscriptionHint:
+      'Использует OAuth-токен, уже настроенный на шлюзе. При необходимости сначала выполните команду CLI-входа на шлюзе.',
     selectCredential: 'Выбрать учётные данные',
     credentialRequired: 'Требуется выбор учётных данных',
   },

@@ -47,7 +47,13 @@ interface AgentState {
   addGatewayCredential: (
     gatewayId: string,
     agentType: string,
-    data: { name: string; apiKey: string; baseUrl?: string; model?: string },
+    data: {
+      name: string
+      mode?: 'api' | 'subscription'
+      apiKey?: string
+      baseUrl?: string
+      model?: string
+    },
   ) => void
   manageGatewayCredential: (
     gatewayId: string,
@@ -162,7 +168,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       gatewayId,
       agentType,
       name: data.name,
-      apiKey: data.apiKey,
+      mode: data.mode ?? 'api',
+      ...(data.apiKey ? { apiKey: data.apiKey } : {}),
       baseUrl: data.baseUrl,
       model: data.model,
     })

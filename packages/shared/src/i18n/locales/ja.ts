@@ -790,7 +790,9 @@ export const ja = {
     model: 'モデル',
     default: 'デフォルト',
     noCredentials: '認証情報が設定されていません',
-    addViaCliHint: 'OAuth認証情報はCLIからのみ追加できます',
+    addViaCliHint: 'OAuth認証情報はCLIからも管理できます',
+    subscriptionHint:
+      'ゲートウェイで設定済みのOAuthトークンを使用します。必要に応じて、ゲートウェイでCLIログインコマンドを実行してください。',
     selectCredential: '認証情報を選択',
     credentialRequired: '認証情報の選択が必要です',
   },

@@ -281,6 +281,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
           msg.gatewayId,
           msg.agentType,
           msg.name,
+          msg.mode ?? 'api',
           msg.apiKey,
           msg.baseUrl,
           msg.model,
@@ -1244,12 +1245,23 @@ function handleAddGatewayCredential(
   gatewayId: string,
   agentType: string,
   name: string,
-  apiKey: string,
+  mode: 'api' | 'subscription',
+  apiKey?: string,
   baseUrl?: string,
   model?: string,
 ) {
   const client = connectionManager.getClient(ws)
   if (!client) return
+
+  // API mode requires an API key
+  if (mode === 'api' && !apiKey) {
+    connectionManager.sendToClient(ws, {
+      type: 'server:error',
+      code: 'INVALID_REQUEST',
+      message: 'API key is required for API mode credentials',
+    })
+    return
+  }
 
   const requestId = nanoid()
   const sent = connectionManager.sendToGatewayById(gatewayId, {
@@ -1257,8 +1269,8 @@ function handleAddGatewayCredential(
     requestId,
     agentType,
     name,
-    mode: 'api',
-    apiKey,
+    mode,
+    ...(apiKey ? { apiKey } : {}),
     baseUrl,
     model,
   })

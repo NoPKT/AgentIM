@@ -99,7 +99,8 @@ export interface ClientAddGatewayCredential {
   gatewayId: string
   agentType: string
   name: string
-  apiKey: string
+  mode?: 'api' | 'subscription'
+  apiKey?: string
   baseUrl?: string
   model?: string
 }
@@ -651,8 +652,8 @@ export interface ServerAddCredential {
   requestId: string
   agentType: string
   name: string
-  mode: 'api'
-  apiKey: string
+  mode: 'api' | 'subscription'
+  apiKey?: string
   baseUrl?: string
   model?: string
 }

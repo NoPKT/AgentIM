@@ -808,7 +808,9 @@ export const de = {
     model: 'Modell',
     default: 'Standard',
     noCredentials: 'Keine Anmeldedaten konfiguriert',
-    addViaCliHint: 'OAuth-Anmeldedaten können nur über die CLI hinzugefügt werden',
+    addViaCliHint: 'OAuth-Anmeldedaten können auch über die CLI verwaltet werden',
+    subscriptionHint:
+      'Verwendet das bereits am Gateway konfigurierte OAuth-Token. Führen Sie bei Bedarf zuerst den CLI-Login-Befehl am Gateway aus.',
     selectCredential: 'Anmeldedaten auswählen',
     credentialRequired: 'Auswahl der Anmeldedaten erforderlich',
   },

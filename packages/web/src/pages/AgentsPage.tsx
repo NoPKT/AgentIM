@@ -770,6 +770,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
 
   const [credAgentType, setCredAgentType] = useState<string>(AGENT_TYPES[0])
   const [showAddForm, setShowAddForm] = useState(false)
+  const [addMode, setAddMode] = useState<'api' | 'subscription'>('api')
   const [addName, setAddName] = useState('')
   const [addApiKey, setAddApiKey] = useState('')
   const [addBaseUrl, setAddBaseUrl] = useState('')
@@ -781,12 +782,10 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
   const credKey = `${gatewayId}:${credAgentType}`
   const creds = gatewayCredentials.get(credKey) ?? null
 
-  // Fetch credentials when agent type changes
   useEffect(() => {
     refreshGatewayCredentials(gatewayId, credAgentType)
   }, [gatewayId, credAgentType, refreshGatewayCredentials])
 
-  // Listen for credential_updated events to refresh
   useEffect(() => {
     const handler = () => {
       refreshGatewayCredentials(gatewayId, credAgentType)
@@ -795,11 +794,14 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     return () => window.removeEventListener('agentim:credential_updated', handler)
   }, [gatewayId, credAgentType, refreshGatewayCredentials])
 
+  const canAdd = addName.trim() && (addMode === 'subscription' || addApiKey.trim())
+
   const handleAdd = () => {
-    if (!addName.trim() || !addApiKey.trim()) return
+    if (!canAdd) return
     addGatewayCredential(gatewayId, credAgentType, {
       name: addName.trim(),
-      apiKey: addApiKey,
+      mode: addMode,
+      ...(addMode === 'api' && addApiKey ? { apiKey: addApiKey } : {}),
       baseUrl: addBaseUrl || undefined,
       model: addModel || undefined,
     })
@@ -807,6 +809,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     setAddApiKey('')
     setAddBaseUrl('')
     setAddModel('')
+    setAddMode('api')
     setShowAddForm(false)
   }
 
@@ -826,18 +829,21 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     manageGatewayCredential(gatewayId, credAgentType, credentialId, 'set_default')
   }
 
+  const inputCls =
+    'w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent'
+
   return (
-    <div className="mt-3 pt-3 border-t border-border">
+    <div className="mt-3 pt-3 border-t border-border space-y-3">
       {/* Agent type tabs */}
-      <div className="flex gap-1 mb-3">
-        {AGENT_TYPES.filter((t) => t !== 'generic').map((type) => (
+      <div className="flex gap-1.5">
+        {AGENT_TYPES.filter((at) => at !== 'generic').map((type) => (
           <button
             key={type}
             onClick={() => setCredAgentType(type)}
-            className={`px-2 py-1 text-[10px] font-medium rounded-md transition-colors ${
+            className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg transition-colors text-center ${
               credAgentType === type
-                ? 'bg-accent text-white'
-                : 'bg-surface-hover text-text-secondary hover:text-text-primary'
+                ? 'bg-accent text-white shadow-sm'
+                : 'bg-surface-hover/60 text-text-secondary hover:text-text-primary hover:bg-surface-hover'
             }`}
           >
             {type}
@@ -847,70 +853,81 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
 
       {/* Credential list */}
       {creds === null ? (
-        <div className="text-xs text-text-muted animate-pulse py-2">Loading...</div>
+        <div className="text-xs text-text-muted animate-pulse py-3 text-center">Loading...</div>
       ) : creds.length === 0 ? (
-        <p className="text-xs text-text-muted py-1">{t('credential.noCredentials')}</p>
+        <p className="text-xs text-text-muted py-2 text-center">{t('credential.noCredentials')}</p>
       ) : (
         <div className="space-y-2">
           {creds.map((cred) => (
             <div
               key={cred.id}
-              className="px-2.5 py-2 rounded-lg bg-surface-secondary/50 text-xs space-y-1.5"
+              className="rounded-lg border border-border/60 bg-surface-secondary/30 overflow-hidden"
             >
-              {/* Row 1: credential info */}
-              {renamingId === cred.id ? (
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRename(cred.id)
-                      if (e.key === 'Escape') setRenamingId(null)
-                    }}
-                    autoFocus
-                    className="flex-1 px-1.5 py-0.5 text-xs rounded border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                  <button
-                    onClick={() => handleRename(cred.id)}
-                    className="px-1.5 py-0.5 text-[10px] font-medium text-accent bg-accent/10 rounded hover:bg-accent/20"
-                  >
-                    OK
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-medium text-text-primary truncate max-w-[140px]">
-                    {cred.name}
-                  </span>
-                  <span className="px-1 py-0.5 text-[9px] font-medium bg-surface-hover text-text-muted rounded">
-                    {cred.mode === 'api'
-                      ? t('credential.modeApi')
-                      : t('credential.modeSubscription')}
-                  </span>
-                  {cred.isDefault && (
-                    <span className="px-1 py-0.5 text-[9px] font-semibold bg-accent/10 text-accent rounded">
-                      {t('credential.default')}
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* Credential header */}
+              <div className="px-3 py-2">
+                {renamingId === cred.id ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(cred.id)
+                        if (e.key === 'Escape') setRenamingId(null)
+                      }}
+                      autoFocus
+                      className={inputCls}
+                    />
+                    <button
+                      onClick={() => handleRename(cred.id)}
+                      className="px-2.5 py-1 text-xs font-medium text-white bg-accent rounded-lg hover:bg-accent/90 shrink-0"
+                    >
+                      OK
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-text-primary truncate">
+                        {cred.name}
+                      </span>
+                      {cred.isDefault && (
+                        <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-accent/15 text-accent rounded-full shrink-0">
+                          {t('credential.default')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                      <span
+                        className={`inline-flex items-center gap-0.5 ${cred.mode === 'api' ? 'text-emerald-500' : 'text-blue-500'}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {cred.mode === 'api'
+                          ? t('credential.modeApi')
+                          : t('credential.modeSubscription')}
+                      </span>
+                      {cred.baseUrl && (
+                        <span className="truncate max-w-[150px]" title={cred.baseUrl}>
+                          {cred.baseUrl}
+                        </span>
+                      )}
+                      {cred.model && (
+                        <span className="font-mono truncate max-w-[100px]" title={cred.model}>
+                          {cred.model}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-              {/* Optional baseUrl on its own line */}
-              {renamingId !== cred.id && cred.baseUrl && (
-                <div className="text-[10px] text-text-muted truncate" title={cred.baseUrl}>
-                  {cred.baseUrl}
-                </div>
-              )}
-
-              {/* Row 2: action buttons */}
+              {/* Action bar */}
               {renamingId !== cred.id && (
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex border-t border-border/40 divide-x divide-border/40 text-[10px]">
                   {!cred.isDefault && (
                     <button
                       onClick={() => handleSetDefault(cred.id)}
-                      title={t('credential.setDefault')}
-                      className="px-1.5 py-0.5 text-[10px] text-text-muted hover:text-accent transition-colors rounded hover:bg-surface-hover"
+                      className="flex-1 py-1.5 text-text-muted hover:text-accent hover:bg-accent/5 transition-colors"
                     >
                       {t('credential.setDefault')}
                     </button>
@@ -920,22 +937,21 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                       setRenamingId(cred.id)
                       setRenameValue(cred.name)
                     }}
-                    title={t('credential.rename')}
-                    className="px-1.5 py-0.5 text-[10px] text-text-muted hover:text-text-primary transition-colors rounded hover:bg-surface-hover"
+                    className="flex-1 py-1.5 text-text-muted hover:text-text-primary hover:bg-surface-hover/50 transition-colors"
                   >
                     {t('credential.rename')}
                   </button>
                   {confirmDeleteId === cred.id ? (
-                    <div className="flex gap-1">
+                    <div className="flex flex-1">
                       <button
                         onClick={() => handleDelete(cred.id)}
-                        className="px-1.5 py-0.5 text-[10px] font-medium text-danger-text bg-danger-subtle rounded hover:bg-danger-subtle/80"
+                        className="flex-1 py-1.5 font-medium text-danger-text bg-danger-subtle/50 hover:bg-danger-subtle transition-colors"
                       >
                         {t('common.confirm')}
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="px-1.5 py-0.5 text-[10px] text-text-muted rounded hover:bg-surface-hover"
+                        className="flex-1 py-1.5 text-text-muted hover:bg-surface-hover/50 transition-colors border-l border-border/40"
                       >
                         {t('common.cancel')}
                       </button>
@@ -943,8 +959,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                   ) : (
                     <button
                       onClick={() => setConfirmDeleteId(cred.id)}
-                      title={t('credential.delete')}
-                      className="px-1.5 py-0.5 text-[10px] text-text-muted hover:text-red-500 transition-colors rounded hover:bg-surface-hover"
+                      className="flex-1 py-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/5 transition-colors"
                     >
                       {t('credential.delete')}
                     </button>
@@ -956,63 +971,96 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
         </div>
       )}
 
-      {/* Subscription hint */}
-      <p className="text-[10px] text-text-muted mt-2 italic">{t('credential.addViaCliHint')}</p>
-
       {/* Add credential form */}
       {showAddForm ? (
-        <div className="mt-2 space-y-1.5 p-2 rounded-lg border border-border bg-surface-secondary/30">
+        <div className="space-y-2.5 p-3 rounded-lg border border-accent/30 bg-accent/5">
+          <p className="text-[11px] font-semibold text-text-primary">{t('credential.add')}</p>
+
+          {/* Mode selector */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setAddMode('api')}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                addMode === 'api'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30'
+                  : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {t('credential.modeApi')}
+            </button>
+            <button
+              onClick={() => setAddMode('subscription')}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                addMode === 'subscription'
+                  ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30'
+                  : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {t('credential.modeSubscription')}
+            </button>
+          </div>
+
+          {addMode === 'subscription' && (
+            <p className="text-[10px] text-text-muted leading-relaxed">
+              {t('credential.subscriptionHint')}
+            </p>
+          )}
+
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-0.5">
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
               {t('credential.name')}
             </label>
             <input
               type="text"
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
-              placeholder="my-api-key"
-              className="w-full px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              placeholder={addMode === 'api' ? 'my-api-key' : 'my-subscription'}
+              className={inputCls}
             />
           </div>
+
+          {addMode === 'api' && (
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">
+                {t('credential.apiKey')}
+              </label>
+              <input
+                type="password"
+                value={addApiKey}
+                onChange={(e) => setAddApiKey(e.target.value)}
+                placeholder="sk-..."
+                className={inputCls}
+              />
+            </div>
+          )}
+
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-0.5">
-              {t('credential.apiKey')}
-            </label>
-            <input
-              type="password"
-              value={addApiKey}
-              onChange={(e) => setAddApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-0.5">
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
               {t('credential.baseUrl')}
-              <span className="ml-1 text-text-muted/50">(optional)</span>
+              <span className="ml-1 opacity-50">(optional)</span>
             </label>
             <input
               type="text"
               value={addBaseUrl}
               onChange={(e) => setAddBaseUrl(e.target.value)}
               placeholder="https://api.example.com"
-              className="w-full px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              className={inputCls}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-0.5">
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
               {t('credential.model')}
-              <span className="ml-1 text-text-muted/50">(optional)</span>
+              <span className="ml-1 opacity-50">(optional)</span>
             </label>
             <input
               type="text"
               value={addModel}
               onChange={(e) => setAddModel(e.target.value)}
               placeholder="claude-opus-4-6"
-              className="w-full px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              className={inputCls}
             />
           </div>
-          <div className="flex gap-1.5 pt-1">
+          <div className="flex gap-2 pt-1">
             <Button
               size="sm"
               variant="secondary"
@@ -1022,17 +1070,13 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                 setAddApiKey('')
                 setAddBaseUrl('')
                 setAddModel('')
+                setAddMode('api')
               }}
               className="flex-1"
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              size="sm"
-              onClick={handleAdd}
-              disabled={!addName.trim() || !addApiKey.trim()}
-              className="flex-1"
-            >
+            <Button size="sm" onClick={handleAdd} disabled={!canAdd} className="flex-1">
               {t('credential.add')}
             </Button>
           </div>
@@ -1040,7 +1084,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
       ) : (
         <button
           onClick={() => setShowAddForm(true)}
-          className="mt-2 w-full px-2 py-1 text-[10px] font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
+          className="w-full px-3 py-2 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
         >
           + {t('credential.add')}
         </button>

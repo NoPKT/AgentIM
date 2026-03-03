@@ -789,7 +789,9 @@ export const en = {
     model: 'Model',
     default: 'Default',
     noCredentials: 'No credentials configured',
-    addViaCliHint: 'OAuth credentials can only be added via CLI',
+    addViaCliHint: 'OAuth credentials can also be managed via the CLI',
+    subscriptionHint:
+      'Uses the OAuth token already configured on the gateway. Run the CLI login command on the gateway first if needed.',
     selectCredential: 'Select Credential',
     credentialRequired: 'Credential selection required',
   },
