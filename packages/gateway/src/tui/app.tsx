@@ -34,6 +34,7 @@ export function App() {
         rows={dimensions.rows}
         onLogin={login}
         onQuit={() => exit()}
+        sessionExpired={auth.authRevoked}
       />
     )
   }

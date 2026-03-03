@@ -19,8 +19,6 @@ import {
 import { authMiddleware, type AuthEnv } from '../middleware/auth.js'
 import { authRateLimit, rateLimitMiddleware } from '../middleware/rateLimit.js'
 import { logAudit, getClientIp } from '../lib/audit.js'
-import { revokeUserTokens } from '../lib/tokenRevocation.js'
-import { connectionManager } from '../ws/connections.js'
 import { parseJsonBody, formatZodError } from '../lib/validation.js'
 import { config, getConfigSync } from '../config.js'
 import { parseExpiryMs } from '../lib/time.js'
@@ -351,16 +349,40 @@ authRoutes.post('/refresh', refreshRateLimit, async (c) => {
 
 authRoutes.post('/logout', authMiddleware, async (c) => {
   const userId = c.get('userId')
-  await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId))
-  // Revoke all outstanding access tokens. Best-effort: the refresh token is
-  // already deleted above so the user cannot obtain new access tokens even if
-  // Redis is temporarily unavailable. Existing access tokens expire within TTL.
-  try {
-    await revokeUserTokens(userId)
-  } catch {
-    // Error already logged inside revokeUserTokens — continue with logout
+
+  // Only invalidate the current session's refresh token — do NOT nuke all
+  // sessions. This preserves gateway connections and other browser tabs.
+  // The web client already handles its own cleanup (wsClient.disconnect(),
+  // api.clearTokens()), and access tokens have a short TTL (~15min).
+
+  // Extract refresh token from cookie (web) or body (CLI) — same as /refresh
+  let incomingRefreshToken = getCookie(c, REFRESH_COOKIE_NAME) ?? null
+  if (!incomingRefreshToken) {
+    const body = await parseJsonBody(c)
+    if (!(body instanceof Response)) {
+      const rt = (body as Record<string, unknown>)?.refreshToken
+      if (typeof rt === 'string' && rt.length > 0 && rt.length <= 2000) {
+        incomingRefreshToken = rt
+      }
+    }
   }
-  connectionManager.disconnectUser(userId)
+
+  if (incomingRefreshToken) {
+    // Find and delete only the matching token
+    const storedTokens = await db
+      .select({ id: refreshTokens.id, tokenHash: refreshTokens.tokenHash })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, userId))
+
+    for (const t of storedTokens) {
+      const match = await verify(t.tokenHash, incomingRefreshToken).catch(() => false)
+      if (match) {
+        await db.delete(refreshTokens).where(eq(refreshTokens.id, t.id))
+        break
+      }
+    }
+  }
+
   // Clear the httpOnly refresh token Cookie for browser clients
   clearRefreshCookie(c)
   logAudit({ userId, action: 'logout', ipAddress: getClientIp(c) })

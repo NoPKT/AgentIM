@@ -1,4 +1,4 @@
-import { loadConfig } from './config.js'
+import { loadConfig, writeAuthRevokedMarker, removeAuthRevokedMarker } from './config.js'
 import { getDeviceInfo } from './device.js'
 import { GatewayWsClient } from './ws-client.js'
 import { AgentManager } from './agent-manager.js'
@@ -72,6 +72,50 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   // Unique ID for the current connection; prevents stale refresh callbacks
   // from affecting a newer connection.
   let connectionId = 0
+  let authRevoked = false
+  let authPollTimer: ReturnType<typeof setInterval> | null = null
+
+  /** Enter auth-revoked state: keep agents alive, poll config for new tokens. */
+  const enterAuthRevokedState = () => {
+    if (authRevoked) return
+    authRevoked = true
+    log.warn('Auth revoked — entering recovery mode (agents stay alive)')
+    writeAuthRevokedMarker(config.serverUrl)
+    wsClient.close()
+
+    authPollTimer = setInterval(() => {
+      const newConfig = loadConfig()
+      if (!newConfig) return // Config deleted (user logged out) — keep waiting
+
+      // If server URL changed, the user logged into a different server — restart
+      if (newConfig.serverUrl !== config.serverUrl) {
+        log.info('Server URL changed, restarting...')
+        process.exit(0)
+      }
+
+      // Same stale token — skip
+      if (newConfig.token === tokenManager.accessToken) return
+
+      // New tokens detected — recover
+      log.info('New tokens detected, recovering...')
+      tokenManager.updateTokens(newConfig)
+      config.token = newConfig.token
+      config.refreshToken = newConfig.refreshToken
+      authRevoked = false
+      hasRefreshed = false
+      connectionId++
+      removeAuthRevokedMarker()
+
+      if (authPollTimer) {
+        clearInterval(authPollTimer)
+        authPollTimer = null
+      }
+
+      wsClient.enableReconnect()
+      wsClient.connect()
+    }, 5000)
+    authPollTimer.unref()
+  }
 
   const authenticate = (wsClient: GatewayWsClient) => {
     wsClient.send({
@@ -117,6 +161,7 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         if (msg.ok) {
           log.info('Authenticated successfully')
           refreshingToken = null
+          removeAuthRevokedMarker()
 
           const isReconnect = agentManager.listAgents().length > 0
           opts.onAuthenticated(agentManager, isReconnect)
@@ -142,10 +187,11 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
                 const errMsg = err instanceof Error ? err.message : String(err)
                 log.error(`Token refresh failed: ${errMsg}`)
 
-                // Permanent failure (4xx auth error) — must re-login
+                // Permanent failure (4xx auth error) — enter recovery mode
                 if (errMsg.includes('permanently')) {
-                  log.error('Please re-login: agentim login')
-                  process.exit(1)
+                  log.error('Session revoked — waiting for re-login')
+                  enterAuthRevokedState()
+                  return
                 }
 
                 // Transient failure (server down, network issue) — reconnect
@@ -155,10 +201,10 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             )
           } else {
             // No refresh token, refresh already attempted, or concurrent refresh
-            // in flight — treat as a permanent auth failure.
+            // in flight — enter recovery mode instead of exiting.
             log.error(`Auth failed: ${msg.error}`)
-            log.error('Please re-login: agentim login')
-            process.exit(1)
+            log.error('Session revoked — waiting for re-login')
+            enterAuthRevokedState()
           }
         }
       } else if (msg.type === 'server:error') {
@@ -229,6 +275,11 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     if (shuttingDown) return
     shuttingDown = true
     log.info('Shutting down...')
+    if (authPollTimer) {
+      clearInterval(authPollTimer)
+      authPollTimer = null
+    }
+    removeAuthRevokedMarker()
     opts.onCleanup?.()
     try {
       await Promise.race([

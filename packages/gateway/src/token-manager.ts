@@ -14,6 +14,11 @@ export class TokenManager {
     return this.config.token
   }
 
+  /** Replace the internal config reference (used during auth-revoked recovery). */
+  updateTokens(newConfig: GatewayConfig): void {
+    this.config = newConfig
+  }
+
   /** Refresh the access token using the refresh token via HTTP API */
   async refresh(): Promise<string> {
     const MAX_RETRIES = 6

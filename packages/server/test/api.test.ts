@@ -184,8 +184,8 @@ describe('AgentIM Server API', () => {
 
     it('logout invalidates refresh token', async () => {
       const user = await registerUser('logouttest')
-      // Logout
-      await api('POST', '/api/auth/logout', undefined, user.accessToken)
+      // Logout — pass refreshToken so the server can find and delete the matching session
+      await api('POST', '/api/auth/logout', { refreshToken: user.refreshToken }, user.accessToken)
       // Try to refresh with the old token — should fail
       const res = await api('POST', '/api/auth/refresh', { refreshToken: user.refreshToken })
       assert.equal(res.status, 401)
