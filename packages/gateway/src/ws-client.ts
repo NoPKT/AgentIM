@@ -301,6 +301,25 @@ export class GatewayWsClient {
     this.ws?.close()
   }
 
+  /** Close the connection and trigger a reconnect (e.g. after a transient auth failure). */
+  forceReconnect() {
+    this.stopHeartbeat()
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close(1000, 'force-reconnect')
+      }
+      this.ws = null
+    }
+    this.connecting = false
+    this.onDisconnected()
+    this.scheduleReconnect()
+  }
+
   /** Prevent any future reconnection attempts (e.g. after a fatal protocol mismatch). */
   disableReconnect() {
     this.shouldReconnect = false

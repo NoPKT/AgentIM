@@ -16,7 +16,7 @@ export class TokenManager {
 
   /** Refresh the access token using the refresh token via HTTP API */
   async refresh(): Promise<string> {
-    const MAX_RETRIES = 3
+    const MAX_RETRIES = 6
     const BASE_DELAY = 2000
     let lastError: Error | null = null
 
