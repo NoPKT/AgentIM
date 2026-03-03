@@ -55,9 +55,25 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ title, message, onConfirm, onCancel }: ConfirmDialogProps) {
+  const [focused, setFocused] = useState<'yes' | 'no'>('no')
+
   useInput((input, key) => {
-    if (input === 'y' || input === 'Y') onConfirm()
-    else if (input === 'n' || input === 'N' || key.escape) onCancel()
+    if (input === 'y' || input === 'Y') {
+      onConfirm()
+      return
+    }
+    if (input === 'n' || input === 'N' || key.escape) {
+      onCancel()
+      return
+    }
+    if (key.leftArrow || key.rightArrow || key.upArrow || key.downArrow || key.tab) {
+      setFocused((f) => (f === 'yes' ? 'no' : 'yes'))
+      return
+    }
+    if (key.return) {
+      if (focused === 'yes') onConfirm()
+      else onCancel()
+    }
   })
 
   return (
@@ -71,8 +87,17 @@ export function ConfirmDialog({ title, message, onConfirm, onCancel }: ConfirmDi
         <Text>{message}</Text>
       </Box>
       <Box marginTop={1} gap={2}>
-        <Text bold>[Y]es</Text>
-        <Text bold>[N]o</Text>
+        <Text bold inverse={focused === 'yes'}>
+          {focused === 'yes' ? ' > ' : '   '}[Y]es
+        </Text>
+        <Text bold inverse={focused === 'no'}>
+          {focused === 'no' ? ' > ' : '   '}[N]o
+        </Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>
+          Left/Right/Tab: navigate | Enter: confirm | Y/N: quick select | Esc: cancel
+        </Text>
       </Box>
     </Box>
   )

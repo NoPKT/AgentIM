@@ -40,9 +40,13 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
   const [addApiKey, setAddApiKey] = useState('')
   const [addBaseUrl, setAddBaseUrl] = useState('')
   const [addModel, setAddModel] = useState('')
+  const [modeIdx, setModeIdx] = useState(0)
 
   // Rename dialog state
   const [renameName, setRenameName] = useState('')
+
+  // Delete confirm navigation state
+  const [deleteFocused, setDeleteFocused] = useState<'yes' | 'no'>('no')
 
   const agentType = AGENT_TYPES[agentTypeIdx].type
 
@@ -54,7 +58,7 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
   const refreshCredentials = useCallback(() => {
     const creds = listCredentialInfo(agentType)
     setCredentials(creds)
-    setSelectedIdx((prev) => Math.min(prev, Math.max(0, creds.length - 1)))
+    setSelectedIdx((prev) => Math.min(prev, creds.length))
   }, [agentType])
 
   useEffect(() => {
@@ -92,29 +96,41 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
         return
       }
 
-      // Credential selection
-      if (key.upArrow && credentials.length > 0) {
+      // Credential selection (extra slot at end = Add button)
+      if (key.upArrow) {
         setSelectedIdx((i) => Math.max(0, i - 1))
         return
       }
-      if (key.downArrow && credentials.length > 0) {
-        setSelectedIdx((i) => Math.min(credentials.length - 1, i + 1))
+      if (key.downArrow) {
+        setSelectedIdx((i) => Math.min(credentials.length, i + 1))
         return
       }
 
-      // Enter opens action menu on selected credential
-      if (key.return && selectedCred) {
-        setSubDialog({ type: 'action-menu', menuIndex: 0 })
+      // Enter opens action menu on selected credential, or starts add flow on Add button
+      if (key.return) {
+        if (selectedIdx === credentials.length) {
+          // Add button selected
+          setAddName('')
+          setAddMode('api')
+          setAddApiKey('')
+          setAddBaseUrl('')
+          setAddModel('')
+          setModeIdx(0)
+          setSubDialog({ type: 'add', step: 'name' })
+        } else if (selectedCred) {
+          setSubDialog({ type: 'action-menu', menuIndex: 0 })
+        }
         return
       }
 
-      // 'a' to add
+      // 'a' to add (shortcut)
       if (input.toLowerCase() === 'a') {
         setAddName('')
         setAddMode('api')
         setAddApiKey('')
         setAddBaseUrl('')
         setAddModel('')
+        setModeIdx(0)
         setSubDialog({ type: 'add', step: 'name' })
       }
     },
@@ -155,6 +171,7 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
           setRenameName(selectedCred.name)
           setSubDialog({ type: 'rename' })
         } else if (item.id === 'delete') {
+          setDeleteFocused('no')
           setSubDialog({ type: 'delete' })
         }
       }
@@ -171,8 +188,28 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
         showMessage(ok ? `"${selectedCred.name}" deleted.` : 'Delete failed.', ok ? 'green' : 'red')
         refreshCredentials()
         setSubDialog({ type: 'none' })
-      } else if (input === 'n' || input === 'N' || key.escape) {
+        return
+      }
+      if (input === 'n' || input === 'N' || key.escape) {
         setSubDialog({ type: 'none' })
+        return
+      }
+      if (key.leftArrow || key.rightArrow || key.upArrow || key.downArrow || key.tab) {
+        setDeleteFocused((f) => (f === 'yes' ? 'no' : 'yes'))
+        return
+      }
+      if (key.return) {
+        if (deleteFocused === 'yes') {
+          const ok = removeCredential(agentType, selectedCred.id)
+          showMessage(
+            ok ? `"${selectedCred.name}" deleted.` : 'Delete failed.',
+            ok ? 'green' : 'red',
+          )
+          refreshCredentials()
+          setSubDialog({ type: 'none' })
+        } else {
+          setSubDialog({ type: 'none' })
+        }
       }
     },
     { isActive: subDialog.type === 'delete' },
@@ -198,10 +235,26 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
         return
       }
       if (subDialog.step === 'mode') {
+        if (key.upArrow || key.downArrow) {
+          setModeIdx((i) => (i === 0 ? 1 : 0))
+          return
+        }
+        if (key.return) {
+          if (modeIdx === 0) {
+            setAddMode('api')
+            setSubDialog({ type: 'add', step: 'apiKey' })
+          } else {
+            setAddMode('subscription')
+            setSubDialog({ type: 'add', step: 'baseUrl' })
+          }
+          return
+        }
         if (input === '1' || input === 'a') {
+          setModeIdx(0)
           setAddMode('api')
           setSubDialog({ type: 'add', step: 'apiKey' })
         } else if (input === '2' || input === 's') {
+          setModeIdx(1)
           setAddMode('subscription')
           setSubDialog({ type: 'add', step: 'baseUrl' })
         }
@@ -242,7 +295,7 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
       {/* Credential list with inline action menu */}
       <Box flexDirection="column" minHeight={3} flexGrow={1}>
         {credentials.length === 0 ? (
-          <Text dimColor> No credentials configured. Press A to add one.</Text>
+          <Text dimColor> No credentials configured.</Text>
         ) : (
           credentials.map((cred, i) => {
             const isSelected = i === selectedIdx
@@ -269,13 +322,35 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
             )
           })
         )}
+        {/* Add button — navigable with arrow keys */}
+        <Box>
+          <Text inverse={selectedIdx === credentials.length && subDialog.type === 'none'}>
+            {selectedIdx === credentials.length ? ' > ' : '   '}[ + Add ]
+          </Text>
+        </Box>
       </Box>
 
       {/* Sub-dialogs rendered inline at bottom */}
       {subDialog.type === 'delete' && selectedCred && (
-        <Box borderStyle="round" borderColor="yellow" paddingX={1} marginTop={1}>
-          <Text>Delete &quot;{selectedCred.name}&quot;? </Text>
-          <Text bold>[Y/N]</Text>
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor="yellow"
+          paddingX={1}
+          marginTop={1}
+        >
+          <Text>Delete &quot;{selectedCred.name}&quot;?</Text>
+          <Box gap={2} marginTop={1}>
+            <Text bold inverse={deleteFocused === 'yes'}>
+              {deleteFocused === 'yes' ? ' > ' : '   '}[Y]es
+            </Text>
+            <Text bold inverse={deleteFocused === 'no'}>
+              {deleteFocused === 'no' ? ' > ' : '   '}[N]o
+            </Text>
+          </Box>
+          <Text dimColor>
+            Left/Right/Tab: navigate | Enter: confirm | Y/N: quick select | Esc: cancel
+          </Text>
         </Box>
       )}
 
@@ -321,6 +396,7 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
           name={addName}
           onNameChange={setAddName}
           mode={addMode}
+          modeIdx={modeIdx}
           apiKey={addApiKey}
           onApiKeyChange={setAddApiKey}
           baseUrl={addBaseUrl}
@@ -347,7 +423,7 @@ export function CredentialsModal({ onClose }: CredentialsModalProps) {
       {subDialog.type === 'none' && (
         <Box marginTop={1}>
           <Text dimColor>
-            Enter: actions | Left/Right: agent type | Up/Down: select | A: add | Esc: close
+            Enter: actions/add | Left/Right: agent type | Up/Down: select | A: add | Esc: close
           </Text>
         </Box>
       )}
@@ -370,6 +446,7 @@ interface AddCredentialInlineProps {
   name: string
   onNameChange: (v: string) => void
   mode: 'api' | 'subscription'
+  modeIdx: number
   apiKey: string
   onApiKeyChange: (v: string) => void
   baseUrl: string
@@ -386,6 +463,7 @@ function AddCredentialInline({
   name,
   onNameChange,
   mode,
+  modeIdx,
   apiKey,
   onApiKeyChange,
   baseUrl,
@@ -416,9 +494,11 @@ function AddCredentialInline({
       {step === 'mode' && (
         <Box flexDirection="column">
           <Text>Name: {name || '(unnamed)'}</Text>
-          <Text>Select mode:</Text>
-          <Text> [1] API Key</Text>
-          <Text> [2] Subscription (OAuth)</Text>
+          <Text>Select mode (Up/Down + Enter):</Text>
+          <Text inverse={modeIdx === 0}>{modeIdx === 0 ? ' > ' : '   '}[1] API Key</Text>
+          <Text inverse={modeIdx === 1}>
+            {modeIdx === 1 ? ' > ' : '   '}[2] Subscription (OAuth)
+          </Text>
         </Box>
       )}
 

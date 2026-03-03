@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
 import { api } from '../lib/api.js'
+import { wsClient } from '../lib/ws.js'
 import { registerStoreReset } from './reset.js'
 
 /** Credential metadata (secrets never leave gateway) */
@@ -43,6 +44,19 @@ interface AgentState {
     agentType: string,
     credentials: CredentialInfo[],
   ) => void
+  addGatewayCredential: (
+    gatewayId: string,
+    agentType: string,
+    data: { name: string; apiKey: string; baseUrl?: string; model?: string },
+  ) => void
+  manageGatewayCredential: (
+    gatewayId: string,
+    agentType: string,
+    credentialId: string,
+    action: 'rename' | 'delete' | 'set_default',
+    name?: string,
+  ) => void
+  refreshGatewayCredentials: (gatewayId: string, agentType: string) => void
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -140,6 +154,37 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const map = new Map(get().gatewayCredentials)
     map.set(key, credentials)
     set({ gatewayCredentials: map })
+  },
+
+  addGatewayCredential: (gatewayId, agentType, data) => {
+    wsClient.send({
+      type: 'client:add_gateway_credential',
+      gatewayId,
+      agentType,
+      name: data.name,
+      apiKey: data.apiKey,
+      baseUrl: data.baseUrl,
+      model: data.model,
+    })
+  },
+
+  manageGatewayCredential: (gatewayId, agentType, credentialId, action, name) => {
+    wsClient.send({
+      type: 'client:manage_gateway_credential',
+      gatewayId,
+      agentType,
+      credentialId,
+      action,
+      ...(name ? { name } : {}),
+    })
+  },
+
+  refreshGatewayCredentials: (gatewayId, agentType) => {
+    wsClient.send({
+      type: 'client:list_gateway_credentials',
+      gatewayId,
+      agentType,
+    })
   },
 }))
 
