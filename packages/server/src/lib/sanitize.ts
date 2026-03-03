@@ -3,14 +3,23 @@
  * These fields never legitimately contain angle brackets, so aggressive stripping is safe.
  */
 export function stripHtml(input: string): string {
-  // Decode common HTML entities first, then strip tags
-  const decoded = input
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#x27;/g, "'")
-  return decoded.replace(/<[^>]*>/g, '')
+  // Loop decode-then-strip until stable, so multi-level encoded tags like
+  // `&amp;lt;script&amp;gt;` are fully neutralised.
+  let result = input
+  let prev: string
+  do {
+    prev = result
+    // Decode common HTML entities
+    result = result
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+    // Strip any tags produced by decoding
+    result = result.replace(/<[^>]*>/g, '')
+  } while (result !== prev)
+  return result
 }
 
 /**
@@ -62,10 +71,15 @@ const DANGEROUS_PATTERNS: RegExp[] = [
 export function sanitizeContent(input: string): string {
   let result = input
 
-  // Strip dangerous block-level tags first.
-  for (const pattern of DANGEROUS_PATTERNS) {
-    result = result.replace(pattern, '')
-  }
+  // Strip dangerous block-level tags, looping until stable so nested
+  // constructs like `<scr<script>ipt>` are fully removed.
+  let prev: string
+  do {
+    prev = result
+    for (const pattern of DANGEROUS_PATTERNS) {
+      result = result.replace(pattern, '')
+    }
+  } while (result !== prev)
 
   // Within each HTML opening tag, strip three classes of dangerous content:
   //   1. Event-handler attributes (onclick=…, onload=…, onerror=…, …)

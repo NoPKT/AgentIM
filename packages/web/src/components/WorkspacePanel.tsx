@@ -563,7 +563,7 @@ export function WorkspacePanel({
   }
 
   const isLoading = loading?.agentId === selectedAgentId
-  const effectiveHeight = isMaximized ? '100%' : `${panelHeight}px`
+  const effectiveHeight = `${panelHeight}px`
 
   // When maximized, render as a fullscreen overlay (like RoomSettingsDrawer on mobile)
   if (isMaximized) {
@@ -659,20 +659,18 @@ export function WorkspacePanel({
       className="border-t border-border flex flex-col min-w-0 overflow-hidden"
       style={{ height: effectiveHeight }}
     >
-      {/* Drag handle — wider touch area on mobile, hidden when maximized */}
-      {!isMaximized && (
-        <div
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
-          className="h-1.5 sm:h-1 cursor-ns-resize hover:bg-accent/30 active:bg-accent/40 transition-colors flex-shrink-0 touch-none flex items-center justify-center"
-          title={t('chat.workspaceDragResize')}
-        >
-          {/* Visual grip indicator */}
-          <div className="w-8 h-0.5 rounded-full bg-text-muted/30" />
-        </div>
-      )}
+      {/* Drag handle — wider touch area on mobile (maximized case already returned above) */}
+      <div
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
+        className="h-1.5 sm:h-1 cursor-ns-resize hover:bg-accent/30 active:bg-accent/40 transition-colors flex-shrink-0 touch-none flex items-center justify-center"
+        title={t('chat.workspaceDragResize')}
+      >
+        {/* Visual grip indicator */}
+        <div className="w-8 h-0.5 rounded-full bg-text-muted/30" />
+      </div>
       {/* Header bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-secondary border-b border-border flex-shrink-0">
         {/* Agent selector */}
@@ -728,23 +726,16 @@ export function WorkspacePanel({
           >
             <RefreshIcon className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          {/* Maximize / Minimize */}
+          {/* Maximize (minimized view — maximized case already returned above) */}
           <button
             onClick={() => {
-              setIsMaximized((v) => {
-                const next = !v
-                onMaximizedChange?.(next)
-                return next
-              })
+              setIsMaximized(true)
+              onMaximizedChange?.(true)
             }}
             className="p-1 rounded hover:bg-surface-hover text-text-muted hover:text-text-secondary"
-            title={isMaximized ? t('chat.workspaceMinimize') : t('chat.workspaceMaximize')}
+            title={t('chat.workspaceMaximize')}
           >
-            {isMaximized ? (
-              <MinimizeIcon className="w-3.5 h-3.5" />
-            ) : (
-              <MaximizeIcon className="w-3.5 h-3.5" />
-            )}
+            <MaximizeIcon className="w-3.5 h-3.5" />
           </button>
           {/* Close */}
           <button
