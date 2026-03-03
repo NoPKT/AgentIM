@@ -75,6 +75,22 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
   let authRevoked = false
   let authPollTimer: ReturnType<typeof setInterval> | null = null
 
+  /** Recover from auth-revoked state: update tokens, reconnect. */
+  const recoverFromAuthRevoked = () => {
+    authRevoked = false
+    hasRefreshed = false
+    connectionId++
+    removeAuthRevokedMarker()
+
+    if (authPollTimer) {
+      clearInterval(authPollTimer)
+      authPollTimer = null
+    }
+
+    wsClient.enableReconnect()
+    wsClient.connect()
+  }
+
   /** Enter auth-revoked state: keep agents alive, poll config for new tokens. */
   const enterAuthRevokedState = () => {
     if (authRevoked) return
@@ -83,7 +99,12 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
     writeAuthRevokedMarker(config.serverUrl)
     wsClient.close()
 
+    let pollCount = 0
+    let refreshing = false
     authPollTimer = setInterval(() => {
+      pollCount++
+
+      // Check 1: config file for new tokens (user re-logged in via CLI/TUI)
       const newConfig = loadConfig()
       if (!newConfig) return // Config deleted (user logged out) — keep waiting
 
@@ -93,26 +114,34 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         process.exit(0)
       }
 
-      // Same stale token — skip
-      if (newConfig.token === tokenManager.accessToken) return
-
-      // New tokens detected — recover
-      log.info('New tokens detected, recovering...')
-      tokenManager.updateTokens(newConfig)
-      config.token = newConfig.token
-      config.refreshToken = newConfig.refreshToken
-      authRevoked = false
-      hasRefreshed = false
-      connectionId++
-      removeAuthRevokedMarker()
-
-      if (authPollTimer) {
-        clearInterval(authPollTimer)
-        authPollTimer = null
+      // New tokens detected in config — recover immediately
+      if (newConfig.token !== tokenManager.accessToken) {
+        log.info('New tokens detected, recovering...')
+        tokenManager.updateTokens(newConfig)
+        config.token = newConfig.token
+        config.refreshToken = newConfig.refreshToken
+        recoverFromAuthRevoked()
+        return
       }
 
-      wsClient.enableReconnect()
-      wsClient.connect()
+      // Check 2: every 6th poll (~30s), try to refresh with existing token.
+      // Handles transient server downtime without requiring user re-login.
+      if (pollCount % 6 === 0 && !refreshing) {
+        refreshing = true
+        tokenManager
+          .refresh()
+          .then(() => {
+            if (!authRevoked) return // Already recovered via config check
+            log.info('Token refresh succeeded, recovering...')
+            recoverFromAuthRevoked()
+          })
+          .catch(() => {
+            // Still failing — keep polling
+          })
+          .finally(() => {
+            refreshing = false
+          })
+      }
     }, 5000)
     authPollTimer.unref()
   }
@@ -187,16 +216,12 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
                 const errMsg = err instanceof Error ? err.message : String(err)
                 log.error(`Token refresh failed: ${errMsg}`)
 
-                // Permanent failure (4xx auth error) — enter recovery mode
-                if (errMsg.includes('permanently')) {
-                  log.error('Session revoked — waiting for re-login')
-                  enterAuthRevokedState()
-                  return
-                }
-
-                // Transient failure (server down, network issue) — reconnect
-                log.warn('Token refresh failed due to transient error, will reconnect...')
-                wsClient.forceReconnect()
+                // All refresh retries exhausted (6 retries, ~2 min) — enter
+                // recovery mode regardless of error type. The auth-revoked
+                // polling will periodically retry refresh to handle transient
+                // server downtime without requiring user re-login.
+                log.error('Entering recovery mode — waiting for re-login or server recovery')
+                enterAuthRevokedState()
               },
             )
           } else {
