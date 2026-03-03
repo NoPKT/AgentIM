@@ -12,7 +12,14 @@ import { toast } from '../stores/toast.js'
 import { wsClient } from '../lib/ws.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
-import { TrashIcon } from '../components/icons.js'
+import {
+  TrashIcon,
+  CheckIcon,
+  XMarkIcon,
+  ServerIcon,
+  PlusIcon,
+  LockIcon,
+} from '../components/icons.js'
 
 export default function AgentsPage() {
   const { t } = useTranslation()
@@ -24,6 +31,7 @@ export default function AgentsPage() {
   const loadGateways = useAgentStore((state) => state.loadGateways)
 
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null)
 
   useEffect(() => {
     loadAgents()
@@ -142,9 +150,14 @@ export default function AgentsPage() {
             <p className="text-sm text-text-secondary mb-4">
               {t('agent.gatewaysConnected', { count: gateways.length })}
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
               {gateways.map((gw) => (
-                <GatewayCard key={gw.id} gateway={gw} />
+                <GatewayRow
+                  key={gw.id}
+                  gateway={gw}
+                  expanded={selectedGatewayId === gw.id}
+                  onToggle={() => setSelectedGatewayId((prev) => (prev === gw.id ? null : gw.id))}
+                />
               ))}
             </div>
           </div>
@@ -274,18 +287,20 @@ function AgentRow({
             <button
               onClick={handleDeleteConfirm}
               disabled={deleting}
-              className="px-2 py-1 text-xs font-medium text-danger-text bg-danger-subtle rounded hover:bg-danger-subtle/80 transition-colors disabled:opacity-50"
+              title={t('common.confirm')}
+              className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
             >
-              {t('common.confirm')}
+              <CheckIcon className="w-4 h-4" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 setConfirmDelete(false)
               }}
-              className="px-2 py-1 text-xs font-medium text-text-secondary bg-surface-hover rounded hover:bg-surface-hover/80 transition-colors"
+              title={t('common.cancel')}
+              className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
             >
-              {t('common.cancel')}
+              <XMarkIcon className="w-4 h-4" />
             </button>
           </div>
         ) : (
@@ -413,7 +428,15 @@ function AgentRow({
   )
 }
 
-function GatewayCard({ gateway }: { gateway: Gateway }) {
+function GatewayRow({
+  gateway,
+  expanded,
+  onToggle,
+}: {
+  gateway: Gateway
+  expanded: boolean
+  onToggle: () => void
+}) {
   const { t, i18n } = useTranslation()
   const deleteGateway = useAgentStore((s) => s.deleteGateway)
   const spawnAgent = useAgentStore((s) => s.spawnAgent)
@@ -484,7 +507,6 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     setSpawning(true)
     setCredentialSelection(null)
     try {
-      // If we have credentials loaded and there's more than one, include the selected credential
       const credId =
         credentials && credentials.length > 1 ? selectedCredentialId || undefined : undefined
       await spawnAgent(
@@ -528,235 +550,265 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     }
   }
 
+  const deviceLabel = gateway.deviceInfo
+    ? `${gateway.deviceInfo.platform}${gateway.deviceInfo.hostname ? ` · ${gateway.deviceInfo.hostname}` : ''}`
+    : null
+
   return (
-    <div className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:shadow-md transition-all duration-200">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center">
-            <span className="text-sm font-semibold text-white">
-              {gateway.name.charAt(0).toUpperCase()}
-            </span>
+    <div className="bg-surface rounded-lg border border-border overflow-hidden transition-colors">
+      {/* Header row */}
+      <div
+        className="px-3 py-2.5 flex items-center gap-3 hover:bg-surface-hover/50 cursor-pointer"
+        onClick={onToggle}
+      >
+        {/* Status dot */}
+        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+          {isOnline && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          )}
+          <span
+            className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
+          />
+        </span>
+
+        {/* Gateway icon + Name */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 flex items-center justify-center">
+            <ServerIcon className="w-4 h-4 text-white" />
           </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold text-text-primary truncate">{gateway.name}</h3>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}
-              />
-              <span className="text-xs text-text-secondary">
-                {isOnline ? t('common.online') : t('common.offline')}
+          <span className="text-sm font-medium text-text-primary truncate">{gateway.name}</span>
+        </div>
+
+        {/* Device info (hidden on small screens) */}
+        {deviceLabel && (
+          <span className="hidden md:inline text-xs text-text-muted truncate max-w-[200px]">
+            {deviceLabel}
+          </span>
+        )}
+
+        {/* Delete button / confirm */}
+        {confirmDelete ? (
+          <div
+            className="flex items-center gap-1 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              title={t('common.confirm')}
+              className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
+            >
+              <CheckIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setConfirmDelete(false)
+              }}
+              title={t('common.cancel')}
+              className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
+            >
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setConfirmDelete(true)
+            }}
+            className="p-1.5 rounded-md text-text-muted/50 hover:text-danger-text hover:bg-surface-hover transition-colors flex-shrink-0"
+            title={t('agent.deleteGateway')}
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Expand/collapse chevron */}
+        <svg
+          className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
+          {/* Device details */}
+          {gateway.deviceInfo && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agent.device')}</span>
+              <span className="text-xs text-text-primary truncate">
+                {gateway.deviceInfo.platform}{' '}
+                {gateway.deviceInfo.hostname && `· ${gateway.deviceInfo.hostname}`}
               </span>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Details */}
-      <div className="space-y-2 text-sm">
-        {gateway.deviceInfo && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">{t('agent.device')}</dt>
-            <dd className="text-text-primary truncate">
-              {gateway.deviceInfo.platform}{' '}
-              {gateway.deviceInfo.hostname && `· ${gateway.deviceInfo.hostname}`}
-            </dd>
-          </div>
-        )}
+          {/* Disconnected time */}
+          {gateway.disconnectedAt && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-xs text-text-muted shrink-0">{t('agent.disconnectedAt')}</span>
+              <span className="text-xs text-text-primary">
+                {new Date(gateway.disconnectedAt).toLocaleString(i18n.language, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          )}
 
-        {gateway.disconnectedAt && (
-          <div>
-            <dt className="text-text-muted text-xs font-medium mb-0.5">
-              {t('agent.disconnectedAt')}
-            </dt>
-            <dd className="text-text-primary">
-              {new Date(gateway.disconnectedAt).toLocaleString(i18n.language, {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </dd>
-          </div>
-        )}
-      </div>
-
-      {/* Spawn Agent + Credentials */}
-      <div className="mt-4 pt-3 border-t border-border space-y-2">
-        {showSpawn ? (
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-text-secondary">{t('agent.spawnAgentDesc')}</p>
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                {t('agent.agentType')}
-              </label>
-              <select
-                value={spawnType}
-                onChange={(e) => setSpawnType(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+          {/* Action buttons */}
+          {!showSpawn && isOnline && (
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => setShowSpawn(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
               >
-                {AGENT_TYPES.filter((t) => t !== 'generic').map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('agent.spawnAgent')}
+              </button>
+              <button
+                onClick={() => setShowCredentials((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-surface-hover/50 rounded-lg hover:bg-surface-hover transition-colors"
+              >
+                <LockIcon className="w-3.5 h-3.5" />
+                {t('credential.title')}
+              </button>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                {t('agent.agentName')}
-              </label>
-              <input
-                type="text"
-                value={spawnName}
-                onChange={(e) => setSpawnName(e.target.value)}
-                placeholder="my-agent"
-                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1">
-                {t('agent.workingDir')}
-              </label>
-              <input
-                type="text"
-                value={spawnWorkDir}
-                onChange={(e) => setSpawnWorkDir(e.target.value)}
-                placeholder="/path/to/project"
-                className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
+          )}
 
-            {/* Credential selector — shown when multiple credentials exist */}
-            {credentials && credentials.length > 1 && (
+          {/* Spawn form */}
+          {showSpawn && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-medium text-text-secondary">{t('agent.spawnAgentDesc')}</p>
               <div>
                 <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('credential.selectCredential')}
+                  {t('agent.agentType')}
                 </label>
                 <select
-                  value={selectedCredentialId}
-                  onChange={(e) => setSelectedCredentialId(e.target.value)}
+                  value={spawnType}
+                  onChange={(e) => setSpawnType(e.target.value)}
                   className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
                 >
-                  <option value="">{t('credential.default')}</option>
-                  {credentials.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} (
-                      {c.mode === 'api'
-                        ? t('credential.modeApi')
-                        : t('credential.modeSubscription')}
-                      ){c.isDefault ? ` [${t('credential.default')}]` : ''}
+                  {AGENT_TYPES.filter((t) => t !== 'generic').map((type) => (
+                    <option key={type} value={type}>
+                      {type}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-
-            {credentials && credentials.length === 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                {t('credential.noCredentials')}
-              </p>
-            )}
-
-            {/* Credential selection required — returned from gateway */}
-            {credentialSelection && (
-              <div className="border border-amber-300 dark:border-amber-700 rounded-lg p-2 bg-amber-50 dark:bg-amber-900/20">
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2">
-                  {t('credential.credentialRequired')}
-                </p>
-                <div className="space-y-1">
-                  {credentialSelection.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => handleSpawnWithCredential(c.id)}
-                      className="w-full text-left px-2 py-1.5 text-xs rounded border border-border bg-surface hover:bg-surface-hover transition-colors"
-                    >
-                      {c.name} (
-                      {c.mode === 'api'
-                        ? t('credential.modeApi')
-                        : t('credential.modeSubscription')}
-                      )
-                    </button>
-                  ))}
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('agent.agentName')}
+                </label>
+                <input
+                  type="text"
+                  value={spawnName}
+                  onChange={(e) => setSpawnName(e.target.value)}
+                  placeholder="my-agent"
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('agent.workingDir')}
+                </label>
+                <input
+                  type="text"
+                  value={spawnWorkDir}
+                  onChange={(e) => setSpawnWorkDir(e.target.value)}
+                  placeholder="/path/to/project"
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
 
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setShowSpawn(false)}
-                className="flex-1"
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSpawn}
-                disabled={spawning || !spawnName.trim()}
-                className="flex-1"
-              >
-                {t('agent.spawnAgent')}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {isOnline && (
-              <>
-                <button
-                  onClick={() => setShowSpawn(true)}
-                  className="w-full px-3 py-1.5 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
+              {/* Credential selector — shown when multiple credentials exist */}
+              {credentials && credentials.length > 1 && (
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">
+                    {t('credential.selectCredential')}
+                  </label>
+                  <select
+                    value={selectedCredentialId}
+                    onChange={(e) => setSelectedCredentialId(e.target.value)}
+                    className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="">{t('credential.default')}</option>
+                    {credentials.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} (
+                        {c.mode === 'api'
+                          ? t('credential.modeApi')
+                          : t('credential.modeSubscription')}
+                        ){c.isDefault ? ` [${t('credential.default')}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {credentials && credentials.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {t('credential.noCredentials')}
+                </p>
+              )}
+
+              {/* Credential selection required — returned from gateway */}
+              {credentialSelection && (
+                <div className="border border-amber-300 dark:border-amber-700 rounded-lg p-2 bg-amber-50 dark:bg-amber-900/20">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2">
+                    {t('credential.credentialRequired')}
+                  </p>
+                  <div className="space-y-1">
+                    {credentialSelection.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleSpawnWithCredential(c.id)}
+                        className="w-full text-left px-2 py-1.5 text-xs rounded border border-border bg-surface hover:bg-surface-hover transition-colors"
+                      >
+                        {c.name} (
+                        {c.mode === 'api'
+                          ? t('credential.modeApi')
+                          : t('credential.modeSubscription')}
+                        )
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowSpawn(false)}
+                  className="flex-1"
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSpawn}
+                  disabled={spawning || !spawnName.trim()}
+                  className="flex-1"
                 >
                   {t('agent.spawnAgent')}
-                </button>
-                <button
-                  onClick={() => setShowCredentials((v) => !v)}
-                  className="w-full px-3 py-1.5 text-xs font-medium text-text-secondary bg-surface-hover/50 rounded-lg hover:bg-surface-hover transition-colors"
-                >
-                  {t('credential.title')}
-                  <span className="ml-1 text-[10px]">{showCredentials ? '\u25B2' : '\u25BC'}</span>
-                </button>
-              </>
-            )}
-            {confirmDelete ? (
-              <div className="space-y-2">
-                <p className="text-xs text-text-secondary">{t('agent.confirmDeleteGateway')}</p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setConfirmDelete(false)}
-                    className="flex-1"
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="flex-1"
-                  >
-                    {t('common.delete')}
-                  </Button>
-                </div>
+                </Button>
               </div>
-            ) : (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="w-full px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-              >
-                {t('agent.deleteGateway')}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
 
-      {/* Credentials Management Panel */}
-      {showCredentials && isOnline && <GatewayCredentialsPanel gatewayId={gateway.id} />}
+          {/* Credentials Management Panel */}
+          {showCredentials && isOnline && <GatewayCredentialsPanel gatewayId={gateway.id} />}
+        </div>
+      )}
     </div>
   )
 }
