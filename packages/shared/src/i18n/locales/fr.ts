@@ -502,8 +502,6 @@ export const fr = {
         'La clé API est requise pour les agents de service non personnalisés',
       serviceAgentModelRequired: 'Le modèle est requis pour les agents de service basés sur OpenAI',
       serviceAgentVoiceIdRequired: "L'ID vocal est requis pour les agents de service ElevenLabs",
-      passwordCommonWord: 'Le mot de passe contient un mot courant',
-      passwordSequential: 'Le mot de passe contient des caractères séquentiels ou répétés',
       passwordMinLength: 'Le mot de passe doit contenir au moins 8 caractères',
       passwordMaxLength: 'Le mot de passe ne doit pas dépasser 128 caractères',
       toolInputTooLarge: "L'entrée de l'outil dépasse la taille maximale autorisée",
@@ -832,5 +830,6 @@ export const fr = {
     oauthCompleting: 'Finalisation...',
     oauthSuccess: 'Connexion OAuth terminée avec succès',
     oauthFailed: 'Échec de la connexion OAuth',
+    oauthTimeout: 'La connexion OAuth a expiré. Veuillez réessayer.',
   },
 }

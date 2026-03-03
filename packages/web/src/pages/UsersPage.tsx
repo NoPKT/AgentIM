@@ -69,6 +69,9 @@ export default function UsersPage() {
         setNewPassword('')
         setNewDisplayName('')
         setNewRole('user')
+      } else if (res.fields?.length) {
+        const details = res.fields.map((f) => t(f.message)).join('; ')
+        toast.error(details)
       } else {
         toast.error(res.error || t('common.error'))
       }
