@@ -2,18 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import type { Message } from '@agentim/shared'
 
-const mockSetReplyTo = vi.fn()
-const mockEditMessage = vi.fn().mockResolvedValue(undefined)
-const mockDeleteMessage = vi.fn().mockResolvedValue(undefined)
-const mockToggleReaction = vi.fn().mockResolvedValue(undefined)
+const mockRewindRoom = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../stores/chat.js', () => ({
   useChatStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
     selector({
-      setReplyTo: mockSetReplyTo,
-      editMessage: mockEditMessage,
-      deleteMessage: mockDeleteMessage,
-      toggleReaction: mockToggleReaction,
+      rewindRoom: mockRewindRoom,
     }),
   ),
 }))
@@ -26,12 +20,6 @@ vi.mock('../stores/auth.js', () => ({
 
 vi.mock('../stores/toast.js', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
-}))
-
-vi.mock('../lib/api.js', () => ({
-  api: {
-    get: vi.fn().mockResolvedValue({ ok: true, data: [] }),
-  },
 }))
 
 const { useMessageActions } = await import('./useMessageActions.js')
@@ -76,140 +64,103 @@ describe('useMessageActions', () => {
     expect(result.current.isOwnMessage).toBe(false)
   })
 
-  it('handleEdit sets isEditing to true and populates editContent', () => {
-    const message = makeMessage({ content: 'original content' })
-    const { result } = renderHook(() => useMessageActions(message))
-
-    act(() => {
-      result.current.handleEdit()
-    })
-
-    expect(result.current.isEditing).toBe(true)
-    expect(result.current.editContent).toBe('original content')
+  it('canRewind is true when isOwnMessage and roomSupportsRewind', () => {
+    const message = makeMessage({ senderId: 'user1', senderType: 'user' })
+    const { result } = renderHook(() => useMessageActions(message, { roomSupportsRewind: true }))
+    expect(result.current.canRewind).toBe(true)
   })
 
-  it('handleEditCancel sets isEditing to false', () => {
+  it('canRewind is false when roomSupportsRewind is false', () => {
+    const message = makeMessage({ senderId: 'user1', senderType: 'user' })
+    const { result } = renderHook(() => useMessageActions(message, { roomSupportsRewind: false }))
+    expect(result.current.canRewind).toBe(false)
+  })
+
+  it('canRewind is false when not own message', () => {
+    const message = makeMessage({ senderId: 'other-user', senderType: 'user' })
+    const { result } = renderHook(() => useMessageActions(message, { roomSupportsRewind: true }))
+    expect(result.current.canRewind).toBe(false)
+  })
+
+  it('canRewind defaults to false when opts not provided', () => {
+    const message = makeMessage({ senderId: 'user1', senderType: 'user' })
+    const { result } = renderHook(() => useMessageActions(message))
+    expect(result.current.canRewind).toBe(false)
+  })
+
+  it('confirmingRewind starts as false', () => {
+    const message = makeMessage()
+    const { result } = renderHook(() => useMessageActions(message))
+    expect(result.current.confirmingRewind).toBe(false)
+  })
+
+  it('setConfirmingRewind toggles confirmingRewind state', () => {
     const message = makeMessage()
     const { result } = renderHook(() => useMessageActions(message))
 
     act(() => {
-      result.current.handleEdit()
+      result.current.setConfirmingRewind(true)
     })
-    expect(result.current.isEditing).toBe(true)
+    expect(result.current.confirmingRewind).toBe(true)
 
     act(() => {
-      result.current.handleEditCancel()
+      result.current.setConfirmingRewind(false)
     })
-    expect(result.current.isEditing).toBe(false)
+    expect(result.current.confirmingRewind).toBe(false)
   })
 
-  it('handleEditSave calls editMessage store action with trimmed content', async () => {
-    const message = makeMessage({ content: 'original' })
-    const { result } = renderHook(() => useMessageActions(message))
+  it('handleRewind calls rewindRoom and resets state', async () => {
+    const message = makeMessage({ content: 'rewind me' })
+    const { result } = renderHook(() => useMessageActions(message, { roomSupportsRewind: true }))
 
     act(() => {
-      result.current.handleEdit()
-      result.current.setEditContent('  updated content  ')
+      result.current.setShowActions(true)
+      result.current.setConfirmingRewind(true)
     })
 
     await act(async () => {
-      await result.current.handleEditSave()
+      await result.current.handleRewind()
     })
 
-    expect(mockEditMessage).toHaveBeenCalledWith('msg1', 'updated content')
-    expect(result.current.isEditing).toBe(false)
+    expect(mockRewindRoom).toHaveBeenCalledWith('room1', 'msg1', 'rewind me')
+    expect(result.current.confirmingRewind).toBe(false)
+    expect(result.current.showActions).toBe(false)
   })
 
-  it('handleEditSave does not call editMessage when content is unchanged', async () => {
-    const message = makeMessage({ content: 'same content' })
-    const { result } = renderHook(() => useMessageActions(message))
+  it('handleRewind shows error toast on failure', async () => {
+    mockRewindRoom.mockRejectedValueOnce(new Error('fail'))
+    const { toast } = await import('../stores/toast.js')
 
-    act(() => {
-      result.current.handleEdit()
-      result.current.setEditContent('same content')
-    })
+    const message = makeMessage()
+    const { result } = renderHook(() => useMessageActions(message, { roomSupportsRewind: true }))
 
     await act(async () => {
-      await result.current.handleEditSave()
+      await result.current.handleRewind()
     })
 
-    expect(mockEditMessage).not.toHaveBeenCalled()
-    expect(result.current.isEditing).toBe(false)
+    expect(toast.error).toHaveBeenCalled()
+    expect(result.current.confirmingRewind).toBe(false)
+    expect(result.current.showActions).toBe(false)
   })
 
-  it('handleDelete calls deleteMessage store action', async () => {
+  it('showActions defaults to false', () => {
     const message = makeMessage()
     const { result } = renderHook(() => useMessageActions(message))
-
-    await act(async () => {
-      await result.current.handleDelete()
-    })
-
-    expect(mockDeleteMessage).toHaveBeenCalledWith('msg1')
+    expect(result.current.showActions).toBe(false)
   })
 
-  it('handleReaction calls toggleReaction and closes emoji picker', async () => {
+  it('setShowActions toggles showActions state', () => {
     const message = makeMessage()
     const { result } = renderHook(() => useMessageActions(message))
 
     act(() => {
-      result.current.setShowEmojiPicker(true)
+      result.current.setShowActions(true)
     })
-    expect(result.current.showEmojiPicker).toBe(true)
-
-    await act(async () => {
-      result.current.handleReaction('👍')
-    })
-
-    expect(mockToggleReaction).toHaveBeenCalledWith('msg1', '👍')
-    expect(result.current.showEmojiPicker).toBe(false)
-  })
-
-  it('handleReply calls setReplyTo with the message', () => {
-    const message = makeMessage()
-    const { result } = renderHook(() => useMessageActions(message))
+    expect(result.current.showActions).toBe(true)
 
     act(() => {
-      result.current.handleReply()
+      result.current.setShowActions(false)
     })
-
-    expect(mockSetReplyTo).toHaveBeenCalledWith(message)
-  })
-
-  it('toggleEditHistory shows history on first call', async () => {
-    const { api } = await import('../lib/api.js')
-    vi.mocked(api.get).mockResolvedValueOnce({
-      ok: true,
-      data: [{ id: 'h1', previousContent: 'old', editedAt: new Date().toISOString() }],
-    })
-
-    const message = makeMessage()
-    const { result } = renderHook(() => useMessageActions(message))
-
-    expect(result.current.showEditHistory).toBe(false)
-
-    await act(async () => {
-      await result.current.toggleEditHistory()
-    })
-
-    expect(result.current.showEditHistory).toBe(true)
-  })
-
-  it('toggleEditHistory hides history on second call', async () => {
-    const { api } = await import('../lib/api.js')
-    vi.mocked(api.get).mockResolvedValue({ ok: true, data: [] })
-
-    const message = makeMessage()
-    const { result } = renderHook(() => useMessageActions(message))
-
-    await act(async () => {
-      await result.current.toggleEditHistory()
-    })
-    expect(result.current.showEditHistory).toBe(true)
-
-    await act(async () => {
-      await result.current.toggleEditHistory()
-    })
-    expect(result.current.showEditHistory).toBe(false)
+    expect(result.current.showActions).toBe(false)
   })
 })

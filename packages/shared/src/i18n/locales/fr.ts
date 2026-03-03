@@ -264,6 +264,14 @@ export const fr = {
     workspaceSelectFile: 'Sélectionnez un fichier dans l\u2019arborescence pour voir son contenu.',
     workspaceDragResize: 'Glisser pour redimensionner',
     workspaceMaximize: 'Agrandir',
+    rewindTooltip: 'Revenir avant ce message',
+    confirmRewind:
+      'Revenir avant ce message ? Cela supprimera ce message et tous les messages suivants.',
+    rewindConfirm: 'Revenir',
+    rewindSuccess: 'Conversation rembobinée avec succès',
+    rewindFailed: 'Échec du rembobinage de la conversation',
+    rewindNotSupported:
+      "Le rembobinage n'est pas pris en charge par tous les agents de cette salle",
     workspaceMinimize: 'Restaurer',
   },
   agent: {

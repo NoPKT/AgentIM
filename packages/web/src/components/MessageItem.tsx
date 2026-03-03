@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import { LazyMarkdown } from './LazyMarkdown.js'
@@ -9,7 +9,6 @@ import { agentTypeIcons, agentGradients } from '../lib/agentConfig.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
 import { MediaMessage } from './MediaMessage.js'
 import { twMerge } from 'tailwind-merge'
-import { Textarea } from './ui.js'
 import { useMessageActions } from '../hooks/useMessageActions.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
 import {
@@ -20,10 +19,7 @@ import {
   PaperClipIcon,
   DownloadIcon,
   DotsHorizontalIcon,
-  SmileFaceIcon,
-  ReplyIcon,
-  PencilIcon,
-  TrashIcon,
+  RewindIcon,
 } from './icons.js'
 
 interface MessageItemProps {
@@ -32,9 +28,8 @@ interface MessageItemProps {
   onImageClick?: (url: string) => void
   onViewThread?: (messageId: string) => void
   replyCount?: number
+  roomSupportsRewind?: boolean
 }
-
-const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉']
 
 // ─── Sub-components ───
 
@@ -161,145 +156,13 @@ function AttachmentList({ attachments, onImageClick }: AttachmentListProps) {
   )
 }
 
-interface ReactionBarProps {
-  reactions: NonNullable<Message['reactions']>
-  currentUserId: string | undefined
-  onToggle: (emoji: string) => void
-}
-
-function ReactionBar({ reactions, currentUserId, onToggle }: ReactionBarProps) {
-  const { t } = useTranslation()
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-1" role="toolbar" aria-label={t('chat.reactions')}>
-      {reactions.map((reaction) => {
-        const hasReacted = currentUserId && reaction.userIds.includes(currentUserId)
-        return (
-          <button
-            key={reaction.emoji}
-            onClick={() => onToggle(reaction.emoji)}
-            title={reaction.usernames.join(', ')}
-            aria-label={`${t('chat.react')} ${reaction.emoji}`}
-            className={`
-              inline-flex items-center gap-1 px-2.5 py-1.5 md:px-2 md:py-0.5 rounded-full text-xs transition-colors
-              ${
-                hasReacted
-                  ? 'bg-info-muted border border-info-border text-info-text'
-                  : 'bg-surface-hover border border-border text-text-secondary hover:bg-surface-hover'
-              }
-            `}
-          >
-            <span>{reaction.emoji}</span>
-            <span className="font-medium">{reaction.userIds.length}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-interface EditHistorySectionProps {
-  loadingHistory: boolean
-  editHistory: { id: string; previousContent: string; editedAt: string }[]
-}
-
-function EditHistorySection({ loadingHistory, editHistory }: EditHistorySectionProps) {
-  const { t, i18n } = useTranslation()
-  return (
-    <div className="mt-2 border border-border rounded-lg overflow-hidden">
-      <div className="px-3 py-1.5 bg-surface-secondary text-xs font-medium text-text-secondary">
-        {t('chat.editHistory')}
-      </div>
-      {loadingHistory ? (
-        <div className="px-3 py-2 text-xs text-text-muted">{t('common.loading')}</div>
-      ) : editHistory.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-text-muted">{t('chat.editHistoryEmpty')}</div>
-      ) : (
-        <div className="divide-y divide-border max-h-48 overflow-y-auto">
-          {editHistory.map((edit) => (
-            <div key={edit.id} className="px-3 py-2">
-              <div className="text-[10px] text-text-muted mb-0.5">
-                {new Date(edit.editedAt).toLocaleString(i18n.language, {
-                  month: 'numeric',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })}
-              </div>
-              <p className="text-xs text-text-secondary whitespace-pre-wrap break-words">
-                {edit.previousContent}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-interface MessageContentProps {
-  isEditing: boolean
-  editContent: string
-  isSaving: boolean
-  chunkGroups: ReturnType<typeof groupChunks> | null
-  content: string
-  onEditChange: (v: string) => void
-  onEditSave: () => void
-  onEditCancel: () => void
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
-}
-
 function MessageContent({
-  isEditing,
-  editContent,
-  isSaving,
   chunkGroups,
   content,
-  onEditChange,
-  onEditSave,
-  onEditCancel,
-  onKeyDown,
-}: MessageContentProps) {
-  const { t } = useTranslation()
-
-  if (isEditing) {
-    return (
-      <div className="mt-1">
-        <Textarea
-          value={editContent}
-          onChange={(e) => onEditChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={3}
-          autoFocus
-          disabled={isSaving}
-        />
-        <div className="flex items-center gap-2 mt-1">
-          <button
-            onClick={onEditSave}
-            disabled={isSaving || !editContent.trim()}
-            className="px-3 py-1 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded disabled:opacity-50"
-          >
-            {isSaving ? t('settings.saving') : t('common.save')}
-          </button>
-          <button
-            onClick={onEditCancel}
-            disabled={isSaving}
-            className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
-          >
-            {t('common.cancel')}
-          </button>
-          <span className="text-xs text-text-muted">
-            {t('chat.editKeyboardHint', {
-              modifier: navigator.platform.includes('Mac') ? '⌘' : 'Ctrl',
-              cancel: t('common.cancel'),
-              save: t('common.save'),
-            })}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
+}: {
+  chunkGroups: ReturnType<typeof groupChunks> | null
+  content: string
+}) {
   if (chunkGroups) {
     return <ChunkGroupRenderer groups={chunkGroups} />
   }
@@ -373,10 +236,11 @@ export const MessageItem = memo(function MessageItem({
   onImageClick,
   onViewThread,
   replyCount,
+  roomSupportsRewind,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
-  const actions = useMessageActions(message)
+  const actions = useMessageActions(message, { roomSupportsRewind })
 
   // Find the replied-to message
   const repliedMessage = message.replyToId
@@ -387,14 +251,6 @@ export const MessageItem = memo(function MessageItem({
   const chunkGroups = useMemo(
     () => (message.chunks?.length ? groupChunks(message.chunks) : null),
     [message.chunks],
-  )
-
-  const handleEditKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) actions.handleEditSave()
-      if (e.key === 'Escape') actions.handleEditCancel()
-    },
-    [actions.handleEditSave, actions.handleEditCancel],
   )
 
   // System messages
@@ -422,8 +278,8 @@ export const MessageItem = memo(function MessageItem({
     <div
       className={`px-6 ${showHeader ? 'py-2' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}
     >
-      {/* Mobile action trigger */}
-      {!actions.showActions && (
+      {/* Mobile action trigger — only show when canRewind */}
+      {actions.canRewind && !actions.showActions && (
         <button
           className="absolute right-1 top-2 p-3 rounded-md text-text-muted active:bg-surface-hover md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={(e) => {
@@ -436,88 +292,42 @@ export const MessageItem = memo(function MessageItem({
         </button>
       )}
 
-      {/* Action buttons */}
-      <div
-        ref={actions.actionsRef}
-        className={`absolute right-4 top-2 flex items-center gap-1 bg-surface/90 backdrop-blur-sm border border-border rounded-lg px-1 py-0.5 shadow-sm transition-all ${actions.showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
-      >
-        <div className="relative">
-          <button
-            onClick={() => actions.setShowEmojiPicker(!actions.showEmojiPicker)}
-            className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            title={t('chat.addReaction')}
-            aria-label={t('chat.addReaction')}
-          >
-            <SmileFaceIcon className="w-4 h-4" />
-          </button>
-          {actions.showEmojiPicker && (
-            <div
-              className="absolute right-0 top-8 z-dropdown bg-surface border border-border rounded-lg shadow-lg p-1.5 flex gap-0.5"
-              role="toolbar"
-              aria-label={t('chat.reactions')}
+      {/* Action buttons - only show rewind for own messages when supported */}
+      {actions.canRewind && (
+        <div
+          ref={actions.actionsRef}
+          className={`absolute right-4 top-2 flex items-center gap-1 bg-surface/90 backdrop-blur-sm border border-border rounded-lg px-1 py-0.5 shadow-sm transition-all ${actions.showActions ? 'opacity-100' : 'opacity-0 pointer-events-none md:group-hover/msg:opacity-100 md:group-hover/msg:pointer-events-auto md:focus-within:opacity-100 md:focus-within:pointer-events-auto'}`}
+        >
+          {actions.confirmingRewind ? (
+            <span className="flex items-center gap-1 bg-warning-subtle rounded-md px-1.5 py-0.5">
+              <span className="text-xs text-warning-text whitespace-nowrap">
+                {t('chat.confirmRewind')}
+              </span>
+              <button
+                onClick={actions.handleRewind}
+                className="px-1.5 py-0.5 text-xs font-medium text-white bg-warning-text hover:bg-warning-text/80 rounded"
+              >
+                {t('chat.rewindConfirm')}
+              </button>
+              <button
+                onClick={() => actions.setConfirmingRewind(false)}
+                className="px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:text-text-primary"
+              >
+                {t('common.cancel')}
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => actions.setConfirmingRewind(true)}
+              className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-warning-text hover:bg-warning-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              title={t('chat.rewindTooltip')}
+              aria-label={t('chat.rewindTooltip')}
             >
-              {REACTION_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => actions.handleReaction(emoji)}
-                  aria-label={`${t('chat.react')} ${emoji}`}
-                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center text-lg hover:bg-surface-hover rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
+              <RewindIcon className="w-4 h-4" />
+            </button>
           )}
         </div>
-        <button
-          onClick={actions.handleReply}
-          className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-info-text hover:bg-info-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          title={t('chat.reply')}
-          aria-label={t('chat.reply')}
-        >
-          <ReplyIcon className="w-4 h-4" />
-        </button>
-        {actions.isOwnMessage && !actions.isEditing && (
-          <>
-            <button
-              onClick={actions.handleEdit}
-              className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-success-text hover:bg-success-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              title={t('chat.editMessage')}
-              aria-label={t('chat.editMessage')}
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-            {actions.confirmingDelete ? (
-              <span className="flex items-center gap-1 bg-danger-subtle rounded-md px-1.5 py-0.5">
-                <span className="text-xs text-danger-text whitespace-nowrap">
-                  {t('chat.confirmDeleteMessage')}
-                </span>
-                <button
-                  onClick={actions.handleDelete}
-                  className="px-1.5 py-0.5 text-xs font-medium text-white bg-danger hover:bg-danger-hover rounded"
-                >
-                  {t('common.delete')}
-                </button>
-                <button
-                  onClick={() => actions.setConfirmingDelete(false)}
-                  className="px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:text-text-primary"
-                >
-                  {t('common.cancel')}
-                </button>
-              </span>
-            ) : (
-              <button
-                onClick={() => actions.setConfirmingDelete(true)}
-                className="p-2.5 md:p-1 rounded-md text-text-muted hover:text-danger-text hover:bg-danger-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                title={t('chat.deleteMessage')}
-                aria-label={t('chat.deleteMessage')}
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      )}
 
       <div className="flex items-start space-x-3">
         {/* Avatar — hidden for grouped messages, placeholder keeps alignment */}
@@ -578,14 +388,6 @@ export const MessageItem = memo(function MessageItem({
                   minute: '2-digit',
                 })}
               </span>
-              {message.updatedAt && (
-                <button
-                  className="text-xs text-text-muted italic hover:text-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-                  onClick={actions.toggleEditHistory}
-                >
-                  {t('chat.messageEdited')}
-                </button>
-              )}
             </div>
           )}
 
@@ -601,25 +403,7 @@ export const MessageItem = memo(function MessageItem({
             </div>
           )}
 
-          <MessageContent
-            isEditing={actions.isEditing}
-            editContent={actions.editContent}
-            isSaving={actions.isSaving}
-            chunkGroups={chunkGroups}
-            content={message.content}
-            onEditChange={actions.setEditContent}
-            onEditSave={actions.handleEditSave}
-            onEditCancel={actions.handleEditCancel}
-            onKeyDown={handleEditKeyDown}
-          />
-
-          {/* Edit history */}
-          {actions.showEditHistory && (
-            <EditHistorySection
-              loadingHistory={actions.loadingHistory}
-              editHistory={actions.editHistory}
-            />
-          )}
+          <MessageContent chunkGroups={chunkGroups} content={message.content} />
 
           {/* Attachments — use rich MediaMessage for agent media, standard list for others */}
           {message.attachments &&
@@ -638,15 +422,6 @@ export const MessageItem = memo(function MessageItem({
                 onImageClick={onImageClick ?? (() => {})}
               />
             ))}
-
-          {/* Reactions */}
-          {message.reactions && message.reactions.length > 0 && (
-            <ReactionBar
-              reactions={message.reactions}
-              currentUserId={actions.currentUser?.id}
-              onToggle={actions.handleReaction}
-            />
-          )}
 
           {/* Thread replies indicator */}
           {(replyCount ?? 0) > 0 && (

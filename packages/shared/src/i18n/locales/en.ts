@@ -261,6 +261,13 @@ export const en = {
     workspaceSelectFile: 'Select a file from the tree to view its content.',
     workspaceDragResize: 'Drag to resize',
     workspaceMaximize: 'Maximize',
+    rewindTooltip: 'Rewind to before this message',
+    confirmRewind:
+      'Rewind conversation to before this message? This will remove this and all subsequent messages.',
+    rewindConfirm: 'Rewind',
+    rewindSuccess: 'Conversation rewound successfully',
+    rewindFailed: 'Failed to rewind conversation',
+    rewindNotSupported: 'Rewind is not supported by all agents in this room',
     workspaceMinimize: 'Restore',
   },
   agent: {

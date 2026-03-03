@@ -262,6 +262,13 @@ export const ja = {
     workspaceSelectFile: 'ツリーからファイルを選択して内容を表示します。',
     workspaceDragResize: 'ドラッグしてサイズ変更',
     workspaceMaximize: '最大化',
+    rewindTooltip: 'このメッセージの前に巻き戻す',
+    confirmRewind:
+      'このメッセージの前に会話を巻き戻しますか？このメッセージとそれ以降のすべてのメッセージが削除されます。',
+    rewindConfirm: '巻き戻す',
+    rewindSuccess: '会話が正常に巻き戻されました',
+    rewindFailed: '会話の巻き戻しに失敗しました',
+    rewindNotSupported: 'このルームのすべてのエージェントが巻き戻しに対応していません',
     workspaceMinimize: '元に戻す',
   },
   agent: {

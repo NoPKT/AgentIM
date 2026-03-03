@@ -1,0 +1,59 @@
+import { useState, useCallback, useEffect, useRef } from 'react'
+
+export function useScroll(totalLines: number, visibleLines: number) {
+  const [offset, setOffset] = useState(0)
+  const [autoFollow, setAutoFollow] = useState(true)
+  const prevTotal = useRef(totalLines)
+
+  const maxOffset = Math.max(0, totalLines - visibleLines)
+
+  // When new lines arrive and auto-follow is on, snap to bottom
+  useEffect(() => {
+    if (totalLines > prevTotal.current && autoFollow) {
+      setOffset(Math.max(0, totalLines - visibleLines))
+    }
+    prevTotal.current = totalLines
+  }, [totalLines, visibleLines, autoFollow])
+
+  const scrollUp = useCallback(
+    (n = 1) => {
+      setOffset((o) => {
+        const next = Math.max(0, o - n)
+        if (next < maxOffset) setAutoFollow(false)
+        return next
+      })
+    },
+    [maxOffset],
+  )
+
+  const scrollDown = useCallback(
+    (n = 1) => {
+      setOffset((o) => {
+        const next = Math.min(maxOffset, o + n)
+        if (next >= maxOffset) setAutoFollow(true)
+        return next
+      })
+    },
+    [maxOffset],
+  )
+
+  const pageUp = useCallback(() => {
+    scrollUp(Math.max(1, visibleLines - 1))
+  }, [scrollUp, visibleLines])
+
+  const pageDown = useCallback(() => {
+    scrollDown(Math.max(1, visibleLines - 1))
+  }, [scrollDown, visibleLines])
+
+  const goTop = useCallback(() => {
+    setOffset(0)
+    setAutoFollow(false)
+  }, [])
+
+  const goBottom = useCallback(() => {
+    setOffset(maxOffset)
+    setAutoFollow(true)
+  }, [maxOffset])
+
+  return { offset, scrollUp, scrollDown, pageUp, pageDown, goTop, goBottom }
+}

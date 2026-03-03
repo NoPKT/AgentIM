@@ -18,6 +18,7 @@ import type {
   ServerListCredentials,
   ServerAddCredential,
   ServerManageCredential,
+  ServerRewindAgent,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
@@ -175,7 +176,8 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         msg.type === 'server:request_workspace' ||
         msg.type === 'server:list_credentials' ||
         msg.type === 'server:add_credential' ||
-        msg.type === 'server:manage_credential'
+        msg.type === 'server:manage_credential' ||
+        msg.type === 'server:rewind_agent'
       ) {
         agentManager.handleServerMessage(
           msg as
@@ -190,7 +192,8 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             | ServerRequestWorkspace
             | ServerListCredentials
             | ServerAddCredential
-            | ServerManageCredential,
+            | ServerManageCredential
+            | ServerRewindAgent,
         )
       }
     },

@@ -72,6 +72,15 @@ export default function ChatPage() {
     [agentMembers, agents],
   )
 
+  // Determine if all agents in this room support rewind
+  const roomSupportsRewind = useMemo(() => {
+    if (agentMembers.length === 0) return false
+    return agentMembers.every((m) => {
+      const agent = agents.find((a) => a.id === m.memberId)
+      return agent?.capabilities?.includes('rewind') ?? false
+    })
+  }, [agentMembers, agents])
+
   // Routing indicator for broadcast mode
   const [showRouting, setShowRouting] = useState(false)
   const routingTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -390,7 +399,10 @@ export default function ChatPage() {
               {showingCachedMessages && <CachedDataBanner type="messages" />}
 
               {/* Messages */}
-              <MessageList onImageClick={lightbox.openLightbox} />
+              <MessageList
+                onImageClick={lightbox.openLightbox}
+                roomSupportsRewind={roomSupportsRewind}
+              />
 
               {/* Permission request cards */}
               {activePermissionRequests.length > 0 && (

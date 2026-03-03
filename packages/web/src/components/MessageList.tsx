@@ -10,9 +10,10 @@ import { ChatBubbleIcon, ArrowDownIcon } from './icons.js'
 
 interface MessageListProps {
   onImageClick?: (url: string) => void
+  roomSupportsRewind?: boolean
 }
 
-export function MessageList({ onImageClick }: MessageListProps) {
+export function MessageList({ onImageClick, roomSupportsRewind }: MessageListProps) {
   const { t } = useTranslation()
   const { currentRoomId, messages, hasMore, loadMessages } = useChatStore()
   const readReceipts = useChatStore((s) => s.readReceipts)
@@ -305,6 +306,7 @@ export function MessageList({ onImageClick }: MessageListProps) {
                   message={message}
                   showHeader={showHeader}
                   onImageClick={onImageClick}
+                  roomSupportsRewind={roomSupportsRewind}
                 />
               </div>
             )

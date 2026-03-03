@@ -262,6 +262,13 @@ export const ru = {
     workspaceSelectFile: 'Выберите файл в дереве для просмотра содержимого.',
     workspaceDragResize: 'Перетащите для изменения размера',
     workspaceMaximize: 'Развернуть',
+    rewindTooltip: 'Вернуться к состоянию до этого сообщения',
+    confirmRewind:
+      'Вернуть разговор к состоянию до этого сообщения? Это сообщение и все последующие будут удалены.',
+    rewindConfirm: 'Вернуть',
+    rewindSuccess: 'Разговор успешно возвращён',
+    rewindFailed: 'Не удалось вернуть разговор',
+    rewindNotSupported: 'Возврат не поддерживается всеми агентами в этой комнате',
     workspaceMinimize: 'Восстановить',
   },
   agent: {

@@ -264,6 +264,13 @@ export const de = {
     workspaceSelectFile: 'Wählen Sie eine Datei aus dem Baum, um den Inhalt anzuzeigen.',
     workspaceDragResize: 'Zum Ändern der Größe ziehen',
     workspaceMaximize: 'Maximieren',
+    rewindTooltip: 'Vor diese Nachricht zurückspulen',
+    confirmRewind:
+      'Konversation vor diese Nachricht zurückspulen? Diese und alle nachfolgenden Nachrichten werden gelöscht.',
+    rewindConfirm: 'Zurückspulen',
+    rewindSuccess: 'Konversation erfolgreich zurückgespult',
+    rewindFailed: 'Zurückspulen der Konversation fehlgeschlagen',
+    rewindNotSupported: 'Zurückspulen wird nicht von allen Agenten in diesem Raum unterstützt',
     workspaceMinimize: 'Wiederherstellen',
   },
   agent: {

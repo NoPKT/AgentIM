@@ -336,3 +336,11 @@ export function MinimizeIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function RewindIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10" />
+    </svg>
+  )
+}

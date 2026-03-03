@@ -238,7 +238,7 @@ describe('AgentManager', () => {
   it('addAgent passes capabilities', () => {
     manager.addAgent({ type: 'claude-code', name: 'C1', capabilities: ['code', 'debug'] })
     const msg = sentMessages[0] as any
-    assert.deepEqual(msg.agent.capabilities, ['code', 'debug'])
+    assert.deepEqual(msg.agent.capabilities, ['code', 'debug', 'rewind'])
   })
 
   it('addAgent passes workingDirectory', () => {

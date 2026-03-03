@@ -16,44 +16,64 @@ export function RenameDialog({ currentName, onSubmit, onCancel }: RenameDialogPr
   })
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
-      <Text bold>Rename Agent</Text>
-      <Box>
-        <Text>New name: </Text>
-        <TextInput
-          value={value}
-          onChange={setValue}
-          onSubmit={(val) => {
-            const trimmed = val.trim()
-            if (trimmed && trimmed !== currentName) {
-              onSubmit(trimmed)
-            } else {
-              onCancel()
-            }
-          }}
-        />
+    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={2} paddingY={1}>
+      <Text bold color="cyan">
+        Rename Agent
+      </Text>
+      <Box marginTop={1}>
+        <Text>Current: {currentName}</Text>
       </Box>
-      <Text dimColor>Enter to confirm, Esc to cancel</Text>
+      <Box marginTop={1}>
+        <Text>New name: </Text>
+        <Box>
+          <TextInput
+            value={value}
+            onChange={setValue}
+            onSubmit={(val) => {
+              const trimmed = val.trim()
+              if (trimmed && trimmed !== currentName) {
+                onSubmit(trimmed)
+              } else {
+                onCancel()
+              }
+            }}
+          />
+        </Box>
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>Enter: confirm | Esc: cancel</Text>
+      </Box>
     </Box>
   )
 }
 
 interface ConfirmDialogProps {
+  title?: string
   message: string
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, message, onConfirm, onCancel }: ConfirmDialogProps) {
   useInput((input, key) => {
     if (input === 'y' || input === 'Y') onConfirm()
     else if (input === 'n' || input === 'N' || key.escape) onCancel()
   })
 
   return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text>{message} </Text>
-      <Text bold>[Y/N]</Text>
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={2} paddingY={1}>
+      {title && (
+        <Text bold color="yellow">
+          {title}
+        </Text>
+      )}
+      <Box marginTop={title ? 1 : 0}>
+        <Text>{message}</Text>
+      </Box>
+      <Box marginTop={1} gap={2}>
+        <Text bold>[Y]es</Text>
+        <Text bold>[N]o</Text>
+      </Box>
     </Box>
   )
 }

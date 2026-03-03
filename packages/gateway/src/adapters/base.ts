@@ -223,4 +223,14 @@ export abstract class BaseAgentAdapter {
   ): Promise<{ success: boolean; message?: string }> {
     return { success: false, message: 'Command not supported by this agent' }
   }
+
+  /** Whether this adapter supports conversation rewind. */
+  get supportsRewind(): boolean {
+    return false
+  }
+
+  /** Rewind the agent's conversation state. Override in adapters that support it. */
+  async rewind(_messageId: string): Promise<{ success: boolean; error?: string }> {
+    return { success: false, error: 'Rewind not supported by this adapter' }
+  }
 }

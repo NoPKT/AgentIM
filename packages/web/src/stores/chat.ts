@@ -144,6 +144,13 @@ interface ChatState {
   loadThread: (messageId: string) => Promise<void>
   /** Flush pending messages queued while offline */
   flushPendingMessages: () => Promise<void>
+  /** Content pre-filled into input after a rewind */
+  rewindDraft: string | null
+  setRewindDraft: (content: string | null) => void
+  /** Send a rewind request to the server */
+  rewindRoom: (roomId: string, messageId: string, messageContent: string) => Promise<void>
+  /** Remove multiple messages from a room (used after server-side rewind) */
+  removeMessages: (roomId: string, messageIds: string[]) => void
   reset: () => void
 }
 
@@ -182,6 +189,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   showingCachedMessages: false,
   pendingMessages: [],
   threadMessages: new Map(),
+  rewindDraft: null,
 
   setReplyTo: (message) => set({ replyTo: message }),
 
@@ -1121,6 +1129,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
   },
 
+  setRewindDraft: (content) => set({ rewindDraft: content }),
+
+  rewindRoom: async (roomId, messageId, _messageContent) => {
+    wsClient.send({
+      type: 'client:rewind_room',
+      roomId,
+      messageId,
+    })
+  },
+
+  removeMessages: (roomId, messageIds) => {
+    const msgs = new Map(get().messages)
+    const roomMsgs = msgs.get(roomId)
+    if (roomMsgs) {
+      const idsSet = new Set(messageIds)
+      msgs.set(
+        roomId,
+        roomMsgs.filter((m) => !idsSet.has(m.id)),
+      )
+      set({ messages: msgs })
+    }
+    // Clean up IDB cache
+    for (const id of messageIds) {
+      removeCachedMessage(roomId, id).catch((err) => {
+        console.warn('[IDB] removeCachedMessage failed', err)
+      })
+    }
+  },
+
   reset: () => {
     set({
       rooms: [],
@@ -1142,6 +1179,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       showingCachedMessages: false,
       pendingMessages: [],
       threadMessages: new Map(),
+      rewindDraft: null,
     })
 
     _threadAccessTimes.clear()
