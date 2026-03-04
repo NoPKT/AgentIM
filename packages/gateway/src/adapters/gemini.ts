@@ -59,6 +59,50 @@ function extractErrorMessage(err: unknown): string {
   return raw
 }
 
+/**
+ * Classify a raw retry error string from the Gemini SDK into a concise,
+ * user-readable message.  The SDK's error payloads are often deeply nested
+ * JSON or very long strings — this distils them into something actionable.
+ */
+function classifyRetryError(raw: string): string {
+  // Capacity / resource exhaustion
+  if (raw.includes('MODEL_CAPACITY_EXHAUSTED') || raw.includes('at capacity')) {
+    return 'Model capacity exhausted — the model is overloaded. Try a different model or wait a while.'
+  }
+  if (raw.includes('RESOURCE_EXHAUSTED')) {
+    return 'Resource exhausted — API quota or rate limit reached. Please wait before retrying.'
+  }
+
+  // Authentication / permission
+  if (raw.includes('PERMISSION_DENIED') || raw.includes('403')) {
+    return 'Permission denied (403) — check your API key or OAuth credentials.'
+  }
+  if (raw.includes('UNAUTHENTICATED') || raw.includes('401')) {
+    return 'Authentication failed (401) — your API key or token may be invalid or expired.'
+  }
+
+  // Model not found
+  if (raw.includes('NOT_FOUND') || raw.includes('404') || raw.includes('not found')) {
+    return `Model not found (404) — verify the model name is correct.`
+  }
+
+  // Generic rate limit (429 without specific sub-type)
+  if (raw.includes('429') || raw.includes('RATE_LIMIT') || raw.includes('Too Many Requests')) {
+    return 'Rate limited (429) — too many requests. Please wait before retrying.'
+  }
+
+  // Server errors
+  if (raw.includes('500') || raw.includes('INTERNAL')) {
+    return 'Server error (500) — the Gemini API encountered an internal error. Try again later.'
+  }
+  if (raw.includes('503') || raw.includes('UNAVAILABLE')) {
+    return 'Service unavailable (503) — the Gemini API is temporarily down. Try again later.'
+  }
+
+  // Fallback: truncate the raw message to a reasonable length
+  return raw.length > 300 ? `${raw.slice(0, 300)}…` : raw
+}
+
 // Cache the dynamically imported SDK module to avoid repeated import() calls
 let _cachedSdk: typeof import('@google/gemini-cli-core') | null = null
 
@@ -212,7 +256,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     this.isRunning = true
     let fullContent = ''
     let capacityAborted = false
-    let capacityError = ''
+    let retryError = ''
 
     try {
       const client = await this.ensureClient(context)
@@ -223,29 +267,23 @@ export class GeminiAdapter extends BaseAgentAdapter {
       this.promptCounter++
       const promptId = `prompt-${this.promptCounter}`
 
-      // Abort retries immediately when the model has no capacity.
-      // The SDK retries up to 10 times by default; for permanent failures
-      // like MODEL_CAPACITY_EXHAUSTED there is no point waiting.
+      // Abort on the very first retry attempt.  The SDK retries up to 10×
+      // with exponential backoff by default; we surface errors immediately
+      // and let the user decide whether / when to retry.
       const retryListener = (payload: {
         error?: string
         attempt?: number
         maxAttempts?: number
+        model?: string
       }) => {
+        const raw = payload.error ?? '(unknown error)'
         log.warn(
-          `Gemini retry attempt ${payload.attempt ?? '?'}/${payload.maxAttempts ?? '?'}: ${(payload.error ?? '(no error)').slice(0, 200)}`,
+          `Gemini retry ${payload.attempt ?? '?'}/${payload.maxAttempts ?? '?'} [${payload.model ?? '?'}]: ${raw.slice(0, 300)}`,
         )
-        if (
-          payload.error &&
-          (payload.error.includes('MODEL_CAPACITY_EXHAUSTED') ||
-            payload.error.includes('RESOURCE_EXHAUSTED') ||
-            payload.error.includes('at capacity') ||
-            payload.error.includes('No capacity available'))
-        ) {
-          capacityError = extractErrorMessage(payload.error)
-          capacityAborted = true
-          this.streamAbort?.abort()
-          log.warn(`Aborting retries — capacity exhausted: ${capacityError.slice(0, 200)}`)
-        }
+        retryError = classifyRetryError(raw)
+        capacityAborted = true
+        this.streamAbort?.abort()
+        log.warn(`Aborting SDK retries — surfacing error to user: ${retryError}`)
       }
       sdk.coreEvents.on(sdk.CoreEvent.RetryAttempt, retryListener)
 
@@ -287,9 +325,9 @@ export class GeminiAdapter extends BaseAgentAdapter {
       this.isRunning = false
       this.streamAbort = undefined
       if ((err as Error).name === 'AbortError' && capacityAborted) {
-        // Aborted due to capacity exhaustion — report the real error
-        const msg = capacityError || 'Model capacity exhausted. Try a different model.'
-        log.warn(`Gemini capacity exhausted — skipped retries: ${msg}`)
+        // Aborted because the SDK tried to retry — surface the real error
+        const msg = retryError || extractErrorMessage(err)
+        log.warn(`Gemini error (retries aborted): ${msg}`)
         onError(msg)
       } else if ((err as Error).name === 'AbortError') {
         onComplete(fullContent || 'Interrupted')
