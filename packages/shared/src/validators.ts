@@ -1185,6 +1185,22 @@ export const serverGatewayCredentialResultSchema = z.object({
   credential: z.object({ id: z.string(), name: z.string() }).optional(),
 })
 
+export const serverGatewayOAuthUrlSchema = z.object({
+  type: z.literal('server:gateway_oauth_url'),
+  gatewayId: z.string().min(1),
+  requestId: z.string().min(1),
+  authUrl: z.string().min(1).max(4096),
+})
+
+export const serverGatewayOAuthResultSchema = z.object({
+  type: z.literal('server:gateway_oauth_result'),
+  gatewayId: z.string().min(1),
+  requestId: z.string().min(1),
+  success: z.boolean(),
+  error: z.string().optional(),
+  credential: z.object({ id: z.string(), name: z.string() }).optional(),
+})
+
 export const serverErrorSchema = z.object({
   type: z.literal('server:error'),
   code: z.string(),
@@ -1230,6 +1246,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   serverSpawnResultSchema,
   serverGatewayCredentialListSchema,
   serverGatewayCredentialResultSchema,
+  serverGatewayOAuthUrlSchema,
+  serverGatewayOAuthResultSchema,
   serverWorkspaceResponseSchema,
   serverPongSchema,
   serverErrorSchema,
