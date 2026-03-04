@@ -803,6 +803,8 @@ export const en = {
     oauthCompleting: 'Completing...',
     oauthSuccess: 'OAuth login completed successfully',
     oauthFailed: 'OAuth login failed',
+    oauthAutoHint:
+      'If you are browsing from the same machine as the gateway, this will complete automatically after you authorize.',
     oauthAutoWaiting: 'Waiting for authentication to complete... This will finish automatically.',
     oauthTimeout: 'OAuth login timed out. Please try again.',
   },

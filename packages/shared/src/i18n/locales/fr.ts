@@ -830,6 +830,8 @@ export const fr = {
     oauthCompleting: 'Finalisation...',
     oauthSuccess: 'Connexion OAuth terminée avec succès',
     oauthFailed: 'Échec de la connexion OAuth',
+    oauthAutoHint:
+      "Si vous naviguez depuis la m\u00eame machine que la passerelle, cela se terminera automatiquement apr\u00e8s l'autorisation.",
     oauthAutoWaiting:
       "En attente de la fin de l'authentification... Cela se terminera automatiquement.",
     oauthTimeout: 'La connexion OAuth a expiré. Veuillez réessayer.',

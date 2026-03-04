@@ -822,6 +822,8 @@ export const de = {
     oauthCompleting: 'Wird abgeschlossen...',
     oauthSuccess: 'OAuth-Anmeldung erfolgreich abgeschlossen',
     oauthFailed: 'OAuth-Anmeldung fehlgeschlagen',
+    oauthAutoHint:
+      'Wenn Sie vom gleichen Rechner wie das Gateway browsen, wird dies nach der Autorisierung automatisch abgeschlossen.',
     oauthAutoWaiting: 'Warten auf Abschluss der Authentifizierung... Dies geschieht automatisch.',
     oauthTimeout: 'OAuth-Anmeldung ist abgelaufen. Bitte versuchen Sie es erneut.',
   },

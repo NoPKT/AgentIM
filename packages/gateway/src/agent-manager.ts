@@ -998,6 +998,13 @@ export class AgentManager {
         success: result.success,
         message: result.message,
       })
+
+      // For settings commands, automatically push updated agent info so the UI
+      // reflects the change immediately without a separate query round-trip.
+      const settingsCommands = ['model', 'think', 'plan', 'effort']
+      if (result.success && settingsCommands.includes(msg.command)) {
+        this.handleQueryAgentInfo({ type: 'server:query_agent_info', agentId: msg.agentId })
+      }
     } catch (err) {
       log.error(`Slash command error for agent ${msg.agentId}: ${(err as Error).message}`)
       this.wsClient.send({

@@ -15,20 +15,48 @@ const log = createLogger('Gemini')
  * Extract a human-readable error message from an unknown error value.
  * GaxiosError from Google SDKs is not a standard Error instance,
  * so `String(err)` produces `[object Object]`.
+ *
+ * For Google API JSON error responses (e.g. `[{"error":{"code":429,...}}]`),
+ * this extracts the inner `error.message` for a cleaner display.
  */
 function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'string') return err
-  if (err && typeof err === 'object') {
+  let raw: string | undefined
+
+  if (err instanceof Error) {
+    raw = err.message
+  } else if (typeof err === 'string') {
+    raw = err
+  } else if (err && typeof err === 'object') {
     if ('message' in err && typeof (err as Record<string, unknown>).message === 'string')
-      return (err as Record<string, unknown>).message as string
-    try {
-      return JSON.stringify(err)
-    } catch {
-      /* fall through */
+      raw = (err as Record<string, unknown>).message as string
+    else {
+      try {
+        raw = JSON.stringify(err)
+      } catch {
+        /* fall through */
+      }
     }
   }
-  return String(err)
+
+  if (!raw) return String(err)
+
+  // Parse Google API JSON error responses to extract the inner message.
+  // GaxiosError.message is often a JSON string like: [{"error":{"code":429,"message":"..."}}]
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      const obj = Array.isArray(parsed) ? parsed[0] : parsed
+      if (obj?.error?.message) {
+        const code = obj.error.code ? `HTTP ${obj.error.code}: ` : ''
+        return `${code}${obj.error.message}`
+      }
+    } catch {
+      /* not JSON — return raw */
+    }
+  }
+
+  return raw
 }
 
 // Cache the dynamically imported SDK module to avoid repeated import() calls
@@ -183,6 +211,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
     this.isRunning = true
     let fullContent = ''
+    let capacityAborted = false
+    let capacityError = ''
 
     try {
       const client = await this.ensureClient(context)
@@ -193,40 +223,65 @@ export class GeminiAdapter extends BaseAgentAdapter {
       this.promptCounter++
       const promptId = `prompt-${this.promptCounter}`
 
-      const stream = client.sendMessageStream(prompt, this.streamAbort.signal, promptId)
-
-      for await (const event of stream) {
-        const chunks = this.processEvent(event, sdk)
-        for (const chunk of chunks) {
-          if (chunk.type === 'text') {
-            fullContent += chunk.content
-          }
-          onChunk(chunk)
-        }
-
-        // Extract usage from Finished events
-        if (event.type === sdk.GeminiEventType.Finished) {
-          this.extractUsage(event, sdk)
-        }
-
-        // Bail on error events
-        if (event.type === sdk.GeminiEventType.Error) {
-          const errVal = (event as { value: { error: unknown } }).value
-          const errMsg = extractErrorMessage(errVal.error)
-          this.isRunning = false
-          this.streamAbort = undefined
-          onError(errMsg)
-          return
+      // Abort retries immediately when the model has no capacity.
+      // The SDK retries up to 10 times by default; for permanent failures
+      // like MODEL_CAPACITY_EXHAUSTED there is no point waiting.
+      const retryListener = (payload: { error?: string }) => {
+        if (
+          payload.error &&
+          (payload.error.includes('MODEL_CAPACITY_EXHAUSTED') ||
+            payload.error.includes('No capacity available'))
+        ) {
+          capacityError = extractErrorMessage(payload.error)
+          capacityAborted = true
+          this.streamAbort?.abort()
         }
       }
+      sdk.coreEvents.on(sdk.CoreEvent.RetryAttempt, retryListener)
 
-      this.isRunning = false
-      this.streamAbort = undefined
-      onComplete(fullContent)
+      try {
+        const stream = client.sendMessageStream(prompt, this.streamAbort.signal, promptId)
+
+        for await (const event of stream) {
+          const chunks = this.processEvent(event, sdk)
+          for (const chunk of chunks) {
+            if (chunk.type === 'text') {
+              fullContent += chunk.content
+            }
+            onChunk(chunk)
+          }
+
+          // Extract usage from Finished events
+          if (event.type === sdk.GeminiEventType.Finished) {
+            this.extractUsage(event, sdk)
+          }
+
+          // Bail on error events
+          if (event.type === sdk.GeminiEventType.Error) {
+            const errVal = (event as { value: { error: unknown } }).value
+            const errMsg = extractErrorMessage(errVal.error)
+            this.isRunning = false
+            this.streamAbort = undefined
+            onError(errMsg)
+            return
+          }
+        }
+
+        this.isRunning = false
+        this.streamAbort = undefined
+        onComplete(fullContent)
+      } finally {
+        sdk.coreEvents.off(sdk.CoreEvent.RetryAttempt, retryListener)
+      }
     } catch (err: unknown) {
       this.isRunning = false
       this.streamAbort = undefined
-      if ((err as Error).name === 'AbortError') {
+      if ((err as Error).name === 'AbortError' && capacityAborted) {
+        // Aborted due to capacity exhaustion — report the real error
+        const msg = capacityError || 'Model capacity exhausted. Try a different model.'
+        log.warn(`Gemini capacity exhausted — skipped retries: ${msg}`)
+        onError(msg)
+      } else if ((err as Error).name === 'AbortError') {
         onComplete(fullContent || 'Interrupted')
       } else {
         const msg = extractErrorMessage(err)
