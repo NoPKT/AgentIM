@@ -827,4 +827,8 @@ export const de = {
     oauthAutoWaiting: 'Warten auf Abschluss der Authentifizierung... Dies geschieht automatisch.',
     oauthTimeout: 'OAuth-Anmeldung ist abgelaufen. Bitte versuchen Sie es erneut.',
   },
+  system: {
+    agentOnline: '{{name}} ist jetzt online',
+    agentOffline: '{{name}} ist offline gegangen',
+  },
 }

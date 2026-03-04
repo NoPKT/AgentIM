@@ -24,12 +24,7 @@ import { api } from '../lib/api.js'
 import { ReplyIcon, CloseIcon, PaperClipIcon } from './icons.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
 import { SlashCommandMenu } from './SlashCommandMenu.js'
-import {
-  parseSlashCommand,
-  getCommand,
-  getAllCommands,
-  getAgentCommands,
-} from '../lib/slash-commands.js'
+import { parseSlashCommand, getCommand, getAllCommands } from '../lib/slash-commands.js'
 import { getDraft, setDraft as saveDraft } from '../lib/message-cache.js'
 
 const MAX_UPLOAD_RETRIES = 3
@@ -136,15 +131,6 @@ export function MessageInput() {
         agent.name.toLowerCase().includes(debouncedMentionSearch.toLowerCase()),
       ),
     [agents, debouncedMentionSearch],
-  )
-
-  const HIDDEN_AGENT_COMMANDS = useMemo(
-    () => new Set(['model', 'think', 'effort', 'cost', 'context']),
-    [],
-  )
-  const agentCommands = useMemo(
-    () => getAgentCommands(agents).filter((cmd) => !HIDDEN_AGENT_COMMANDS.has(cmd.command.name)),
-    [agents, HIDDEN_AGENT_COMMANDS],
   )
 
   useEffect(() => {
@@ -354,10 +340,7 @@ export function MessageInput() {
   const filteredSlashCommands = getAllCommands().filter((cmd) =>
     cmd.command.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
   )
-  const filteredAgentCmds = agentCommands.filter((item) =>
-    item.command.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
-  )
-  const totalSlashItems = filteredSlashCommands.length + filteredAgentCmds.length
+  const totalSlashItems = filteredSlashCommands.length
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Slash command menu navigation
@@ -374,14 +357,9 @@ export function MessageInput() {
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault()
-        if (slashActiveIndex < filteredSlashCommands.length) {
-          const cmd = filteredSlashCommands[slashActiveIndex]
+        const cmd = filteredSlashCommands[slashActiveIndex]
+        if (cmd) {
           setContent('/' + cmd.command.name + ' ')
-        } else {
-          const agentCmd = filteredAgentCmds[slashActiveIndex - filteredSlashCommands.length]
-          if (agentCmd) {
-            handleAgentCommandSelect(agentCmd)
-          }
         }
         setShowSlashMenu(false)
         return
@@ -437,19 +415,6 @@ export function MessageInput() {
   const attachmentAuthUrls = useUploadUrls(pendingAttachments.map((a) => a.url ?? ''))
   const hasContent = content.trim().length > 0 || readyAttachments.length > 0
 
-  const handleAgentCommandSelect = (item: import('../lib/slash-commands.js').AgentCommandItem) => {
-    if (!currentRoomId) return
-    wsClient.send({
-      type: 'client:agent_command',
-      agentId: item.agentId,
-      roomId: currentRoomId,
-      command: item.command.name,
-      args: '',
-    })
-    setContent('')
-    toast.info(`/${item.command.name} sent to ${item.agentName}`)
-  }
-
   const handleSend = () => {
     // Handle slash commands
     const parsed = parseSlashCommand(content)
@@ -460,23 +425,6 @@ export function MessageInput() {
         setContent('')
         setShowSlashMenu(false)
         return
-      }
-      // Check if it matches an agent command
-      if (currentRoomId) {
-        const agentCmd = agentCommands.find((item) => item.command.name === parsed.name)
-        if (agentCmd) {
-          wsClient.send({
-            type: 'client:agent_command',
-            agentId: agentCmd.agentId,
-            roomId: currentRoomId,
-            command: agentCmd.command.name,
-            args: parsed.args,
-          })
-          setContent('')
-          setShowSlashMenu(false)
-          toast.info(`/${agentCmd.command.name} sent to ${agentCmd.agentName}`)
-          return
-        }
       }
     }
 
@@ -605,17 +553,12 @@ export function MessageInput() {
         {showSlashMenu && (
           <SlashCommandMenu
             filter={slashFilter}
-            onSelect={(item) => {
-              if (item.type === 'platform') {
-                setContent('/' + item.handler.command.name + ' ')
-              } else {
-                handleAgentCommandSelect(item.item)
-              }
+            onSelect={(cmd) => {
+              setContent('/' + cmd.command.name + ' ')
               setShowSlashMenu(false)
               textareaRef.current?.focus()
             }}
             activeIndex={slashActiveIndex}
-            agentCommands={agentCommands}
           />
         )}
 

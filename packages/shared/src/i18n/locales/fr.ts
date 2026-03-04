@@ -836,4 +836,8 @@ export const fr = {
       "En attente de la fin de l'authentification... Cela se terminera automatiquement.",
     oauthTimeout: 'La connexion OAuth a expiré. Veuillez réessayer.',
   },
+  system: {
+    agentOnline: '{{name}} est maintenant en ligne',
+    agentOffline: '{{name}} est hors ligne',
+  },
 }
