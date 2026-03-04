@@ -226,15 +226,25 @@ export class GeminiAdapter extends BaseAgentAdapter {
       // Abort retries immediately when the model has no capacity.
       // The SDK retries up to 10 times by default; for permanent failures
       // like MODEL_CAPACITY_EXHAUSTED there is no point waiting.
-      const retryListener = (payload: { error?: string }) => {
+      const retryListener = (payload: {
+        error?: string
+        attempt?: number
+        maxAttempts?: number
+      }) => {
+        log.warn(
+          `Gemini retry attempt ${payload.attempt ?? '?'}/${payload.maxAttempts ?? '?'}: ${(payload.error ?? '(no error)').slice(0, 200)}`,
+        )
         if (
           payload.error &&
           (payload.error.includes('MODEL_CAPACITY_EXHAUSTED') ||
+            payload.error.includes('RESOURCE_EXHAUSTED') ||
+            payload.error.includes('at capacity') ||
             payload.error.includes('No capacity available'))
         ) {
           capacityError = extractErrorMessage(payload.error)
           capacityAborted = true
           this.streamAbort?.abort()
+          log.warn(`Aborting retries — capacity exhausted: ${capacityError.slice(0, 200)}`)
         }
       }
       sdk.coreEvents.on(sdk.CoreEvent.RetryAttempt, retryListener)
