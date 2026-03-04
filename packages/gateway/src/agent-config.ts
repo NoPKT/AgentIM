@@ -427,7 +427,10 @@ export function agentConfigToEnv(
       if (config.model) env.CODEX_MODEL = config.model
       break
     case 'gemini':
-      // Gemini CLI SDK handles OAuth internally — only API-key mode needs env
+      if (config.mode === 'subscription') {
+        // Tell the Gemini SDK to use Google OAuth (cached credentials from CLI login)
+        env.GOOGLE_GENAI_USE_GCA = 'true'
+      }
       if (config.apiKey) env.GEMINI_API_KEY = config.apiKey
       if (config.baseUrl) env.GEMINI_BASE_URL = config.baseUrl
       if (config.model) env.GEMINI_MODEL = config.model

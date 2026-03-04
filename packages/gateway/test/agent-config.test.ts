@@ -8,9 +8,9 @@ describe('agentConfigToEnv', () => {
     assert.deepEqual(agentConfigToEnv('claude-code', config), {})
   })
 
-  it('gemini subscription returns empty env (SDK handles OAuth)', () => {
+  it('gemini subscription sets GOOGLE_GENAI_USE_GCA for OAuth', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
-    assert.deepEqual(agentConfigToEnv('gemini', config), {})
+    assert.deepEqual(agentConfigToEnv('gemini', config), { GOOGLE_GENAI_USE_GCA: 'true' })
   })
 
   it('claude-code: apiKey maps to ANTHROPIC_API_KEY', () => {
