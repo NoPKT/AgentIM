@@ -69,7 +69,17 @@ registerCommand({
     const { currentRoomId } = useChatStore.getState()
     if (!currentRoomId) return
     await useChatStore.getState().clearChat(currentRoomId)
-    toast.success(i18next.t('slashCommand.chatCleared'))
+    useChatStore.getState().addMessage({
+      id: nanoid(),
+      roomId: currentRoomId,
+      senderId: 'system',
+      senderType: 'system',
+      senderName: 'System',
+      type: 'system',
+      content: i18next.t('slashCommand.chatCleared'),
+      mentions: [],
+      createdAt: new Date().toISOString(),
+    })
   },
 })
 
@@ -128,6 +138,20 @@ registerCommand({
     const { currentRoomId, streaming } = useChatStore.getState()
     if (!currentRoomId) return
 
+    const addSystemMsg = (content: string) => {
+      useChatStore.getState().addMessage({
+        id: nanoid(),
+        roomId: currentRoomId,
+        senderId: 'system',
+        senderType: 'system',
+        senderName: 'System',
+        type: 'system',
+        content,
+        mentions: [],
+        createdAt: new Date().toISOString(),
+      })
+    }
+
     // If an agent name is specified (e.g., "@agentname"), stop only that agent
     const agentName = args.replace(/^@/, '').trim()
     if (agentName) {
@@ -142,7 +166,7 @@ registerCommand({
         roomId: currentRoomId,
         agentId: agent.id,
       })
-      toast.info(i18next.t('slashCommand.stopSent', { name: agent.name }))
+      addSystemMsg(i18next.t('slashCommand.stopSent', { name: agent.name }))
       return
     }
 
@@ -160,9 +184,9 @@ registerCommand({
       }
     }
     if (stopped > 0) {
-      toast.info(i18next.t('slashCommand.stopSent', { name: `${stopped} agent(s)` }))
+      addSystemMsg(i18next.t('slashCommand.stopSent', { name: `${stopped} agent(s)` }))
     } else {
-      toast.info(i18next.t('slashCommand.noActiveStreams'))
+      addSystemMsg(i18next.t('slashCommand.noActiveStreams'))
     }
   },
 })

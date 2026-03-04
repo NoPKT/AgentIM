@@ -823,4 +823,8 @@ export const ru = {
     oauthAutoWaiting: 'Ожидание завершения аутентификации... Процесс завершится автоматически.',
     oauthTimeout: 'Время ожидания входа через OAuth истекло. Попробуйте ещё раз.',
   },
+  system: {
+    agentOnline: '{{name}} в сети',
+    agentOffline: '{{name}} не в сети',
+  },
 }

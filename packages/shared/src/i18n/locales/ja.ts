@@ -808,4 +808,8 @@ export const ja = {
     oauthAutoWaiting: '認証の完了を待っています…自動的に完了します。',
     oauthTimeout: 'OAuthログインがタイムアウトしました。もう一度お試しください。',
   },
+  system: {
+    agentOnline: '{{name}} がオンラインになりました',
+    agentOffline: '{{name}} がオフラインになりました',
+  },
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
+import { nanoid } from 'nanoid'
 import { wsClient } from '../lib/ws.js'
 import { useChatStore } from '../stores/chat.js'
 import { useAgentStore } from '../stores/agents.js'
@@ -147,7 +148,28 @@ export function useWebSocket() {
           break
         case 'server:agent_status':
           try {
+            const prevAgent = agentStore.agents.find((a) => a.id === msg.agent.id)
             agentStore.updateAgent(msg.agent)
+            // Status changed → show system message in agent's rooms
+            if (prevAgent && prevAgent.status !== msg.agent.status) {
+              const statusKey = msg.agent.status === 'online' ? 'agentOnline' : 'agentOffline'
+              const roomMembers = chat.roomMembers
+              for (const [roomId, members] of roomMembers) {
+                if (members.some((m) => m.memberId === msg.agent.id)) {
+                  chat.addMessage({
+                    id: nanoid(),
+                    roomId,
+                    senderId: 'system',
+                    senderType: 'system',
+                    senderName: msg.agent.name,
+                    type: 'system',
+                    content: i18next.t(`system.${statusKey}`, { name: msg.agent.name }),
+                    mentions: [],
+                    createdAt: new Date().toISOString(),
+                  })
+                }
+              }
+            }
           } catch (err) {
             console.error('[WS] Error handling message:', msg.type, err)
           }
@@ -229,19 +251,24 @@ export function useWebSocket() {
           break
         case 'server:agent_command_result':
           try {
-            if (msg.success) {
-              if (msg.message) {
-                toast.success(msg.message, 8000)
-              } else {
-                toast.success(i18next.t('slashCommand.commandSuccess', { command: msg.command }))
-              }
-            } else {
-              toast.error(
-                i18next.t('slashCommand.commandFailed', {
+            const agentName = agentStore.agents.find((a) => a.id === msg.agentId)?.name ?? 'Agent'
+            const cmdContent = msg.success
+              ? (msg.message ?? i18next.t('slashCommand.commandSuccess', { command: msg.command }))
+              : i18next.t('slashCommand.commandFailed', {
                   message: msg.message ?? msg.command,
-                }),
-              )
-            }
+                })
+
+            chat.addMessage({
+              id: nanoid(),
+              roomId: msg.roomId,
+              senderId: 'system',
+              senderType: 'system',
+              senderName: agentName,
+              type: 'system',
+              content: cmdContent,
+              mentions: [],
+              createdAt: new Date().toISOString(),
+            })
           } catch (err) {
             console.error('[WS] Error handling message:', msg.type, err)
           }

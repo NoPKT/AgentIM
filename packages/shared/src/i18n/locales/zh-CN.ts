@@ -791,4 +791,8 @@ export const zhCN = {
     oauthAutoWaiting: '正在等待授权完成…授权后将自动添加凭证。',
     oauthTimeout: 'OAuth 登录超时，请重试。',
   },
+  system: {
+    agentOnline: '{{name}} 已上线',
+    agentOffline: '{{name}} 已离线',
+  },
 }
