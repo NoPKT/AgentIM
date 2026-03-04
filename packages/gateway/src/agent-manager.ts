@@ -1343,6 +1343,12 @@ export class AgentManager {
 
     log.info(`OAuth child PID: ${child.pid ?? 'undefined'}`)
 
+    // Gemini CLI prompts "Do you want to continue? [Y/n]:" before opening
+    // the auth page. Pre-answer with "Y" so it proceeds non-interactively.
+    if (msg.agentType === 'gemini') {
+      child.stdin?.write('Y\n')
+    }
+
     let urlSent = false
 
     const sendUrlIfFound = (url: string) => {
