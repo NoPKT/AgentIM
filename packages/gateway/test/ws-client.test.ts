@@ -507,14 +507,17 @@ describe('GatewayWsClient', () => {
       assert.equal(client.reconnectTimer, null)
     })
 
-    it('enters probe mode after max reconnect attempts', () => {
+    it('caps reconnect interval at maxReconnectInterval', () => {
       const client = createClient() as AnyClient
       client.shouldReconnect = true
       client.reconnectAttempts = 50
+      client.reconnectInterval = 30000
 
       client.scheduleReconnect()
 
-      assert.equal(client.probing, true)
+      // Interval should not exceed maxReconnectInterval (30s)
+      assert.equal(client.reconnectInterval, 30000)
+      assert.notEqual(client.reconnectTimer, null)
       if (client.reconnectTimer) clearTimeout(client.reconnectTimer)
     })
 

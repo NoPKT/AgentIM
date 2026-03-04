@@ -84,6 +84,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
       'GOOGLE_CLOUD_PROJECT_ID',
       'GOOGLE_CLOUD_LOCATION',
       'GOOGLE_GENAI_USE_VERTEXAI',
+      'GOOGLE_GENAI_USE_GCA',
     ]
     for (const key of envKeys) {
       if (this.env[key]) {

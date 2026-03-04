@@ -10,8 +10,6 @@ type MessageHandler = (msg: ServerGatewayMessage | ServerSendToAgent) => void
 const PING_INTERVAL = 30_000 // Send ping every 30s
 const PONG_TIMEOUT = 10_000 // Wait 10s for pong before considering connection dead
 const MAX_QUEUE_SIZE = 1000
-const MAX_RECONNECT_ATTEMPTS = parseInt(process.env.AGENTIM_MAX_RECONNECT ?? '', 10) || 50
-const PROBE_INTERVAL = parseInt(process.env.AGENTIM_PROBE_INTERVAL ?? '', 10) || 300_000 // 5 min
 
 export class GatewayWsClient {
   private ws: WebSocket | null = null
@@ -29,7 +27,6 @@ export class GatewayWsClient {
   private shouldReconnect = true
   private connecting = false // Prevent concurrent connect attempts
   private flushing = false
-  private probing = false
   private pongTimeoutReconnect = false // Use fast reconnect after pong timeout
   private sendQueue: GatewayMessage[] = []
 
@@ -63,10 +60,6 @@ export class GatewayWsClient {
     this.ws = new WebSocket(this.url)
 
     this.ws.on('open', () => {
-      if (this.probing) {
-        log.info('Probe succeeded, resuming normal mode')
-        this.probing = false
-      }
       log.info('Connected to server')
       this.connecting = false
       this.reconnectInterval = 3000
@@ -334,7 +327,6 @@ export class GatewayWsClient {
     this.shouldReconnect = true
     this.reconnectAttempts = 0
     this.reconnectInterval = 3000
-    this.probing = false
     this.connecting = false
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -399,14 +391,6 @@ export class GatewayWsClient {
   private scheduleReconnect() {
     if (!this.shouldReconnect) return
 
-    // Enter low-frequency probe mode after exhausting normal retries
-    if (!this.probing && this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      this.probing = true
-      log.warn(
-        `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached, entering probe mode (every ${Math.round(PROBE_INTERVAL / 1000)}s)`,
-      )
-    }
-
     this.reconnectAttempts++
 
     // Fast reconnect after pong timeout to reduce "agent appears offline" window
@@ -420,22 +404,14 @@ export class GatewayWsClient {
       return
     }
 
-    if (this.probing) {
-      const jitter = Math.random() * PROBE_INTERVAL
-      this.reconnectTimer = setTimeout(() => {
-        log.info(`Probing server... (attempt ${this.reconnectAttempts})`)
-        this.connect()
-      }, PROBE_INTERVAL + jitter)
-    } else {
-      const jitter = Math.random() * this.reconnectInterval
-      if (this.reconnectAttempts % 10 === 0) {
-        log.warn(`Still trying to reconnect... (${this.reconnectAttempts} attempts)`)
-      }
-      this.reconnectTimer = setTimeout(() => {
-        log.info(`Reconnecting... (attempt ${this.reconnectAttempts})`)
-        this.connect()
-      }, this.reconnectInterval + jitter)
-      this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)
+    const jitter = Math.random() * this.reconnectInterval
+    // Reduce log noise: only log every 10th attempt after the first 5
+    if (this.reconnectAttempts <= 5 || this.reconnectAttempts % 10 === 0) {
+      log.info(`Reconnecting... (attempt ${this.reconnectAttempts})`)
     }
+    this.reconnectTimer = setTimeout(() => {
+      this.connect()
+    }, this.reconnectInterval + jitter)
+    this.reconnectInterval = Math.min(this.reconnectInterval * 1.5, this.maxReconnectInterval)
   }
 }
