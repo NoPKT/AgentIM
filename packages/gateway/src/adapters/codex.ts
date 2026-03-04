@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ParsedChunk, ModelOption } from '@agentim/shared'
@@ -91,58 +92,92 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
+  /** Whether the current credentials are OAuth (subscription) rather than an API key. */
+  private get isOAuthMode(): boolean {
+    return !this.env.OPENAI_API_KEY && !!this.env.CODEX_API_KEY
+  }
+
+  /** Shared regex filter for Codex-relevant models. */
+  private static readonly MODEL_FILTER = /codex|^gpt-[5-9]/i
+
+  /** Path to the Codex CLI local model cache file. */
+  private static readonly MODEL_CACHE_PATH = join(homedir(), '.codex', 'models_cache.json')
+
+  /** Model entry from the /v1/chat/models (ChatGPT subscription) endpoint. */
+  private static parseChatModels(
+    body: unknown,
+  ): Array<{ slug: string; display_name?: string; priority?: number }> {
+    const data = body as {
+      models?: Array<{
+        slug: string
+        display_name?: string
+        visibility?: string
+        priority?: number
+      }>
+    }
+    if (!Array.isArray(data?.models)) return []
+    return data.models.filter(
+      (m) => m.visibility === 'list' && CodexAdapter.MODEL_FILTER.test(m.slug),
+    )
+  }
+
+  /** Convert chat/cache model entries into ModelOption[]. */
+  private static chatModelsToOptions(
+    models: Array<{ slug: string; display_name?: string; priority?: number }>,
+  ): ModelOption[] {
+    return models
+      .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
+      .map((m) => ({
+        value: m.slug,
+        displayName: m.display_name || CodexAdapter.prettifyModelId(m.slug),
+      }))
+  }
+
+  /** "gpt-5.3-codex" → "GPT 5.3 Codex" */
+  private static prettifyModelId(id: string): string {
+    return id
+      .split('-')
+      .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
+      .join(' ')
+  }
+
   /**
-   * Read model list from the Codex CLI local cache file (~/.codex/models_cache.json).
-   * This is the same source the Codex CLI uses. Useful as a fallback when the
-   * /v1/models API returns 403 (e.g. ChatGPT OAuth subscription tokens).
+   * Fetch models from the ChatGPT subscription endpoint (/v1/chat/models).
+   * This endpoint accepts OAuth tokens that would get 403 on /v1/models.
+   * On success, also writes the result to the local cache file so that
+   * subsequent startups can use it even when the network is unavailable.
    */
-  private readModelCache(): ModelOption[] {
+  private async fetchChatModels(token: string): Promise<ModelOption[]> {
     try {
-      const cachePath = join(homedir(), '.codex', 'models_cache.json')
-      const raw = readFileSync(cachePath, 'utf-8')
-      const data = JSON.parse(raw) as {
-        models?: Array<{
-          slug: string
-          display_name?: string
-          visibility?: string
-          priority?: number
-        }>
+      const res = await fetch('https://api.openai.com/v1/chat/models', {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) {
+        log.warn(`/v1/chat/models fetch failed: HTTP ${res.status}`)
+        return []
       }
-      if (!Array.isArray(data.models)) return []
-      return data.models
-        .filter((m) => m.visibility === 'list' && /codex|^gpt-[5-9]/i.test(m.slug))
-        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
-        .map((m) => ({
-          value: m.slug,
-          displayName:
-            m.display_name ||
-            m.slug
-              .split('-')
-              .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
-              .join(' '),
-        }))
-    } catch {
+      const body = await res.json()
+      const models = CodexAdapter.parseChatModels(body)
+      if (models.length === 0) return []
+      // Persist to local cache so future startups can use it offline
+      try {
+        writeFileSync(CodexAdapter.MODEL_CACHE_PATH, JSON.stringify({ models }, null, 2))
+      } catch {
+        // Non-critical: cache write failure is fine
+      }
+      log.info(`Fetched ${models.length} Codex models from /v1/chat/models`)
+      return CodexAdapter.chatModelsToOptions(models)
+    } catch (err) {
+      log.warn(`/v1/chat/models fetch error: ${(err as Error).message}`)
       return []
     }
   }
 
   /**
-   * Fetch available models from the OpenAI /v1/models endpoint.
-   * Falls back to reading the Codex CLI local cache when the API call
-   * fails (e.g. 403 for ChatGPT OAuth tokens) or returns no results.
+   * Fetch models from the standard /v1/models endpoint (works with API keys).
    */
-  private async fetchModels(): Promise<void> {
-    const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
-    if (!token) {
-      log.warn('No CODEX_API_KEY or OPENAI_API_KEY — cannot fetch model list')
-      const cached = this.readModelCache()
-      if (cached.length > 0) {
-        this.cachedModelInfo = cached
-        log.info(`Loaded ${cached.length} Codex models from CLI cache (no API key)`)
-      }
-      return
-    }
-
+  private async fetchApiModels(token: string): Promise<ModelOption[]> {
     const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
     try {
@@ -151,54 +186,118 @@ export class CodexAdapter extends BaseAgentAdapter {
         signal: AbortSignal.timeout(10_000),
       })
       if (!res.ok) {
-        log.warn(`Model list fetch failed: HTTP ${res.status}`)
-        const cached = this.readModelCache()
-        if (cached.length > 0) {
-          this.cachedModelInfo = cached
-          log.info(
-            `Loaded ${cached.length} Codex models from CLI cache (API returned ${res.status})`,
-          )
-        }
-        return
+        log.warn(`/v1/models fetch failed: HTTP ${res.status}`)
+        return []
       }
       const body = (await res.json()) as { data?: Array<{ id: string }> }
-      if (!body.data) {
-        const cached = this.readModelCache()
-        if (cached.length > 0) {
-          this.cachedModelInfo = cached
-          log.info(`Loaded ${cached.length} Codex models from CLI cache (no data in API response)`)
-        }
-        return
-      }
-      const models = body.data
-        .filter((m) => /codex|^gpt-[5-9]/i.test(m.id))
+      if (!body.data) return []
+      const ids = body.data
+        .filter((m) => CodexAdapter.MODEL_FILTER.test(m.id))
         .map((m) => m.id)
         .sort()
         .reverse()
-      if (models.length === 0) {
-        log.warn('Model list fetched but no matching models found')
-        const cached = this.readModelCache()
-        if (cached.length > 0) {
-          this.cachedModelInfo = cached
-          log.info(`Loaded ${cached.length} Codex models from CLI cache (no matching API models)`)
-        }
+      if (ids.length === 0) return []
+      log.info(`Fetched ${ids.length} Codex models from /v1/models`)
+      return ids.map((id) => ({
+        value: id,
+        displayName: CodexAdapter.prettifyModelId(id),
+      }))
+    } catch (err) {
+      log.warn(`/v1/models fetch error: ${(err as Error).message}`)
+      return []
+    }
+  }
+
+  /**
+   * Read model list from the Codex CLI local cache (~/.codex/models_cache.json).
+   */
+  private readModelCache(): ModelOption[] {
+    try {
+      const raw = readFileSync(CodexAdapter.MODEL_CACHE_PATH, 'utf-8')
+      const models = CodexAdapter.parseChatModels(JSON.parse(raw))
+      if (models.length === 0) return []
+      log.info(`Loaded ${models.length} Codex models from CLI cache`)
+      return CodexAdapter.chatModelsToOptions(models)
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Last-resort: run `codex --version` to trigger CLI startup side effects
+   * that may refresh the model cache, then re-read the cache file.
+   */
+  private tryRefreshCacheViaCli(): ModelOption[] {
+    try {
+      // Check if codex binary is available
+      const bin = existsSync('/usr/local/bin/codex')
+        ? '/usr/local/bin/codex'
+        : existsSync('/usr/bin/codex')
+          ? '/usr/bin/codex'
+          : 'codex'
+      execFileSync(bin, ['--version'], { timeout: 5_000, stdio: 'ignore' })
+      // Re-read cache after CLI execution
+      const models = this.readModelCache()
+      if (models.length > 0) {
+        log.info(`Refreshed ${models.length} Codex models via CLI cache regeneration`)
+      }
+      return models
+    } catch {
+      log.debug?.('codex CLI not available or failed to refresh model cache')
+      return []
+    }
+  }
+
+  /**
+   * Fetch available models using a multi-strategy approach:
+   *
+   * **OAuth (subscription) mode** — only CODEX_API_KEY set:
+   *   1. /v1/chat/models (ChatGPT subscription endpoint, primary)
+   *   2. Local cache file (~/.codex/models_cache.json)
+   *   3. Run `codex` CLI to regenerate cache (last resort)
+   *
+   * **API key mode** — OPENAI_API_KEY set:
+   *   1. /v1/models (standard OpenAI endpoint, primary)
+   *   2. Local cache file (fallback)
+   */
+  private async fetchModels(): Promise<void> {
+    const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
+
+    if (this.isOAuthMode && token) {
+      // OAuth mode: prefer /v1/chat/models which accepts subscription tokens
+      const chatModels = await this.fetchChatModels(token)
+      if (chatModels.length > 0) {
+        this.cachedModelInfo = chatModels
         return
       }
-      this.cachedModelInfo = models.map((id) => ({
-        value: id,
-        displayName: id
-          .split('-')
-          .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
-          .join(' '),
-      }))
-      log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
-    } catch (err) {
-      log.warn(`Model list fetch error: ${(err as Error).message}`)
-      const cached = this.readModelCache()
-      if (cached.length > 0) {
-        this.cachedModelInfo = cached
-        log.info(`Loaded ${cached.length} Codex models from CLI cache (API error fallback)`)
+      // Fallback to /v1/models (unlikely to work but worth trying)
+      const apiModels = await this.fetchApiModels(token)
+      if (apiModels.length > 0) {
+        this.cachedModelInfo = apiModels
+        return
       }
+    } else if (token) {
+      // API key mode: prefer /v1/models
+      const apiModels = await this.fetchApiModels(token)
+      if (apiModels.length > 0) {
+        this.cachedModelInfo = apiModels
+        return
+      }
+    } else {
+      log.warn('No CODEX_API_KEY or OPENAI_API_KEY — skipping API model fetch')
+    }
+
+    // Fallback: read local cache file
+    const cached = this.readModelCache()
+    if (cached.length > 0) {
+      this.cachedModelInfo = cached
+      return
+    }
+
+    // Last resort: try running codex CLI to regenerate cache
+    const cliModels = this.tryRefreshCacheViaCli()
+    if (cliModels.length > 0) {
+      this.cachedModelInfo = cliModels
     }
   }
 
