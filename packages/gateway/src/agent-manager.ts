@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from 'node:os'
+import { homedir, tmpdir, platform } from 'node:os'
 import { resolve, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { writeFileSync, readFileSync, unlinkSync, mkdtempSync, rmdirSync } from 'node:fs'
@@ -1218,31 +1218,84 @@ export class AgentManager {
 
     log.info(`Starting remote OAuth for ${msg.agentType} (request=${msg.requestId})`)
 
-    // Create a helper script as the BROWSER command. The `open` npm package
-    // (used by most CLI tools) spawns BROWSER with `stdio: 'ignore'`, so
-    // `BROWSER=echo` won't work — echo's output is discarded. Instead, we
-    // use a script that writes the URL to a temp file we can poll.
     // Create a secure temp directory (mkdtemp uses mode 0700) to avoid
     // symlink attacks flagged by CodeQL for direct file creation in tmpdir.
     const oauthTmpDir = mkdtempSync(join(tmpdir(), 'agentim-oauth-'))
     const urlFile = join(oauthTmpDir, 'url')
+
+    // Create a BROWSER helper script that captures the URL to a file.
+    // Used by CLIs that respect the BROWSER environment variable.
     const browserHelper = join(oauthTmpDir, 'browser.sh')
+
+    // Create an 'open' command wrapper that intercepts URL arguments.
+    // Many CLIs (e.g. Claude Code) call the system `open` command directly
+    // instead of using the BROWSER env var. By prepending our wrapper dir
+    // to PATH, we intercept these calls and capture the URL.
+    const openWrapper = join(oauthTmpDir, 'open')
+
+    // On Linux, also create xdg-open wrapper
+    const xdgOpenWrapper = join(oauthTmpDir, 'xdg-open')
+
     try {
       writeFileSync(browserHelper, `#!/bin/sh\nprintf '%s' "$1" > "${urlFile}"\n`, { mode: 0o755 })
+      // The open wrapper captures URL arguments and exits; non-URL args
+      // are forwarded to the real /usr/bin/open.
+      writeFileSync(
+        openWrapper,
+        [
+          '#!/bin/sh',
+          'for arg in "$@"; do',
+          '  case "$arg" in',
+          '    http://*|https://*)',
+          `      printf '%s' "$arg" > "${urlFile}"`,
+          '      exit 0',
+          '      ;;',
+          '  esac',
+          'done',
+          '/usr/bin/open "$@"',
+        ].join('\n') + '\n',
+        { mode: 0o755 },
+      )
+      if (platform() === 'linux') {
+        writeFileSync(xdgOpenWrapper, `#!/bin/sh\nprintf '%s' "$1" > "${urlFile}"\n`, {
+          mode: 0o755,
+        })
+      }
     } catch (err) {
-      log.error(`Failed to create browser helper script: ${(err as Error).message}`)
+      log.error(`Failed to create OAuth helper scripts: ${(err as Error).message}`)
       this.wsClient.send({
         type: 'gateway:oauth_result',
         requestId: msg.requestId,
         success: false,
-        error: `Failed to create browser helper: ${(err as Error).message}`,
+        error: `Failed to create OAuth helper scripts: ${(err as Error).message}`,
       })
       return
     }
 
-    const child = spawn(loginInfo.cmd, loginInfo.args, {
+    const env: Record<string, string> = {
+      ...process.env,
+      BROWSER: browserHelper,
+      // Prepend wrapper dir to PATH so our 'open' wrapper intercepts URL launches
+      PATH: oauthTmpDir + ':' + (process.env.PATH || ''),
+    } as Record<string, string>
+    // Prevent "cannot be launched inside another Claude Code session" error
+    delete env.CLAUDECODE
+
+    // Many CLI tools (e.g. Claude Code's `setup-token`) use interactive TUI
+    // frameworks (Ink) that require a TTY with raw mode. When spawned with
+    // piped stdio, they crash immediately. Use python3's pty module to
+    // provide a pseudo-terminal so the CLI can function normally.
+    const spawnCmd = 'python3'
+    const spawnArgs = [
+      '-c',
+      'import pty,sys;pty.spawn(sys.argv[1:])',
+      loginInfo.cmd,
+      ...loginInfo.args,
+    ]
+
+    const child = spawn(spawnCmd, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, BROWSER: browserHelper },
+      env,
     })
 
     let urlSent = false
@@ -1274,15 +1327,12 @@ export class AgentManager {
 
     const cleanupFiles = () => {
       clearInterval(urlPoll)
-      try {
-        unlinkSync(browserHelper)
-      } catch {
-        /* ignore */
-      }
-      try {
-        unlinkSync(urlFile)
-      } catch {
-        /* ignore */
+      for (const f of [browserHelper, openWrapper, xdgOpenWrapper, urlFile]) {
+        try {
+          unlinkSync(f)
+        } catch {
+          /* ignore */
+        }
       }
       try {
         rmdirSync(oauthTmpDir)
