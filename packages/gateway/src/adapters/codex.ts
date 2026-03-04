@@ -114,7 +114,7 @@ export class CodexAdapter extends BaseAgentAdapter {
       const body = (await res.json()) as { data?: Array<{ id: string }> }
       if (!body.data) return
       const models = body.data
-        .filter((m) => /codex|^o[0-9]|^gpt-4/i.test(m.id))
+        .filter((m) => /codex|^gpt-[5-9]/i.test(m.id))
         .map((m) => m.id)
         .sort()
         .reverse()
