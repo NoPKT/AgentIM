@@ -95,7 +95,10 @@ export class CodexAdapter extends BaseAgentAdapter {
    */
   private async fetchModels(): Promise<void> {
     const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
-    if (!token) return
+    if (!token) {
+      log.warn('No CODEX_API_KEY or OPENAI_API_KEY — cannot fetch model list')
+      return
+    }
 
     const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
@@ -104,15 +107,21 @@ export class CodexAdapter extends BaseAgentAdapter {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(10_000),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        log.warn(`Model list fetch failed: HTTP ${res.status}`)
+        return
+      }
       const body = (await res.json()) as { data?: Array<{ id: string }> }
       if (!body.data) return
       const models = body.data
-        .filter((m) => /codex|^o[0-9]|^gpt-4o/i.test(m.id))
+        .filter((m) => /codex|^o[0-9]|^gpt-4/i.test(m.id))
         .map((m) => m.id)
         .sort()
         .reverse()
-      if (models.length === 0) return
+      if (models.length === 0) {
+        log.warn('Model list fetched but no matching models found')
+        return
+      }
       this.cachedModelInfo = models.map((id) => ({
         value: id,
         displayName: id
@@ -121,8 +130,8 @@ export class CodexAdapter extends BaseAgentAdapter {
           .join(' '),
       }))
       log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
-    } catch {
-      // Network error — model list stays empty
+    } catch (err) {
+      log.warn(`Model list fetch error: ${(err as Error).message}`)
     }
   }
 
