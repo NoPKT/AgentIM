@@ -1,7 +1,14 @@
 import { homedir, tmpdir, platform } from 'node:os'
 import { resolve, join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { writeFileSync, readFileSync, unlinkSync, mkdtempSync, rmdirSync } from 'node:fs'
+import {
+  writeFileSync,
+  readFileSync,
+  unlinkSync,
+  mkdtempSync,
+  rmdirSync,
+  existsSync,
+} from 'node:fs'
 import { nanoid } from 'nanoid'
 import { createAdapter, type BaseAgentAdapter } from './adapters/index.js'
 import { GatewayWsClient } from './ws-client.js'
@@ -1293,10 +1300,14 @@ export class AgentManager {
       ...loginInfo.args,
     ]
 
+    log.info(`OAuth spawning: ${spawnCmd} ${spawnArgs.join(' ')} (PATH prefix: ${oauthTmpDir})`)
+
     const child = spawn(spawnCmd, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env,
     })
+
+    log.info(`OAuth child PID: ${child.pid ?? 'undefined'}`)
 
     let urlSent = false
 
@@ -1311,15 +1322,25 @@ export class AgentManager {
       })
     }
 
-    // Poll the URL file written by the browser helper script
+    // Poll the URL file written by the browser/open helper script
+    let pollCount = 0
     const urlPoll = setInterval(() => {
       if (urlSent) {
         clearInterval(urlPoll)
         return
       }
+      pollCount++
       try {
-        const url = readFileSync(urlFile, 'utf-8').trim()
-        if (url) sendUrlIfFound(url)
+        if (existsSync(urlFile)) {
+          const url = readFileSync(urlFile, 'utf-8').trim()
+          if (url) {
+            log.info(`OAuth URL found in file (poll #${pollCount}): ${url.slice(0, 80)}...`)
+            sendUrlIfFound(url)
+          }
+        } else if (pollCount <= 3 || pollCount % 20 === 0) {
+          // Log occasionally to show polling is active
+          log.info(`OAuth URL file not yet created (poll #${pollCount})`)
+        }
       } catch {
         // File not yet created — keep polling
       }
@@ -1344,7 +1365,9 @@ export class AgentManager {
     const timer = setTimeout(() => {
       const entry = this.activeOAuthProcesses.get(msg.requestId)
       if (entry) {
-        log.warn(`OAuth process timed out (request=${msg.requestId})`)
+        log.warn(
+          `OAuth process timed out (request=${msg.requestId}) urlSent=${urlSent} chunks=${stdoutChunks} urlFileExists=${existsSync(urlFile)}`,
+        )
         entry.process.kill()
         this.activeOAuthProcesses.delete(msg.requestId)
         cleanupFiles()
@@ -1364,21 +1387,44 @@ export class AgentManager {
       timer,
     })
 
+    // Strip ANSI escape sequences from PTY output so URL regex is not corrupted.
+    // Control characters are intentional targets here.
+    const ESC = String.fromCharCode(0x1b)
+    const BEL = String.fromCharCode(0x07)
+    const ansiCsi = new RegExp(ESC + '\\[[0-9;]*[a-zA-Z]', 'g')
+    const ansiOsc = new RegExp(ESC + '\\][^' + BEL + ']*' + BEL, 'g')
+    const stripAnsi = (s: string) => s.replace(ansiCsi, '').replace(ansiOsc, '')
+
     // Also monitor stdout/stderr directly (works if the CLI prints the URL
     // to its own output, regardless of how BROWSER is handled)
-    const handleOutput = (data: Buffer) => {
-      const text = data.toString()
+    let stdoutChunks = 0
+    const handleOutput = (source: string) => (data: Buffer) => {
+      const raw = data.toString()
+      stdoutChunks++
+      // Log first few chunks for diagnostics
+      if (stdoutChunks <= 5) {
+        const preview = raw.length > 200 ? raw.slice(0, 200) + '...' : raw
+        log.info(`OAuth ${source} chunk #${stdoutChunks}: ${JSON.stringify(preview)}`)
+      }
       if (!urlSent) {
-        const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/)
-        if (urlMatch) sendUrlIfFound(urlMatch[0])
+        const clean = stripAnsi(raw)
+        // Match URL, excluding control characters
+        const urlRe = new RegExp(
+          'https?://[^\\s"\'<>' + String.fromCharCode(0) + '-' + String.fromCharCode(0x1f) + ']+',
+        )
+        const urlMatch = clean.match(urlRe)
+        if (urlMatch) {
+          log.info(`OAuth URL found in ${source}: ${urlMatch[0].slice(0, 80)}...`)
+          sendUrlIfFound(urlMatch[0])
+        }
       }
     }
 
-    child.stdout?.on('data', handleOutput)
-    child.stderr?.on('data', handleOutput)
+    child.stdout?.on('data', handleOutput('stdout'))
+    child.stderr?.on('data', handleOutput('stderr'))
 
     child.on('error', (err) => {
-      log.error(`OAuth process error: ${err.message}`)
+      log.error(`OAuth process spawn error: ${err.message}`)
       clearTimeout(timer)
       cleanupFiles()
       this.activeOAuthProcesses.delete(msg.requestId)
@@ -1392,7 +1438,10 @@ export class AgentManager {
 
     // If the process exits before complete_oauth arrives, it may have succeeded
     // (e.g. claude setup-token exits immediately after user pastes token)
-    child.on('exit', (code) => {
+    child.on('exit', (code, signal) => {
+      log.info(
+        `OAuth process exited: code=${code} signal=${signal} urlSent=${urlSent} chunks=${stdoutChunks}`,
+      )
       const entry = this.activeOAuthProcesses.get(msg.requestId)
       if (!entry) return // already handled by completeOAuth
 
