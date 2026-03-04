@@ -830,6 +830,8 @@ export const fr = {
     oauthCompleting: 'Finalisation...',
     oauthSuccess: 'Connexion OAuth terminée avec succès',
     oauthFailed: 'Échec de la connexion OAuth',
+    oauthAutoWaiting:
+      "En attente de la fin de l'authentification... Cela se terminera automatiquement.",
     oauthTimeout: 'La connexion OAuth a expiré. Veuillez réessayer.',
   },
 }

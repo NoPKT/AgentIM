@@ -801,6 +801,7 @@ export const ko = {
     oauthCompleting: '완료 중...',
     oauthSuccess: 'OAuth 로그인이 성공적으로 완료되었습니다',
     oauthFailed: 'OAuth 로그인에 실패했습니다',
+    oauthAutoWaiting: '인증 완료를 기다리고 있습니다... 자동으로 완료됩니다.',
     oauthTimeout: 'OAuth 로그인이 시간 초과되었습니다. 다시 시도해 주세요.',
   },
 }

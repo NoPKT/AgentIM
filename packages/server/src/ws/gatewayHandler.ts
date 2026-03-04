@@ -1228,7 +1228,10 @@ function handleCredentialResult(
 
 // ─── Remote OAuth (Gateway → Server → Client relay) ───
 
-function handleOAuthUrl(ws: WSContext, msg: { requestId: string; authUrl: string }) {
+function handleOAuthUrl(
+  ws: WSContext,
+  msg: { requestId: string; authUrl: string; autoCallback?: boolean },
+) {
   const gw = connectionManager.getGateway(ws)
   if (!gw) return
 
@@ -1237,6 +1240,7 @@ function handleOAuthUrl(ws: WSContext, msg: { requestId: string; authUrl: string
     gatewayId: gw.gatewayId,
     requestId: msg.requestId,
     authUrl: msg.authUrl,
+    autoCallback: msg.autoCallback,
   })
 }
 

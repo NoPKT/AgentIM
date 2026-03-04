@@ -804,6 +804,7 @@ export const ja = {
     oauthCompleting: '完了中...',
     oauthSuccess: 'OAuthログインが正常に完了しました',
     oauthFailed: 'OAuthログインに失敗しました',
+    oauthAutoWaiting: '認証の完了を待っています…自動的に完了します。',
     oauthTimeout: 'OAuthログインがタイムアウトしました。もう一度お試しください。',
   },
 }
