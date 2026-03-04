@@ -1418,6 +1418,7 @@ export class AgentManager {
     const handleEarlySuccess = () => {
       if (earlySuccess || urlSent) return
       earlySuccess = true
+      urlSent = true // Prevent subsequent URL captures from error output
       log.info(`OAuth early success: CLI already authenticated for ${msg.agentType}`)
       child.kill()
       clearTimeout(timer)
