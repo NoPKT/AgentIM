@@ -11,6 +11,26 @@ import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('Gemini')
 
+/**
+ * Extract a human-readable error message from an unknown error value.
+ * GaxiosError from Google SDKs is not a standard Error instance,
+ * so `String(err)` produces `[object Object]`.
+ */
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object') {
+    if ('message' in err && typeof (err as Record<string, unknown>).message === 'string')
+      return (err as Record<string, unknown>).message as string
+    try {
+      return JSON.stringify(err)
+    } catch {
+      /* fall through */
+    }
+  }
+  return String(err)
+}
+
 // Cache the dynamically imported SDK module to avoid repeated import() calls
 let _cachedSdk: typeof import('@google/gemini-cli-core') | null = null
 
@@ -192,7 +212,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
         // Bail on error events
         if (event.type === sdk.GeminiEventType.Error) {
           const errVal = (event as { value: { error: unknown } }).value
-          const errMsg = errVal.error instanceof Error ? errVal.error.message : String(errVal.error)
+          const errMsg = extractErrorMessage(errVal.error)
           this.isRunning = false
           this.streamAbort = undefined
           onError(errMsg)
@@ -209,7 +229,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
       if ((err as Error).name === 'AbortError') {
         onComplete(fullContent || 'Interrupted')
       } else {
-        const msg = err instanceof Error ? err.message : String(err)
+        const msg = extractErrorMessage(err)
         log.error(`Gemini SDK error: ${msg}`)
         onError(msg)
       }
@@ -280,7 +300,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
       case sdk.GeminiEventType.Error: {
         const errVal = (event as { value: { error: unknown } }).value
-        const errMsg = errVal.error instanceof Error ? errVal.error.message : String(errVal.error)
+        const errMsg = extractErrorMessage(errVal.error)
         return [{ type: 'error', content: errMsg }]
       }
 

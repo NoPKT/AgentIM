@@ -567,6 +567,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
     // If only hasReal (no optimistic), nothing to do — return true to skip addMessage
+    updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     const next = new Map(msgs)
     next.set(message.roomId, updated)
     set({ messages: next })

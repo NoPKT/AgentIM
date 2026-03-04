@@ -586,6 +586,47 @@ function GatewayRow({
           </span>
         )}
 
+        {/* Spawn + Credentials icon buttons (online only) */}
+        {isOnline && !confirmDelete && (
+          <div
+            className="flex items-center gap-0.5 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                const willShow = !showSpawn
+                setShowSpawn(willShow)
+                if (willShow) setShowCredentials(false)
+                if (willShow && !expanded) onToggle()
+              }}
+              className={`p-1.5 rounded-md transition-colors ${
+                showSpawn
+                  ? 'text-accent bg-accent/10'
+                  : 'text-text-muted/50 hover:text-accent hover:bg-surface-hover'
+              }`}
+              title={t('agent.spawnAgent')}
+            >
+              <PlusIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                const willShow = !showCredentials
+                setShowCredentials(willShow)
+                if (willShow) setShowSpawn(false)
+                if (willShow && !expanded) onToggle()
+              }}
+              className={`p-1.5 rounded-md transition-colors ${
+                showCredentials
+                  ? 'text-accent bg-accent/10'
+                  : 'text-text-muted/50 hover:text-accent hover:bg-surface-hover'
+              }`}
+              title={t('credential.title')}
+            >
+              <LockIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Delete button / confirm */}
         {confirmDelete ? (
           <div
@@ -623,16 +664,6 @@ function GatewayRow({
             <TrashIcon className="w-4 h-4" />
           </button>
         )}
-
-        {/* Expand/collapse chevron */}
-        <svg
-          className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
       </div>
 
       {/* Expanded details */}
@@ -661,26 +692,6 @@ function GatewayRow({
                   minute: '2-digit',
                 })}
               </span>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          {!showSpawn && isOnline && (
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={() => setShowSpawn(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
-              >
-                <PlusIcon className="w-3.5 h-3.5" />
-                {t('agent.spawnAgent')}
-              </button>
-              <button
-                onClick={() => setShowCredentials((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-surface-hover/50 rounded-lg hover:bg-surface-hover transition-colors"
-              >
-                <LockIcon className="w-3.5 h-3.5" />
-                {t('credential.title')}
-              </button>
             </div>
           )}
 
