@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
@@ -89,14 +92,54 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   /**
+   * Read model list from the Codex CLI local cache file (~/.codex/models_cache.json).
+   * This is the same source the Codex CLI uses. Useful as a fallback when the
+   * /v1/models API returns 403 (e.g. ChatGPT OAuth subscription tokens).
+   */
+  private readModelCache(): ModelOption[] {
+    try {
+      const cachePath = join(homedir(), '.codex', 'models_cache.json')
+      const raw = readFileSync(cachePath, 'utf-8')
+      const data = JSON.parse(raw) as {
+        models?: Array<{
+          slug: string
+          display_name?: string
+          visibility?: string
+          priority?: number
+        }>
+      }
+      if (!Array.isArray(data.models)) return []
+      return data.models
+        .filter((m) => m.visibility === 'list' && /codex|^gpt-[5-9]/i.test(m.slug))
+        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
+        .map((m) => ({
+          value: m.slug,
+          displayName:
+            m.display_name ||
+            m.slug
+              .split('-')
+              .map((s) => (s === 'gpt' ? 'GPT' : s.charAt(0).toUpperCase() + s.slice(1)))
+              .join(' '),
+        }))
+    } catch {
+      return []
+    }
+  }
+
+  /**
    * Fetch available models from the OpenAI /v1/models endpoint.
-   * Credentials (API key or OAuth token) are already resolved into
-   * env by agentConfigToEnv() at connection time.
+   * Falls back to reading the Codex CLI local cache when the API call
+   * fails (e.g. 403 for ChatGPT OAuth tokens) or returns no results.
    */
   private async fetchModels(): Promise<void> {
     const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
     if (!token) {
       log.warn('No CODEX_API_KEY or OPENAI_API_KEY — cannot fetch model list')
+      const cached = this.readModelCache()
+      if (cached.length > 0) {
+        this.cachedModelInfo = cached
+        log.info(`Loaded ${cached.length} Codex models from CLI cache (no API key)`)
+      }
       return
     }
 
@@ -109,10 +152,24 @@ export class CodexAdapter extends BaseAgentAdapter {
       })
       if (!res.ok) {
         log.warn(`Model list fetch failed: HTTP ${res.status}`)
+        const cached = this.readModelCache()
+        if (cached.length > 0) {
+          this.cachedModelInfo = cached
+          log.info(
+            `Loaded ${cached.length} Codex models from CLI cache (API returned ${res.status})`,
+          )
+        }
         return
       }
       const body = (await res.json()) as { data?: Array<{ id: string }> }
-      if (!body.data) return
+      if (!body.data) {
+        const cached = this.readModelCache()
+        if (cached.length > 0) {
+          this.cachedModelInfo = cached
+          log.info(`Loaded ${cached.length} Codex models from CLI cache (no data in API response)`)
+        }
+        return
+      }
       const models = body.data
         .filter((m) => /codex|^gpt-[5-9]/i.test(m.id))
         .map((m) => m.id)
@@ -120,6 +177,11 @@ export class CodexAdapter extends BaseAgentAdapter {
         .reverse()
       if (models.length === 0) {
         log.warn('Model list fetched but no matching models found')
+        const cached = this.readModelCache()
+        if (cached.length > 0) {
+          this.cachedModelInfo = cached
+          log.info(`Loaded ${cached.length} Codex models from CLI cache (no matching API models)`)
+        }
         return
       }
       this.cachedModelInfo = models.map((id) => ({
@@ -132,6 +194,11 @@ export class CodexAdapter extends BaseAgentAdapter {
       log.info(`Fetched ${this.cachedModelInfo.length} Codex models from API`)
     } catch (err) {
       log.warn(`Model list fetch error: ${(err as Error).message}`)
+      const cached = this.readModelCache()
+      if (cached.length > 0) {
+        this.cachedModelInfo = cached
+        log.info(`Loaded ${cached.length} Codex models from CLI cache (API error fallback)`)
+      }
     }
   }
 
