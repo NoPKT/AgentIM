@@ -21,7 +21,7 @@ function execGit(args: string[], cwd: string): Promise<string> {
       { cwd, timeout: EXEC_TIMEOUT, maxBuffer: 2 * 1024 * 1024 },
       (err, stdout) => {
         if (err) reject(err)
-        else resolve(stdout.trim())
+        else resolve(stdout.trimEnd())
       },
     )
   })
