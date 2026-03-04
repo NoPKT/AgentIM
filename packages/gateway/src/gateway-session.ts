@@ -19,6 +19,8 @@ import type {
   ServerAddCredential,
   ServerManageCredential,
   ServerRewindAgent,
+  ServerStartOAuth,
+  ServerCompleteOAuth,
 } from '@agentim/shared'
 import { CURRENT_PROTOCOL_VERSION, WS_ERROR_CODES } from '@agentim/shared'
 
@@ -259,7 +261,9 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
         msg.type === 'server:list_credentials' ||
         msg.type === 'server:add_credential' ||
         msg.type === 'server:manage_credential' ||
-        msg.type === 'server:rewind_agent'
+        msg.type === 'server:rewind_agent' ||
+        msg.type === 'server:start_oauth' ||
+        msg.type === 'server:complete_oauth'
       ) {
         agentManager.handleServerMessage(
           msg as
@@ -275,7 +279,9 @@ export function createGatewaySession(opts: GatewaySessionOptions): {
             | ServerListCredentials
             | ServerAddCredential
             | ServerManageCredential
-            | ServerRewindAgent,
+            | ServerRewindAgent
+            | ServerStartOAuth
+            | ServerCompleteOAuth,
         )
       }
     },
