@@ -388,8 +388,11 @@ function readOAuthToken(authFilePath: string): string | undefined {
   try {
     const auth = JSON.parse(readFileSync(authFilePath, 'utf-8')) as {
       access_token?: string
+      tokens?: { access_token?: string }
     }
-    return auth.access_token || undefined
+    // Codex stores tokens under auth.tokens.access_token (chatgpt auth mode),
+    // while the top-level auth.access_token is used by other tools.
+    return auth.tokens?.access_token || auth.access_token || undefined
   } catch {
     return undefined
   }
