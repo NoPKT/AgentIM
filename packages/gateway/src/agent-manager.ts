@@ -4,9 +4,10 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import {
   writeFileSync,
   readFileSync,
-  unlinkSync,
+  copyFileSync,
   mkdtempSync,
-  rmdirSync,
+  mkdirSync,
+  rmSync,
   existsSync,
 } from 'node:fs'
 import { nanoid } from 'nanoid'
@@ -123,6 +124,8 @@ export class AgentManager {
       agentType: string
       credentialName: string
       timer: ReturnType<typeof setTimeout>
+      oauthTmpDir?: string
+      cleanupFn?: () => void
     }
   >()
 
@@ -1215,11 +1218,11 @@ export class AgentManager {
     'claude-code': { cmd: 'claude', args: ['setup-token'], needsPty: true },
     codex: { cmd: 'codex', args: ['login'] },
     // Gemini CLI has no dedicated auth command. Headless mode triggers OAuth
-    // if not yet authenticated; "Loaded cached credentials" means already authed.
+    // if not yet authenticated. We force a clean home dir via GEMINI_CLI_HOME
+    // so cached credentials never short-circuit the OAuth flow.
     gemini: {
       cmd: 'gemini',
       args: ['-p', 'respond with OK'],
-      successPattern: 'Loaded cached credentials',
     },
   }
 
@@ -1305,6 +1308,13 @@ export class AgentManager {
     // Prevent "cannot be launched inside another Claude Code session" error
     delete env.CLAUDECODE
 
+    // For Gemini, force a clean home dir and file-based storage so cached
+    // credentials (keychain or files) never short-circuit the OAuth flow.
+    if (msg.agentType === 'gemini') {
+      env.GEMINI_CLI_HOME = oauthTmpDir
+      env.GEMINI_FORCE_FILE_STORAGE = 'true'
+    }
+
     // Some CLIs (e.g. Claude Code's setup-token) use Ink TUI that requires
     // TTY raw mode. Use python3 pty for those; others run directly.
     let spawnCmd: string
@@ -1363,17 +1373,33 @@ export class AgentManager {
       }
     }, 300)
 
-    const cleanupFiles = () => {
-      clearInterval(urlPoll)
-      for (const f of [browserHelper, openWrapper, xdgOpenWrapper, urlFile]) {
-        try {
-          unlinkSync(f)
-        } catch {
-          /* ignore */
+    // Propagate Gemini OAuth credentials from the temp home dir to the real one.
+    // This ensures agents spawned later can use the freshly-obtained token.
+    const propagateGeminiCreds = () => {
+      if (msg.agentType !== 'gemini') return
+      const srcDir = join(oauthTmpDir, '.gemini')
+      const dstDir = join(homedir(), '.gemini')
+      if (!existsSync(srcDir)) return
+      if (!existsSync(dstDir)) {
+        mkdirSync(dstDir, { mode: 0o700, recursive: true })
+      }
+      for (const file of ['oauth_creds.json', 'mcp-oauth-tokens-v2.json', 'google_accounts.json']) {
+        const src = join(srcDir, file)
+        if (existsSync(src)) {
+          try {
+            copyFileSync(src, join(dstDir, file))
+            log.info(`Propagated Gemini credential file: ${file}`)
+          } catch (err) {
+            log.warn(`Failed to propagate ${file}: ${(err as Error).message}`)
+          }
         }
       }
+    }
+
+    const cleanupFiles = () => {
+      clearInterval(urlPoll)
       try {
-        rmdirSync(oauthTmpDir)
+        rmSync(oauthTmpDir, { recursive: true, force: true })
       } catch {
         /* ignore */
       }
@@ -1402,6 +1428,8 @@ export class AgentManager {
       agentType: msg.agentType,
       credentialName: msg.credentialName,
       timer,
+      oauthTmpDir,
+      cleanupFn: cleanupFiles,
     })
 
     // Strip ANSI escape sequences from PTY output so URL regex is not corrupted.
@@ -1495,11 +1523,12 @@ export class AgentManager {
       if (!entry) return // already handled by completeOAuth
 
       clearTimeout(timer)
-      cleanupFiles()
       this.activeOAuthProcesses.delete(msg.requestId)
 
-      if (code === 0 && urlSent) {
-        // Process exited successfully — save credential
+      if (code === 0) {
+        // Process exited successfully — propagate credentials and save
+        propagateGeminiCreds()
+        cleanupFiles()
         const credential = addCredential(msg.agentType, {
           name: msg.credentialName,
           mode: 'subscription',
@@ -1511,18 +1540,6 @@ export class AgentManager {
           credential: { id: credential.id, name: credential.name },
         })
         log.info(`OAuth completed successfully for ${msg.agentType}`)
-      } else if (code === 0 && !urlSent) {
-        // Process exited successfully without printing a URL — still save
-        const credential = addCredential(msg.agentType, {
-          name: msg.credentialName,
-          mode: 'subscription',
-        })
-        this.wsClient.send({
-          type: 'gateway:oauth_result',
-          requestId: msg.requestId,
-          success: true,
-          credential: { id: credential.id, name: credential.name },
-        })
       } else {
         this.wsClient.send({
           type: 'gateway:oauth_result',
@@ -1569,9 +1586,34 @@ export class AgentManager {
         })
       })
 
-      // Process exited successfully — save credential
+      // Process exited successfully — propagate credentials and save
       clearTimeout(entry.timer)
       this.activeOAuthProcesses.delete(msg.requestId)
+
+      // Propagate Gemini credentials from temp home to real home
+      if (entry.agentType === 'gemini' && entry.oauthTmpDir) {
+        const srcDir = join(entry.oauthTmpDir, '.gemini')
+        const dstDir = join(homedir(), '.gemini')
+        if (existsSync(srcDir)) {
+          if (!existsSync(dstDir)) mkdirSync(dstDir, { mode: 0o700, recursive: true })
+          for (const file of [
+            'oauth_creds.json',
+            'mcp-oauth-tokens-v2.json',
+            'google_accounts.json',
+          ]) {
+            const src = join(srcDir, file)
+            if (existsSync(src)) {
+              try {
+                copyFileSync(src, join(dstDir, file))
+                log.info(`Propagated Gemini credential file: ${file}`)
+              } catch (e) {
+                log.warn(`Failed to propagate ${file}: ${(e as Error).message}`)
+              }
+            }
+          }
+        }
+      }
+      entry.cleanupFn?.()
 
       const credential = addCredential(entry.agentType, {
         name: entry.credentialName,
@@ -1588,6 +1630,7 @@ export class AgentManager {
       clearTimeout(entry.timer)
       this.activeOAuthProcesses.delete(msg.requestId)
       entry.process.kill()
+      entry.cleanupFn?.()
 
       this.wsClient.send({
         type: 'gateway:oauth_result',
@@ -1704,6 +1747,7 @@ export class AgentManager {
     for (const [id, entry] of this.activeOAuthProcesses) {
       clearTimeout(entry.timer)
       entry.process.kill()
+      entry.cleanupFn?.()
       this.activeOAuthProcesses.delete(id)
     }
   }
