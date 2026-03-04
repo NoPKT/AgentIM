@@ -363,6 +363,7 @@ export interface ServerGatewayOAuthUrl {
   gatewayId: string
   requestId: string
   authUrl: string
+  autoCallback?: boolean
 }
 
 export interface ServerGatewayOAuthResult {
@@ -559,6 +560,9 @@ export interface GatewayOAuthUrl {
   type: 'gateway:oauth_url'
   requestId: string
   authUrl: string
+  /** When true, the CLI handles OAuth callbacks internally (e.g. via polling).
+   *  The user only needs to open the URL and authenticate — no callback paste needed. */
+  autoCallback?: boolean
 }
 
 export interface GatewayOAuthResult {

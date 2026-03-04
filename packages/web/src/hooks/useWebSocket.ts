@@ -334,6 +334,7 @@ export function useWebSocket() {
                   gatewayId: msg.gatewayId,
                   requestId: msg.requestId,
                   authUrl: msg.authUrl,
+                  autoCallback: msg.autoCallback,
                 },
               }),
             )

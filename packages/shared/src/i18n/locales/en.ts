@@ -803,6 +803,7 @@ export const en = {
     oauthCompleting: 'Completing...',
     oauthSuccess: 'OAuth login completed successfully',
     oauthFailed: 'OAuth login failed',
+    oauthAutoWaiting: 'Waiting for authentication to complete... This will finish automatically.',
     oauthTimeout: 'OAuth login timed out. Please try again.',
   },
 }

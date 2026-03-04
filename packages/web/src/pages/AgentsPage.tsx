@@ -848,6 +848,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
   const [oauthPending, setOauthPending] = useState(false)
   const [oauthRequestId, setOauthRequestId] = useState<string | null>(null)
   const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null)
+  const [oauthAutoCallback, setOauthAutoCallback] = useState(false)
   const [callbackUrl, setCallbackUrl] = useState('')
   const [oauthSubmitting, setOauthSubmitting] = useState(false)
 
@@ -883,6 +884,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
       if (detail.gatewayId === gatewayId) {
         setOauthRequestId(detail.requestId)
         setOauthAuthUrl(detail.authUrl)
+        setOauthAutoCallback(!!detail.autoCallback)
         setOauthPending(false)
       }
     }
@@ -892,6 +894,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
         setOauthPending(false)
         setOauthSubmitting(false)
         setOauthAuthUrl(null)
+        setOauthAutoCallback(false)
         setOauthRequestId(null)
         setCallbackUrl('')
         if (detail.success) {
@@ -1207,6 +1210,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                         setAddMode('api')
                         setOauthPending(false)
                         setOauthAuthUrl(null)
+                        setOauthAutoCallback(false)
                         setOauthRequestId(null)
                         setCallbackUrl('')
                       }}
@@ -1227,6 +1231,70 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                       {oauthPending ? t('credential.oauthStarting') : t('credential.oauthStart')}
                     </Button>
                   </div>
+                </div>
+              ) : oauthAutoCallback ? (
+                <div className="space-y-2.5">
+                  {/* Auth URL display — auto-callback mode (no paste step) */}
+                  <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                    <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
+                      {t('credential.oauthStep1')}
+                    </p>
+                    <a
+                      href={oauthAuthUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
+                    >
+                      {oauthAuthUrl.length > 120
+                        ? oauthAuthUrl.slice(0, 120) + '...'
+                        : oauthAuthUrl}
+                    </a>
+                  </div>
+
+                  {/* Waiting indicator */}
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-hover/50 border border-border">
+                    <svg
+                      className="animate-spin h-3.5 w-3.5 text-accent flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        className="opacity-25"
+                      />
+                      <path
+                        d="M4 12a8 8 0 018-8"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <p className="text-[10px] text-text-muted">
+                      {t('credential.oauthAutoWaiting')}
+                    </p>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setShowAddForm(false)
+                      setAddName('')
+                      setAddMode('api')
+                      setOauthPending(false)
+                      setOauthAuthUrl(null)
+                      setOauthAutoCallback(false)
+                      setOauthRequestId(null)
+                      setCallbackUrl('')
+                    }}
+                    className="w-full"
+                  >
+                    {t('common.cancel')}
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -1271,6 +1339,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                         setAddMode('api')
                         setOauthPending(false)
                         setOauthAuthUrl(null)
+                        setOauthAutoCallback(false)
                         setOauthRequestId(null)
                         setCallbackUrl('')
                       }}

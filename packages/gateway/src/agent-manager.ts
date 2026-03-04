@@ -1213,6 +1213,9 @@ export class AgentManager {
       /** Regex pattern in stdout that indicates CLI is already authenticated.
        *  When matched, the process is killed and the credential is auto-created. */
       successPattern?: string
+      /** When true, the CLI handles OAuth callbacks internally (e.g. via polling).
+       *  The user only needs to open the URL — no callback paste needed. */
+      autoCallback?: boolean
     }
   > = {
     'claude-code': { cmd: 'claude', args: ['setup-token'], needsPty: true },
@@ -1220,9 +1223,12 @@ export class AgentManager {
     // Gemini CLI has no dedicated auth command. Headless mode triggers OAuth
     // if not yet authenticated. We force a clean home dir via GEMINI_CLI_HOME
     // so cached credentials never short-circuit the OAuth flow.
+    // autoCallback: Gemini CLI detects OAuth success via Google's servers (polling),
+    // so the user doesn't need to paste a localhost callback URL.
     gemini: {
       cmd: 'gemini',
       args: ['-p', 'respond with OK'],
+      autoCallback: true,
     },
   }
 
@@ -1359,6 +1365,7 @@ export class AgentManager {
         type: 'gateway:oauth_url',
         requestId: msg.requestId,
         authUrl: url,
+        autoCallback: loginInfo.autoCallback,
       })
     }
 
@@ -1579,6 +1586,11 @@ export class AgentManager {
 
     log.info(`Relaying OAuth callback for ${entry.agentType} (request=${msg.requestId})`)
 
+    // Immediately claim ownership so the exit handler in handleStartOAuth skips.
+    // This prevents duplicate credential creation from the race condition.
+    clearTimeout(entry.timer)
+    this.activeOAuthProcesses.delete(msg.requestId)
+
     try {
       // Make HTTP request to the CLI tool's local server with the callback URL
       // The callback URL looks like http://localhost:PORT/callback?code=xxx&state=yyy
@@ -1587,22 +1599,25 @@ export class AgentManager {
         log.warn(`OAuth callback returned ${response.status}`)
       }
 
-      // Wait for the process to exit (up to 30s)
-      await new Promise<void>((resolve, reject) => {
-        const exitTimeout = setTimeout(() => {
-          reject(new Error('Login process did not exit after receiving callback'))
-        }, 30_000)
+      // Wait for the process to exit (up to 30s).
+      // If the process already exited, resolve immediately.
+      if (entry.process.exitCode !== null) {
+        if (entry.process.exitCode !== 0) {
+          throw new Error(`Login process already exited with code ${entry.process.exitCode}`)
+        }
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          const exitTimeout = setTimeout(() => {
+            reject(new Error('Login process did not exit after receiving callback'))
+          }, 30_000)
 
-        entry.process.on('exit', (code) => {
-          clearTimeout(exitTimeout)
-          if (code === 0) resolve()
-          else reject(new Error(`Login process exited with code ${code}`))
+          entry.process.on('exit', (code) => {
+            clearTimeout(exitTimeout)
+            if (code === 0) resolve()
+            else reject(new Error(`Login process exited with code ${code}`))
+          })
         })
-      })
-
-      // Process exited successfully — propagate credentials and save
-      clearTimeout(entry.timer)
-      this.activeOAuthProcesses.delete(msg.requestId)
+      }
 
       // Propagate Gemini credentials from temp home to real home
       if (entry.agentType === 'gemini' && entry.oauthTmpDir) {

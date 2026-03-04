@@ -787,6 +787,7 @@ export const zhCN = {
     oauthCompleting: '完成中...',
     oauthSuccess: 'OAuth 登录已成功完成',
     oauthFailed: 'OAuth 登录失败',
+    oauthAutoWaiting: '正在等待授权完成…授权后将自动添加凭证。',
     oauthTimeout: 'OAuth 登录超时，请重试。',
   },
 }
