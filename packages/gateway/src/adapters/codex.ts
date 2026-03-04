@@ -89,68 +89,11 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   /**
-   * Load available models.  Tries the Codex CLI local cache first
-   * (~/.codex/models_cache.json) which contains rich metadata (display name,
-   * visibility, description, supported reasoning levels).  Falls back to the
-   * OpenAI /v1/models API when the cache is missing.
-   */
-  private async fetchModels(): Promise<void> {
-    // 1. Try Codex CLI cache
-    if (await this.loadModelsFromCache()) return
-
-    // 2. Fallback: fetch from /v1/models API
-    await this.fetchModelsFromApi()
-  }
-
-  /**
-   * Read ~/.codex/models_cache.json written by the official Codex CLI.
-   * Returns true if models were loaded successfully.
-   */
-  private async loadModelsFromCache(): Promise<boolean> {
-    try {
-      const os = await import('node:os')
-      const fs = await import('node:fs/promises')
-      const path = await import('node:path')
-      const cachePath = path.join(os.homedir(), '.codex', 'models_cache.json')
-      const raw = await fs.readFile(cachePath, 'utf-8')
-      const data = JSON.parse(raw) as {
-        models?: Array<{
-          slug: string
-          display_name?: string
-          description?: string
-          visibility?: string
-          supported_in_api?: boolean
-          priority?: number
-        }>
-      }
-      if (!data.models || data.models.length === 0) return false
-
-      // Only show models marked as listable and API-supported
-      const visible = data.models
-        .filter((m) => m.visibility === 'list' && m.supported_in_api !== false)
-        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
-
-      if (visible.length === 0) return false
-
-      this.cachedModelInfo = visible.map((m) => ({
-        value: m.slug,
-        displayName: m.display_name ?? m.slug,
-        description: m.description,
-      }))
-      log.info(`Loaded ${this.cachedModelInfo.length} Codex models from CLI cache`)
-      return true
-    } catch {
-      // Cache file missing or unreadable — fall through to API
-      return false
-    }
-  }
-
-  /**
    * Fetch available models from the OpenAI /v1/models endpoint.
    * Credentials (API key or OAuth token) are already resolved into
    * env by agentConfigToEnv() at connection time.
    */
-  private async fetchModelsFromApi(): Promise<void> {
+  private async fetchModels(): Promise<void> {
     const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
     if (!token) {
       log.warn('No CODEX_API_KEY or OPENAI_API_KEY — cannot fetch model list')
@@ -171,7 +114,7 @@ export class CodexAdapter extends BaseAgentAdapter {
       const body = (await res.json()) as { data?: Array<{ id: string }> }
       if (!body.data) return
       const models = body.data
-        .filter((m) => /codex|^o[0-9]|^gpt-[45]/i.test(m.id))
+        .filter((m) => /codex|gpt/i.test(m.id))
         .map((m) => m.id)
         .sort()
         .reverse()
