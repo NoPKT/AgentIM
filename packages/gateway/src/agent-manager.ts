@@ -1310,9 +1310,16 @@ export class AgentManager {
 
     // For Gemini, force a clean home dir and file-based storage so cached
     // credentials (keychain or files) never short-circuit the OAuth flow.
+    // Seed a minimal settings.json so the CLI knows to use OAuth auth.
     if (msg.agentType === 'gemini') {
       env.GEMINI_CLI_HOME = oauthTmpDir
       env.GEMINI_FORCE_FILE_STORAGE = 'true'
+      const geminiDir = join(oauthTmpDir, '.gemini')
+      mkdirSync(geminiDir, { recursive: true, mode: 0o700 })
+      writeFileSync(
+        join(geminiDir, 'settings.json'),
+        JSON.stringify({ security: { auth: { selectedType: 'oauth-personal' } } }),
+      )
     }
 
     // Some CLIs (e.g. Claude Code's setup-token) use Ink TUI that requires
@@ -1541,6 +1548,7 @@ export class AgentManager {
         })
         log.info(`OAuth completed successfully for ${msg.agentType}`)
       } else {
+        cleanupFiles()
         this.wsClient.send({
           type: 'gateway:oauth_result',
           requestId: msg.requestId,
