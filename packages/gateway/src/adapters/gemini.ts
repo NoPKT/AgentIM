@@ -213,7 +213,6 @@ export class GeminiAdapter extends BaseAgentAdapter {
       debugMode: false,
       interactive: false,
       approvalMode,
-      ...(this.thinkingBudget !== 'off' ? { thinkingBudget: this.thinkingBudget } : {}),
     }
     this.config = new sdk.Config(configOpts)
 
@@ -621,9 +620,12 @@ export class GeminiAdapter extends BaseAgentAdapter {
           }
         }
         this.modelOverride = name
-        // Reset session so next message uses the new model
-        this.resetSession()
-        return { success: true, message: `Model set to: ${name} (session will restart)` }
+        // Update model in-place if session is active; otherwise it takes effect on next init
+        if (this.config && this.initialized) {
+          this.config.setModel(name)
+          log.info(`Model switched in-place to: ${name}`)
+        }
+        return { success: true, message: `Model set to: ${name}` }
       }
       case 'cost': {
         const summary = this.getCostSummary()
@@ -644,8 +646,13 @@ export class GeminiAdapter extends BaseAgentAdapter {
         } else {
           this.planMode = !this.planMode
         }
-        // Reset session so approval mode updates
-        this.resetSession()
+        // Update approval mode in-place if session is active
+        if (this.config && this.initialized) {
+          const sdk = _cachedSdk!
+          const mode = this.planMode ? sdk.ApprovalMode.PLAN : sdk.ApprovalMode.DEFAULT
+          this.config.setApprovalMode(mode)
+          log.info(`Plan mode switched in-place to: ${this.planMode}`)
+        }
         return {
           success: true,
           message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
@@ -667,11 +674,12 @@ export class GeminiAdapter extends BaseAgentAdapter {
           }
         }
         this.thinkingBudget = level as 'off' | 'low' | 'medium' | 'high'
-        // Reset session so Config is recreated with the new thinking budget
-        this.resetSession()
+        // Note: thinking config in the Gemini SDK is per-model in defaultModelConfigs
+        // and cannot be changed at runtime via Config. This setting is stored locally
+        // and takes effect only when a new session is created (e.g. after /clear).
         return {
           success: true,
-          message: `Thinking budget set to: ${level} (session will restart)`,
+          message: `Thinking budget set to: ${level} (takes effect on next session)`,
         }
       }
       default:
@@ -687,10 +695,17 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   // Model list derived from the SDK's VALID_GEMINI_MODELS set.
   // Automatically stays in sync when the SDK is upgraded.
+  // Filters out internal variants and models that would be aliased away
+  // (e.g. gemini-3-pro-preview → gemini-3.1-pro-preview when 3.1 is launched).
   override getAvailableModels(): string[] {
     if (!_cachedSdk) return []
-    return [..._cachedSdk.VALID_GEMINI_MODELS].filter(
-      (m) => !m.includes('customtools'), // internal variant
+    // For API key / Vertex auth, getGemini31LaunchedSync() returns true,
+    // meaning gemini-3-pro-preview is aliased to gemini-3.1-pro-preview.
+    // Use isActiveModel() to filter out aliased models so the user cannot
+    // select a model that silently maps to a different one.
+    const useGemini31 = this.config?.getGemini31LaunchedSync?.() ?? true
+    return [..._cachedSdk.VALID_GEMINI_MODELS].filter((m) =>
+      _cachedSdk!.isActiveModel(m, useGemini31),
     )
   }
 
