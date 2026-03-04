@@ -1200,10 +1200,27 @@ export class AgentManager {
 
   // ─── Remote OAuth ───
 
-  private static readonly OAUTH_LOGIN_COMMANDS: Record<string, { cmd: string; args: string[] }> = {
-    'claude-code': { cmd: 'claude', args: ['setup-token'] },
+  private static readonly OAUTH_LOGIN_COMMANDS: Record<
+    string,
+    {
+      cmd: string
+      args: string[]
+      /** Whether the CLI needs a PTY (e.g. Ink-based TUIs like Claude Code) */
+      needsPty?: boolean
+      /** Regex pattern in stdout that indicates CLI is already authenticated.
+       *  When matched, the process is killed and the credential is auto-created. */
+      successPattern?: string
+    }
+  > = {
+    'claude-code': { cmd: 'claude', args: ['setup-token'], needsPty: true },
     codex: { cmd: 'codex', args: ['login'] },
-    gemini: { cmd: 'gemini', args: ['auth', 'login'] },
+    // Gemini CLI has no dedicated auth command. Headless mode triggers OAuth
+    // if not yet authenticated; "Loaded cached credentials" means already authed.
+    gemini: {
+      cmd: 'gemini',
+      args: ['-p', 'respond with OK'],
+      successPattern: 'Loaded cached credentials',
+    },
   }
 
   private static readonly OAUTH_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
@@ -1288,17 +1305,17 @@ export class AgentManager {
     // Prevent "cannot be launched inside another Claude Code session" error
     delete env.CLAUDECODE
 
-    // Many CLI tools (e.g. Claude Code's `setup-token`) use interactive TUI
-    // frameworks (Ink) that require a TTY with raw mode. When spawned with
-    // piped stdio, they crash immediately. Use python3's pty module to
-    // provide a pseudo-terminal so the CLI can function normally.
-    const spawnCmd = 'python3'
-    const spawnArgs = [
-      '-c',
-      'import pty,sys;pty.spawn(sys.argv[1:])',
-      loginInfo.cmd,
-      ...loginInfo.args,
-    ]
+    // Some CLIs (e.g. Claude Code's setup-token) use Ink TUI that requires
+    // TTY raw mode. Use python3 pty for those; others run directly.
+    let spawnCmd: string
+    let spawnArgs: string[]
+    if (loginInfo.needsPty) {
+      spawnCmd = 'python3'
+      spawnArgs = ['-c', 'import pty,sys;pty.spawn(sys.argv[1:])', loginInfo.cmd, ...loginInfo.args]
+    } else {
+      spawnCmd = loginInfo.cmd
+      spawnArgs = [...loginInfo.args]
+    }
 
     log.info(`OAuth spawning: ${spawnCmd} ${spawnArgs.join(' ')} (PATH prefix: ${oauthTmpDir})`)
 
@@ -1395,6 +1412,30 @@ export class AgentManager {
     const ansiOsc = new RegExp(ESC + '\\][^' + BEL + ']*' + BEL, 'g')
     const stripAnsi = (s: string) => s.replace(ansiCsi, '').replace(ansiOsc, '')
 
+    // Early success: if the CLI output matches a known "already authenticated"
+    // pattern, kill the process and create the credential immediately.
+    let earlySuccess = false
+    const handleEarlySuccess = () => {
+      if (earlySuccess || urlSent) return
+      earlySuccess = true
+      log.info(`OAuth early success: CLI already authenticated for ${msg.agentType}`)
+      child.kill()
+      clearTimeout(timer)
+      clearInterval(urlPoll)
+      this.activeOAuthProcesses.delete(msg.requestId)
+      cleanupFiles()
+      const credential = addCredential(msg.agentType, {
+        name: msg.credentialName,
+        mode: 'subscription',
+      })
+      this.wsClient.send({
+        type: 'gateway:oauth_result',
+        requestId: msg.requestId,
+        success: true,
+        credential: { id: credential.id, name: credential.name },
+      })
+    }
+
     // Also monitor stdout/stderr directly (works if the CLI prints the URL
     // to its own output, regardless of how BROWSER is handled)
     let stdoutChunks = 0
@@ -1406,8 +1447,15 @@ export class AgentManager {
         const preview = raw.length > 200 ? raw.slice(0, 200) + '...' : raw
         log.info(`OAuth ${source} chunk #${stdoutChunks}: ${JSON.stringify(preview)}`)
       }
+      const clean = stripAnsi(raw)
+
+      // Check for early success pattern (CLI already authenticated)
+      if (loginInfo.successPattern && clean.includes(loginInfo.successPattern)) {
+        handleEarlySuccess()
+        return
+      }
+
       if (!urlSent) {
-        const clean = stripAnsi(raw)
         // Match URL, excluding control characters
         const urlRe = new RegExp(
           'https?://[^\\s"\'<>' + String.fromCharCode(0) + '-' + String.fromCharCode(0x1f) + ']+',
