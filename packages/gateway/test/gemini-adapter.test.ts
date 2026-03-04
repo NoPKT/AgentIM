@@ -52,10 +52,12 @@ describe('GeminiAdapter model management', () => {
     // Wait for async SDK load triggered in constructor
     await new Promise((r) => setTimeout(r, 200))
     const models = a.getAvailableModels()
-    assert.ok(models.length >= 5)
+    // With useGemini3_1=true (default for API key auth), gemini-3-pro-preview
+    // is aliased to gemini-3.1-pro-preview and filtered out by isActiveModel().
+    assert.ok(models.length >= 4)
     assert.ok(models.includes('gemini-2.5-pro'))
     assert.ok(models.includes('gemini-2.5-flash'))
-    assert.ok(models.includes('gemini-3-pro-preview'))
+    assert.ok(models.includes('gemini-3.1-pro-preview'))
     a.dispose()
   })
 
