@@ -74,6 +74,7 @@ const mockAuthGetState = vi.fn(() => ({
 const mockUpdateAgent = vi.fn()
 const mockSetGatewayCredentials = vi.fn()
 const mockAgentGetState = vi.fn(() => ({
+  agents: [] as any[],
   updateAgent: mockUpdateAgent,
   setGatewayCredentials: mockSetGatewayCredentials,
   loadAgents: vi.fn(),

@@ -182,6 +182,7 @@ describe('slash-commands', () => {
             },
           ],
         ]),
+        addMessage: mockAddMessage,
       } as any)
 
       const cmd = getCommand('stop')
@@ -230,12 +231,13 @@ describe('slash-commands', () => {
         currentRoomId: 'room-1',
         messages: new Map(),
         streaming: new Map(),
+        addMessage: mockAddMessage,
       } as any)
 
       const cmd = getCommand('stop')
       cmd?.execute('')
       expect(wsClient.send).not.toHaveBeenCalled()
-      expect(toast.info).toHaveBeenCalled()
+      expect(mockAddMessage).toHaveBeenCalled()
     })
   })
 
