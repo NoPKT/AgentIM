@@ -132,6 +132,27 @@ describe('DaemonManager', () => {
       // PID 999999 should not be alive
       assert.equal(found!.alive, false)
     })
+
+    it('marks daemon with live PID as alive even when process identity is ambiguous', () => {
+      // Use the current process PID — it's alive but not an "agentim" binary.
+      // In lenient mode (used by listDaemons), isAgentimProcess should return
+      // true on catch if the process is alive, preventing incorrect cleanup.
+      const info: DaemonInfo = {
+        pid: process.pid,
+        name: `${TEST_PREFIX}live-pid`,
+        type: 'claude-code',
+        workDir: tmpdir(),
+        startedAt: new Date().toISOString(),
+        gatewayId: 'test-gateway-id',
+      }
+      testNames.push(info.name)
+      writeDaemonInfo(info)
+
+      const list = listDaemons()
+      const found = list.find((d) => d.name === info.name)
+      assert.ok(found !== undefined)
+      assert.equal(found!.alive, true)
+    })
   })
 
   describe('cleanStaleDaemons', () => {
