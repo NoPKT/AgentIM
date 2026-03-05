@@ -285,6 +285,8 @@ export const ko = {
     noGateways: '연결된 게이트웨이가 없습니다',
     agentsConnected: '{{count}}개 에이전트 연결됨',
     agentsConnected_one: '{{count}}개 에이전트 연결됨',
+    standaloneAgents: '{{count}}개의 독립 에이전트',
+    standaloneAgents_one: '{{count}}개의 독립 에이전트',
     gatewaysConnected: '{{count}}개 게이트웨이 연결됨',
     gatewaysConnected_one: '{{count}}개 게이트웨이 연결됨',
     capabilities: '기능',

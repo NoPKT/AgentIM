@@ -285,6 +285,8 @@ export const ja = {
     noGateways: '接続されたゲートウェイがありません',
     agentsConnected: '{{count}} 個のエージェントが接続中',
     agentsConnected_one: '{{count}} 個のエージェントが接続中',
+    standaloneAgents: '{{count}} 件のスタンドアロンエージェント',
+    standaloneAgents_one: '{{count}} 件のスタンドアロンエージェント',
     gatewaysConnected: '{{count}} 個のゲートウェイが接続中',
     gatewaysConnected_one: '{{count}} 個のゲートウェイが接続中',
     capabilities: '機能',
