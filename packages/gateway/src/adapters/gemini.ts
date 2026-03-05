@@ -187,11 +187,19 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
     const sdk = await this.ensureSdk()
 
-    // The Gemini SDK reads API keys and auth from process.env.
-    // Agent-specific env vars are stored in this.env, so we must bridge them.
-    // Agent config takes priority — always override process.env.
+    // The Gemini SDK is an in-process library that reads auth directly from
+    // process.env (not from constructor params).  We must bridge agent-specific
+    // env vars into process.env.  GEMINI_CLI_HOME is critical for subscription
+    // mode — the SDK's homedir() reads it to find the isolated auth directory.
+    //
+    // LIMITATION: process.env is global state.  Multiple Gemini agents with
+    // different credentials in the same Node.js process will clobber each
+    // other's env vars.  In practice each gateway runs one agent, so this
+    // is acceptable.  We save/restore previous values to minimize pollution.
     const envKeys = [
       'GEMINI_API_KEY',
+      'GEMINI_CLI_HOME',
+      'GEMINI_BASE_URL',
       'GOOGLE_API_KEY',
       'GOOGLE_CLOUD_PROJECT',
       'GOOGLE_CLOUD_REGION',
