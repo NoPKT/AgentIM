@@ -116,25 +116,46 @@ let _cachedSdk: typeof import('@google/gemini-cli-core') | null = null
  * - Maps all 18 Gemini stream events to ParsedChunk types
  * - Slash commands: /clear, /compact, /model, /cost, /plan
  */
+/** Per-room state for Gemini adapter. */
+interface GeminiRoomState {
+  config?: InstanceType<typeof import('@google/gemini-cli-core').Config>
+  client?: InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>
+  initialized: boolean
+  promptCounter: number
+  modelOverride?: string
+  planMode: boolean
+  thinkingBudget: 'off' | 'low' | 'medium' | 'high'
+}
+
+const DEFAULT_ROOM_KEY = '__global__'
+
 export class GeminiAdapter extends BaseAgentAdapter {
-  // SDK instances (lazy)
-  private config?: InstanceType<typeof import('@google/gemini-cli-core').Config>
-  private client?: InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>
-  private initialized = false
-
-  // Stream control
+  // Stream control (global — only one message can be processed at a time)
   private streamAbort?: AbortController
-  private promptCounter = 0
 
-  // Runtime settings
-  private modelOverride?: string
-  private planMode = false
-  private thinkingBudget: 'off' | 'low' | 'medium' | 'high' = 'off'
+  // Per-room state
+  private roomStates = new Map<string, GeminiRoomState>()
+  private currentRoomId?: string
 
   constructor(opts: AdapterOptions) {
     super(opts)
     // Eagerly trigger SDK load so model info is available for getAvailableModels()
     this.ensureSdk().catch(() => {})
+  }
+
+  private getRoomState(roomId?: string): GeminiRoomState {
+    const key = roomId ?? DEFAULT_ROOM_KEY
+    let state = this.roomStates.get(key)
+    if (!state) {
+      state = {
+        initialized: false,
+        promptCounter: 0,
+        planMode: false,
+        thinkingBudget: 'off',
+      }
+      this.roomStates.set(key, state)
+    }
+    return state
   }
 
   get type() {
@@ -157,10 +178,11 @@ export class GeminiAdapter extends BaseAgentAdapter {
    * Ensure we have an initialized GeminiClient, creating Config + Client if needed.
    */
   private async ensureClient(
-    _context?: MessageContext,
+    roomId?: string,
   ): Promise<InstanceType<typeof import('@google/gemini-cli-core').GeminiClient>> {
-    if (this.client && this.initialized) {
-      return this.client
+    const rs = this.getRoomState(roomId)
+    if (rs.client && rs.initialized) {
+      return rs.client
     }
 
     const sdk = await this.ensureSdk()
@@ -196,11 +218,11 @@ export class GeminiAdapter extends BaseAgentAdapter {
     let approvalMode = sdk.ApprovalMode.DEFAULT
     if (this.permissionLevel === 'bypass') {
       approvalMode = sdk.ApprovalMode.YOLO
-    } else if (this.planMode) {
+    } else if (rs.planMode) {
       approvalMode = sdk.ApprovalMode.PLAN
     }
 
-    const model = this.modelOverride ?? this.env.GEMINI_MODEL ?? sdk.DEFAULT_GEMINI_MODEL
+    const model = rs.modelOverride ?? this.env.GEMINI_MODEL ?? sdk.DEFAULT_GEMINI_MODEL
 
     const { nanoid } = await import('nanoid')
     const sessionId = nanoid()
@@ -214,30 +236,30 @@ export class GeminiAdapter extends BaseAgentAdapter {
       interactive: false,
       approvalMode,
     }
-    this.config = new sdk.Config(configOpts)
+    rs.config = new sdk.Config(configOpts)
 
     // Config._initialize() calls geminiClient.initialize() which requires
     // a contentGenerator, but contentGenerator is only set inside
     // refreshAuth(). We must call refreshAuth() BEFORE initialize().
     const authType = sdk.getAuthTypeFromEnv()
     if (authType) {
-      await this.config.refreshAuth(authType)
+      await rs.config.refreshAuth(authType)
     } else {
       // Default to API key auth — GEMINI_API_KEY should be set
-      await this.config.refreshAuth(sdk.AuthType.USE_GEMINI)
+      await rs.config.refreshAuth(sdk.AuthType.USE_GEMINI)
     }
 
-    await this.config.initialize()
+    await rs.config.initialize()
 
     // Use the Config's own pre-initialized geminiClient — it shares the
     // contentGenerator set by refreshAuth() above.
-    this.client = (this.config as any).geminiClient as InstanceType<
+    rs.client = (rs.config as any).geminiClient as InstanceType<
       typeof import('@google/gemini-cli-core').GeminiClient
     >
-    this.initialized = true
+    rs.initialized = true
 
     log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
-    return this.client!
+    return rs.client!
   }
 
   async sendMessage(
@@ -253,18 +275,20 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }
 
     this.isRunning = true
+    this.currentRoomId = context?.roomId
     let fullContent = ''
     let capacityAborted = false
     let retryError = ''
 
     try {
-      const client = await this.ensureClient(context)
+      const rs = this.getRoomState(context?.roomId)
+      const client = await this.ensureClient(context?.roomId)
       const sdk = await this.ensureSdk()
       const prompt = this.buildPrompt(content, context)
 
       this.streamAbort = new AbortController()
-      this.promptCounter++
-      const promptId = `prompt-${this.promptCounter}`
+      rs.promptCounter++
+      const promptId = `prompt-${rs.promptCounter}`
 
       // Abort on the very first retry attempt.  The SDK retries up to 10×
       // with exponential backoff by default; we surface errors immediately
@@ -586,19 +610,21 @@ export class GeminiAdapter extends BaseAgentAdapter {
   override async handleSlashCommand(
     command: string,
     args: string,
+    roomId?: string,
   ): Promise<{ success: boolean; message?: string }> {
+    const rs = this.getRoomState(roomId)
     switch (command) {
       case 'clear': {
-        this.resetSession()
+        this.resetSession(roomId)
         return { success: true, message: 'Session cleared' }
       }
       case 'compact': {
-        if (!this.client || !this.initialized) {
+        if (!rs.client || !rs.initialized) {
           return { success: true, message: 'No active session to compress' }
         }
         try {
           const { nanoid } = await import('nanoid')
-          const info = await this.client.tryCompressChat(nanoid(), true)
+          const info = await rs.client.tryCompressChat(nanoid(), true)
           return {
             success: true,
             message: `Chat compressed: ${info.originalTokenCount} → ${info.newTokenCount} tokens`,
@@ -613,16 +639,16 @@ export class GeminiAdapter extends BaseAgentAdapter {
       case 'model': {
         const name = args.trim()
         if (!name) {
-          const current = this.getModel() ?? '(default)'
+          const current = this.getModel(roomId) ?? '(default)'
           return {
             success: true,
             message: `Current model: ${current}\nUse /model <name> to switch`,
           }
         }
-        this.modelOverride = name
+        rs.modelOverride = name
         // Update model in-place if session is active; otherwise it takes effect on next init
-        if (this.config && this.initialized) {
-          this.config.setModel(name)
+        if (rs.config && rs.initialized) {
+          rs.config.setModel(name)
           log.info(`Model switched in-place to: ${name}`)
         }
         return { success: true, message: `Model set to: ${name}` }
@@ -640,22 +666,22 @@ export class GeminiAdapter extends BaseAgentAdapter {
       case 'plan': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.planMode = true
+          rs.planMode = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.planMode = false
+          rs.planMode = false
         } else {
-          this.planMode = !this.planMode
+          rs.planMode = !rs.planMode
         }
         // Update approval mode in-place if session is active
-        if (this.config && this.initialized) {
+        if (rs.config && rs.initialized) {
           const sdk = _cachedSdk!
-          const mode = this.planMode ? sdk.ApprovalMode.PLAN : sdk.ApprovalMode.DEFAULT
-          this.config.setApprovalMode(mode)
-          log.info(`Plan mode switched in-place to: ${this.planMode}`)
+          const mode = rs.planMode ? sdk.ApprovalMode.PLAN : sdk.ApprovalMode.DEFAULT
+          rs.config.setApprovalMode(mode)
+          log.info(`Plan mode switched in-place to: ${rs.planMode}`)
         }
         return {
           success: true,
-          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
+          message: `Plan mode: ${rs.planMode ? 'enabled' : 'disabled'}`,
         }
       }
       case 'think': {
@@ -663,7 +689,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
         if (!level) {
           return {
             success: true,
-            message: `Thinking budget: ${this.thinkingBudget}\nOptions: off, low, medium, high`,
+            message: `Thinking budget: ${rs.thinkingBudget}\nOptions: off, low, medium, high`,
           }
         }
         const valid = ['off', 'low', 'medium', 'high'] as const
@@ -673,7 +699,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
             message: `Invalid thinking level: ${level}\nOptions: off, low, medium, high`,
           }
         }
-        this.thinkingBudget = level as 'off' | 'low' | 'medium' | 'high'
+        rs.thinkingBudget = level as 'off' | 'low' | 'medium' | 'high'
         // Note: thinking config in the Gemini SDK is per-model in defaultModelConfigs
         // and cannot be changed at runtime via Config. This setting is stored locally
         // and takes effect only when a new session is created (e.g. after /clear).
@@ -689,8 +715,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   // ─── Model Management ───
 
-  override getModel(): string | undefined {
-    return this.modelOverride ?? this.env.GEMINI_MODEL ?? undefined
+  override getModel(roomId?: string): string | undefined {
+    return this.getRoomState(roomId).modelOverride ?? this.env.GEMINI_MODEL ?? undefined
   }
 
   // Model list derived from the SDK's VALID_GEMINI_MODELS set.
@@ -703,7 +729,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
     // meaning gemini-3-pro-preview is aliased to gemini-3.1-pro-preview.
     // Use isActiveModel() to filter out aliased models so the user cannot
     // select a model that silently maps to a different one.
-    const useGemini31 = this.config?.getGemini31LaunchedSync?.() ?? true
+    const rs = this.getRoomState(this.currentRoomId)
+    const useGemini31 = rs.config?.getGemini31LaunchedSync?.() ?? true
     return [..._cachedSdk.VALID_GEMINI_MODELS].filter((m) =>
       _cachedSdk!.isActiveModel(m, useGemini31),
     )
@@ -719,23 +746,23 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }))
   }
 
-  override getPlanMode(): boolean {
-    return this.planMode
+  override getPlanMode(roomId?: string): boolean {
+    return this.getRoomState(roomId).planMode
   }
 
   override get supportsRewind() {
     return true
   }
 
-  override async rewind(_messageId: string) {
+  override async rewind(_messageId: string, roomId?: string) {
     // Reset the session so next message starts clean.
     // Server already deleted messages; room_context will resend truncated history.
-    this.resetSession()
+    this.resetSession(roomId)
     return { success: true }
   }
 
-  override getThinkingMode(): string | undefined {
-    return this.thinkingBudget
+  override getThinkingMode(roomId?: string): string | undefined {
+    return this.getRoomState(roomId).thinkingBudget
   }
 
   override getAvailableThinkingModes(): string[] {
@@ -744,17 +771,18 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   // ─── Session Lifecycle ───
 
-  private resetSession() {
-    if (this.config) {
+  private resetSession(roomId?: string) {
+    const rs = this.getRoomState(roomId)
+    if (rs.config) {
       try {
-        this.config.dispose()
+        rs.config.dispose()
       } catch {
         // Ignore disposal errors
       }
     }
-    this.config = undefined
-    this.client = undefined
-    this.initialized = false
+    rs.config = undefined
+    rs.client = undefined
+    rs.initialized = false
     log.info('Gemini session reset')
   }
 
@@ -765,7 +793,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }
     this.streamAbort = undefined
     this.isRunning = false
-    this.resetSession()
+    this.resetSession(this.currentRoomId)
   }
 
   dispose() {
@@ -774,7 +802,17 @@ export class GeminiAdapter extends BaseAgentAdapter {
     }
     this.streamAbort = undefined
     this.isRunning = false
-    this.resetSession()
+    // Dispose all room sessions
+    for (const [, rs] of this.roomStates) {
+      if (rs.config) {
+        try {
+          rs.config.dispose()
+        } catch {
+          // Ignore disposal errors
+        }
+      }
+    }
+    this.roomStates.clear()
     _cachedSdk = null
   }
 }

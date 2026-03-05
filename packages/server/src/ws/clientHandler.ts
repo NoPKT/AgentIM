@@ -270,7 +270,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
       case 'client:agent_command':
         return await handleAgentCommand(ws, msg.agentId, msg.roomId, msg.command, msg.args)
       case 'client:query_agent_info':
-        return await handleQueryAgentInfo(ws, msg.agentId)
+        return await handleQueryAgentInfo(ws, msg.agentId, msg.roomId)
       case 'client:request_workspace':
         return await handleRequestWorkspace(ws, msg.roomId, msg.agentId, msg.request)
       case 'client:list_gateway_credentials':
@@ -1073,13 +1073,14 @@ async function handleAgentCommand(
   }
 }
 
-async function handleQueryAgentInfo(ws: WSContext, agentId: string) {
+async function handleQueryAgentInfo(ws: WSContext, agentId: string, roomId?: string) {
   const client = connectionManager.getClient(ws)
   if (!client) return
 
   const queryMsg: ServerQueryAgentInfo = {
     type: 'server:query_agent_info',
     agentId,
+    roomId,
   }
   const sent = connectionManager.sendToGateway(agentId, queryMsg)
   if (!sent) {

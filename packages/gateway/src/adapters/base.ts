@@ -158,7 +158,7 @@ export abstract class BaseAgentAdapter {
   }
 
   /** Return the model this agent is using, if known. */
-  getModel(): string | undefined {
+  getModel(_roomId?: string): string | undefined {
     return undefined
   }
 
@@ -173,12 +173,12 @@ export abstract class BaseAgentAdapter {
   }
 
   /** Return the current thinking mode, if applicable. */
-  getThinkingMode(): string | undefined {
+  getThinkingMode(_roomId?: string): string | undefined {
     return undefined
   }
 
   /** Return the current effort level, if applicable. */
-  getEffortLevel(): string | undefined {
+  getEffortLevel(_roomId?: string): string | undefined {
     return undefined
   }
 
@@ -203,7 +203,7 @@ export abstract class BaseAgentAdapter {
   }
 
   /** Return whether plan mode is active. */
-  getPlanMode(): boolean {
+  getPlanMode(_roomId?: string): boolean {
     return false
   }
 
@@ -220,6 +220,7 @@ export abstract class BaseAgentAdapter {
   async handleSlashCommand(
     _command: string,
     _args: string,
+    _roomId?: string,
   ): Promise<{ success: boolean; message?: string }> {
     return { success: false, message: 'Command not supported by this agent' }
   }
@@ -230,7 +231,10 @@ export abstract class BaseAgentAdapter {
   }
 
   /** Rewind the agent's conversation state. Override in adapters that support it. */
-  async rewind(_messageId: string): Promise<{ success: boolean; error?: string }> {
+  async rewind(
+    _messageId: string,
+    _roomId?: string,
+  ): Promise<{ success: boolean; error?: string }> {
     return { success: false, error: 'Rewind not supported by this adapter' }
   }
 }

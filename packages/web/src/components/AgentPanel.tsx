@@ -49,9 +49,9 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
   // Query fresh info when panel opens
   useEffect(() => {
     if (isOpen && agentId) {
-      wsClient.send({ type: 'client:query_agent_info', agentId })
+      wsClient.send({ type: 'client:query_agent_info', agentId, roomId })
     }
-  }, [isOpen, agentId])
+  }, [isOpen, agentId, roomId])
 
   useEffect(() => {
     if (agent) setNameValue(agent.name)
@@ -76,7 +76,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
         setPendingCommand(null)
         if (msg.success) {
           toast.success(t('agentPanel.settingUpdated'))
-          wsClient.send({ type: 'client:query_agent_info', agentId })
+          wsClient.send({ type: 'client:query_agent_info', agentId, roomId })
         } else {
           toast.error(msg.message ?? t('common.error'))
         }
@@ -574,7 +574,7 @@ export function AgentPanelMulti({ agentIds, roomId, isOpen, onClose }: AgentPane
   useEffect(() => {
     if (isOpen) {
       for (const id of agentIds) {
-        wsClient.send({ type: 'client:query_agent_info', agentId: id })
+        wsClient.send({ type: 'client:query_agent_info', agentId: id, roomId })
       }
     }
   }, [isOpen, agentIds])
@@ -683,7 +683,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
         setPendingCommand(null)
         if (msg.success) {
           toast.success(t('agentPanel.settingUpdated'))
-          wsClient.send({ type: 'client:query_agent_info', agentId })
+          wsClient.send({ type: 'client:query_agent_info', agentId, roomId })
         } else {
           toast.error(msg.message ?? t('common.error'))
         }

@@ -55,20 +55,28 @@ const CODEX_AGENTIM_CONTEXT_PREAMBLE = [
   'The room system will route your message to the mentioned agent.',
 ].join('\n')
 
+/** Per-room state for Codex adapter. */
+interface CodexRoomState {
+  thread?: Thread
+  threadId?: string | null
+  modelOverride?: string
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+  sandboxMode?: SandboxMode
+  webSearchMode?: WebSearchMode
+  networkAccess?: boolean
+  planMode: boolean
+}
+
+const DEFAULT_ROOM_KEY = '__global__'
+
 export class CodexAdapter extends BaseAgentAdapter {
   private codex?: Codex
-  private thread?: Thread
-  private threadId?: string | null
   /** Whether prompt-based permission simulation is active for this adapter. */
   private readonly promptPermission: boolean
-  private planMode = false
 
-  // Runtime settings configurable via slash commands
-  private modelOverride?: string
-  private reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
-  private sandboxMode?: SandboxMode
-  private webSearchMode?: WebSearchMode
-  private networkAccess?: boolean
+  // Per-room state
+  private roomStates = new Map<string, CodexRoomState>()
+  private currentRoomId?: string
 
   // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
   private cachedModelInfo: ModelOption[] = []
@@ -86,6 +94,16 @@ export class CodexAdapter extends BaseAgentAdapter {
     this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
     // Fetch model list from OpenAI API (async, non-blocking)
     this.fetchModelsPromise = this.fetchModels().catch(() => {})
+  }
+
+  private getRoomState(roomId?: string): CodexRoomState {
+    const key = roomId ?? DEFAULT_ROOM_KEY
+    let state = this.roomStates.get(key)
+    if (!state) {
+      state = { planMode: false }
+      this.roomStates.set(key, state)
+    }
+    return state
   }
 
   get type() {
@@ -356,9 +374,10 @@ export class CodexAdapter extends BaseAgentAdapter {
    * first query, so true cross-process session resumption is not possible
    * unless the caller persists and injects threadId externally.
    */
-  private async ensureThread() {
+  private async ensureThread(roomId?: string) {
     await this.ensureCodex()
-    if (!this.thread) {
+    const rs = this.getRoomState(roomId)
+    if (!rs.thread) {
       // Codex SDK limitation: no permission-request callback or event in its API.
       // The only control is `approvalPolicy`:
       //   - 'never'      = auto-approve all tool executions
@@ -422,29 +441,29 @@ export class CodexAdapter extends BaseAgentAdapter {
         workingDirectory: this.workingDirectory,
         approvalPolicy,
       }
-      if (this.modelOverride || this.env.CODEX_MODEL) {
-        threadOpts.model = this.modelOverride || this.env.CODEX_MODEL
+      if (rs.modelOverride || this.env.CODEX_MODEL) {
+        threadOpts.model = rs.modelOverride || this.env.CODEX_MODEL
       }
-      if (this.reasoningEffort) {
-        threadOpts.modelReasoningEffort = this.reasoningEffort
+      if (rs.reasoningEffort) {
+        threadOpts.modelReasoningEffort = rs.reasoningEffort
       }
-      if (this.sandboxMode) {
-        threadOpts.sandboxMode = this.sandboxMode
+      if (rs.sandboxMode) {
+        threadOpts.sandboxMode = rs.sandboxMode
       }
-      if (this.networkAccess !== undefined) {
-        threadOpts.networkAccessEnabled = this.networkAccess
+      if (rs.networkAccess !== undefined) {
+        threadOpts.networkAccessEnabled = rs.networkAccess
       }
-      if (this.webSearchMode) {
-        threadOpts.webSearchMode = this.webSearchMode
+      if (rs.webSearchMode) {
+        threadOpts.webSearchMode = rs.webSearchMode
       }
       if (this.env.CODEX_ADDITIONAL_DIRS) {
         threadOpts.additionalDirectories = this.env.CODEX_ADDITIONAL_DIRS.split(':')
       }
-      if (this.threadId) {
-        this.thread = this.codex!.resumeThread(this.threadId, threadOpts)
-        log.info(`Resumed Codex thread: ${this.threadId}`)
+      if (rs.threadId) {
+        rs.thread = this.codex!.resumeThread(rs.threadId, threadOpts)
+        log.info(`Resumed Codex thread: ${rs.threadId}`)
       } else {
-        this.thread = this.codex!.startThread(threadOpts)
+        rs.thread = this.codex!.startThread(threadOpts)
         log.info(`Started new Codex thread (approvalPolicy=${approvalPolicy})`)
       }
     }
@@ -458,7 +477,7 @@ export class CodexAdapter extends BaseAgentAdapter {
   protected override buildPrompt(content: string, context?: MessageContext): string {
     const base = super.buildPrompt(content, context)
     const parts: string[] = []
-    if (this.planMode) {
+    if (this.getRoomState(this.currentRoomId).planMode) {
       parts.push(CODEX_PLAN_MODE_PREAMBLE)
     }
     if (this.promptPermission) {
@@ -485,22 +504,24 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
 
     this.isRunning = true
+    this.currentRoomId = context?.roomId
     let fullContent = ''
 
     try {
-      await this.ensureThread()
+      const rs = this.getRoomState(context?.roomId)
+      await this.ensureThread(context?.roomId)
       const prompt = this.buildPrompt(content, context)
       const abortController = new AbortController()
       this.turnAbort = abortController
-      const { events } = await this.thread!.runStreamed(prompt, {
+      const { events } = await rs.thread!.runStreamed(prompt, {
         signal: abortController.signal,
       })
 
       for await (const event of events) {
         // Capture thread ID
         if (event.type === 'thread.started') {
-          this.threadId = event.thread_id
-          log.info(`Codex thread ID: ${this.threadId}`)
+          rs.threadId = event.thread_id
+          log.info(`Codex thread ID: ${rs.threadId}`)
           continue
         }
 
@@ -668,8 +689,8 @@ export class CodexAdapter extends BaseAgentAdapter {
     ]
   }
 
-  override getModel(): string | undefined {
-    return this.modelOverride || this.env.CODEX_MODEL || 'codex-mini-latest'
+  override getModel(roomId?: string): string | undefined {
+    return this.getRoomState(roomId).modelOverride || this.env.CODEX_MODEL || 'codex-mini-latest'
   }
 
   // Models are fetched dynamically from the OpenAI /v1/models API.
@@ -693,40 +714,42 @@ export class CodexAdapter extends BaseAgentAdapter {
     ])
   }
 
-  override getPlanMode(): boolean {
-    return this.planMode
+  override getPlanMode(roomId?: string): boolean {
+    return this.getRoomState(roomId).planMode
   }
 
   override getAvailableEffortLevels(): string[] {
     return ['minimal', 'low', 'medium', 'high', 'xhigh']
   }
 
-  override getEffortLevel(): string | undefined {
-    return this.reasoningEffort
+  override getEffortLevel(roomId?: string): string | undefined {
+    return this.getRoomState(roomId).reasoningEffort
   }
 
   override async handleSlashCommand(
     command: string,
     args: string,
+    roomId?: string,
   ): Promise<{ success: boolean; message?: string }> {
+    const rs = this.getRoomState(roomId)
     switch (command) {
       case 'clear': {
-        this.thread = undefined
-        this.threadId = undefined
+        rs.thread = undefined
+        rs.threadId = undefined
         return { success: true, message: 'Thread cleared' }
       }
       case 'model': {
         const name = args.trim()
         if (!name) {
-          const current = this.getModel() ?? '(default)'
+          const current = this.getModel(roomId) ?? '(default)'
           return {
             success: true,
             message: `Current model: ${current}\nUse /model <name> to switch`,
           }
         }
-        this.modelOverride = name
+        rs.modelOverride = name
         // Force thread recreation to apply the new model
-        this.thread = undefined
+        rs.thread = undefined
         return { success: true, message: `Model set to: ${name} (thread will restart)` }
       }
       case 'effort': {
@@ -734,7 +757,7 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (!level) {
           return {
             success: true,
-            message: `Reasoning effort: ${this.reasoningEffort ?? '(default)'}\nOptions: minimal, low, medium, high, xhigh`,
+            message: `Reasoning effort: ${rs.reasoningEffort ?? '(default)'}\nOptions: minimal, low, medium, high, xhigh`,
           }
         }
         const valid = ['minimal', 'low', 'medium', 'high', 'xhigh'] as const
@@ -744,9 +767,9 @@ export class CodexAdapter extends BaseAgentAdapter {
             message: `Invalid effort level: ${level}\nOptions: minimal, low, medium, high, xhigh`,
           }
         }
-        this.reasoningEffort = level as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+        rs.reasoningEffort = level as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
         // Force thread recreation to apply the new effort level
-        this.thread = undefined
+        rs.thread = undefined
         return { success: true, message: `Reasoning effort set to: ${level} (thread will restart)` }
       }
       case 'cost': {
@@ -764,7 +787,7 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (!mode) {
           return {
             success: true,
-            message: `Sandbox mode: ${this.sandboxMode ?? '(default)'}\nOptions: read-only, workspace-write, danger-full-access`,
+            message: `Sandbox mode: ${rs.sandboxMode ?? '(default)'}\nOptions: read-only, workspace-write, danger-full-access`,
           }
         }
         const valid = ['read-only', 'workspace-write', 'danger-full-access'] as const
@@ -774,8 +797,8 @@ export class CodexAdapter extends BaseAgentAdapter {
             message: `Invalid sandbox mode: ${mode}\nOptions: read-only, workspace-write, danger-full-access`,
           }
         }
-        this.sandboxMode = mode as SandboxMode
-        this.thread = undefined
+        rs.sandboxMode = mode as SandboxMode
+        rs.thread = undefined
         return { success: true, message: `Sandbox set to: ${mode} (thread will restart)` }
       }
       case 'websearch': {
@@ -783,7 +806,7 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (!mode) {
           return {
             success: true,
-            message: `Web search mode: ${this.webSearchMode ?? '(default)'}\nOptions: disabled, cached, live`,
+            message: `Web search mode: ${rs.webSearchMode ?? '(default)'}\nOptions: disabled, cached, live`,
           }
         }
         const valid = ['disabled', 'cached', 'live'] as const
@@ -793,42 +816,42 @@ export class CodexAdapter extends BaseAgentAdapter {
             message: `Invalid web search mode: ${mode}\nOptions: disabled, cached, live`,
           }
         }
-        this.webSearchMode = mode as WebSearchMode
-        this.thread = undefined
+        rs.webSearchMode = mode as WebSearchMode
+        rs.thread = undefined
         return { success: true, message: `Web search set to: ${mode} (thread will restart)` }
       }
       case 'network': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.networkAccess = true
+          rs.networkAccess = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.networkAccess = false
+          rs.networkAccess = false
         } else if (!arg) {
           return {
             success: true,
-            message: `Network access: ${this.networkAccess === undefined ? '(default)' : this.networkAccess ? 'enabled' : 'disabled'}\nUse /network on|off`,
+            message: `Network access: ${rs.networkAccess === undefined ? '(default)' : rs.networkAccess ? 'enabled' : 'disabled'}\nUse /network on|off`,
           }
         } else {
-          this.networkAccess = !this.networkAccess
+          rs.networkAccess = !rs.networkAccess
         }
-        this.thread = undefined
+        rs.thread = undefined
         return {
           success: true,
-          message: `Network access: ${this.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
+          message: `Network access: ${rs.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
         }
       }
       case 'plan': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.planMode = true
+          rs.planMode = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.planMode = false
+          rs.planMode = false
         } else {
-          this.planMode = !this.planMode
+          rs.planMode = !rs.planMode
         }
         return {
           success: true,
-          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
+          message: `Plan mode: ${rs.planMode ? 'enabled' : 'disabled'}`,
         }
       }
       default:
@@ -845,7 +868,8 @@ export class CodexAdapter extends BaseAgentAdapter {
       this.turnAbort = undefined
     }
     // threadId is preserved so ensureThread() can resume the conversation
-    this.thread = undefined
+    const rs = this.getRoomState(this.currentRoomId)
+    rs.thread = undefined
   }
 
   dispose() {
@@ -854,8 +878,7 @@ export class CodexAdapter extends BaseAgentAdapter {
       this.turnAbort.abort()
       this.turnAbort = undefined
     }
-    this.thread = undefined
-    this.threadId = undefined
+    this.roomStates.clear()
     this.codex = undefined
   }
 }

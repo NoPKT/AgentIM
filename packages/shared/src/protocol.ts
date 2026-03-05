@@ -77,6 +77,7 @@ export interface ClientAgentCommand {
 export interface ClientQueryAgentInfo {
   type: 'client:query_agent_info'
   agentId: string
+  roomId?: string
 }
 
 export interface ClientRequestWorkspace {
@@ -503,6 +504,7 @@ export interface GatewayAgentCommandResult {
 export interface GatewayAgentInfo {
   type: 'gateway:agent_info'
   agentId: string
+  roomId?: string
   slashCommands: AgentSlashCommand[]
   mcpServers: string[]
   model?: string
@@ -669,6 +671,7 @@ export interface ServerAgentCommand {
 export interface ServerQueryAgentInfo {
   type: 'server:query_agent_info'
   agentId: string
+  roomId?: string
 }
 
 export interface ServerPermissionResponse {

@@ -49,7 +49,7 @@ export function MemberListPanel({
   // When an agent is selected, show inline details instead of the member list
   if (selectedAgentId) {
     // Query fresh info when selecting an agent
-    wsClient.send({ type: 'client:query_agent_info', agentId: selectedAgentId })
+    wsClient.send({ type: 'client:query_agent_info', agentId: selectedAgentId, roomId })
 
     return (
       <>

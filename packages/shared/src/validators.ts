@@ -546,6 +546,7 @@ export const clientAgentCommandSchema = z.object({
 export const clientQueryAgentInfoSchema = z.object({
   type: z.literal('client:query_agent_info'),
   agentId: z.string().min(1),
+  roomId: z.string().min(1).optional(),
 })
 
 export const clientRequestWorkspaceSchema = z.object({
@@ -734,6 +735,7 @@ const modelOptionSchema = z.object({
 export const gatewayAgentInfoSchema = z.object({
   type: z.literal('gateway:agent_info'),
   agentId: z.string().min(1),
+  roomId: z.string().min(1).optional(),
   slashCommands: z.array(agentSlashCommandSchema).max(100),
   mcpServers: z.array(z.string().max(200)).max(100),
   model: z.string().max(200).optional(),
@@ -1330,6 +1332,7 @@ export const serverAgentCommandSchema = z.object({
 export const serverQueryAgentInfoSchema = z.object({
   type: z.literal('server:query_agent_info'),
   agentId: z.string(),
+  roomId: z.string().optional(),
 })
 
 export const serverPermissionResponseSchema = z.object({
