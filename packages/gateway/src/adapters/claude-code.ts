@@ -41,32 +41,22 @@ const log = createLogger('ClaudeCode')
 // Cache the dynamically imported query function to avoid repeated import() calls
 let _cachedQueryFn: (typeof import('@anthropic-ai/claude-agent-sdk'))['query'] | null = null
 
-export class ClaudeCodeAdapter extends BaseAgentAdapter {
-  private sessionId?: string
-  private currentQuery?: Query
-
-  // Cached model info from SDK supportedModels()
-  private cachedModelInfo: ModelInfo[] = []
-  private cachedAgentInfo: AgentInfo[] = []
-  private modelInfoFetched = false
-
-  // MCP server for agent-to-agent communication (lazy init)
-  private mcpServerConfig?: unknown
-
-  // Runtime settings configurable via slash commands
-  private thinkingConfig?:
+/** Per-room session and settings state. */
+interface ClaudeRoomState {
+  sessionId?: string
+  modelOverride?: string
+  thinkingConfig?:
     | { type: 'adaptive' }
     | { type: 'enabled'; budgetTokens?: number }
     | { type: 'disabled' }
-  private effort?: 'low' | 'medium' | 'high' | 'max'
-  private planMode = false
-  private modelOverride?: string
-  private toolUseCount = 0
-  private maxBudgetUsd?: number
-  private maxTurns?: number
-  private sandboxEnabled = false
-  private checkpointingEnabled = false
-  private lastModelUsage?: Record<
+  planMode: boolean
+  effort?: 'low' | 'medium' | 'high' | 'max'
+  toolUseCount: number
+  maxBudgetUsd?: number
+  maxTurns?: number
+  sandboxEnabled: boolean
+  checkpointingEnabled: boolean
+  lastModelUsage?: Record<
     string,
     {
       contextWindow: number
@@ -77,11 +67,45 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       cacheReadInputTokens: number
     }
   >
+}
+
+const DEFAULT_ROOM_KEY = '__global__'
+
+export class ClaudeCodeAdapter extends BaseAgentAdapter {
+  private currentQuery?: Query
+  /** Tracks which room is being processed during sendMessage. */
+  private currentRoomId?: string
+
+  // Per-room session and settings state
+  private roomStates = new Map<string, ClaudeRoomState>()
+  private readonly defaultSandbox: boolean
+
+  // Cached model info from SDK supportedModels()
+  private cachedModelInfo: ModelInfo[] = []
+  private cachedAgentInfo: AgentInfo[] = []
+  private modelInfoFetched = false
+
+  // MCP server for agent-to-agent communication (lazy init)
+  private mcpServerConfig?: unknown
 
   constructor(opts: AdapterOptions) {
     super(opts)
-    if (opts.sandbox) this.sandboxEnabled = true
-    if (this.env.CLAUDE_FILE_CHECKPOINT === 'true') this.checkpointingEnabled = true
+    this.defaultSandbox = opts.sandbox ?? false
+  }
+
+  private getRoomState(roomId?: string): ClaudeRoomState {
+    const key = roomId ?? DEFAULT_ROOM_KEY
+    let state = this.roomStates.get(key)
+    if (!state) {
+      state = {
+        planMode: false,
+        toolUseCount: 0,
+        sandboxEnabled: this.defaultSandbox || this.env.ANTHROPIC_SANDBOX === 'true',
+        checkpointingEnabled: this.env.CLAUDE_FILE_CHECKPOINT === 'true',
+      }
+      this.roomStates.set(key, state)
+    }
+    return state
   }
 
   get type() {
@@ -101,6 +125,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
 
     this.isRunning = true
+    this.currentRoomId = context?.roomId
+    const roomState = this.getRoomState(context?.roomId)
     let fullContent = ''
 
     try {
@@ -126,7 +152,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         env,
       }
 
-      if (this.planMode) {
+      if (roomState.planMode) {
         options.permissionMode = 'plan'
       } else if (this.permissionLevel === 'bypass') {
         options.permissionMode = 'bypassPermissions'
@@ -152,22 +178,22 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         }
       }
 
-      if (this.sessionId) {
-        options.resume = this.sessionId
+      if (roomState.sessionId) {
+        options.resume = roomState.sessionId
       }
 
       // Apply runtime settings from slash commands
-      if (this.thinkingConfig) options.thinking = this.thinkingConfig
-      if (this.effort) options.effort = this.effort
-      if (this.modelOverride) options.model = this.modelOverride
+      if (roomState.thinkingConfig) options.thinking = roomState.thinkingConfig
+      if (roomState.effort) options.effort = roomState.effort
+      if (roomState.modelOverride) options.model = roomState.modelOverride
 
       // Budget, turns, and fallback model
-      if (this.maxBudgetUsd !== undefined) options.maxBudgetUsd = this.maxBudgetUsd
-      if (this.maxTurns !== undefined) options.maxTurns = this.maxTurns
+      if (roomState.maxBudgetUsd !== undefined) options.maxBudgetUsd = roomState.maxBudgetUsd
+      if (roomState.maxTurns !== undefined) options.maxTurns = roomState.maxTurns
       if (this.env.CLAUDE_FALLBACK_MODEL) options.fallbackModel = this.env.CLAUDE_FALLBACK_MODEL
 
       // Sandbox configuration
-      if (this.sandboxEnabled) {
+      if (roomState.sandboxEnabled) {
         options.sandbox = { enabled: true, autoAllowBashIfSandboxed: true }
       }
 
@@ -184,7 +210,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       }
 
       // File checkpointing
-      if (this.checkpointingEnabled) {
+      if (roomState.checkpointingEnabled) {
         options.enableFileCheckpointing = true
       }
 
@@ -320,8 +346,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Capture session ID from init message
     if (msgType === 'system' && msgSubtype === 'init') {
       const initMsg = message as SDKSystemMessage
-      this.sessionId = initMsg.session_id
-      log.info(`Session started: ${this.sessionId}`)
+      const rs = this.getRoomState(this.currentRoomId)
+      rs.sessionId = initMsg.session_id
+      log.info(`Session started for room ${this.currentRoomId ?? 'global'}: ${rs.sessionId}`)
       return
     }
 
@@ -367,9 +394,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           this.accumulatedOutputTokens += resultMsg.usage.output_tokens ?? 0
         }
         if (resultMsg.modelUsage) {
-          this.lastModelUsage = {}
+          const rs = this.getRoomState(this.currentRoomId)
+          rs.lastModelUsage = {}
           for (const [model, usage] of Object.entries(resultMsg.modelUsage)) {
-            this.lastModelUsage[model] = {
+            rs.lastModelUsage[model] = {
               contextWindow: usage.contextWindow,
               maxOutputTokens: usage.maxOutputTokens,
               costUSD: usage.costUSD,
@@ -589,7 +617,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         {
           hooks: [
             async () => {
-              this.toolUseCount++
+              this.getRoomState(this.currentRoomId).toolUseCount++
               return { continue: true }
             },
           ],
@@ -805,8 +833,13 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return Array.from(allServers)
   }
 
-  override getModel(): string | undefined {
-    return this.modelOverride || this.env.ANTHROPIC_MODEL || this.env.CLAUDE_MODEL || undefined
+  override getModel(roomId?: string): string | undefined {
+    return (
+      this.getRoomState(roomId).modelOverride ||
+      this.env.ANTHROPIC_MODEL ||
+      this.env.CLAUDE_MODEL ||
+      undefined
+    )
   }
 
   override getAvailableModels(): string[] {
@@ -841,11 +874,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return true
   }
 
-  override async rewind(_messageId: string) {
+  override async rewind(_messageId: string, roomId?: string) {
     // Clear session so the next message starts a fresh conversation.
     // The server has already deleted messages; room_context will provide
     // the truncated history on the next send_to_agent.
-    this.sessionId = undefined
+    this.getRoomState(roomId).sessionId = undefined
     return { success: true }
   }
 
@@ -857,45 +890,48 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return ['adaptive', 'enabled', 'disabled']
   }
 
-  override getThinkingMode(): string | undefined {
-    if (!this.thinkingConfig) return undefined
-    if (this.thinkingConfig.type === 'enabled' && 'budgetTokens' in this.thinkingConfig) {
-      return `enabled:${this.thinkingConfig.budgetTokens}`
+  override getThinkingMode(roomId?: string): string | undefined {
+    const tc = this.getRoomState(roomId).thinkingConfig
+    if (!tc) return undefined
+    if (tc.type === 'enabled' && 'budgetTokens' in tc) {
+      return `enabled:${tc.budgetTokens}`
     }
-    return this.thinkingConfig.type
+    return tc.type
   }
 
-  override getEffortLevel(): string | undefined {
-    return this.effort
+  override getEffortLevel(roomId?: string): string | undefined {
+    return this.getRoomState(roomId).effort
   }
 
-  override getPlanMode(): boolean {
-    return this.planMode
+  override getPlanMode(roomId?: string): boolean {
+    return this.getRoomState(roomId).planMode
   }
 
   override async handleSlashCommand(
     command: string,
     args: string,
+    roomId?: string,
   ): Promise<{ success: boolean; message?: string }> {
+    const rs = this.getRoomState(roomId)
     switch (command) {
       case 'clear': {
-        this.sessionId = undefined
+        rs.sessionId = undefined
         return { success: true, message: 'Session cleared' }
       }
       case 'compact': {
-        this.sessionId = undefined
+        rs.sessionId = undefined
         return { success: true, message: 'Session compacted (reset)' }
       }
       case 'model': {
         const name = args.trim()
         if (!name) {
-          const current = this.getModel() ?? '(default)'
+          const current = this.getModel(roomId) ?? '(default)'
           return {
             success: true,
             message: `Current model: ${current}\nUse /model <name> to switch`,
           }
         }
-        this.modelOverride = name
+        rs.modelOverride = name
         // Apply immediately if a query is active
         if (this.currentQuery) {
           await this.currentQuery.setModel(name)
@@ -905,10 +941,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       case 'think': {
         const mode = args.trim().toLowerCase()
         if (!mode) {
-          const current = this.thinkingConfig
-            ? this.thinkingConfig.type === 'enabled' && 'budgetTokens' in this.thinkingConfig
-              ? `enabled (budget: ${this.thinkingConfig.budgetTokens})`
-              : this.thinkingConfig.type
+          const current = rs.thinkingConfig
+            ? rs.thinkingConfig.type === 'enabled' && 'budgetTokens' in rs.thinkingConfig
+              ? `enabled (budget: ${rs.thinkingConfig.budgetTokens})`
+              : rs.thinkingConfig.type
             : '(default)'
           return {
             success: true,
@@ -916,23 +952,23 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           }
         }
         if (mode === 'adaptive') {
-          this.thinkingConfig = { type: 'adaptive' }
+          rs.thinkingConfig = { type: 'adaptive' }
           return { success: true, message: 'Thinking set to: adaptive' }
         }
         if (mode === 'disabled' || mode === 'off') {
-          this.thinkingConfig = { type: 'disabled' }
+          rs.thinkingConfig = { type: 'disabled' }
           return { success: true, message: 'Thinking set to: disabled' }
         }
         if (mode.startsWith('enabled') || mode.startsWith('on')) {
           const budgetMatch = mode.match(/:(\d+)/)
           if (budgetMatch) {
-            this.thinkingConfig = { type: 'enabled', budgetTokens: parseInt(budgetMatch[1], 10) }
+            rs.thinkingConfig = { type: 'enabled', budgetTokens: parseInt(budgetMatch[1], 10) }
             return {
               success: true,
               message: `Thinking set to: enabled (budget: ${budgetMatch[1]} tokens)`,
             }
           }
-          this.thinkingConfig = { type: 'enabled' }
+          rs.thinkingConfig = { type: 'enabled' }
           return { success: true, message: 'Thinking set to: enabled' }
         }
         return {
@@ -943,15 +979,15 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       case 'plan': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.planMode = true
+          rs.planMode = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.planMode = false
+          rs.planMode = false
         } else {
-          this.planMode = !this.planMode
+          rs.planMode = !rs.planMode
         }
         return {
           success: true,
-          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
+          message: `Plan mode: ${rs.planMode ? 'enabled' : 'disabled'}`,
         }
       }
       case 'effort': {
@@ -959,7 +995,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!level) {
           return {
             success: true,
-            message: `Effort level: ${this.effort ?? '(default)'}\nOptions: low, medium, high, max`,
+            message: `Effort level: ${rs.effort ?? '(default)'}\nOptions: low, medium, high, max`,
           }
         }
         const valid = ['low', 'medium', 'high', 'max'] as const
@@ -969,7 +1005,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
             message: `Invalid effort level: ${level}\nOptions: low, medium, high, max`,
           }
         }
-        this.effort = level as 'low' | 'medium' | 'high' | 'max'
+        rs.effort = level as 'low' | 'medium' | 'high' | 'max'
         return { success: true, message: `Effort set to: ${level}` }
       }
       case 'cost': {
@@ -985,10 +1021,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       }
       case 'context': {
         const lines: string[] = ['Context Info']
-        const model = this.getModel()
+        const model = this.getModel(roomId)
         if (model) lines.push(`  Model: ${model}`)
-        if (this.lastModelUsage) {
-          for (const [modelName, usage] of Object.entries(this.lastModelUsage)) {
+        if (rs.lastModelUsage) {
+          for (const [modelName, usage] of Object.entries(rs.lastModelUsage)) {
             lines.push(`  ${modelName}:`)
             lines.push(`    Context window:  ${usage.contextWindow.toLocaleString()}`)
             lines.push(`    Max output:      ${usage.maxOutputTokens.toLocaleString()}`)
@@ -1006,14 +1042,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!val) {
           return {
             success: true,
-            message: `Max budget: ${this.maxBudgetUsd !== undefined ? `$${this.maxBudgetUsd}` : '(none)'}\nUse /budget <amount> to set`,
+            message: `Max budget: ${rs.maxBudgetUsd !== undefined ? `$${rs.maxBudgetUsd}` : '(none)'}\nUse /budget <amount> to set`,
           }
         }
         const amount = parseFloat(val)
         if (isNaN(amount) || amount <= 0) {
           return { success: false, message: 'Budget must be a positive number' }
         }
-        this.maxBudgetUsd = amount
+        rs.maxBudgetUsd = amount
         return { success: true, message: `Max budget set to: $${amount}` }
       }
       case 'turns': {
@@ -1021,42 +1057,42 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!val) {
           return {
             success: true,
-            message: `Max turns: ${this.maxTurns !== undefined ? this.maxTurns : '(none)'}\nUse /turns <count> to set`,
+            message: `Max turns: ${rs.maxTurns !== undefined ? rs.maxTurns : '(none)'}\nUse /turns <count> to set`,
           }
         }
         const count = parseInt(val, 10)
         if (isNaN(count) || count <= 0 || !Number.isInteger(parseFloat(val))) {
           return { success: false, message: 'Turns must be a positive integer' }
         }
-        this.maxTurns = count
+        rs.maxTurns = count
         return { success: true, message: `Max turns set to: ${count}` }
       }
       case 'sandbox': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.sandboxEnabled = true
+          rs.sandboxEnabled = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.sandboxEnabled = false
+          rs.sandboxEnabled = false
         } else {
-          this.sandboxEnabled = !this.sandboxEnabled
+          rs.sandboxEnabled = !rs.sandboxEnabled
         }
         return {
           success: true,
-          message: `Sandbox: ${this.sandboxEnabled ? 'enabled' : 'disabled'}`,
+          message: `Sandbox: ${rs.sandboxEnabled ? 'enabled' : 'disabled'}`,
         }
       }
       case 'checkpoint': {
         const arg = args.trim().toLowerCase()
         if (arg === 'on' || arg === 'true' || arg === '1') {
-          this.checkpointingEnabled = true
+          rs.checkpointingEnabled = true
         } else if (arg === 'off' || arg === 'false' || arg === '0') {
-          this.checkpointingEnabled = false
+          rs.checkpointingEnabled = false
         } else {
-          this.checkpointingEnabled = !this.checkpointingEnabled
+          rs.checkpointingEnabled = !rs.checkpointingEnabled
         }
         return {
           success: true,
-          message: `File checkpointing: ${this.checkpointingEnabled ? 'enabled' : 'disabled'}`,
+          message: `File checkpointing: ${rs.checkpointingEnabled ? 'enabled' : 'disabled'}`,
         }
       }
       case 'rewind': {
@@ -1067,7 +1103,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!this.currentQuery) {
           return { success: false, message: 'No active query to rewind' }
         }
-        if (!this.checkpointingEnabled) {
+        if (!rs.checkpointingEnabled) {
           return {
             success: false,
             message: 'File checkpointing is not enabled. Use /checkpoint on',
@@ -1088,12 +1124,15 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   stop() {
     this.currentQuery?.interrupt()
     this.currentQuery = undefined
-    this.sessionId = undefined
+    // Clear session for the room that was being processed
+    if (this.currentRoomId) {
+      this.getRoomState(this.currentRoomId).sessionId = undefined
+    }
   }
 
   dispose() {
     this.currentQuery?.close()
     this.currentQuery = undefined
-    this.sessionId = undefined
+    this.roomStates.clear()
   }
 }

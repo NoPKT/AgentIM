@@ -1070,6 +1070,7 @@ async function handleAgentInfoResponse(
   ws: WSContext,
   msg: {
     agentId: string
+    roomId?: string
     slashCommands: Array<{ name: string; description: string; usage: string; source: string }>
     mcpServers: string[]
     model?: string
@@ -1123,13 +1124,21 @@ async function handleAgentInfoResponse(
       : undefined,
   }
 
-  // Broadcast to all clients in rooms where this agent is a member
-  const roomIds = await getAgentRoomIds(msg.agentId)
-  for (const roomId of roomIds) {
-    connectionManager.broadcastToRoom(roomId, {
+  // When roomId is present, settings are room-specific — only broadcast to that room.
+  // Otherwise, broadcast to all rooms (backward compatible).
+  if (msg.roomId) {
+    connectionManager.broadcastToRoom(msg.roomId, {
       type: 'server:agent_info',
       agent: enrichedAgent,
     })
+  } else {
+    const roomIds = await getAgentRoomIds(msg.agentId)
+    for (const roomId of roomIds) {
+      connectionManager.broadcastToRoom(roomId, {
+        type: 'server:agent_info',
+        agent: enrichedAgent,
+      })
+    }
   }
 }
 

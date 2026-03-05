@@ -1021,7 +1021,7 @@ export class AgentManager {
     }
 
     try {
-      const result = await adapter.handleSlashCommand(msg.command, msg.args)
+      const result = await adapter.handleSlashCommand(msg.command, msg.args, msg.roomId)
       this.wsClient.send({
         type: 'gateway:agent_command_result',
         agentId: msg.agentId,
@@ -1035,7 +1035,11 @@ export class AgentManager {
       // reflects the change immediately without a separate query round-trip.
       const settingsCommands = ['model', 'think', 'plan', 'effort']
       if (result.success && settingsCommands.includes(msg.command)) {
-        this.handleQueryAgentInfo({ type: 'server:query_agent_info', agentId: msg.agentId })
+        this.handleQueryAgentInfo({
+          type: 'server:query_agent_info',
+          agentId: msg.agentId,
+          roomId: msg.roomId,
+        })
       }
     } catch (err) {
       log.error(`Slash command error for agent ${msg.agentId}: ${(err as Error).message}`)
@@ -1068,18 +1072,19 @@ export class AgentManager {
     this.wsClient.send({
       type: 'gateway:agent_info',
       agentId: msg.agentId,
+      roomId: msg.roomId,
       slashCommands: adapter.getSlashCommands(),
       mcpServers: adapter.getMcpServers(),
-      model: adapter.getModel(),
-      thinkingMode: adapter.getThinkingMode(),
-      effortLevel: adapter.getEffortLevel(),
+      model: adapter.getModel(msg.roomId),
+      thinkingMode: adapter.getThinkingMode(msg.roomId),
+      effortLevel: adapter.getEffortLevel(msg.roomId),
       sessionCostUSD: costSummary.costUSD > 0 ? costSummary.costUSD : undefined,
       availableModels: availableModels.length > 0 ? availableModels : undefined,
       availableModelInfo: availableModelInfo.length > 0 ? availableModelInfo : undefined,
       availableEffortLevels: availableEffortLevels.length > 0 ? availableEffortLevels : undefined,
       availableThinkingModes:
         availableThinkingModes.length > 0 ? availableThinkingModes : undefined,
-      planMode: adapter.getPlanMode() || undefined,
+      planMode: adapter.getPlanMode(msg.roomId) || undefined,
     })
   }
 
@@ -1745,7 +1750,7 @@ export class AgentManager {
     this.messageQueues.delete(msg.agentId)
     // Call adapter rewind
     adapter
-      .rewind(msg.messageId)
+      .rewind(msg.messageId, msg.roomId)
       .then((result) => {
         this.wsClient.send({
           type: 'gateway:rewind_result',
