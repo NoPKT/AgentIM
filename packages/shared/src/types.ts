@@ -56,6 +56,7 @@ export interface Agent {
   type: AgentType
   status: AgentStatus
   visibility?: AgentVisibility
+  visibilityList?: string[]
   gatewayId: string
   workingDirectory?: string
   capabilities?: string[]

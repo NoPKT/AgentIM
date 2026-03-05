@@ -4,7 +4,7 @@ export type AgentType = (typeof AGENT_TYPES)[number]
 export const AGENT_STATUSES = ['online', 'offline', 'busy', 'error'] as const
 export type AgentStatus = (typeof AGENT_STATUSES)[number]
 
-export const AGENT_VISIBILITIES = ['private', 'shared'] as const
+export const AGENT_VISIBILITIES = ['private', 'all', 'whitelist'] as const
 export type AgentVisibility = (typeof AGENT_VISIBILITIES)[number]
 
 export const ROOM_TYPES = ['private', 'group'] as const

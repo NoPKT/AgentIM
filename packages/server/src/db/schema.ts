@@ -90,7 +90,8 @@ export const agents = pgTable(
     name: text('name').notNull(),
     type: text('type').notNull(),
     status: text('status').notNull().default('offline'),
-    visibility: text('visibility').notNull().default('private'), // 'private' | 'shared'
+    visibility: text('visibility').notNull().default('private'), // 'private' | 'all' | 'whitelist'
+    visibilityList: jsonb('visibility_list').notNull().default([]).$type<string[]>(),
     gatewayId: text('gateway_id')
       .notNull()
       .references(() => gateways.id, { onDelete: 'cascade' }),

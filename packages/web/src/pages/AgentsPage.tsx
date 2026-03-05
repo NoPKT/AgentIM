@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore, type CredentialInfo } from '../stores/agents.js'
 import {
@@ -21,7 +21,11 @@ import {
   BotIcon,
   StarIcon,
   PencilIcon,
+  LockIcon,
+  UsersIcon,
+  SearchIcon,
 } from '../components/icons.js'
+import { api } from '../lib/api.js'
 
 export default function AgentsPage() {
   const { t } = useTranslation()
@@ -191,6 +195,7 @@ function AgentRow({
   const deleteAgent = useAgentStore((s) => s.deleteAgent)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showSharingModal, setShowSharingModal] = useState(false)
 
   const statusConfig = getStatusConfig(t)
   const typeConfig = getTypeConfig(t)
@@ -198,14 +203,6 @@ function AgentRow({
   const status = statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
   const type = typeConfig[agent.type] || typeConfig.generic
   const gradient = agentGradients[agent.type] || agentGradients.generic
-
-  const isShared = agent.visibility === 'shared'
-
-  const handleToggleVisibility = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const newVisibility: AgentVisibility = isShared ? 'private' : 'shared'
-    updateAgentVisibility(agent.id, newVisibility)
-  }
 
   const handleDeleteConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -270,22 +267,27 @@ function AgentRow({
           </span>
         )}
 
-        {/* Visibility toggle */}
+        {/* Sharing status button */}
         <button
-          onClick={handleToggleVisibility}
-          role="switch"
-          aria-checked={isShared}
-          aria-label={t('agent.visibility')}
-          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
-            isShared ? 'bg-accent' : 'bg-surface-hover'
-          }`}
-          title={isShared ? t('agent.visibilityShared') : t('agent.visibilityPrivate')}
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowSharingModal(true)
+          }}
+          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-border bg-surface-hover/50 text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors flex-shrink-0"
+          title={t('agent.sharingManage')}
         >
-          <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-              isShared ? 'translate-x-4' : 'translate-x-0.5'
-            }`}
-          />
+          {agent.visibility === 'private' ? (
+            <LockIcon className="w-3 h-3" />
+          ) : (
+            <UsersIcon className="w-3 h-3" />
+          )}
+          <span className="hidden sm:inline">
+            {agent.visibility === 'private'
+              ? t('agent.visibilityPrivate')
+              : agent.visibility === 'whitelist'
+                ? t('agent.sharingUsers', { count: agent.visibilityList?.length ?? 0 })
+                : t('agent.sharingAll')}
+          </span>
         </button>
 
         {/* Delete button / confirm */}
@@ -434,7 +436,217 @@ function AgentRow({
           )}
         </div>
       )}
+
+      {/* Sharing Modal */}
+      {showSharingModal && (
+        <SharingModal
+          agent={agent}
+          onClose={() => setShowSharingModal(false)}
+          onSave={async (visibility, visibilityList) => {
+            await updateAgentVisibility(agent.id, visibility, visibilityList)
+            toast.success(t('agent.sharingUpdated'))
+            setShowSharingModal(false)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+interface SearchUser {
+  id: string
+  username: string
+  displayName: string
+  avatarUrl?: string
+}
+
+function SharingModal({
+  agent,
+  onClose,
+  onSave,
+}: {
+  agent: Agent
+  onClose: () => void
+  onSave: (visibility: AgentVisibility, visibilityList?: string[]) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [visibility, setVisibility] = useState<AgentVisibility>(agent.visibility ?? 'private')
+  const [selectedUsers, setSelectedUsers] = useState<SearchUser[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchUser[]>([])
+  const [searching, setSearching] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Load existing whitelist users on mount
+  useEffect(() => {
+    if (agent.visibility === 'whitelist' && agent.visibilityList?.length) {
+      // Fetch user details for existing whitelist
+      Promise.all(
+        agent.visibilityList.map((userId) =>
+          api
+            .get<SearchUser[]>(`/users/search?q=${encodeURIComponent(userId)}`)
+            .then((res) => (res.ok && res.data?.length ? res.data[0] : null)),
+        ),
+      ).then((users) => {
+        setSelectedUsers(users.filter((u): u is SearchUser => u !== null))
+      })
+    }
+  }, [agent.visibility, agent.visibilityList])
+
+  // Debounced user search
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([])
+      return
+    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(async () => {
+      setSearching(true)
+      const res = await api.get<SearchUser[]>(`/users/search?q=${encodeURIComponent(searchQuery)}`)
+      if (res.ok && res.data) {
+        // Exclude already selected users
+        const selectedIds = new Set(selectedUsers.map((u) => u.id))
+        setSearchResults(res.data.filter((u) => !selectedIds.has(u.id)))
+      }
+      setSearching(false)
+    }, 300)
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [searchQuery, selectedUsers])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const list = visibility === 'whitelist' ? selectedUsers.map((u) => u.id) : undefined
+      await onSave(visibility, list)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose}>
+      <ModalPanel size="sm">
+        <div className="p-5 space-y-4">
+          <h3 className="text-base font-semibold text-text-primary">{t('agent.sharing')}</h3>
+
+          {/* Radio options */}
+          <div className="space-y-2">
+            {(['private', 'all', 'whitelist'] as const).map((v) => (
+              <label
+                key={v}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                  visibility === v
+                    ? 'border-accent bg-accent/5'
+                    : 'border-border hover:bg-surface-hover/50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="visibility"
+                  value={v}
+                  checked={visibility === v}
+                  onChange={() => setVisibility(v)}
+                  className="accent-accent"
+                />
+                <div>
+                  <div className="text-sm font-medium text-text-primary">
+                    {v === 'private'
+                      ? t('agent.visibilityPrivate')
+                      : v === 'all'
+                        ? t('agent.sharingAll')
+                        : t('agent.sharingManage')}
+                  </div>
+                  <div className="text-xs text-text-muted">
+                    {v === 'private'
+                      ? t('agent.visibilityDesc')
+                      : v === 'all'
+                        ? t('agent.sharingAllDesc')
+                        : t('agent.sharingUsersDesc')}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          {/* User search (only for whitelist) */}
+          {visibility === 'whitelist' && (
+            <div className="space-y-2">
+              {/* Selected users */}
+              {selectedUsers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedUsers.map((user) => (
+                    <span
+                      key={user.id}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-accent/10 text-accent"
+                    >
+                      {user.displayName || user.username}
+                      <button
+                        onClick={() =>
+                          setSelectedUsers((prev) => prev.filter((u) => u.id !== user.id))
+                        }
+                        className="hover:text-danger-text"
+                      >
+                        <XMarkIcon className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="relative">
+                <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('agent.searchUsers')}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+
+              {/* Search results */}
+              {searching && <p className="text-xs text-text-muted px-1">{t('common.loading')}</p>}
+              {searchResults.length > 0 && (
+                <div className="max-h-32 overflow-y-auto space-y-0.5 rounded-lg border border-border">
+                  {searchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        setSelectedUsers((prev) => [...prev, user])
+                        setSearchResults((prev) => prev.filter((u) => u.id !== user.id))
+                        setSearchQuery('')
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-surface-hover transition-colors text-left"
+                    >
+                      <span className="font-medium text-text-primary">{user.displayName}</span>
+                      <span className="text-text-muted">@{user.username}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || (visibility === 'whitelist' && selectedUsers.length === 0)}
+            >
+              {saving ? t('common.saving') : t('common.save')}
+            </Button>
+          </div>
+        </div>
+      </ModalPanel>
+    </Modal>
   )
 }
 

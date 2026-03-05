@@ -18,6 +18,7 @@ import {
   broadcastAgentStatus,
 } from '../ws/gatewayHandler.js'
 import { createLogger } from '../lib/logger.js'
+import { isAgentVisibleToUser } from '../lib/agentVisibility.js'
 
 const log = createLogger('AgentRoutes')
 
@@ -80,12 +81,12 @@ agentRoutes.get('/shared', async (c) => {
   const offset = parseQueryInt(c.req.query('offset'), 0, 0, Number.MAX_SAFE_INTEGER)
 
   // JOIN gateways to exclude current user's agents at the SQL level,
-  // so pagination is consistent regardless of how many shared agents the user owns.
+  // then filter by visibility (private excluded, whitelist checked per-user).
   const rows = await db
     .select()
     .from(agents)
     .innerJoin(gateways, eq(agents.gatewayId, gateways.id))
-    .where(and(eq(agents.visibility, 'shared'), ne(gateways.userId, userId)))
+    .where(and(ne(agents.visibility, 'private'), ne(gateways.userId, userId)))
     .limit(limit)
     .offset(offset)
 
@@ -93,16 +94,22 @@ agentRoutes.get('/shared', async (c) => {
     return c.json({ ok: true, data: [] })
   }
 
-  const gwRows = rows.map((r) => r.gateways)
-  const agentRows = rows.map((r) => r.agents)
+  // Filter by per-user visibility (whitelist check)
+  const visibleRows = rows.filter((r) => isAgentVisibleToUser(r.agents, userId))
+
+  const gwRows = visibleRows.map((r) => r.gateways)
+  const agentRows = visibleRows.map((r) => r.agents)
   const gwMap = new Map(gwRows.map((g) => [g.id, g]))
 
   // Get owner display names
   const ownerIds = [...new Set(gwRows.map((g) => g.userId))]
-  const ownerRows = await db
-    .select({ id: users.id, displayName: users.displayName })
-    .from(users)
-    .where(inArray(users.id, ownerIds))
+  const ownerRows =
+    ownerIds.length > 0
+      ? await db
+          .select({ id: users.id, displayName: users.displayName })
+          .from(users)
+          .where(inArray(users.id, ownerIds))
+      : []
   const ownerMap = new Map(ownerRows.map((u) => [u.id, u.displayName]))
 
   const enriched = enrichAgents(agentRows, gwRows).map((agent) => {
@@ -167,10 +174,9 @@ agentRoutes.get('/:id', async (c) => {
 
   const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
 
-  // Access control: only the owner or shared agents are accessible
+  // Access control: only the owner or visible agents are accessible
   const isOwner = gw && gw.userId === userId
-  const isShared = agent.visibility === 'shared'
-  if (!isOwner && !isShared) {
+  if (!isOwner && !isAgentVisibleToUser(agent, userId)) {
     return c.json({ ok: false, error: 'Agent not found' }, 404)
   }
 

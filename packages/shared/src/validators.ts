@@ -323,15 +323,29 @@ export const agentSlashCommandSchema = z.object({
   source: z.enum(AGENT_COMMAND_SOURCES),
 })
 
-export const updateAgentSchema = z.object({
-  visibility: z.enum(AGENT_VISIBILITIES).optional(),
-  name: z
-    .string()
-    .min(1)
-    .max(MAX_DISPLAY_NAME_LENGTH)
-    .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
-    .optional(),
-})
+export const updateAgentSchema = z
+  .object({
+    visibility: z.enum(AGENT_VISIBILITIES).optional(),
+    visibilityList: z.array(z.string().max(100)).max(500).optional(),
+    name: z
+      .string()
+      .min(1)
+      .max(MAX_DISPLAY_NAME_LENGTH)
+      .refine((s) => s.trim().length > 0, 'validation.nameWhitespace')
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.visibility === 'whitelist' &&
+      (!data.visibilityList || data.visibilityList.length === 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'validation.visibilityListRequired',
+        path: ['visibilityList'],
+      })
+    }
+  })
 
 // ─── Service Agent ───
 
