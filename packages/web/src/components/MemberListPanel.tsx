@@ -27,12 +27,13 @@ export function MemberListPanel({
 }: MemberListPanelProps) {
   const { t } = useTranslation()
   const agents = useAgentStore((s) => s.agents)
+  const sharedAgents = useAgentStore((s) => s.sharedAgents)
   const onlineUsers = useChatStore((s) => s.onlineUsers)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
 
   const statusConfig = getStatusConfig(t)
 
-  const agentMap = new Map(agents.map((a) => [a.id, a]))
+  const agentMap = new Map([...agents, ...sharedAgents].map((a) => [a.id, a]))
 
   const roleLabel = (role: string) => {
     switch (role) {

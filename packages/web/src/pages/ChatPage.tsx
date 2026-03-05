@@ -50,6 +50,7 @@ export default function ChatPage() {
     () => new Map(),
   )
   const loadAgents = useAgentStore((s) => s.loadAgents)
+  const loadSharedAgents = useAgentStore((s) => s.loadSharedAgents)
   const removeRoomMember = useChatStore((s) => s.removeRoomMember)
   const lightbox = useLightbox(currentRoomId)
   const terminalBuffers = useChatStore((s) => s.terminalBuffers)
@@ -104,7 +105,8 @@ export default function ChatPage() {
   // Ensure agents are loaded for @ mention popup (may not have visited AgentsPage)
   useEffect(() => {
     loadAgents()
-  }, [loadAgents])
+    loadSharedAgents()
+  }, [loadAgents, loadSharedAgents])
 
   // Sync route param -> store (only if room still exists)
   useEffect(() => {

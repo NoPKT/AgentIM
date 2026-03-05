@@ -33,7 +33,9 @@ export default function AgentsPage() {
   const gateways = useAgentStore((state) => state.gateways)
   const isLoading = useAgentStore((state) => state.isLoading)
   const loadError = useAgentStore((state) => state.loadError)
+  const sharedAgents = useAgentStore((state) => state.sharedAgents)
   const loadAgents = useAgentStore((state) => state.loadAgents)
+  const loadSharedAgents = useAgentStore((state) => state.loadSharedAgents)
   const loadGateways = useAgentStore((state) => state.loadGateways)
 
   // Standalone agents = agents not managed by any non-ephemeral gateway
@@ -44,12 +46,14 @@ export default function AgentsPage() {
   )
 
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [selectedSharedAgentId, setSelectedSharedAgentId] = useState<string | null>(null)
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null)
 
   useEffect(() => {
     loadAgents()
+    loadSharedAgents()
     loadGateways()
-  }, [loadAgents, loadGateways])
+  }, [loadAgents, loadSharedAgents, loadGateways])
 
   if (isLoading && agents.length === 0) {
     return (
@@ -156,6 +160,27 @@ export default function AgentsPage() {
           </div>
         )}
 
+        {/* Shared Agents Section */}
+        {sharedAgents.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-text-primary mb-1">{t('agent.sharedAgents')}</h2>
+            <p className="text-sm text-text-secondary mb-4">{t('agent.sharedAgentsDesc')}</p>
+            <div className="space-y-1.5">
+              {sharedAgents.map((agent) => (
+                <AgentRow
+                  key={agent.id}
+                  agent={agent}
+                  expanded={selectedSharedAgentId === agent.id}
+                  onToggle={() =>
+                    setSelectedSharedAgentId((prev) => (prev === agent.id ? null : agent.id))
+                  }
+                  readOnly
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Gateways Section — always visible so users can spawn agents on daemon gateways */}
         {gateways.length > 0 && (
           <div className="mt-10">
@@ -185,10 +210,12 @@ function AgentRow({
   agent,
   expanded,
   onToggle,
+  readOnly,
 }: {
   agent: Agent
   expanded: boolean
   onToggle: () => void
+  readOnly?: boolean
 }) {
   const { t, i18n } = useTranslation()
   const updateAgentVisibility = useAgentStore((s) => s.updateAgentVisibility)
@@ -268,65 +295,68 @@ function AgentRow({
         )}
 
         {/* Sharing status button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setShowSharingModal(true)
-          }}
-          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-border bg-surface-hover/50 text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors flex-shrink-0"
-          title={t('agent.sharingManage')}
-        >
-          {agent.visibility === 'private' ? (
-            <LockIcon className="w-3 h-3" />
-          ) : (
-            <UsersIcon className="w-3 h-3" />
-          )}
-          <span className="hidden sm:inline">
-            {agent.visibility === 'private'
-              ? t('agent.visibilityPrivate')
-              : agent.visibility === 'whitelist'
-                ? t('agent.sharingUsers', { count: agent.visibilityList?.length ?? 0 })
-                : t('agent.sharingAll')}
-          </span>
-        </button>
-
-        {/* Delete button / confirm */}
-        {confirmDelete ? (
-          <div
-            className="flex items-center gap-1 flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={handleDeleteConfirm}
-              disabled={deleting}
-              title={t('common.confirm')}
-              className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
-            >
-              <CheckIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setConfirmDelete(false)
-              }}
-              title={t('common.cancel')}
-              className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
-            >
-              <XMarkIcon className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
+        {!readOnly && (
           <button
             onClick={(e) => {
               e.stopPropagation()
-              setConfirmDelete(true)
+              setShowSharingModal(true)
             }}
-            className="p-1.5 rounded-md text-text-muted/50 hover:text-danger-text hover:bg-surface-hover transition-colors flex-shrink-0"
-            title={t('agent.deleteAgent')}
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border border-border bg-surface-hover/50 text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors flex-shrink-0"
+            title={t('agent.sharingManage')}
           >
-            <TrashIcon className="w-4 h-4" />
+            {agent.visibility === 'private' ? (
+              <LockIcon className="w-3 h-3" />
+            ) : (
+              <UsersIcon className="w-3 h-3" />
+            )}
+            <span className="hidden sm:inline">
+              {agent.visibility === 'private'
+                ? t('agent.visibilityPrivate')
+                : agent.visibility === 'whitelist'
+                  ? t('agent.sharingUsers', { count: agent.visibilityList?.length ?? 0 })
+                  : t('agent.sharingAll')}
+            </span>
           </button>
         )}
+
+        {/* Delete button / confirm */}
+        {!readOnly &&
+          (confirmDelete ? (
+            <div
+              className="flex items-center gap-1 flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                title={t('common.confirm')}
+                className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
+              >
+                <CheckIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setConfirmDelete(false)
+                }}
+                title={t('common.cancel')}
+                className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setConfirmDelete(true)
+              }}
+              className="p-1.5 rounded-md text-text-muted/50 hover:text-danger-text hover:bg-surface-hover transition-colors flex-shrink-0"
+              title={t('agent.deleteAgent')}
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
+          ))}
 
         {/* Expand/collapse chevron */}
         <svg
