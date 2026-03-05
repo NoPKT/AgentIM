@@ -29,7 +29,10 @@ const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
     description: 'Codex subscription login',
   },
   gemini: {
-    cmd: 'gemini auth login',
+    // Gemini CLI has no dedicated auth subcommand. Using -p (non-interactive
+    // mode) triggers OAuth if not yet authenticated, then exits after
+    // responding.  This avoids entering the full interactive CLI.
+    cmd: 'gemini -p "respond with OK"',
     description: 'Gemini subscription login',
   },
 }
