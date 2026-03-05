@@ -122,12 +122,14 @@ describe('agentConfigToEnv subscription with oauthData', () => {
     assert.equal(readFileSync(authFile, 'utf-8'), testOAuthData)
   })
 
-  it('claude-code subscription with oauthData sets CLAUDE_CODE_OAUTH_TOKEN (not HOME)', () => {
+  it('claude-code subscription leaves env untouched (SDK uses keychain)', () => {
     const oauthData = JSON.stringify({ accessToken: 'tok_test', refreshToken: 'ref_test' })
     const config: AgentAuthConfig = { mode: 'subscription', oauthData }
     const env = agentConfigToEnv('claude-code', config, testCredId)
-    assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, 'tok_test', 'should extract accessToken')
-    assert.equal(env.HOME, undefined, 'HOME should NOT be set for claude-code')
+    // No HOME change (breaks keychain hash) and no CLAUDE_CODE_OAUTH_TOKEN
+    // (refreshToken=null prevents token refresh). SDK reads from keychain directly.
+    assert.equal(env.HOME, undefined, 'HOME should NOT be set')
+    assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, undefined, 'should NOT set CLAUDE_CODE_OAUTH_TOKEN')
     assert.equal(env.ANTHROPIC_API_KEY, undefined)
   })
 

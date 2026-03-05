@@ -146,10 +146,21 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         ...(currentPath.includes(nodeDir) ? {} : { PATH: `${nodeDir}:${currentPath}` }),
       }
 
+      // Log auth mode for debugging
+      if (env.ANTHROPIC_API_KEY) {
+        log.info('Using ANTHROPIC_API_KEY for authentication')
+      } else {
+        log.info('Using SDK default auth (keychain/OAuth)')
+      }
+
       const options: Options = {
         allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
         cwd: this.workingDirectory,
         env,
+        // Capture stderr from the Claude Code subprocess for error diagnostics
+        stderr: (data: string) => {
+          log.warn(`[stderr] ${data.trimEnd()}`)
+        },
       }
 
       if (roomState.planMode) {
