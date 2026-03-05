@@ -149,8 +149,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       // Log auth mode for debugging
       if (env.ANTHROPIC_API_KEY) {
         log.info('Using ANTHROPIC_API_KEY for authentication')
+      } else if (env.HOME && env.HOME !== process.env.HOME) {
+        log.info(`Using isolated HOME for subscription auth: ${env.HOME}`)
       } else {
-        log.info('Using SDK default auth (keychain/OAuth)')
+        log.info('Using default auth (keychain/OAuth)')
       }
 
       const options: Options = {
