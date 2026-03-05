@@ -486,10 +486,19 @@ export function agentConfigToEnv(
 ): Record<string, string> {
   const env: Record<string, string> = {}
 
+  // Subscription mode requires oauthData — reject credentials that lack it
+  // to prevent silent fallback to the real HOME's CLI auth files.
+  if (config.mode === 'subscription' && !config.oauthData) {
+    throw new Error(
+      `Subscription credential for ${agentType} is missing OAuth data. ` +
+        'Please delete this credential and re-add it via subscription login ' +
+        'to capture the authentication data.',
+    )
+  }
+
   switch (agentType) {
     case 'claude-code':
       if (config.mode === 'subscription' && config.oauthData && credentialId) {
-        // Set up isolated home so Claude Code CLI reads its own auth file
         const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
         env.HOME = homeDir
       }
@@ -502,7 +511,6 @@ export function agentConfigToEnv(
         env.OPENAI_API_KEY = config.apiKey
         env.CODEX_API_KEY = config.apiKey
       } else if (config.mode === 'subscription' && config.oauthData && credentialId) {
-        // Set up isolated home so Codex CLI reads its own auth.json
         const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
         env.HOME = homeDir
       }
@@ -513,7 +521,6 @@ export function agentConfigToEnv(
       if (config.mode === 'subscription') {
         env.GOOGLE_GENAI_USE_GCA = 'true'
         if (config.oauthData && credentialId) {
-          // Gemini has built-in GEMINI_CLI_HOME support — more precise than HOME
           const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
           env.GEMINI_CLI_HOME = homeDir
         }
