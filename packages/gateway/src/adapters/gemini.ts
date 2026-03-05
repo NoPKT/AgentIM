@@ -451,13 +451,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
       }
 
       case sdk.GeminiEventType.Retry:
-        return [
-          {
-            type: 'text',
-            content: '[Retrying request...]',
-            metadata: { retry: true },
-          },
-        ]
+        // Suppressed — retries are handled by retryListener which surfaces errors
+        return []
 
       case sdk.GeminiEventType.Citation: {
         const citation = (event as { value: string }).value
@@ -470,16 +465,10 @@ export class GeminiAdapter extends BaseAgentAdapter {
         ]
       }
 
-      case sdk.GeminiEventType.ModelInfo: {
-        const modelInfo = (event as { value: string }).value
-        return [
-          {
-            type: 'text',
-            content: `[Model: ${modelInfo}]`,
-            metadata: { modelInfo: true },
-          },
-        ]
-      }
+      case sdk.GeminiEventType.ModelInfo:
+        // Suppressed — model info is already shown in the agent panel
+        log.info(`Model: ${(event as { value: string }).value}`)
+        return []
 
       case sdk.GeminiEventType.LoopDetected:
         return [{ type: 'error', content: 'Loop detected — stopping execution' }]
