@@ -42,6 +42,34 @@ import {
   type ReadReceipt,
 } from './chat-presence.js'
 
+// ─── Message helpers ───
+
+/**
+ * Stable comparator for message ordering. Uses createdAt as primary key and
+ * message id as tiebreaker so that messages with identical timestamps maintain
+ * a deterministic order across sorts.
+ */
+function compareMessages(a: Message, b: Message): number {
+  const ta = new Date(a.createdAt).getTime()
+  const tb = new Date(b.createdAt).getTime()
+  if (ta !== tb) return ta - tb
+  // Stable tiebreaker: lexicographic id comparison
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
+/**
+ * Deduplicate messages by id and sort chronologically. When duplicates exist
+ * the LAST occurrence wins (so API data overrides stale cache entries when the
+ * caller appends API results after cached/existing messages).
+ */
+function dedupAndSort(msgs: Message[]): Message[] {
+  const seen = new Map<string, Message>()
+  for (const m of msgs) {
+    seen.set(m.id, m) // last-write-wins
+  }
+  return Array.from(seen.values()).sort(compareMessages)
+}
+
 interface LastMessageInfo {
   content: string
   senderName: string
@@ -339,16 +367,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const newMsgs = res.data.items.reverse()
         let combined: Message[]
         if (cursor) {
-          combined = [...newMsgs, ...existing]
+          // Prepend older page; dedupAndSort handles any overlap
+          combined = dedupAndSort([...existing, ...newMsgs])
         } else {
-          // Server data takes precedence, but preserve any WS messages that
-          // arrived after the server snapshot to prevent message loss on refresh
+          // Server data takes precedence (last-write-wins in dedupAndSort).
+          // Also preserve any WS/optimistic messages that arrived after the
+          // server snapshot to prevent message loss on refresh.
           const serverIds = new Set(newMsgs.map((m) => m.id))
           const serverNewest = newMsgs[newMsgs.length - 1]?.createdAt ?? ''
           const wsOnlyMsgs = existing.filter(
             (m) => m.createdAt >= serverNewest && !serverIds.has(m.id),
           )
-          combined = [...newMsgs, ...wsOnlyMsgs]
+          combined = dedupAndSort([...wsOnlyMsgs, ...newMsgs])
         }
         if (combined.length > MAX_CACHED_MESSAGES) {
           combined = combined.slice(-MAX_CACHED_MESSAGES)
@@ -494,7 +524,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existingIds.has(message.id)) return
     }
     let updated = [...roomMsgs, message]
-    updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    updated.sort(compareMessages)
     if (updated.length > MAX_CACHED_MESSAGES) {
       updated = updated.slice(-MAX_CACHED_MESSAGES)
     }
@@ -557,7 +587,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (optimisticIdx < 0 && !hasReal) return false
 
     const updated = [...roomMsgs]
+    let removedOptimisticId: string | undefined
     if (optimisticIdx >= 0) {
+      removedOptimisticId = updated[optimisticIdx].id
       if (hasReal) {
         // Both exist — remove the optimistic duplicate
         updated.splice(optimisticIdx, 1)
@@ -567,10 +599,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
     // If only hasReal (no optimistic), nothing to do — return true to skip addMessage
-    updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    updated.sort(compareMessages)
     const next = new Map(msgs)
     next.set(message.roomId, updated)
     set({ messages: next })
+
+    // Clean up stale optimistic entry from IDB so it doesn't resurface on reload
+    if (removedOptimisticId && !_idbDisabled) {
+      removeCachedMessage(message.roomId, removedOptimisticId).catch(() => {})
+      addCachedMessage(message).catch(() => {})
+    }
+
     return true
   },
 
@@ -607,7 +646,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       msgs.set(message.roomId, updated)
     } else {
       let updated = [...roomMsgs, message]
-      updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      updated.sort(compareMessages)
       if (updated.length > MAX_CACHED_MESSAGES) {
         updated = updated.slice(-MAX_CACHED_MESSAGES)
       }
@@ -1244,12 +1283,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Re-read CURRENT state after await to avoid TOCTOU race —
         // completeStream() may have added messages during the fetch.
         const current = get().messages.get(roomId) ?? []
-        const currentIds = new Set(current.map((m) => m.id))
-        const unique = newMsgs.filter((m) => !currentIds.has(m.id))
-        if (unique.length > 0) {
+        const combined = dedupAndSort([...current, ...newMsgs])
+        if (combined.length !== current.length) {
           const msgs = new Map(get().messages)
-          const combined = [...current, ...unique]
-          combined.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
           msgs.set(roomId, combined)
           set({ messages: msgs })
         }
@@ -1276,3 +1312,6 @@ export function selectTypingNames(
 
 // Re-export types so existing consumers don't need to update imports
 export type { StreamingMessage, TerminalBuffer, ReadReceipt }
+
+// Exported for testing
+export { compareMessages, dedupAndSort }
