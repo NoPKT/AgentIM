@@ -562,12 +562,16 @@ function GatewayRow({
     ? `${gateway.deviceInfo.platform}${gateway.deviceInfo.hostname ? ` · ${gateway.deviceInfo.hostname}` : ''}`
     : null
 
+  // Only allow expand when there is content to show
+  const hasExpandableContent =
+    gatewayAgents.length > 0 || showCredentials || !!gateway.deviceInfo || !!gateway.disconnectedAt
+
   return (
     <div className="bg-surface rounded-lg border border-border overflow-hidden transition-colors">
       {/* Header row */}
       <div
-        className="px-3 py-2.5 flex items-center gap-3 hover:bg-surface-hover/50 cursor-pointer"
-        onClick={onToggle}
+        className={`px-3 py-2.5 flex items-center gap-3 ${hasExpandableContent ? 'hover:bg-surface-hover/50 cursor-pointer' : ''}`}
+        onClick={hasExpandableContent ? onToggle : undefined}
       >
         {/* Status dot */}
         <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
@@ -663,15 +667,17 @@ function GatewayRow({
           </button>
         )}
 
-        {/* Expand/collapse chevron */}
-        <svg
-          className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        {/* Expand/collapse chevron — only shown when expandable */}
+        {hasExpandableContent && (
+          <svg
+            className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
       </div>
 
       {/* Expanded details */}
@@ -1043,7 +1049,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
               key={cred.id}
               className="rounded-lg border border-border/60 bg-surface-secondary/30 overflow-hidden"
             >
-              {/* Credential header */}
+              {/* Credential header with inline action icons */}
               <div className="px-3 py-2">
                 {renamingId === cred.id ? (
                   <div className="flex gap-1.5">
@@ -1066,91 +1072,91 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-text-primary truncate">
-                        {cred.name}
-                      </span>
-                      {cred.isDefault && (
-                        <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-accent/15 text-accent rounded-full shrink-0">
-                          {t('credential.default')}
+                  <div className="flex items-center gap-2">
+                    {/* Info */}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-text-primary truncate">
+                          {cred.name}
                         </span>
-                      )}
+                        {cred.isDefault && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-accent/15 text-accent rounded-full shrink-0">
+                            {t('credential.default')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                        <span
+                          className={`inline-flex items-center gap-0.5 ${cred.mode === 'api' ? 'text-emerald-500' : 'text-blue-500'}`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                          {cred.mode === 'api'
+                            ? t('credential.modeApi')
+                            : t('credential.modeSubscription')}
+                        </span>
+                        {cred.baseUrl && (
+                          <span className="truncate max-w-[150px]" title={cred.baseUrl}>
+                            {cred.baseUrl}
+                          </span>
+                        )}
+                        {cred.model && (
+                          <span className="font-mono truncate max-w-[100px]" title={cred.model}>
+                            {cred.model}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                      <span
-                        className={`inline-flex items-center gap-0.5 ${cred.mode === 'api' ? 'text-emerald-500' : 'text-blue-500'}`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {cred.mode === 'api'
-                          ? t('credential.modeApi')
-                          : t('credential.modeSubscription')}
-                      </span>
-                      {cred.baseUrl && (
-                        <span className="truncate max-w-[150px]" title={cred.baseUrl}>
-                          {cred.baseUrl}
-                        </span>
+                    {/* Action icon buttons — inline on right */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {!cred.isDefault && (
+                        <button
+                          onClick={() => handleSetDefault(cred.id)}
+                          title={t('credential.setDefault')}
+                          className="p-1 rounded-md text-text-muted/50 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                        >
+                          <StarIcon className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                      {cred.model && (
-                        <span className="font-mono truncate max-w-[100px]" title={cred.model}>
-                          {cred.model}
-                        </span>
+                      <button
+                        onClick={() => {
+                          setRenamingId(cred.id)
+                          setRenameValue(cred.name)
+                        }}
+                        title={t('credential.rename')}
+                        className="p-1 rounded-md text-text-muted/50 hover:text-text-primary hover:bg-surface-hover transition-colors"
+                      >
+                        <PencilIcon className="w-3.5 h-3.5" />
+                      </button>
+                      {confirmDeleteId === cred.id ? (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => handleDelete(cred.id)}
+                            title={t('common.confirm')}
+                            className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                          >
+                            <CheckIcon className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            title={t('common.cancel')}
+                            className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
+                          >
+                            <XMarkIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(cred.id)}
+                          title={t('credential.delete')}
+                          className="p-1 rounded-md text-text-muted/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Action icon buttons */}
-              {renamingId !== cred.id && (
-                <div className="px-3 py-1.5 flex items-center justify-end gap-1">
-                  {!cred.isDefault && (
-                    <button
-                      onClick={() => handleSetDefault(cred.id)}
-                      title={t('credential.setDefault')}
-                      className="p-1 rounded-md text-text-muted/50 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
-                    >
-                      <StarIcon className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setRenamingId(cred.id)
-                      setRenameValue(cred.name)
-                    }}
-                    title={t('credential.rename')}
-                    className="p-1 rounded-md text-text-muted/50 hover:text-text-primary hover:bg-surface-hover transition-colors"
-                  >
-                    <PencilIcon className="w-3.5 h-3.5" />
-                  </button>
-                  {confirmDeleteId === cred.id ? (
-                    <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => handleDelete(cred.id)}
-                        title={t('common.confirm')}
-                        className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                      >
-                        <CheckIcon className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        title={t('common.cancel')}
-                        className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
-                      >
-                        <XMarkIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDeleteId(cred.id)}
-                      title={t('credential.delete')}
-                      className="p-1 rounded-md text-text-muted/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                    >
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>
