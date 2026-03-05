@@ -282,6 +282,8 @@ export const zhCN = {
     noGateways: '没有已连接的网关',
     agentsConnected: '{{count}} 个智能体已连接',
     agentsConnected_one: '{{count}} 个智能体已连接',
+    standaloneAgents: '{{count}} 个独立智能体',
+    standaloneAgents_one: '{{count}} 个独立智能体',
     gatewaysConnected: '{{count}} 个网关已连接',
     gatewaysConnected_one: '{{count}} 个网关已连接',
     capabilities: '能力',

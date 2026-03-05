@@ -244,10 +244,12 @@ export function RoomSettingsDrawer({ roomId, isOpen, onClose }: RoomSettingsDraw
 
   const handleDeleteRoom = async () => {
     try {
-      await deleteRoom(roomId)
-      toast.success(t('chat.roomDeleted'))
+      // Navigate away first to prevent ChatPage from re-syncing
+      // the deleted roomId back into the store
       onClose()
       navigate('/')
+      await deleteRoom(roomId)
+      toast.success(t('chat.roomDeleted'))
     } catch {
       toast.error(t('common.error'))
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAgentStore, type CredentialInfo } from '../stores/agents.js'
 import {
@@ -31,6 +31,13 @@ export default function AgentsPage() {
   const loadError = useAgentStore((state) => state.loadError)
   const loadAgents = useAgentStore((state) => state.loadAgents)
   const loadGateways = useAgentStore((state) => state.loadGateways)
+
+  // Standalone agents = agents not managed by any non-ephemeral gateway
+  const gatewayIds = useMemo(() => new Set(gateways.map((g) => g.id)), [gateways])
+  const standaloneAgents = useMemo(
+    () => agents.filter((a) => !gatewayIds.has(a.gatewayId)),
+    [agents, gatewayIds],
+  )
 
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [selectedGatewayId, setSelectedGatewayId] = useState<string | null>(null)
@@ -102,18 +109,18 @@ export default function AgentsPage() {
   return (
     <div className="flex-1 overflow-y-auto scrollbar-thin bg-surface-secondary px-4 sm:px-6 py-6">
       <div className="max-w-4xl mx-auto">
-        {/* Agents Section */}
-        {agents.length > 0 ? (
+        {/* Standalone Agents Section */}
+        {standaloneAgents.length > 0 ? (
           <>
             <div className="mb-4">
               <h1 className="text-2xl font-bold text-text-primary">{t('agent.agents')}</h1>
               <p className="mt-1 text-sm text-text-secondary">
-                {t('agent.agentsConnected', { count: agents.length })}
+                {t('agent.standaloneAgents', { count: standaloneAgents.length })}
               </p>
             </div>
 
             <div data-testid="agents-list" className="space-y-1.5">
-              {agents.map((agent) => (
+              {standaloneAgents.map((agent) => (
                 <AgentRow
                   key={agent.id}
                   agent={agent}
@@ -451,6 +458,7 @@ function GatewayRow({
   const [deleting, setDeleting] = useState(false)
   const [showSpawnModal, setShowSpawnModal] = useState(false)
   const [showCredentials, setShowCredentials] = useState(false)
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
   const [spawnType, setSpawnType] = useState<string>(AGENT_TYPES[0])
   const [spawnName, setSpawnName] = useState('')
   const [spawnWorkDir, setSpawnWorkDir] = useState('')
@@ -463,9 +471,6 @@ function GatewayRow({
   // Load credentials when spawn modal opens
   const credKey = `${gateway.id}:${spawnType}`
   const credentials = gatewayCredentials.get(credKey) ?? null
-
-  const statusConfig = getStatusConfig(t)
-  const typeConfig = getTypeConfig(t)
 
   useEffect(() => {
     if (showSpawnModal && isOnline) {
@@ -571,7 +576,14 @@ function GatewayRow({
       {/* Header row */}
       <div
         className={`px-3 py-2.5 flex items-center gap-3 ${hasExpandableContent ? 'hover:bg-surface-hover/50 cursor-pointer' : ''}`}
-        onClick={hasExpandableContent ? onToggle : undefined}
+        onClick={
+          hasExpandableContent
+            ? () => {
+                if (showCredentials) setShowCredentials(false) // close credentials when expanding agents
+                onToggle()
+              }
+            : undefined
+        }
       >
         {/* Status dot */}
         <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
@@ -614,7 +626,10 @@ function GatewayRow({
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                setShowCredentials((prev) => !prev)
+                setShowCredentials((prev) => {
+                  if (!prev && expanded) onToggle() // collapse agents when opening credentials
+                  return !prev
+                })
               }}
               className={`p-1.5 rounded-md transition-colors ${
                 showCredentials
@@ -682,47 +697,19 @@ function GatewayRow({
       {/* Expanded details */}
       {(expanded || showCredentials) && (
         <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
-          {/* Gateway's agents — compact list (only when main section expanded) */}
+          {/* Gateway's agents — full AgentRow (only when main section expanded) */}
           {expanded && gatewayAgents.length > 0 && (
-            <div className="space-y-1">
-              {gatewayAgents.map((agent) => {
-                const agentStatus =
-                  statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
-                const agentType = typeConfig[agent.type] || typeConfig.generic
-                const icon = agentTypeIcons[agent.type] || agentTypeIcons.generic
-                const gradient = agentGradients[agent.type] || agentGradients.generic
-                return (
-                  <div
-                    key={agent.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-surface/50"
-                  >
-                    <span
-                      className={`inline-flex rounded-full h-2 w-2 shrink-0 ${agentStatus.color}`}
-                    />
-                    <div
-                      className={`w-5 h-5 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
-                    >
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="currentColor"
-                        viewBox={icon.viewBox || '0 0 24 24'}
-                      >
-                        {icon.paths.map((d, idx) => (
-                          <path key={idx} d={d} />
-                        ))}
-                      </svg>
-                    </div>
-                    <span className="text-xs font-medium text-text-primary truncate flex-1">
-                      {agent.name}
-                    </span>
-                    <span
-                      className={`inline-flex px-1 py-0.5 rounded text-[9px] font-medium ${agentType.color}`}
-                    >
-                      {agentType.label}
-                    </span>
-                  </div>
-                )
-              })}
+            <div className="space-y-1.5">
+              {gatewayAgents.map((agent) => (
+                <AgentRow
+                  key={agent.id}
+                  agent={agent}
+                  expanded={expandedAgentId === agent.id}
+                  onToggle={() =>
+                    setExpandedAgentId((prev) => (prev === agent.id ? null : agent.id))
+                  }
+                />
+              ))}
             </div>
           )}
 

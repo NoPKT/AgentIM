@@ -106,12 +106,15 @@ export default function ChatPage() {
     loadAgents()
   }, [loadAgents])
 
-  // Sync route param -> store
+  // Sync route param -> store (only if room still exists)
   useEffect(() => {
     if (routeRoomId && routeRoomId !== currentRoomId) {
-      setCurrentRoom(routeRoomId)
+      // Guard: don't set a deleted room as current
+      if (rooms.some((r) => r.id === routeRoomId)) {
+        setCurrentRoom(routeRoomId)
+      }
     }
-  }, [routeRoomId, currentRoomId, setCurrentRoom])
+  }, [routeRoomId, currentRoomId, rooms, setCurrentRoom])
 
   // Load members on room change; stale-check prevents updating state for a
   // room that is no longer current after a rapid room switch.
