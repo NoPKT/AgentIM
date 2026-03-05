@@ -72,6 +72,10 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
       const LINE_HEIGHT = 24
       const CHARS_PER_LINE = 72
 
+      // Cap estimates so inaccuracies never create page-spanning gaps.
+      // measureElement will correct to the true height once the item renders.
+      const MAX_ESTIMATE = 400
+
       // Agent messages with chunks: only count visible text (not collapsed
       // thinking/tool_use blocks which are hidden by default).
       // Process sections collapse multiple blocks into a single ~28px header.
@@ -93,12 +97,12 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
         ).length
         // Approximate: if >=3 process chunks, they collapse into 1 section header
         const processHeight = processChunks >= 3 ? 28 : processChunks * 28
-        return baseHeight + lineEstimate * LINE_HEIGHT + processHeight
+        return Math.min(baseHeight + lineEstimate * LINE_HEIGHT + processHeight, MAX_ESTIMATE)
       }
 
       const contentLength = msg.content?.length ?? 0
       const lineEstimate = Math.max(1, Math.ceil(contentLength / CHARS_PER_LINE))
-      return baseHeight + lineEstimate * LINE_HEIGHT
+      return Math.min(baseHeight + lineEstimate * LINE_HEIGHT, MAX_ESTIMATE)
     },
     [currentMessages],
   )
@@ -115,44 +119,34 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
     overscan: 8,
   })
 
-  // Invalidate virtualizer measurements when messages change.
-  // Triple-measure: immediate + short delay + longer delay to catch async content (lazy markdown).
-  useEffect(() => {
-    virtualizer.measure()
-    const t1 = setTimeout(() => virtualizer.measure(), 150)
-    const t2 = setTimeout(() => virtualizer.measure(), 500)
-    return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-    }
-  }, [currentMessages, virtualizer])
-
-  // Debounced re-measure for dynamic content changes (expanded/collapsed
-  // sections, lazy markdown, images).  We observe the virtualised container
-  // (the single child that holds all absolutely-positioned items) rather than
-  // every individual message element to avoid a measure→layout→observe loop
-  // that caused visible jitter.
+  // Re-measure visible items when dynamic content changes (expanded/collapsed
+  // sections, lazy markdown, images).  Instead of calling virtualizer.measure()
+  // (which DESTROYS all cached measurements and forces fallback to estimates),
+  // we re-invoke measureElement on each rendered DOM node so the virtualizer
+  // keeps accurate per-item sizes.
   const measureRAF = useRef(0)
+  const remeasureVisible = useCallback(() => {
+    const el = parentRef.current
+    if (!el) return
+    const nodes = el.querySelectorAll<HTMLElement>('[data-index]')
+    nodes.forEach((node) => virtualizer.measureElement(node))
+  }, [virtualizer])
+
   useEffect(() => {
     const el = parentRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(measureRAF.current)
-      measureRAF.current = requestAnimationFrame(() => {
-        virtualizer.measure()
-      })
+      measureRAF.current = requestAnimationFrame(remeasureVisible)
     })
-    // Observe only the single virtualised-list container (first child with
-    // position:relative), not every message element.
-    const listContainer = el.querySelector('[style*="position: relative"]')
-    if (listContainer instanceof HTMLElement) {
-      ro.observe(listContainer)
-    }
+    // Observe each rendered message element for size changes
+    const nodes = el.querySelectorAll<HTMLElement>('[data-index]')
+    nodes.forEach((node) => ro.observe(node))
     return () => {
       cancelAnimationFrame(measureRAF.current)
       ro.disconnect()
     }
-  }, [virtualizer])
+  }, [virtualizer, currentMessages, remeasureVisible])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)
