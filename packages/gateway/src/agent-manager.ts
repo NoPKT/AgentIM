@@ -45,6 +45,8 @@ import {
   setDefaultCredential,
   credentialToAuthConfig,
   agentConfigToEnv,
+  readSubscriptionAuthData,
+  syncBackSubscriptionAuth,
 } from './agent-config.js'
 import { getWorkspaceStatus } from './lib/git-utils.js'
 import { getDirectoryListing, getFileContent } from './lib/fs-utils.js'
@@ -95,6 +97,11 @@ export class AgentManager {
   private adapters = new Map<string, BaseAgentAdapter>()
   /** Session IDs reported by adapters for conversation continuity across restarts. */
   private sessionIds = new Map<string, string>()
+  /** Credential context per agent for subscription auth sync-back. */
+  private agentCredentials = new Map<
+    string,
+    { agentType: string; credentialId: string; oauthData?: string }
+  >()
   private agentCapabilities = new Map<string, string[]>()
   private roomContexts = new Map<string, RoomContext>()
   /** Tracks when each room context was last accessed (set/get). */
@@ -882,13 +889,21 @@ export class AgentManager {
       }
 
       const config = credentialToAuthConfig(credential)
-      const env = agentConfigToEnv(msg.agentType, config)
+      const env = agentConfigToEnv(msg.agentType, config, credential.id)
       const agentId = this.addAgent({
         type: msg.agentType,
         name: msg.name,
         workingDirectory: msg.workingDirectory,
         env,
       })
+      // Track credential context for subscription auth sync-back
+      if (credential.mode === 'subscription' && credential.oauthData) {
+        this.agentCredentials.set(agentId, {
+          agentType: msg.agentType,
+          credentialId: credential.id,
+          oauthData: credential.oauthData,
+        })
+      }
       this.wsClient.send({
         type: 'gateway:spawn_result',
         requestId: msg.requestId,
@@ -910,10 +925,13 @@ export class AgentManager {
   private handleRemoveAgent(agentId: string) {
     const adapter = this.adapters.get(agentId)
     if (adapter) {
+      // Sync back any refreshed OAuth tokens before disposing
+      this.syncAgentCredentials(agentId)
       adapter.dispose()
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
       this.sessionIds.delete(agentId)
+      this.agentCredentials.delete(agentId)
       this.messageQueues.delete(agentId)
       const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToRemove) {
@@ -934,6 +952,20 @@ export class AgentManager {
       // Clear queued messages — the user explicitly wants to stop this agent
       this.messageQueues.delete(agentId)
       adapter.stop()
+      // Sync back any refreshed OAuth tokens
+      this.syncAgentCredentials(agentId)
+    }
+  }
+
+  /** Sync back subscription auth data if the CLI refreshed tokens. */
+  private syncAgentCredentials(agentId: string) {
+    const credCtx = this.agentCredentials.get(agentId)
+    if (credCtx) {
+      try {
+        syncBackSubscriptionAuth(credCtx.agentType, credCtx.credentialId, credCtx.oauthData)
+      } catch (err) {
+        log.warn(`Failed to sync back auth for ${agentId}: ${(err as Error).message}`)
+      }
     }
   }
 
@@ -1651,9 +1683,13 @@ export class AgentManager {
       }
       entry.cleanupFn?.()
 
+      // Read the auth data that the CLI tool wrote during login
+      const oauthData = readSubscriptionAuthData(entry.agentType)
+
       const credential = addCredential(entry.agentType, {
         name: entry.credentialName,
         mode: 'subscription',
+        oauthData,
       })
       this.wsClient.send({
         type: 'gateway:oauth_result',
@@ -1662,6 +1698,9 @@ export class AgentManager {
         credential: { id: credential.id, name: credential.name },
       })
       log.info(`OAuth completed successfully for ${entry.agentType}`)
+      if (oauthData) {
+        log.info(`Stored OAuth auth data for credential ${credential.id}`)
+      }
     } catch (err) {
       clearTimeout(entry.timer)
       this.activeOAuthProcesses.delete(msg.requestId)

@@ -95,17 +95,25 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async ensureCodex() {
     if (!this.codex) {
       const { Codex: CodexClass } = await import('@openai/codex-sdk')
-      this.codex = new CodexClass({
-        apiKey: this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY || undefined,
+      const apiKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY || undefined
+      const opts: {
+        apiKey?: string
+        baseUrl?: string
+        env?: Record<string, string>
+      } = {
         baseUrl: this.env.OPENAI_BASE_URL || undefined,
         env: Object.keys(this.env).length > 0 ? (this.env as Record<string, string>) : undefined,
-      })
+      }
+      // Only pass apiKey if present — omitting it lets SDK discover auth from $HOME/.codex/auth.json
+      if (apiKey) opts.apiKey = apiKey
+      this.codex = new CodexClass(opts)
     }
   }
 
   /** Whether the current credentials are OAuth (subscription) rather than an API key. */
   private get isOAuthMode(): boolean {
-    return !this.env.OPENAI_API_KEY && !!this.env.CODEX_API_KEY
+    // Subscription via HOME override: no API keys set, HOME points to isolated dir
+    return !this.env.OPENAI_API_KEY && !this.env.CODEX_API_KEY
   }
 
   /** Shared regex filter for Codex-relevant models. */
@@ -260,11 +268,29 @@ export class CodexAdapter extends BaseAgentAdapter {
   }
 
   /**
+   * Read OAuth access_token from the HOME-overridden auth.json file.
+   * In subscription mode, HOME points to a per-credential isolated directory.
+   */
+  private readOAuthTokenFromFile(): string | undefined {
+    const homeBase = this.env.HOME || homedir()
+    const authPath = join(homeBase, '.codex', 'auth.json')
+    try {
+      const auth = JSON.parse(readFileSync(authPath, 'utf-8')) as {
+        access_token?: string
+        tokens?: { access_token?: string }
+      }
+      return auth.tokens?.access_token || auth.access_token || undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
    * Fetch available models using a multi-strategy approach:
    *
-   * **OAuth (subscription) mode** — only CODEX_API_KEY set:
-   *   1. /v1/chat/models (ChatGPT subscription endpoint, primary)
-   *   2. Local cache file (~/.codex/models_cache.json)
+   * **OAuth (subscription) mode** — HOME overridden to per-credential dir:
+   *   1. Local cache file (~/.codex/models_cache.json, primary — fastest)
+   *   2. /v1/chat/models with token from auth.json (ChatGPT subscription endpoint)
    *   3. Run `codex` CLI to regenerate cache (last resort)
    *
    * **API key mode** — OPENAI_API_KEY set:
@@ -274,18 +300,26 @@ export class CodexAdapter extends BaseAgentAdapter {
   private async fetchModels(): Promise<void> {
     const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
 
-    if (this.isOAuthMode && token) {
-      // OAuth mode: prefer /v1/chat/models which accepts subscription tokens
-      const chatModels = await this.fetchChatModels(token)
-      if (chatModels.length > 0) {
-        this.cachedModelInfo = chatModels
+    if (this.isOAuthMode) {
+      // OAuth mode: prioritize local cache (no network needed), then try API
+      const cached = this.readModelCache()
+      if (cached.length > 0) {
+        this.cachedModelInfo = cached
         return
       }
-      // Fallback to /v1/models (unlikely to work but worth trying)
-      const apiModels = await this.fetchApiModels(token)
-      if (apiModels.length > 0) {
-        this.cachedModelInfo = apiModels
-        return
+      // Try reading token from the HOME-overridden auth.json
+      const oauthToken = this.readOAuthTokenFromFile()
+      if (oauthToken) {
+        const chatModels = await this.fetchChatModels(oauthToken)
+        if (chatModels.length > 0) {
+          this.cachedModelInfo = chatModels
+          return
+        }
+        const apiModels = await this.fetchApiModels(oauthToken)
+        if (apiModels.length > 0) {
+          this.cachedModelInfo = apiModels
+          return
+        }
       }
     } else if (token) {
       // API key mode: prefer /v1/models
@@ -294,15 +328,14 @@ export class CodexAdapter extends BaseAgentAdapter {
         this.cachedModelInfo = apiModels
         return
       }
+      // Fallback: read local cache file
+      const cached = this.readModelCache()
+      if (cached.length > 0) {
+        this.cachedModelInfo = cached
+        return
+      }
     } else {
-      log.warn('No CODEX_API_KEY or OPENAI_API_KEY — skipping API model fetch')
-    }
-
-    // Fallback: read local cache file
-    const cached = this.readModelCache()
-    if (cached.length > 0) {
-      this.cachedModelInfo = cached
-      return
+      log.warn('No API key or OAuth credentials — skipping API model fetch')
     }
 
     // Last resort: try running codex CLI to regenerate cache

@@ -343,6 +343,7 @@ export interface ServerGatewayCredentialList {
     name: string
     mode: 'subscription' | 'api'
     hasApiKey: boolean
+    hasOAuthData: boolean
     baseUrl?: string
     model?: string
     isDefault: boolean
@@ -541,6 +542,7 @@ export interface GatewayCredentialList {
     name: string
     mode: 'subscription' | 'api'
     hasApiKey: boolean
+    hasOAuthData: boolean
     baseUrl?: string
     model?: string
     isDefault: boolean
