@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { nanoid } from 'nanoid'
@@ -434,8 +435,17 @@ export function prepareSubscriptionHome(
 /**
  * Read OAuth auth data from the real home directory for a given agent type.
  * Returns the serialized JSON content, or undefined if unreadable.
+ *
+ * For claude-code on macOS: reads from the OS keychain (where Claude Code
+ * actually stores OAuth tokens) instead of ~/.claude.json (which is only
+ * a settings file, not auth).
  */
 export function readSubscriptionAuthData(agentType: string): string | undefined {
+  // Claude Code on macOS stores OAuth tokens in the OS keychain, not in files.
+  if (agentType === 'claude-code' && process.platform === 'darwin') {
+    return readClaudeCodeKeychainOAuth()
+  }
+
   const authPaths = AUTH_FILE_PATHS[agentType]
   if (!authPaths) return undefined
 
@@ -450,6 +460,41 @@ export function readSubscriptionAuthData(agentType: string): string | undefined 
 }
 
 /**
+ * Read Claude Code OAuth data from the macOS keychain.
+ * Returns the serialized JSON of the claudeAiOauth object, or undefined.
+ */
+function readClaudeCodeKeychainOAuth(): string | undefined {
+  try {
+    // List keychain entries to find Claude Code credential service names
+    const dump = execFileSync('security', ['dump-keychain'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    })
+    const serviceMatches = [...dump.matchAll(/"svce"<blob>="(Claude Code-credentials-[a-f0-9]+)"/g)]
+
+    for (const [, serviceName] of serviceMatches) {
+      try {
+        const password = execFileSync(
+          'security',
+          ['find-generic-password', '-s', serviceName, '-w'],
+          { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 },
+        ).trim()
+        const data = JSON.parse(password)
+        if (data.claudeAiOauth?.accessToken) {
+          return JSON.stringify(data.claudeAiOauth)
+        }
+      } catch {
+        // Entry unreadable or no OAuth data
+      }
+    }
+  } catch {
+    // Keychain unavailable or no entries
+  }
+  return undefined
+}
+
+/**
  * After an agent session, read back auth files from the per-credential home.
  * If the content has changed (token refreshed by CLI), update the credential store.
  */
@@ -458,6 +503,15 @@ export function syncBackSubscriptionAuth(
   credentialId: string,
   currentOAuthData?: string,
 ): void {
+  // Claude Code on macOS: re-read from keychain in case token was refreshed
+  if (agentType === 'claude-code' && process.platform === 'darwin') {
+    const freshData = readClaudeCodeKeychainOAuth()
+    if (freshData && freshData !== currentOAuthData) {
+      updateCredential(agentType, credentialId, { oauthData: freshData })
+    }
+    return
+  }
+
   const homeDir = join(SUBSCRIPTION_HOMES_DIR, `${agentType}-${credentialId}`)
   const authPaths = AUTH_FILE_PATHS[agentType]
   if (!authPaths) return
@@ -488,7 +542,9 @@ export function agentConfigToEnv(
 
   // Subscription mode requires oauthData — reject credentials that lack it
   // to prevent silent fallback to the real HOME's CLI auth files.
-  if (config.mode === 'subscription' && !config.oauthData) {
+  // Exception: claude-code stores OAuth tokens in the OS keychain (not in files),
+  // so oauthData is just the settings file and may be absent.
+  if (config.mode === 'subscription' && !config.oauthData && agentType !== 'claude-code') {
     throw new Error(
       `Subscription credential for ${agentType} is missing OAuth data. ` +
         'Please delete this credential and re-add it via subscription login ' +
@@ -498,9 +554,33 @@ export function agentConfigToEnv(
 
   switch (agentType) {
     case 'claude-code':
-      if (config.mode === 'subscription' && config.oauthData && credentialId) {
-        const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
-        env.HOME = homeDir
+      // Claude Code on macOS stores OAuth tokens in the OS keychain, keyed by
+      // a hash that includes $HOME. Changing HOME breaks keychain lookup.
+      // Instead, pass the OAuth access token via the SDK's supported env var.
+      if (config.mode === 'subscription') {
+        let oauthToken: string | undefined
+        if (config.oauthData) {
+          try {
+            const parsed = JSON.parse(config.oauthData)
+            oauthToken = parsed.accessToken
+          } catch {
+            // Old format (settings file) — no accessToken
+          }
+        }
+        // Fallback: read fresh token from OS keychain
+        if (!oauthToken && process.platform === 'darwin') {
+          const freshData = readClaudeCodeKeychainOAuth()
+          if (freshData) {
+            try {
+              oauthToken = JSON.parse(freshData).accessToken
+            } catch {
+              // Malformed data
+            }
+          }
+        }
+        if (oauthToken) {
+          env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken
+        }
       }
       if (config.apiKey) env.ANTHROPIC_API_KEY = config.apiKey
       if (config.baseUrl) env.ANTHROPIC_BASE_URL = config.baseUrl

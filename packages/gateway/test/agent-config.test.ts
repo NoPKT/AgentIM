@@ -12,9 +12,10 @@ import {
 const SUBSCRIPTION_HOMES_DIR = join(homedir(), '.agentim', 'subscription-homes')
 
 describe('agentConfigToEnv', () => {
-  it('claude-code subscription without oauthData throws', () => {
+  it('claude-code subscription without oauthData does NOT throw (keychain-based)', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
-    assert.throws(() => agentConfigToEnv('claude-code', config), /missing OAuth data/)
+    // Claude Code uses OS keychain for auth; missing oauthData is not an error
+    assert.doesNotThrow(() => agentConfigToEnv('claude-code', config))
   })
 
   it('codex subscription without oauthData throws', () => {
@@ -121,15 +122,13 @@ describe('agentConfigToEnv subscription with oauthData', () => {
     assert.equal(readFileSync(authFile, 'utf-8'), testOAuthData)
   })
 
-  it('claude-code subscription with oauthData sets HOME', () => {
-    const config: AgentAuthConfig = { mode: 'subscription', oauthData: testOAuthData }
+  it('claude-code subscription with oauthData sets CLAUDE_CODE_OAUTH_TOKEN (not HOME)', () => {
+    const oauthData = JSON.stringify({ accessToken: 'tok_test', refreshToken: 'ref_test' })
+    const config: AgentAuthConfig = { mode: 'subscription', oauthData }
     const env = agentConfigToEnv('claude-code', config, testCredId)
-    assert.ok(env.HOME, 'HOME should be set')
-    assert.ok(env.HOME.includes(`claude-code-${testCredId}`))
+    assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, 'tok_test', 'should extract accessToken')
+    assert.equal(env.HOME, undefined, 'HOME should NOT be set for claude-code')
     assert.equal(env.ANTHROPIC_API_KEY, undefined)
-    // Verify auth file
-    const authFile = join(env.HOME, '.claude.json')
-    assert.ok(existsSync(authFile), '.claude.json should exist in isolated home')
   })
 
   it('gemini subscription with oauthData sets GEMINI_CLI_HOME (not HOME)', () => {
