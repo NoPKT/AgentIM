@@ -40,8 +40,9 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  // Settings state
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null)
+  // Settings state — track multiple simultaneous pending commands
+  const [pendingCommands, setPendingCommands] = useState<Set<string>>(new Set())
+  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const [customModelInput, setCustomModelInput] = useState('')
   const [showCustomModel, setShowCustomModel] = useState(false)
   const [commandsExpanded, setCommandsExpanded] = useState(false)
@@ -63,7 +64,9 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
       setConfirmDelete(false)
       setShowCustomModel(false)
       setCustomModelInput('')
-      setPendingCommand(null)
+      setPendingCommands(new Set())
+      for (const timer of pendingTimers.current.values()) clearTimeout(timer)
+      pendingTimers.current.clear()
       setCommandsExpanded(false)
     }
   }, [isOpen])
@@ -73,7 +76,17 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
     if (!isOpen || !agentId) return
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
       if (msg.type === 'server:agent_command_result' && msg.agentId === agentId) {
-        setPendingCommand(null)
+        const cmd = (msg as { command: string }).command
+        setPendingCommands((prev) => {
+          const next = new Set(prev)
+          next.delete(cmd)
+          return next
+        })
+        const timer = pendingTimers.current.get(cmd)
+        if (timer) {
+          clearTimeout(timer)
+          pendingTimers.current.delete(cmd)
+        }
         if (msg.success) {
           toast.success(t('agentPanel.settingUpdated'))
           wsClient.send({ type: 'client:query_agent_info', agentId, roomId })
@@ -83,12 +96,22 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
       }
     })
     return unsub
-  }, [isOpen, agentId, t])
+  }, [isOpen, agentId, roomId, t])
 
   const sendCommand = useCallback(
     (command: string, args: string) => {
       if (!agentId || !roomId) return
-      setPendingCommand(command)
+      setPendingCommands((prev) => new Set(prev).add(command))
+      // Safety timeout — clear pending state after 15s if no result
+      const timer = setTimeout(() => {
+        setPendingCommands((prev) => {
+          const next = new Set(prev)
+          next.delete(command)
+          return next
+        })
+        pendingTimers.current.delete(command)
+      }, 15_000)
+      pendingTimers.current.set(command, timer)
       wsClient.send({
         type: 'client:agent_command',
         agentId,
@@ -281,7 +304,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                         }
                         sendCommand('model', e.target.value)
                       }}
-                      disabled={pendingCommand === 'model'}
+                      disabled={pendingCommands.has('model')}
                       className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
                     >
                       {!agent.model && <option value="">{t('agentPanel.default')}</option>}
@@ -308,7 +331,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                   <select
                     value={agent.thinkingMode ?? ''}
                     onChange={(e) => sendCommand('think', e.target.value)}
-                    disabled={pendingCommand === 'think'}
+                    disabled={pendingCommands.has('think')}
                     className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
                   >
                     {!agent.thinkingMode && <option value="">{t('agentPanel.default')}</option>}
@@ -327,7 +350,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                   <select
                     value={agent.effortLevel ?? ''}
                     onChange={(e) => sendCommand('effort', e.target.value)}
-                    disabled={pendingCommand === 'effort'}
+                    disabled={pendingCommands.has('effort')}
                     className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
                   >
                     {!agent.effortLevel && <option value="">{t('agentPanel.default')}</option>}
@@ -345,7 +368,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                 <Section title={t('agentPanel.planMode')}>
                   <button
                     onClick={() => sendCommand('plan', '')}
-                    disabled={pendingCommand === 'plan'}
+                    disabled={pendingCommands.has('plan')}
                     className="flex items-center justify-between w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm disabled:opacity-50 transition-colors"
                   >
                     <span className="text-text-secondary">
@@ -449,7 +472,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
               {hasCompact && (
                 <button
                   onClick={() => sendCommand('compact', '')}
-                  disabled={pendingCommand === 'compact'}
+                  disabled={pendingCommands.has('compact')}
                   className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-50"
                 >
                   {t('agentPanel.compactSession')}
@@ -461,7 +484,7 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                     sendCommand('clear', '')
                   }
                 }}
-                disabled={pendingCommand === 'clear'}
+                disabled={pendingCommands.has('clear')}
                 className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-danger-text hover:bg-danger-subtle transition-colors disabled:opacity-50"
               >
                 {t('agentPanel.resetSession')}
@@ -664,7 +687,8 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
   const agents = useAgentStore((s) => s.agents)
   const agent = agents.find((a) => a.id === agentId) ?? null
 
-  const [pendingCommand, setPendingCommand] = useState<string | null>(null)
+  const [pendingCommands, setPendingCommands] = useState<Set<string>>(new Set())
+  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const [customModelInput, setCustomModelInput] = useState('')
   const [showCustomModel, setShowCustomModel] = useState(false)
 
@@ -672,7 +696,9 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
   useEffect(() => {
     setShowCustomModel(false)
     setCustomModelInput('')
-    setPendingCommand(null)
+    setPendingCommands(new Set())
+    for (const timer of pendingTimers.current.values()) clearTimeout(timer)
+    pendingTimers.current.clear()
   }, [agentId])
 
   // Listen for command results
@@ -680,7 +706,17 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
     if (!agentId) return
     const unsub = wsClient.onMessage((msg: ServerMessage) => {
       if (msg.type === 'server:agent_command_result' && msg.agentId === agentId) {
-        setPendingCommand(null)
+        const cmd = (msg as { command: string }).command
+        setPendingCommands((prev) => {
+          const next = new Set(prev)
+          next.delete(cmd)
+          return next
+        })
+        const timer = pendingTimers.current.get(cmd)
+        if (timer) {
+          clearTimeout(timer)
+          pendingTimers.current.delete(cmd)
+        }
         if (msg.success) {
           toast.success(t('agentPanel.settingUpdated'))
           wsClient.send({ type: 'client:query_agent_info', agentId, roomId })
@@ -690,12 +726,22 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
       }
     })
     return unsub
-  }, [agentId, t])
+  }, [agentId, roomId, t])
 
   const sendCommand = useCallback(
     (command: string, args: string) => {
       if (!agentId) return
-      setPendingCommand(command)
+      setPendingCommands((prev) => new Set(prev).add(command))
+      // Safety timeout — clear pending state after 15s if no result
+      const timer = setTimeout(() => {
+        setPendingCommands((prev) => {
+          const next = new Set(prev)
+          next.delete(command)
+          return next
+        })
+        pendingTimers.current.delete(command)
+      }, 15_000)
+      pendingTimers.current.set(command, timer)
       wsClient.send({
         type: 'client:agent_command',
         agentId,
@@ -793,7 +839,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
                 }
                 sendCommand('model', e.target.value)
               }}
-              disabled={pendingCommand === 'model'}
+              disabled={pendingCommands.has('model')}
               className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
             >
               {!agent.model && <option value="">{t('agentPanel.default')}</option>}
@@ -820,7 +866,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
           <select
             value={agent.thinkingMode ?? ''}
             onChange={(e) => sendCommand('think', e.target.value)}
-            disabled={pendingCommand === 'think'}
+            disabled={pendingCommands.has('think')}
             className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
           >
             {!agent.thinkingMode && <option value="">{t('agentPanel.default')}</option>}
@@ -839,7 +885,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
           <select
             value={agent.effortLevel ?? ''}
             onChange={(e) => sendCommand('effort', e.target.value)}
-            disabled={pendingCommand === 'effort'}
+            disabled={pendingCommands.has('effort')}
             className="w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 appearance-none cursor-pointer"
           >
             {!agent.effortLevel && <option value="">{t('agentPanel.default')}</option>}
@@ -857,7 +903,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
         <ConfigSection label={t('agentPanel.planMode')}>
           <button
             onClick={() => sendCommand('plan', '')}
-            disabled={pendingCommand === 'plan'}
+            disabled={pendingCommands.has('plan')}
             className="flex items-center justify-between w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm disabled:opacity-50 transition-colors"
           >
             <span className="text-text-secondary">{t('agentPanel.planModeDescription')}</span>
@@ -924,7 +970,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
           {hasCompact && (
             <button
               onClick={() => sendCommand('compact', '')}
-              disabled={pendingCommand === 'compact'}
+              disabled={pendingCommands.has('compact')}
               className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-50"
             >
               {t('agentPanel.compactSession')}
@@ -936,7 +982,7 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
                 sendCommand('clear', '')
               }
             }}
-            disabled={pendingCommand === 'clear'}
+            disabled={pendingCommands.has('clear')}
             className="w-full min-h-[44px] px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-danger-text hover:bg-danger-subtle transition-colors disabled:opacity-50"
           >
             {t('agentPanel.resetSession')}

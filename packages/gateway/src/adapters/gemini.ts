@@ -340,7 +340,13 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
         this.isRunning = false
         this.streamAbort = undefined
-        onComplete(fullContent)
+        // If the SDK handled the abort internally (no throw), the loop ends
+        // normally but fullContent is empty.  Surface the retry error instead.
+        if (capacityAborted && !fullContent) {
+          onError(retryError || 'Request aborted due to retry failure')
+        } else {
+          onComplete(fullContent)
+        }
       } finally {
         sdk.coreEvents.off(sdk.CoreEvent.RetryAttempt, retryListener)
       }
