@@ -57,7 +57,7 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
   const estimateSize = useCallback(
     (index: number) => {
       const msg = currentMessages[index]
-      if (!msg) return 100
+      if (!msg) return 80
       const prev = index > 0 ? currentMessages[index - 1] : null
       const hasHeader =
         !prev ||
@@ -65,7 +65,12 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
         prev.senderType === 'system' ||
         msg.senderType === 'system' ||
         new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000
-      const baseHeight = hasHeader ? 80 : 24
+      // Header: avatar + name + timestamp (~56px) + vertical padding (~16px)
+      // No header: minimal vertical padding (~6px)
+      const baseHeight = hasHeader ? 72 : 6
+      // Use 24px per line to match rendered prose line-height (~1.5)
+      const LINE_HEIGHT = 24
+      const CHARS_PER_LINE = 72
 
       // Agent messages with chunks: only count visible text (not collapsed
       // thinking/tool_use blocks which are hidden by default).
@@ -79,7 +84,7 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
           },
           0,
         )
-        const lineEstimate = Math.ceil(visibleText / 80)
+        const lineEstimate = Math.max(1, Math.ceil(visibleText / CHARS_PER_LINE))
         // Count process blocks; groups of >=3 consecutive process chunks become
         // a single collapsed ProcessSection (~28px). Fewer remain individual (~28px each).
         const processChunks = msg.chunks.filter(
@@ -88,13 +93,12 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
         ).length
         // Approximate: if >=3 process chunks, they collapse into 1 section header
         const processHeight = processChunks >= 3 ? 28 : processChunks * 28
-        return baseHeight + Math.max(20, lineEstimate * 20) + processHeight
+        return baseHeight + lineEstimate * LINE_HEIGHT + processHeight
       }
 
       const contentLength = msg.content?.length ?? 0
-      const lineEstimate = Math.ceil(contentLength / 80)
-      const contentHeight = Math.max(20, lineEstimate * 20)
-      return baseHeight + contentHeight
+      const lineEstimate = Math.max(1, Math.ceil(contentLength / CHARS_PER_LINE))
+      return baseHeight + lineEstimate * LINE_HEIGHT
     },
     [currentMessages],
   )
@@ -108,7 +112,7 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
       (index: number) => currentMessages[index]?.id ?? index,
       [currentMessages],
     ),
-    overscan: 5,
+    overscan: 8,
   })
 
   // Invalidate virtualizer measurements when messages change.
