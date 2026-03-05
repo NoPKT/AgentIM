@@ -12,14 +12,19 @@ import {
 const SUBSCRIPTION_HOMES_DIR = join(homedir(), '.agentim', 'subscription-homes')
 
 describe('agentConfigToEnv', () => {
-  it('claude-code subscription without oauthData returns empty env', () => {
+  it('claude-code subscription without oauthData throws', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
-    assert.deepEqual(agentConfigToEnv('claude-code', config), {})
+    assert.throws(() => agentConfigToEnv('claude-code', config), /missing OAuth data/)
   })
 
-  it('gemini subscription without oauthData sets GOOGLE_GENAI_USE_GCA only', () => {
+  it('codex subscription without oauthData throws', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
-    assert.deepEqual(agentConfigToEnv('gemini', config), { GOOGLE_GENAI_USE_GCA: 'true' })
+    assert.throws(() => agentConfigToEnv('codex', config), /missing OAuth data/)
+  })
+
+  it('gemini subscription without oauthData throws', () => {
+    const config: AgentAuthConfig = { mode: 'subscription' }
+    assert.throws(() => agentConfigToEnv('gemini', config), /missing OAuth data/)
   })
 
   it('claude-code: apiKey maps to ANTHROPIC_API_KEY', () => {
