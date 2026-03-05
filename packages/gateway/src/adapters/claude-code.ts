@@ -140,7 +140,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       // can spawn `node` even when running as a daemon with a minimal PATH.
       const nodeDir = dirname(process.execPath)
       const currentPath = process.env.PATH || ''
-      const env = {
+      const env: Record<string, string | undefined> = {
         ...process.env,
         ...this.env,
         ...(currentPath.includes(nodeDir) ? {} : { PATH: `${nodeDir}:${currentPath}` }),
