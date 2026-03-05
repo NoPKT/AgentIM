@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { eq, and, sql, inArray } from 'drizzle-orm'
+import { eq, ne, and, or, sql, inArray, ilike } from 'drizzle-orm'
 import { hash, verify } from 'argon2'
 import { db } from '../db/index.js'
 import {
@@ -172,6 +172,35 @@ userRoutes.put('/me/password', sensitiveRateLimit, async (c) => {
   logAudit({ userId, action: 'password_change', ipAddress: getClientIp(c) })
 
   return c.json({ ok: true })
+})
+
+// ─── User Search (for sharing/whitelist) ───
+
+userRoutes.get('/search', async (c) => {
+  const userId = c.get('userId')
+  const q = (c.req.query('q') ?? '').trim()
+  if (q.length < 2) {
+    return c.json({ ok: true, data: [] })
+  }
+
+  const pattern = `%${q}%`
+  const results = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(users)
+    .where(
+      and(
+        ne(users.id, userId),
+        or(ilike(users.username, pattern), ilike(users.displayName, pattern)),
+      ),
+    )
+    .limit(10)
+
+  return c.json({ ok: true, data: results })
 })
 
 // ─── Admin User Management ───

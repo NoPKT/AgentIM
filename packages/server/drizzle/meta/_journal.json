@@ -302,6 +302,13 @@
       "when": 1773500000000,
       "tag": "0042_add_room_member_cleared_at",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1773600000000,
+      "tag": "0043_add_agent_visibility_list",
+      "breakpoints": true
     }
   ]
 }

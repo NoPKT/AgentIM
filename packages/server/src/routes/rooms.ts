@@ -22,6 +22,7 @@ import {
 import { authMiddleware, isAdminCached, type AuthEnv } from '../middleware/auth.js'
 import { getStorage } from '../storage/index.js'
 import { sanitizeText } from '../lib/sanitize.js'
+import { isAgentVisibleToUser } from '../lib/agentVisibility.js'
 import { createLogger } from '../lib/logger.js'
 import { isRoomMember, isRoomAdmin } from '../lib/roomAccess.js'
 import { validateIdParams, parseJsonBody, formatZodError } from '../lib/validation.js'
@@ -376,11 +377,11 @@ roomRoutes.post('/:id/members', async (c) => {
     if (!agent) {
       return c.json({ ok: false, error: 'Agent not found' }, 404)
     }
-    if (agent.visibility !== 'shared') {
-      const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
-      if (!gw || gw.userId !== userId) {
-        return c.json({ ok: false, error: 'You do not own this agent and it is not shared' }, 403)
-      }
+    // Check ownership or visibility
+    const [gw] = await db.select().from(gateways).where(eq(gateways.id, agent.gatewayId)).limit(1)
+    const isOwner = gw && gw.userId === userId
+    if (!isOwner && !isAgentVisibleToUser(agent, userId)) {
+      return c.json({ ok: false, error: 'You do not own this agent and it is not shared' }, 403)
     }
   }
 

@@ -31,7 +31,11 @@ interface AgentState {
   deleteGateway: (gatewayId: string) => Promise<void>
   deleteAgent: (agentId: string) => Promise<void>
   updateAgent: (agent: Pick<Agent, 'id' | 'name' | 'type' | 'status'> & Partial<Agent>) => void
-  updateAgentVisibility: (agentId: string, visibility: AgentVisibility) => Promise<void>
+  updateAgentVisibility: (
+    agentId: string,
+    visibility: AgentVisibility,
+    visibilityList?: string[],
+  ) => Promise<void>
   renameAgent: (agentId: string, name: string) => Promise<void>
   spawnAgent: (
     gatewayId: string,
@@ -127,11 +131,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     })
   },
 
-  updateAgentVisibility: async (agentId, visibility) => {
-    const res = await api.put<Agent>(`/agents/${agentId}`, { visibility })
+  updateAgentVisibility: async (agentId, visibility, visibilityList) => {
+    const body: Record<string, unknown> = { visibility }
+    if (visibilityList !== undefined) body.visibilityList = visibilityList
+    const res = await api.put<Agent>(`/agents/${agentId}`, body)
     if (res.ok && res.data) {
       set({
-        agents: get().agents.map((a) => (a.id === agentId ? { ...a, visibility } : a)),
+        agents: get().agents.map((a) =>
+          a.id === agentId ? { ...a, visibility, visibilityList } : a,
+        ),
       })
     }
   },
