@@ -217,7 +217,15 @@ function registerAgentCommand(
           credentialCtx,
         })
       } else {
-        spawnDaemon({ name, type: agentType, workDir, env, permissionLevel, passEnv })
+        spawnDaemon({
+          name,
+          type: agentType,
+          workDir,
+          env,
+          permissionLevel,
+          passEnv,
+          credentialId: credential.id,
+        })
       }
     })
 
@@ -635,8 +643,9 @@ async function spawnDaemon(opts: {
   env?: Record<string, string>
   permissionLevel?: PermissionLevel
   passEnv?: string[]
+  credentialId?: string
 }) {
-  const { name, type, workDir, env: agentEnv, permissionLevel, passEnv } = opts
+  const { name, type, workDir, env: agentEnv, permissionLevel, passEnv, credentialId } = opts
   const config = loadConfig()
   if (!config) {
     log.error('Not logged in. Run `agentim login` first.')
@@ -707,6 +716,9 @@ async function spawnDaemon(opts: {
       name,
       '--no-security-warning',
     ]
+    if (credentialId) {
+      daemonArgs.push('--credential', credentialId)
+    }
     if (permissionLevel === 'bypass') {
       daemonArgs.push('--yes')
     }
@@ -722,13 +734,22 @@ async function spawnDaemon(opts: {
       daemonArgs.push('--yes')
     }
   }
-  // Build safe env, applying passEnv whitelist if provided
+  // Build safe env, applying passEnv whitelist if provided.
+  // For built-in agent types, the daemon re-runs the foreground action handler which
+  // resolves the credential and computes agent env (HOME override etc.) itself.
+  // We must NOT pass HOME/GEMINI_CLI_HOME overrides to the daemon process env,
+  // because that would break credential store lookup (which uses homedir()).
   const passEnvSet = passEnv?.length ? new Set(passEnv) : undefined
+  const daemonEnv = { ...agentEnv }
+  if (cliCommand) {
+    delete daemonEnv.HOME
+    delete daemonEnv.GEMINI_CLI_HOME
+  }
   const child = cpSpawn(process.execPath, daemonArgs, {
     detached: true,
     stdio: ['ignore', logFd, logFd],
     cwd: workDir,
-    env: { ...getSafeEnv(passEnvSet), ...agentEnv },
+    env: { ...getSafeEnv(passEnvSet), ...daemonEnv },
   })
 
   child.unref()
