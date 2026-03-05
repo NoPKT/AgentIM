@@ -1511,10 +1511,13 @@ export class AgentManager {
       clearTimeout(timer)
       clearInterval(urlPoll)
       this.activeOAuthProcesses.delete(msg.requestId)
+      propagateGeminiCreds()
       cleanupFiles()
+      const oauthData = readSubscriptionAuthData(msg.agentType)
       const credential = addCredential(msg.agentType, {
         name: msg.credentialName,
         mode: 'subscription',
+        oauthData,
       })
       this.wsClient.send({
         type: 'gateway:oauth_result',
@@ -1588,9 +1591,11 @@ export class AgentManager {
         // Process exited successfully — propagate credentials and save
         propagateGeminiCreds()
         cleanupFiles()
+        const oauthData = readSubscriptionAuthData(msg.agentType)
         const credential = addCredential(msg.agentType, {
           name: msg.credentialName,
           mode: 'subscription',
+          oauthData,
         })
         this.wsClient.send({
           type: 'gateway:oauth_result',
@@ -1599,6 +1604,9 @@ export class AgentManager {
           credential: { id: credential.id, name: credential.name },
         })
         log.info(`OAuth completed successfully for ${msg.agentType}`)
+        if (oauthData) {
+          log.info(`Stored OAuth auth data for credential ${credential.id}`)
+        }
       } else {
         cleanupFiles()
         this.wsClient.send({
