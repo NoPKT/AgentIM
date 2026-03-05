@@ -783,7 +783,17 @@ export class AgentManager {
         (error) => {
           if (completed) return
           completed = true
-          allChunks.push({ type: 'error', content: error })
+          const errorChunk: ParsedChunk = { type: 'error', content: error }
+          allChunks.push(errorChunk)
+
+          // Send error chunk as streaming chunk so it appears immediately in UI
+          this.wsClient.send({
+            type: 'gateway:message_chunk',
+            roomId: msg.roomId,
+            agentId: msg.agentId,
+            messageId,
+            chunk: errorChunk,
+          })
 
           const workingDir = adapter.workingDirectory
           const sendErrorComplete = () => {
