@@ -280,6 +280,15 @@ export function useWebSocket() {
             console.error('[WS] Error handling message:', msg.type, err)
           }
           break
+        case 'server:agents_changed':
+          try {
+            agentStore.loadAgents()
+            agentStore.loadGateways()
+            agentStore.loadSharedAgents()
+          } catch (err) {
+            console.error('[WS] Error handling message:', msg.type, err)
+          }
+          break
         case 'server:room_cleared':
           try {
             // Another device of this user cleared the room — sync local state

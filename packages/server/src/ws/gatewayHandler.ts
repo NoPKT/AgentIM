@@ -351,6 +351,9 @@ async function handleAuth(
     }
 
     ws.send(JSON.stringify({ type: 'server:gateway_auth_result', ok: true }))
+
+    // Notify the owning user's web clients that gateways changed
+    connectionManager.broadcastToUser(payload.sub, { type: 'server:agents_changed' })
   } catch (err) {
     // Roll back in-memory gateway registration to avoid phantom authenticated sockets
     connectionManager.removeGateway(ws)
@@ -473,6 +476,9 @@ async function handleRegisterAgent(
   }
   await broadcastAgentStatus(agent.id)
 
+  // Notify the owning user's web clients that agents changed
+  connectionManager.broadcastToUser(gw.userId, { type: 'server:agents_changed' })
+
   // Send room context for all rooms this agent belongs to
   const roomIds = await getAgentRoomIds(agent.id)
   for (const roomId of roomIds) {
@@ -492,6 +498,9 @@ async function handleUnregisterAgent(ws: WSContext, agentId: string) {
 
   connectionManager.unregisterAgent(ws, agentId)
   await broadcastAgentStatus(agentId)
+
+  // Notify the owning user's web clients that agents changed
+  connectionManager.broadcastToUser(gw.userId, { type: 'server:agents_changed' })
 }
 
 async function handleMessageChunk(
@@ -1005,6 +1014,9 @@ export async function handleGatewayDisconnect(ws: WSContext) {
     } catch (err) {
       log.error(`Failed to mark gateway ${gw.gatewayId} disconnected: ${(err as Error).message}`)
     }
+
+    // Notify the owning user's web clients that agents/gateways changed
+    connectionManager.broadcastToUser(gw.userId, { type: 'server:agents_changed' })
 
     connectionManager.removeGateway(ws)
   }
