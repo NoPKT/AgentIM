@@ -227,7 +227,7 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
     <div className="flex-1 relative min-h-0">
       <div
         ref={parentRef}
-        className="h-full overflow-y-auto scrollbar-thin"
+        className="absolute inset-0 overflow-y-auto scrollbar-thin"
         role="log"
         aria-live="polite"
         aria-relevant="additions"
