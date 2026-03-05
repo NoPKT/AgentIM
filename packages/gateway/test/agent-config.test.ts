@@ -12,10 +12,9 @@ import {
 const SUBSCRIPTION_HOMES_DIR = join(homedir(), '.agentim', 'subscription-homes')
 
 describe('agentConfigToEnv', () => {
-  it('claude-code subscription without oauthData does NOT throw (keychain-based)', () => {
+  it('claude-code subscription without oauthData throws', () => {
     const config: AgentAuthConfig = { mode: 'subscription' }
-    // Claude Code uses OS keychain for auth; missing oauthData is not an error
-    assert.doesNotThrow(() => agentConfigToEnv('claude-code', config))
+    assert.throws(() => agentConfigToEnv('claude-code', config), /missing OAuth data/)
   })
 
   it('codex subscription without oauthData throws', () => {
@@ -122,15 +121,17 @@ describe('agentConfigToEnv subscription with oauthData', () => {
     assert.equal(readFileSync(authFile, 'utf-8'), testOAuthData)
   })
 
-  it('claude-code subscription leaves env untouched (SDK uses keychain)', () => {
-    const oauthData = JSON.stringify({ accessToken: 'tok_test', refreshToken: 'ref_test' })
+  it('claude-code subscription with oauthData sets HOME and writes .credentials.json', () => {
+    const oauthData = JSON.stringify({ claudeAiOauth: { accessToken: 'tok_test', refreshToken: 'ref_test' } })
     const config: AgentAuthConfig = { mode: 'subscription', oauthData }
     const env = agentConfigToEnv('claude-code', config, testCredId)
-    // No HOME change (breaks keychain hash) and no CLAUDE_CODE_OAUTH_TOKEN
-    // (refreshToken=null prevents token refresh). SDK reads from keychain directly.
-    assert.equal(env.HOME, undefined, 'HOME should NOT be set')
-    assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, undefined, 'should NOT set CLAUDE_CODE_OAUTH_TOKEN')
+    assert.ok(env.HOME, 'HOME should be set')
+    assert.ok(env.HOME.includes(`claude-code-${testCredId}`))
     assert.equal(env.ANTHROPIC_API_KEY, undefined)
+    // Verify auth file written to SDK's file-based fallback path
+    const authFile = join(env.HOME, '.claude', '.credentials.json')
+    assert.ok(existsSync(authFile), '.credentials.json should exist in isolated home')
+    assert.equal(readFileSync(authFile, 'utf-8'), oauthData)
   })
 
   it('gemini subscription with oauthData sets GEMINI_CLI_HOME (not HOME)', () => {
@@ -170,9 +171,9 @@ describe('prepareSubscriptionHome', () => {
   })
 
   it('creates directory and writes auth file for claude-code', () => {
-    const data = '{"token":"abc"}'
+    const data = '{"claudeAiOauth":{"accessToken":"abc"}}'
     const homeDir = prepareSubscriptionHome('claude-code', testCredId, data)
-    const content = readFileSync(join(homeDir, '.claude.json'), 'utf-8')
+    const content = readFileSync(join(homeDir, '.claude', '.credentials.json'), 'utf-8')
     assert.equal(content, data)
   })
 

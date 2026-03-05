@@ -403,7 +403,7 @@ const SUBSCRIPTION_HOMES_DIR = join(homedir(), '.agentim', 'subscription-homes')
 /** Auth file paths relative to home for each agent type. */
 const AUTH_FILE_PATHS: Record<string, string[]> = {
   codex: [join('.codex', 'auth.json')],
-  'claude-code': ['.claude.json'],
+  'claude-code': [join('.claude', '.credentials.json')],
   gemini: [join('.gemini', 'oauth_creds.json')],
 }
 
@@ -436,14 +436,16 @@ export function prepareSubscriptionHome(
  * Read OAuth auth data from the real home directory for a given agent type.
  * Returns the serialized JSON content, or undefined if unreadable.
  *
- * For claude-code on macOS: reads from the OS keychain (where Claude Code
- * actually stores OAuth tokens) instead of ~/.claude.json (which is only
- * a settings file, not auth).
+ * For claude-code on macOS: the primary credential store is the OS keychain,
+ * but the SDK also has a plaintext file fallback at ~/.claude/.credentials.json.
+ * We first try to read from keychain (canonical source), then fall back to file.
  */
 export function readSubscriptionAuthData(agentType: string): string | undefined {
-  // Claude Code on macOS stores OAuth tokens in the OS keychain, not in files.
+  // Claude Code on macOS: try keychain first (primary store), then file fallback
   if (agentType === 'claude-code' && process.platform === 'darwin') {
-    return readClaudeCodeKeychainOAuth()
+    const keychainData = readClaudeCodeKeychainOAuth()
+    if (keychainData) return keychainData
+    // Fall through to file-based read below
   }
 
   const authPaths = AUTH_FILE_PATHS[agentType]
@@ -461,7 +463,10 @@ export function readSubscriptionAuthData(agentType: string): string | undefined 
 
 /**
  * Read Claude Code OAuth data from the macOS keychain.
- * Returns the serialized JSON of the claudeAiOauth object, or undefined.
+ * Returns the serialized JSON in the SDK's credentials file format:
+ *   {"claudeAiOauth": {accessToken, refreshToken, expiresAt, scopes, ...}}
+ * This format matches what the SDK writes to ~/.claude/.credentials.json
+ * so the file-based fallback store can read it transparently.
  */
 function readClaudeCodeKeychainOAuth(): string | undefined {
   try {
@@ -471,7 +476,7 @@ function readClaudeCodeKeychainOAuth(): string | undefined {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000,
     })
-    const serviceMatches = [...dump.matchAll(/"svce"<blob>="(Claude Code-credentials-[a-f0-9]+)"/g)]
+    const serviceMatches = [...dump.matchAll(/"svce"<blob>="(Claude Code-credentials[^"]*)"/g)]
 
     for (const [, serviceName] of serviceMatches) {
       try {
@@ -482,7 +487,9 @@ function readClaudeCodeKeychainOAuth(): string | undefined {
         ).trim()
         const data = JSON.parse(password)
         if (data.claudeAiOauth?.accessToken) {
-          return JSON.stringify(data.claudeAiOauth)
+          // Return the full wrapper format so the SDK's file-based fallback
+          // can read it as a valid .credentials.json
+          return JSON.stringify({ claudeAiOauth: data.claudeAiOauth })
         }
       } catch {
         // Entry unreadable or no OAuth data
@@ -503,8 +510,8 @@ export function syncBackSubscriptionAuth(
   credentialId: string,
   currentOAuthData?: string,
 ): void {
-  // Claude Code manages its own tokens in the OS keychain; no sync needed.
-  if (agentType === 'claude-code') return
+  // Claude Code subprocess refreshes tokens and writes them back to the
+  // file-based fallback store in the isolated HOME.  Sync them back.
 
   const homeDir = join(SUBSCRIPTION_HOMES_DIR, `${agentType}-${credentialId}`)
   const authPaths = AUTH_FILE_PATHS[agentType]
@@ -536,9 +543,7 @@ export function agentConfigToEnv(
 
   // Subscription mode requires oauthData — reject credentials that lack it
   // to prevent silent fallback to the real HOME's CLI auth files.
-  // Exception: claude-code stores OAuth tokens in the OS keychain (not in files),
-  // so oauthData is just the settings file and may be absent.
-  if (config.mode === 'subscription' && !config.oauthData && agentType !== 'claude-code') {
+  if (config.mode === 'subscription' && !config.oauthData) {
     throw new Error(
       `Subscription credential for ${agentType} is missing OAuth data. ` +
         'Please delete this credential and re-add it via subscription login ' +
@@ -548,13 +553,15 @@ export function agentConfigToEnv(
 
   switch (agentType) {
     case 'claude-code':
-      // Subscription mode: Claude Code stores OAuth tokens in the OS keychain
-      // (macOS) with a hash keyed to $HOME.  Do NOT change HOME or pass the
-      // access token via CLAUDE_CODE_OAUTH_TOKEN — the env-var path sets
-      // refreshToken=null in the SDK, so expired tokens cannot be refreshed
-      // and the subprocess exits with code 1.  By leaving the env untouched
-      // the subprocess reads from keychain directly, which includes the
-      // refresh token and handles automatic token renewal.
+      // Subscription mode: the SDK's credential store on macOS uses keychain
+      // (primary) with a plaintext file fallback at $HOME/.claude/.credentials.json.
+      // We change HOME to an isolated directory and write the OAuth data there.
+      // The subprocess's keychain lookup fails (different HOME hash) and falls
+      // back to the file, which has the full OAuth data including refreshToken.
+      if (config.mode === 'subscription' && config.oauthData && credentialId) {
+        const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
+        env.HOME = homeDir
+      }
       if (config.apiKey) env.ANTHROPIC_API_KEY = config.apiKey
       if (config.baseUrl) env.ANTHROPIC_BASE_URL = config.baseUrl
       if (config.model) env.ANTHROPIC_MODEL = config.model
