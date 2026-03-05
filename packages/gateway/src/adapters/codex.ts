@@ -120,7 +120,18 @@ export class CodexAdapter extends BaseAgentAdapter {
         env?: Record<string, string>
       } = {
         baseUrl: this.env.OPENAI_BASE_URL || undefined,
-        env: Object.keys(this.env).length > 0 ? (this.env as Record<string, string>) : undefined,
+      }
+      // The Codex SDK's envOverride completely REPLACES process.env for the
+      // child process (not merged).  We must merge manually so the subprocess
+      // inherits system env vars (PATH, HOME, etc.) while our overrides
+      // (HOME for subscription isolation, API keys) take precedence.
+      if (Object.keys(this.env).length > 0) {
+        const merged: Record<string, string> = {}
+        for (const [key, value] of Object.entries(process.env)) {
+          if (value !== undefined) merged[key] = value
+        }
+        Object.assign(merged, this.env)
+        opts.env = merged
       }
       // Only pass apiKey if present — omitting it lets SDK discover auth from $HOME/.codex/auth.json
       if (apiKey) opts.apiKey = apiKey
