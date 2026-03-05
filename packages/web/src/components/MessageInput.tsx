@@ -45,7 +45,8 @@ interface PendingAttachment {
 export function MessageInput() {
   const { t } = useTranslation()
   const { currentRoomId, sendMessage, replyTo, setReplyTo, roomMembers } = useChatStore()
-  const { agents } = useAgentStore()
+  const agents = useAgentStore((s) => s.agents)
+  const sharedAgents = useAgentStore((s) => s.sharedAgents)
   const connectionStatus = useConnectionStatus()
   const isDisconnected = connectionStatus !== 'connected'
   const [content, setContent] = useState('')
@@ -132,12 +133,18 @@ export function MessageInput() {
       ? new Set(members.filter((m) => m.memberType === 'agent').map((m) => m.memberId))
       : null
     const search = debouncedMentionSearch.toLowerCase()
-    return agents.filter(
+    // Combine own agents and shared agents, deduplicate by id
+    const allAgents = [...agents]
+    const ownIds = new Set(agents.map((a) => a.id))
+    for (const sa of sharedAgents) {
+      if (!ownIds.has(sa.id)) allAgents.push(sa)
+    }
+    return allAgents.filter(
       (agent) =>
         (!memberAgentIds || memberAgentIds.has(agent.id)) &&
         agent.name.toLowerCase().includes(search),
     )
-  }, [agents, debouncedMentionSearch, currentRoomId, roomMembers])
+  }, [agents, sharedAgents, debouncedMentionSearch, currentRoomId, roomMembers])
 
   useEffect(() => {
     if (textareaRef.current) {
