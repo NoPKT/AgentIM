@@ -651,18 +651,18 @@ describe('AgentIM Server API', () => {
 
     it('only owner can change agent visibility', async () => {
       // User B tries to change visibility of User A's agent
-      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'shared' }, userBToken)
+      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'all' }, userBToken)
       assert.equal(res.status, 403)
     })
 
-    it('owner can set agent to shared', async () => {
-      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'shared' }, userAToken)
+    it('owner can set agent to shared with all', async () => {
+      const res = await api('PUT', `/api/agents/${agentId}`, { visibility: 'all' }, userAToken)
       assert.equal(res.status, 200)
-      assert.equal(res.data.data.visibility, 'shared')
+      assert.equal(res.data.data.visibility, 'all')
     })
 
     it("allows adding shared agent to another user's room", async () => {
-      // Agent is now shared, User B should be able to add it
+      // Agent visibility is 'all', User B should be able to add it
       const room = await api('POST', '/api/rooms', { name: 'B Room Shared' }, userBToken)
       const roomId = room.data.data.id
 
