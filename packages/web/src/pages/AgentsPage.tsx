@@ -564,7 +564,7 @@ function GatewayRow({
 
   // Only allow expand when there is content to show
   const hasExpandableContent =
-    gatewayAgents.length > 0 || showCredentials || !!gateway.deviceInfo || !!gateway.disconnectedAt
+    gatewayAgents.length > 0 || !!gateway.deviceInfo || !!gateway.disconnectedAt
 
   return (
     <div className="bg-surface rounded-lg border border-border overflow-hidden transition-colors">
@@ -612,10 +612,9 @@ function GatewayRow({
               <BotIcon className="w-4 h-4" />
             </button>
             <button
-              onClick={() => {
-                const willShow = !showCredentials
-                setShowCredentials(willShow)
-                if (willShow && !expanded) onToggle()
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowCredentials((prev) => !prev)
               }}
               className={`p-1.5 rounded-md transition-colors ${
                 showCredentials
@@ -681,10 +680,10 @@ function GatewayRow({
       </div>
 
       {/* Expanded details */}
-      {expanded && (
+      {(expanded || showCredentials) && (
         <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
-          {/* Gateway's agents — compact list */}
-          {gatewayAgents.length > 0 && (
+          {/* Gateway's agents — compact list (only when main section expanded) */}
+          {expanded && gatewayAgents.length > 0 && (
             <div className="space-y-1">
               {gatewayAgents.map((agent) => {
                 const agentStatus =
@@ -728,7 +727,7 @@ function GatewayRow({
           )}
 
           {/* Device details */}
-          {gateway.deviceInfo && (
+          {expanded && gateway.deviceInfo && (
             <div className="flex items-baseline justify-between gap-4">
               <span className="text-xs text-text-muted shrink-0">{t('agent.device')}</span>
               <span className="text-xs text-text-primary truncate">
@@ -739,7 +738,7 @@ function GatewayRow({
           )}
 
           {/* Disconnected time */}
-          {gateway.disconnectedAt && (
+          {expanded && gateway.disconnectedAt && (
             <div className="flex items-baseline justify-between gap-4">
               <span className="text-xs text-text-muted shrink-0">{t('agent.disconnectedAt')}</span>
               <span className="text-xs text-text-primary">
@@ -1019,7 +1018,7 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
     'w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent'
 
   return (
-    <div className="mt-3 pt-3 border-t border-border space-y-3">
+    <div className="space-y-3">
       {/* Agent type tabs */}
       <div className="flex gap-1.5">
         {AGENT_TYPES.filter((at) => at !== 'generic').map((type) => (

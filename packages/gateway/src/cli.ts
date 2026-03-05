@@ -26,6 +26,8 @@ import {
   credentialToAuthConfig,
   listCredentials,
   findCredentialByNameOrId,
+  updateCredential,
+  readSubscriptionAuthData,
   type CredentialEntry,
 } from './agent-config.js'
 import { manageCredentials, addCredentialInteractive } from './credential-manager.js'
@@ -228,17 +230,12 @@ function registerAgentCommand(
     })
 }
 
-/**
- * Resolve which credential to use for an agent type.
- * Handles: --credential flag, 0/1/N credentials, interactive selection.
- * Returns the full CredentialEntry so callers retain credential ID and oauthData.
- */
-async function resolveAgentCredential(
+/** Select a credential entry: --credential flag, 0/1/N resolution, interactive prompt. */
+async function resolveCredentialEntry(
   agentType: string,
   displayName: string,
   credentialFlag?: string,
 ): Promise<CredentialEntry | null> {
-  // If --credential flag is provided, find by name or id
   if (credentialFlag) {
     const cred = findCredentialByNameOrId(agentType, credentialFlag)
     if (!cred) {
@@ -255,25 +252,17 @@ async function resolveAgentCredential(
 
   const creds = listCredentials(agentType)
 
-  // 0 credentials → prompt to add
   if (creds.length === 0) {
     log.info(`No credentials configured for ${displayName}.`)
     log.info('Add a credential to continue...')
     return addCredentialInteractive(agentType)
   }
 
-  // 1 credential → auto-use
-  if (creds.length === 1) {
-    return creds[0]
-  }
+  if (creds.length === 1) return creds[0]
 
-  // N credentials → check for default, otherwise prompt
   const defaultCred = creds.find((c) => c.isDefault)
-  if (defaultCred) {
-    return defaultCred
-  }
+  if (defaultCred) return defaultCred
 
-  // No default set — prompt user to select
   const options = creds.map((c, i) => ({
     label: `${i + 1}) ${c.name} (${c.mode === 'api' ? 'API Key' : 'Subscription'})`,
     value: c.id,
@@ -283,6 +272,49 @@ async function resolveAgentCredential(
     options,
   )
   return creds.find((c) => c.id === selectedId) ?? null
+}
+
+/**
+ * Resolve which credential to use for an agent type.
+ * Validates subscription credentials have oauthData (repairs old ones automatically).
+ * Returns the full CredentialEntry so callers retain credential ID and oauthData.
+ */
+async function resolveAgentCredential(
+  agentType: string,
+  displayName: string,
+  credentialFlag?: string,
+): Promise<CredentialEntry | null> {
+  const cred = await resolveCredentialEntry(agentType, displayName, credentialFlag)
+  if (!cred) return null
+
+  // Subscription credentials require oauthData for credential isolation.
+  // Old credentials (created before oauthData support) need to be repaired.
+  if (cred.mode === 'subscription' && !cred.oauthData) {
+    log.warn(
+      `Subscription credential "${cred.name}" is missing OAuth data ` +
+        '(created before credential isolation was supported).',
+    )
+
+    // Try to read from existing CLI auth files first (non-interactive repair)
+    const existingData = readSubscriptionAuthData(agentType)
+    if (existingData) {
+      updateCredential(agentType, cred.id, { oauthData: existingData })
+      log.info('Automatically captured OAuth data from existing CLI auth files.')
+      return { ...cred, oauthData: existingData }
+    }
+
+    // No existing auth files — need interactive re-login
+    log.info('Please re-login to capture authentication data.')
+    const { repairSubscriptionCredential } = await import('./credential-manager.js')
+    const repaired = await repairSubscriptionCredential(agentType, cred.id)
+    if (!repaired) {
+      log.error('Re-login failed or was cancelled. Cannot use this credential.')
+      return null
+    }
+    return repaired
+  }
+
+  return cred
 }
 
 registerAgentCommand(

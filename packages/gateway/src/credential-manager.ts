@@ -58,6 +58,32 @@ function runSubscriptionLogin(agentType: string): boolean {
   }
 }
 
+/**
+ * Repair an existing subscription credential that is missing oauthData.
+ * Runs the native login command, then captures and stores the auth data.
+ * Returns the updated credential, or null on failure.
+ */
+export async function repairSubscriptionCredential(
+  agentType: string,
+  credentialId: string,
+): Promise<CredentialEntry | null> {
+  const success = runSubscriptionLogin(agentType)
+  if (!success) return null
+
+  const oauthData = readSubscriptionAuthData(agentType)
+  if (!oauthData) {
+    log.error('Could not read auth data after login.')
+    return null
+  }
+
+  updateCredential(agentType, credentialId, { oauthData })
+  log.info('OAuth data captured and stored.')
+
+  // Return the updated entry
+  const creds = listCredentials(agentType)
+  return creds.find((c) => c.id === credentialId) ?? null
+}
+
 /** Mask an API key for display: show first 3 and last 4 chars. */
 function maskApiKey(key: string): string {
   if (key.length <= 8) return '••••'
