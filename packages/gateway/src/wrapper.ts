@@ -3,6 +3,7 @@ import { generateAgentName } from './name-generator.js'
 import { createGatewaySession } from './gateway-session.js'
 import { StatusWriter } from './lib/status-writer.js'
 import { writeDaemonInfo, readDaemonInfo } from './lib/daemon-manager.js'
+import { syncBackSubscriptionAuth } from './agent-config.js'
 import { createLogger } from './lib/logger.js'
 import type { PermissionLevel } from '@agentim/shared'
 
@@ -19,6 +20,8 @@ export async function runWrapper(opts: {
   env?: Record<string, string>
   passEnv?: string[]
   permissionLevel?: PermissionLevel
+  /** Credential context for subscription auth sync-back on cleanup. */
+  credentialCtx?: { agentType: string; credentialId: string; oauthData?: string }
 }): Promise<void> {
   const workDir = opts.workDir ?? process.cwd()
   const agentName = opts.name ?? generateAgentName(opts.type, workDir)
@@ -62,6 +65,18 @@ export async function runWrapper(opts: {
     },
     onCleanup: () => {
       statusWriter?.stop()
+      // Sync back any refreshed OAuth tokens for subscription credentials
+      if (opts.credentialCtx) {
+        try {
+          syncBackSubscriptionAuth(
+            opts.credentialCtx.agentType,
+            opts.credentialCtx.credentialId,
+            opts.credentialCtx.oauthData,
+          )
+        } catch (err) {
+          log.warn(`Failed to sync back auth: ${(err as Error).message}`)
+        }
+      }
     },
   })
 

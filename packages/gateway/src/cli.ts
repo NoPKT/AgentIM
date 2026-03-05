@@ -23,9 +23,10 @@ import { prompt, promptPassword, promptSelect } from './interactive.js'
 import { runWrapper } from './wrapper.js'
 import {
   agentConfigToEnv,
+  credentialToAuthConfig,
   listCredentials,
   findCredentialByNameOrId,
-  credentialToAuthConfig,
+  type CredentialEntry,
 } from './agent-config.js'
 import { manageCredentials, addCredentialInteractive } from './credential-manager.js'
 import { createLogger } from './lib/logger.js'
@@ -188,17 +189,31 @@ function registerAgentCommand(
       const permissionLevel: PermissionLevel = opts.yes ? 'bypass' : 'interactive'
       const displayName = AGENT_DISPLAY_NAMES[agentType] ?? agentType
 
-      // Multi-credential resolution
-      const agentConfig = await resolveAgentCredential(agentType, displayName, opts.credential)
-      if (!agentConfig) {
+      // Multi-credential resolution — returns full CredentialEntry (with id + oauthData)
+      const credential = await resolveAgentCredential(agentType, displayName, opts.credential)
+      if (!credential) {
         // User cancelled or no credential could be resolved
         return
       }
 
-      const env = agentConfigToEnv(agentType, agentConfig)
+      const config = credentialToAuthConfig(credential)
+      const env = agentConfigToEnv(agentType, config, credential.id)
       const passEnv = parsePassEnv(opts.passEnv)
+      // Credential context for subscription auth sync-back
+      const credentialCtx =
+        credential.mode === 'subscription'
+          ? { agentType, credentialId: credential.id, oauthData: credential.oauthData }
+          : undefined
       if (opts.foreground) {
-        await runWrapper({ type: agentType, name, workDir, env, passEnv, permissionLevel })
+        await runWrapper({
+          type: agentType,
+          name,
+          workDir,
+          env,
+          passEnv,
+          permissionLevel,
+          credentialCtx,
+        })
       } else {
         spawnDaemon({ name, type: agentType, workDir, env, permissionLevel, passEnv })
       }
@@ -216,12 +231,13 @@ function registerAgentCommand(
 /**
  * Resolve which credential to use for an agent type.
  * Handles: --credential flag, 0/1/N credentials, interactive selection.
+ * Returns the full CredentialEntry so callers retain credential ID and oauthData.
  */
 async function resolveAgentCredential(
   agentType: string,
   displayName: string,
   credentialFlag?: string,
-): Promise<import('./agent-config.js').AgentAuthConfig | null> {
+): Promise<CredentialEntry | null> {
   // If --credential flag is provided, find by name or id
   if (credentialFlag) {
     const cred = findCredentialByNameOrId(agentType, credentialFlag)
@@ -234,7 +250,7 @@ async function resolveAgentCredential(
       )
       process.exit(1)
     }
-    return credentialToAuthConfig(cred)
+    return cred
   }
 
   const creds = listCredentials(agentType)
@@ -243,20 +259,18 @@ async function resolveAgentCredential(
   if (creds.length === 0) {
     log.info(`No credentials configured for ${displayName}.`)
     log.info('Add a credential to continue...')
-    const entry = await addCredentialInteractive(agentType)
-    if (!entry) return null
-    return credentialToAuthConfig(entry)
+    return addCredentialInteractive(agentType)
   }
 
   // 1 credential → auto-use
   if (creds.length === 1) {
-    return credentialToAuthConfig(creds[0])
+    return creds[0]
   }
 
   // N credentials → check for default, otherwise prompt
   const defaultCred = creds.find((c) => c.isDefault)
   if (defaultCred) {
-    return credentialToAuthConfig(defaultCred)
+    return defaultCred
   }
 
   // No default set — prompt user to select
@@ -268,9 +282,7 @@ async function resolveAgentCredential(
     `Multiple credentials for ${displayName}. Select one:`,
     options,
   )
-  const selected = creds.find((c) => c.id === selectedId)
-  if (!selected) return null
-  return credentialToAuthConfig(selected)
+  return creds.find((c) => c.id === selectedId) ?? null
 }
 
 registerAgentCommand(

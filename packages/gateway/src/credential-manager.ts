@@ -6,6 +6,7 @@ import {
   removeCredential,
   updateCredential,
   setDefaultCredential,
+  readSubscriptionAuthData,
   type CredentialEntry,
 } from './agent-config.js'
 import { createLogger } from './lib/logger.js'
@@ -156,6 +157,9 @@ export async function addCredentialInteractive(agentType: string): Promise<Crede
     const success = runSubscriptionLogin(agentType)
     if (!success) return null
 
+    // Read the auth data that the CLI tool wrote during login
+    const oauthData = readSubscriptionAuthData(agentType)
+
     const name = await prompt('Name for this credential: ')
     if (!name) {
       log.error('Name is required.')
@@ -165,8 +169,14 @@ export async function addCredentialInteractive(agentType: string): Promise<Crede
     const entry = addCredential(agentType, {
       name,
       mode: 'subscription',
+      oauthData,
     })
     log.info(`Credential "${name}" added successfully!`)
+    if (oauthData) {
+      log.info('OAuth auth data captured and stored.')
+    } else {
+      log.warn('Could not read auth data from CLI — credential isolation may not work.')
+    }
     return entry
   }
 }
