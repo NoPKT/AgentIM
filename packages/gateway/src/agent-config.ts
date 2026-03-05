@@ -503,14 +503,8 @@ export function syncBackSubscriptionAuth(
   credentialId: string,
   currentOAuthData?: string,
 ): void {
-  // Claude Code on macOS: re-read from keychain in case token was refreshed
-  if (agentType === 'claude-code' && process.platform === 'darwin') {
-    const freshData = readClaudeCodeKeychainOAuth()
-    if (freshData && freshData !== currentOAuthData) {
-      updateCredential(agentType, credentialId, { oauthData: freshData })
-    }
-    return
-  }
+  // Claude Code manages its own tokens in the OS keychain; no sync needed.
+  if (agentType === 'claude-code') return
 
   const homeDir = join(SUBSCRIPTION_HOMES_DIR, `${agentType}-${credentialId}`)
   const authPaths = AUTH_FILE_PATHS[agentType]
@@ -554,34 +548,13 @@ export function agentConfigToEnv(
 
   switch (agentType) {
     case 'claude-code':
-      // Claude Code on macOS stores OAuth tokens in the OS keychain, keyed by
-      // a hash that includes $HOME. Changing HOME breaks keychain lookup.
-      // Instead, pass the OAuth access token via the SDK's supported env var.
-      if (config.mode === 'subscription') {
-        let oauthToken: string | undefined
-        if (config.oauthData) {
-          try {
-            const parsed = JSON.parse(config.oauthData)
-            oauthToken = parsed.accessToken
-          } catch {
-            // Old format (settings file) — no accessToken
-          }
-        }
-        // Fallback: read fresh token from OS keychain
-        if (!oauthToken && process.platform === 'darwin') {
-          const freshData = readClaudeCodeKeychainOAuth()
-          if (freshData) {
-            try {
-              oauthToken = JSON.parse(freshData).accessToken
-            } catch {
-              // Malformed data
-            }
-          }
-        }
-        if (oauthToken) {
-          env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken
-        }
-      }
+      // Subscription mode: Claude Code stores OAuth tokens in the OS keychain
+      // (macOS) with a hash keyed to $HOME.  Do NOT change HOME or pass the
+      // access token via CLAUDE_CODE_OAUTH_TOKEN — the env-var path sets
+      // refreshToken=null in the SDK, so expired tokens cannot be refreshed
+      // and the subprocess exits with code 1.  By leaving the env untouched
+      // the subprocess reads from keychain directly, which includes the
+      // refresh token and handles automatic token renewal.
       if (config.apiKey) env.ANTHROPIC_API_KEY = config.apiKey
       if (config.baseUrl) env.ANTHROPIC_BASE_URL = config.baseUrl
       if (config.model) env.ANTHROPIC_MODEL = config.model
