@@ -159,10 +159,10 @@ describe('CodexAdapter slash commands', () => {
 // ─── Metadata Methods ───
 
 describe('CodexAdapter metadata methods', () => {
-  it('getSlashCommands returns 7 commands', () => {
+  it('getSlashCommands returns 8 commands', () => {
     const a = make()
     const cmds = a.getSlashCommands()
-    assert.equal(cmds.length, 7)
+    assert.equal(cmds.length, 8)
     const names = cmds.map((c) => c.name)
     assert.ok(names.includes('clear'))
     assert.ok(names.includes('model'))
@@ -171,6 +171,7 @@ describe('CodexAdapter metadata methods', () => {
     assert.ok(names.includes('sandbox'))
     assert.ok(names.includes('websearch'))
     assert.ok(names.includes('network'))
+    assert.ok(names.includes('plan'))
     a.dispose()
   })
 
@@ -221,8 +222,29 @@ describe('CodexAdapter metadata methods', () => {
     a.dispose()
   })
 
-  it('getPlanMode returns false (not supported)', () => {
+  it('getPlanMode defaults to false', () => {
     const a = make()
+    assert.equal(a.getPlanMode(), false)
+    a.dispose()
+  })
+
+  it('/plan toggle', async () => {
+    const a = make()
+    assert.equal(a.getPlanMode(), false)
+    let r = await a.handleSlashCommand('plan', '')
+    assert.ok(r.success)
+    assert.equal(a.getPlanMode(), true)
+    r = await a.handleSlashCommand('plan', '')
+    assert.ok(r.success)
+    assert.equal(a.getPlanMode(), false)
+    a.dispose()
+  })
+
+  it('/plan on and off', async () => {
+    const a = make()
+    await a.handleSlashCommand('plan', 'on')
+    assert.equal(a.getPlanMode(), true)
+    await a.handleSlashCommand('plan', 'off')
     assert.equal(a.getPlanMode(), false)
     a.dispose()
   })

@@ -7,18 +7,20 @@ import {
   agentGradients,
   agentTypeIcons,
 } from '../lib/agentConfig.js'
-import { Button } from '../components/ui.js'
 import { toast } from '../stores/toast.js'
 import { wsClient } from '../lib/ws.js'
 import { AGENT_TYPES } from '@agentim/shared'
 import type { Agent, AgentVisibility, Gateway } from '@agentim/shared'
+import { Button, Modal, ModalPanel } from '../components/ui.js'
 import {
   TrashIcon,
   CheckIcon,
   XMarkIcon,
   ServerIcon,
-  PlusIcon,
-  LockIcon,
+  KeyIcon,
+  BotIcon,
+  StarIcon,
+  PencilIcon,
 } from '../components/icons.js'
 
 export default function AgentsPage() {
@@ -155,6 +157,7 @@ export default function AgentsPage() {
                 <GatewayRow
                   key={gw.id}
                   gateway={gw}
+                  agents={agents.filter((a) => a.gatewayId === gw.id)}
                   expanded={selectedGatewayId === gw.id}
                   onToggle={() => setSelectedGatewayId((prev) => (prev === gw.id ? null : gw.id))}
                 />
@@ -430,10 +433,12 @@ function AgentRow({
 
 function GatewayRow({
   gateway,
+  agents: gatewayAgents,
   expanded,
   onToggle,
 }: {
   gateway: Gateway
+  agents: Agent[]
   expanded: boolean
   onToggle: () => void
 }) {
@@ -444,7 +449,7 @@ function GatewayRow({
   const gatewayCredentials = useAgentStore((s) => s.gatewayCredentials)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [showSpawn, setShowSpawn] = useState(false)
+  const [showSpawnModal, setShowSpawnModal] = useState(false)
   const [showCredentials, setShowCredentials] = useState(false)
   const [spawnType, setSpawnType] = useState<string>(AGENT_TYPES[0])
   const [spawnName, setSpawnName] = useState('')
@@ -455,19 +460,22 @@ function GatewayRow({
 
   const isOnline = !!gateway.connectedAt && !gateway.disconnectedAt
 
-  // Load credentials when spawn form opens
+  // Load credentials when spawn modal opens
   const credKey = `${gateway.id}:${spawnType}`
   const credentials = gatewayCredentials.get(credKey) ?? null
 
+  const statusConfig = getStatusConfig(t)
+  const typeConfig = getTypeConfig(t)
+
   useEffect(() => {
-    if (showSpawn && isOnline) {
+    if (showSpawnModal && isOnline) {
       wsClient.send({
         type: 'client:list_gateway_credentials',
         gatewayId: gateway.id,
         agentType: spawnType,
       })
     }
-  }, [showSpawn, spawnType, gateway.id, isOnline])
+  }, [showSpawnModal, spawnType, gateway.id, isOnline])
 
   // Listen for credential selection required events from spawn results
   const handleCredentialRequired = useCallback(
@@ -517,7 +525,7 @@ function GatewayRow({
         credId,
       )
       toast.success(t('agent.spawnSuccess'))
-      setShowSpawn(false)
+      setShowSpawnModal(false)
       setSpawnName('')
       setSpawnWorkDir('')
     } catch (err) {
@@ -540,7 +548,7 @@ function GatewayRow({
         credentialId,
       )
       toast.success(t('agent.spawnSuccess'))
-      setShowSpawn(false)
+      setShowSpawnModal(false)
       setSpawnName('')
       setSpawnWorkDir('')
     } catch (err) {
@@ -593,26 +601,16 @@ function GatewayRow({
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => {
-                const willShow = !showSpawn
-                setShowSpawn(willShow)
-                if (willShow) setShowCredentials(false)
-                if (willShow && !expanded) onToggle()
-              }}
-              className={`p-1.5 rounded-md transition-colors ${
-                showSpawn
-                  ? 'text-accent bg-accent/10'
-                  : 'text-text-muted/50 hover:text-accent hover:bg-surface-hover'
-              }`}
+              onClick={() => setShowSpawnModal(true)}
+              className="p-1.5 rounded-md text-text-muted/50 hover:text-accent hover:bg-surface-hover transition-colors"
               title={t('agent.spawnAgent')}
             >
-              <PlusIcon className="w-4 h-4" />
+              <BotIcon className="w-4 h-4" />
             </button>
             <button
               onClick={() => {
                 const willShow = !showCredentials
                 setShowCredentials(willShow)
-                if (willShow) setShowSpawn(false)
                 if (willShow && !expanded) onToggle()
               }}
               className={`p-1.5 rounded-md transition-colors ${
@@ -622,7 +620,7 @@ function GatewayRow({
               }`}
               title={t('credential.title')}
             >
-              <LockIcon className="w-4 h-4" />
+              <KeyIcon className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -664,11 +662,65 @@ function GatewayRow({
             <TrashIcon className="w-4 h-4" />
           </button>
         )}
+
+        {/* Expand/collapse chevron */}
+        <svg
+          className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
 
       {/* Expanded details */}
       {expanded && (
         <div className="border-t border-border px-4 py-3 bg-surface-secondary/50 space-y-3 text-sm">
+          {/* Gateway's agents — compact list */}
+          {gatewayAgents.length > 0 && (
+            <div className="space-y-1">
+              {gatewayAgents.map((agent) => {
+                const agentStatus =
+                  statusConfig[agent.status as keyof typeof statusConfig] || statusConfig.offline
+                const agentType = typeConfig[agent.type] || typeConfig.generic
+                const icon = agentTypeIcons[agent.type] || agentTypeIcons.generic
+                const gradient = agentGradients[agent.type] || agentGradients.generic
+                return (
+                  <div
+                    key={agent.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-surface/50"
+                  >
+                    <span
+                      className={`inline-flex rounded-full h-2 w-2 shrink-0 ${agentStatus.color}`}
+                    />
+                    <div
+                      className={`w-5 h-5 shrink-0 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}
+                    >
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="currentColor"
+                        viewBox={icon.viewBox || '0 0 24 24'}
+                      >
+                        {icon.paths.map((d, idx) => (
+                          <path key={idx} d={d} />
+                        ))}
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-text-primary truncate flex-1">
+                      {agent.name}
+                    </span>
+                    <span
+                      className={`inline-flex px-1 py-0.5 rounded text-[9px] font-medium ${agentType.color}`}
+                    >
+                      {agentType.label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* Device details */}
           {gateway.deviceInfo && (
             <div className="flex items-baseline justify-between gap-4">
@@ -695,131 +747,141 @@ function GatewayRow({
             </div>
           )}
 
-          {/* Spawn form */}
-          {showSpawn && (
-            <div className="space-y-2 pt-1">
-              <p className="text-xs font-medium text-text-secondary">{t('agent.spawnAgentDesc')}</p>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('agent.agentType')}
-                </label>
-                <select
-                  value={spawnType}
-                  onChange={(e) => setSpawnType(e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {AGENT_TYPES.filter((t) => t !== 'generic').map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('agent.agentName')}
-                </label>
-                <input
-                  type="text"
-                  value={spawnName}
-                  onChange={(e) => setSpawnName(e.target.value)}
-                  placeholder="my-agent"
-                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  {t('agent.workingDir')}
-                </label>
-                <input
-                  type="text"
-                  value={spawnWorkDir}
-                  onChange={(e) => setSpawnWorkDir(e.target.value)}
-                  placeholder="/path/to/project"
-                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </div>
-
-              {/* Credential selector — shown when multiple credentials exist */}
-              {credentials && credentials.length > 1 && (
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1">
-                    {t('credential.selectCredential')}
-                  </label>
-                  <select
-                    value={selectedCredentialId}
-                    onChange={(e) => setSelectedCredentialId(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                  >
-                    <option value="">{t('credential.default')}</option>
-                    {credentials.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} (
-                        {c.mode === 'api'
-                          ? t('credential.modeApi')
-                          : t('credential.modeSubscription')}
-                        ){c.isDefault ? ` [${t('credential.default')}]` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {credentials && credentials.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {t('credential.noCredentials')}
-                </p>
-              )}
-
-              {/* Credential selection required — returned from gateway */}
-              {credentialSelection && (
-                <div className="border border-amber-300 dark:border-amber-700 rounded-lg p-2 bg-amber-50 dark:bg-amber-900/20">
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2">
-                    {t('credential.credentialRequired')}
-                  </p>
-                  <div className="space-y-1">
-                    {credentialSelection.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => handleSpawnWithCredential(c.id)}
-                        className="w-full text-left px-2 py-1.5 text-xs rounded border border-border bg-surface hover:bg-surface-hover transition-colors"
-                      >
-                        {c.name} (
-                        {c.mode === 'api'
-                          ? t('credential.modeApi')
-                          : t('credential.modeSubscription')}
-                        )
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setShowSpawn(false)}
-                  className="flex-1"
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSpawn}
-                  disabled={spawning || !spawnName.trim()}
-                  className="flex-1"
-                >
-                  {t('agent.spawnAgent')}
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Credentials Management Panel */}
           {showCredentials && isOnline && <GatewayCredentialsPanel gatewayId={gateway.id} />}
         </div>
       )}
+
+      {/* Spawn Agent Modal */}
+      <Modal isOpen={showSpawnModal} onClose={() => setShowSpawnModal(false)}>
+        <ModalPanel size="sm">
+          <div className="p-5 space-y-4">
+            <h3 className="text-base font-semibold text-text-primary">{t('agent.spawnAgent')}</h3>
+
+            {/* Agent type tabs */}
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1.5">
+                {t('agent.agentType')}
+              </label>
+              <div className="flex gap-1.5">
+                {AGENT_TYPES.filter((at) => at !== 'generic').map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSpawnType(type)}
+                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg transition-colors text-center ${
+                      spawnType === type
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'bg-surface-hover/60 text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                {t('agent.agentName')}
+              </label>
+              <input
+                type="text"
+                value={spawnName}
+                onChange={(e) => setSpawnName(e.target.value)}
+                placeholder="my-agent"
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-text-muted mb-1">
+                {t('agent.workingDir')}
+              </label>
+              <input
+                type="text"
+                value={spawnWorkDir}
+                onChange={(e) => setSpawnWorkDir(e.target.value)}
+                placeholder="/path/to/project"
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+
+            {/* Credential selector — shown when multiple credentials exist */}
+            {credentials && credentials.length > 1 && (
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">
+                  {t('credential.selectCredential')}
+                </label>
+                <select
+                  value={selectedCredentialId}
+                  onChange={(e) => setSelectedCredentialId(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">{t('credential.default')}</option>
+                  {credentials.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (
+                      {c.mode === 'api'
+                        ? t('credential.modeApi')
+                        : t('credential.modeSubscription')}
+                      ){c.isDefault ? ` [${t('credential.default')}]` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {credentials && credentials.length === 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t('credential.noCredentials')}
+              </p>
+            )}
+
+            {/* Credential selection required — returned from gateway */}
+            {credentialSelection && (
+              <div className="border border-amber-300 dark:border-amber-700 rounded-lg p-2 bg-amber-50 dark:bg-amber-900/20">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-2">
+                  {t('credential.credentialRequired')}
+                </p>
+                <div className="space-y-1">
+                  {credentialSelection.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSpawnWithCredential(c.id)}
+                      className="w-full text-left px-2 py-1.5 text-xs rounded border border-border bg-surface hover:bg-surface-hover transition-colors"
+                    >
+                      {c.name} (
+                      {c.mode === 'api'
+                        ? t('credential.modeApi')
+                        : t('credential.modeSubscription')}
+                      )
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowSpawnModal(false)}
+                className="flex-1"
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSpawn}
+                disabled={spawning || !spawnName.trim()}
+                className="flex-1"
+              >
+                {t('agent.spawnAgent')}
+              </Button>
+            </div>
+          </div>
+        </ModalPanel>
+      </Modal>
     </div>
   )
 }
@@ -1039,15 +1101,16 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                 )}
               </div>
 
-              {/* Action bar */}
+              {/* Action icon buttons */}
               {renamingId !== cred.id && (
-                <div className="flex border-t border-border/40 divide-x divide-border/40 text-[10px]">
+                <div className="px-3 py-1.5 flex items-center justify-end gap-1">
                   {!cred.isDefault && (
                     <button
                       onClick={() => handleSetDefault(cred.id)}
-                      className="flex-1 py-1.5 text-text-muted hover:text-accent hover:bg-accent/5 transition-colors"
+                      title={t('credential.setDefault')}
+                      className="p-1 rounded-md text-text-muted/50 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
                     >
-                      {t('credential.setDefault')}
+                      <StarIcon className="w-3.5 h-3.5" />
                     </button>
                   )}
                   <button
@@ -1055,31 +1118,35 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                       setRenamingId(cred.id)
                       setRenameValue(cred.name)
                     }}
-                    className="flex-1 py-1.5 text-text-muted hover:text-text-primary hover:bg-surface-hover/50 transition-colors"
+                    title={t('credential.rename')}
+                    className="p-1 rounded-md text-text-muted/50 hover:text-text-primary hover:bg-surface-hover transition-colors"
                   >
-                    {t('credential.rename')}
+                    <PencilIcon className="w-3.5 h-3.5" />
                   </button>
                   {confirmDeleteId === cred.id ? (
-                    <div className="flex flex-1">
+                    <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => handleDelete(cred.id)}
-                        className="flex-1 py-1.5 font-medium text-danger-text bg-danger-subtle/50 hover:bg-danger-subtle transition-colors"
+                        title={t('common.confirm')}
+                        className="p-1 rounded-md text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                       >
-                        {t('common.confirm')}
+                        <CheckIcon className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(null)}
-                        className="flex-1 py-1.5 text-text-muted hover:bg-surface-hover/50 transition-colors border-l border-border/40"
+                        title={t('common.cancel')}
+                        className="p-1 rounded-md text-text-muted hover:bg-surface-hover transition-colors"
                       >
-                        {t('common.cancel')}
+                        <XMarkIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmDeleteId(cred.id)}
-                      className="flex-1 py-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/5 transition-colors"
+                      title={t('credential.delete')}
+                      className="p-1 rounded-md text-text-muted/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
                     >
-                      {t('credential.delete')}
+                      <TrashIcon className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -1089,252 +1156,219 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
         </div>
       )}
 
-      {/* Add credential form */}
-      {showAddForm ? (
-        <div className="space-y-2.5 p-3 rounded-lg border border-accent/30 bg-accent/5">
-          <p className="text-[11px] font-semibold text-text-primary">{t('credential.add')}</p>
+      {/* Add credential button */}
+      <button
+        onClick={() => setShowAddForm(true)}
+        className="w-full px-3 py-2 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
+      >
+        + {t('credential.add')}
+      </button>
 
-          {/* Mode selector */}
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setAddMode('api')}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                addMode === 'api'
-                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30'
-                  : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
-              }`}
-            >
-              {t('credential.modeApi')}
-            </button>
-            <button
-              onClick={() => setAddMode('subscription')}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                addMode === 'subscription'
-                  ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30'
-                  : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
-              }`}
-            >
-              {t('credential.modeSubscription')}
-            </button>
-          </div>
+      {/* Add Credential Modal */}
+      <Modal
+        isOpen={showAddForm}
+        onClose={() => {
+          setShowAddForm(false)
+          setAddName('')
+          setAddApiKey('')
+          setAddBaseUrl('')
+          setAddModel('')
+          setAddMode('api')
+          setOauthPending(false)
+          setOauthAuthUrl(null)
+          setOauthAutoCallback(false)
+          setOauthRequestId(null)
+          setCallbackUrl('')
+        }}
+      >
+        <ModalPanel size="sm">
+          <div className="p-5 space-y-3">
+            <h3 className="text-base font-semibold text-text-primary">{t('credential.add')}</h3>
 
-          <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
-              {t('credential.name')}
-            </label>
-            <input
-              type="text"
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              placeholder={addMode === 'api' ? 'my-api-key' : 'my-subscription'}
-              className={inputCls}
-            />
-          </div>
+            {/* Mode selector */}
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setAddMode('api')}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  addMode === 'api'
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30'
+                    : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                {t('credential.modeApi')}
+              </button>
+              <button
+                onClick={() => setAddMode('subscription')}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  addMode === 'subscription'
+                    ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30'
+                    : 'bg-surface-hover/50 text-text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                {t('credential.modeSubscription')}
+              </button>
+            </div>
 
-          {addMode === 'api' ? (
-            <>
-              <div>
-                <label className="block text-[10px] font-medium text-text-muted mb-1">
-                  {t('credential.apiKey')}
-                </label>
-                <input
-                  type="password"
-                  value={addApiKey}
-                  onChange={(e) => setAddApiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-text-muted mb-1">
-                  {t('credential.baseUrl')}
-                  <span className="ml-1 opacity-50">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={addBaseUrl}
-                  onChange={(e) => setAddBaseUrl(e.target.value)}
-                  placeholder="https://api.example.com"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-text-muted mb-1">
-                  {t('credential.model')}
-                  <span className="ml-1 opacity-50">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={addModel}
-                  onChange={(e) => setAddModel(e.target.value)}
-                  placeholder="claude-opus-4-6"
-                  className={inputCls}
-                />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setShowAddForm(false)
-                    setAddName('')
-                    setAddApiKey('')
-                    setAddBaseUrl('')
-                    setAddModel('')
-                    setAddMode('api')
-                  }}
-                  className="flex-1"
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button size="sm" onClick={handleAdd} disabled={!canAdd} className="flex-1">
-                  {t('credential.add')}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* OAuth flow UI for subscription mode */}
-              {!oauthAuthUrl ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] text-text-muted leading-relaxed">
-                    {t('credential.oauthHint')}
-                  </p>
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setShowAddForm(false)
-                        setAddName('')
-                        setAddMode('api')
-                        setOauthPending(false)
-                        setOauthAuthUrl(null)
-                        setOauthAutoCallback(false)
-                        setOauthRequestId(null)
-                        setCallbackUrl('')
-                      }}
-                      className="flex-1"
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (!addName.trim()) return
-                        setOauthPending(true)
-                        startGatewayOAuth(gatewayId, credAgentType, addName.trim())
-                      }}
-                      disabled={oauthPending || !addName.trim()}
-                      className="flex-1"
-                    >
-                      {oauthPending ? t('credential.oauthStarting') : t('credential.oauthStart')}
-                    </Button>
-                  </div>
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">
+                {t('credential.name')}
+              </label>
+              <input
+                type="text"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder={addMode === 'api' ? 'my-api-key' : 'my-subscription'}
+                className={inputCls}
+              />
+            </div>
+
+            {addMode === 'api' ? (
+              <>
+                <div>
+                  <label className="block text-[10px] font-medium text-text-muted mb-1">
+                    {t('credential.apiKey')}
+                  </label>
+                  <input
+                    type="password"
+                    value={addApiKey}
+                    onChange={(e) => setAddApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className={inputCls}
+                  />
                 </div>
-              ) : oauthAutoCallback ? (
-                <div className="space-y-2.5">
-                  {/* Auth URL display — auto-callback mode (no paste step) */}
-                  <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                    <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
-                      {t('credential.oauthStep1')}
-                    </p>
-                    <a
-                      href={oauthAuthUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
-                    >
-                      {oauthAuthUrl.length > 120
-                        ? oauthAuthUrl.slice(0, 120) + '...'
-                        : oauthAuthUrl}
-                    </a>
-                  </div>
-
-                  {/* Waiting indicator */}
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-hover/50 border border-border">
-                    <svg
-                      className="animate-spin h-3.5 w-3.5 text-accent flex-shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        className="opacity-25"
-                      />
-                      <path
-                        d="M4 12a8 8 0 018-8"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <p className="text-[10px] text-text-muted">
-                      {t('credential.oauthAutoWaiting')}
-                    </p>
-                  </div>
-
+                <div>
+                  <label className="block text-[10px] font-medium text-text-muted mb-1">
+                    {t('credential.baseUrl')}
+                    <span className="ml-1 opacity-50">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addBaseUrl}
+                    onChange={(e) => setAddBaseUrl(e.target.value)}
+                    placeholder="https://api.example.com"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-text-muted mb-1">
+                    {t('credential.model')}
+                    <span className="ml-1 opacity-50">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addModel}
+                    onChange={(e) => setAddModel(e.target.value)}
+                    placeholder="claude-opus-4-6"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => {
                       setShowAddForm(false)
                       setAddName('')
+                      setAddApiKey('')
+                      setAddBaseUrl('')
+                      setAddModel('')
                       setAddMode('api')
-                      setOauthPending(false)
-                      setOauthAuthUrl(null)
-                      setOauthAutoCallback(false)
-                      setOauthRequestId(null)
-                      setCallbackUrl('')
                     }}
-                    className="w-full"
+                    className="flex-1"
                   >
                     {t('common.cancel')}
                   </Button>
+                  <Button size="sm" onClick={handleAdd} disabled={!canAdd} className="flex-1">
+                    {t('credential.add')}
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {/* Auth URL display */}
-                  <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                    <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
-                      {t('credential.oauthStep1')}
+              </>
+            ) : (
+              <>
+                {/* OAuth flow UI for subscription mode */}
+                {!oauthAuthUrl ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-text-muted leading-relaxed">
+                      {t('credential.oauthHint')}
                     </p>
-                    <a
-                      href={oauthAuthUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
-                    >
-                      {oauthAuthUrl.length > 120
-                        ? oauthAuthUrl.slice(0, 120) + '...'
-                        : oauthAuthUrl}
-                    </a>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setAddName('')
+                          setAddMode('api')
+                          setOauthPending(false)
+                          setOauthAuthUrl(null)
+                          setOauthAutoCallback(false)
+                          setOauthRequestId(null)
+                          setCallbackUrl('')
+                        }}
+                        className="flex-1"
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!addName.trim()) return
+                          setOauthPending(true)
+                          startGatewayOAuth(gatewayId, credAgentType, addName.trim())
+                        }}
+                        disabled={oauthPending || !addName.trim()}
+                        className="flex-1"
+                      >
+                        {oauthPending ? t('credential.oauthStarting') : t('credential.oauthStart')}
+                      </Button>
+                    </div>
                   </div>
+                ) : oauthAutoCallback ? (
+                  <div className="space-y-2.5">
+                    {/* Auth URL display — auto-callback mode (no paste step) */}
+                    <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
+                        {t('credential.oauthStep1')}
+                      </p>
+                      <a
+                        href={oauthAuthUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
+                      >
+                        {oauthAuthUrl.length > 120
+                          ? oauthAuthUrl.slice(0, 120) + '...'
+                          : oauthAuthUrl}
+                      </a>
+                    </div>
 
-                  {/* Auto-complete hint */}
-                  <p className="text-[10px] text-text-muted italic">
-                    {t('credential.oauthAutoHint')}
-                  </p>
+                    {/* Waiting indicator */}
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-hover/50 border border-border">
+                      <svg
+                        className="animate-spin h-3.5 w-3.5 text-accent flex-shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          className="opacity-25"
+                        />
+                        <path
+                          d="M4 12a8 8 0 018-8"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <p className="text-[10px] text-text-muted">
+                        {t('credential.oauthAutoWaiting')}
+                      </p>
+                    </div>
 
-                  {/* Callback URL paste */}
-                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 mb-1.5">
-                      {t('credential.oauthStep2')}
-                    </p>
-                    <input
-                      type="text"
-                      value={callbackUrl}
-                      onChange={(e) => setCallbackUrl(e.target.value)}
-                      placeholder="http://localhost:PORT/callback?code=..."
-                      className={inputCls}
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="secondary"
@@ -1348,38 +1382,89 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                         setOauthRequestId(null)
                         setCallbackUrl('')
                       }}
-                      className="flex-1"
+                      className="w-full"
                     >
                       {t('common.cancel')}
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (!callbackUrl.trim() || !oauthRequestId) return
-                        setOauthSubmitting(true)
-                        completeGatewayOAuth(gatewayId, oauthRequestId, callbackUrl.trim())
-                      }}
-                      disabled={oauthSubmitting || !callbackUrl.trim()}
-                      className="flex-1"
-                    >
-                      {oauthSubmitting
-                        ? t('credential.oauthCompleting')
-                        : t('credential.oauthComplete')}
-                    </Button>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="w-full px-3 py-2 text-xs font-medium text-accent bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
-        >
-          + {t('credential.add')}
-        </button>
-      )}
+                ) : (
+                  <div className="space-y-2.5">
+                    {/* Auth URL display */}
+                    <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-1.5">
+                        {t('credential.oauthStep1')}
+                      </p>
+                      <a
+                        href={oauthAuthUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-blue-600 dark:text-blue-400 underline break-all leading-relaxed"
+                      >
+                        {oauthAuthUrl.length > 120
+                          ? oauthAuthUrl.slice(0, 120) + '...'
+                          : oauthAuthUrl}
+                      </a>
+                    </div>
+
+                    {/* Auto-complete hint */}
+                    <p className="text-[10px] text-text-muted italic">
+                      {t('credential.oauthAutoHint')}
+                    </p>
+
+                    {/* Callback URL paste */}
+                    <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                      <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 mb-1.5">
+                        {t('credential.oauthStep2')}
+                      </p>
+                      <input
+                        type="text"
+                        value={callbackUrl}
+                        onChange={(e) => setCallbackUrl(e.target.value)}
+                        placeholder="http://localhost:PORT/callback?code=..."
+                        className={inputCls}
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setAddName('')
+                          setAddMode('api')
+                          setOauthPending(false)
+                          setOauthAuthUrl(null)
+                          setOauthAutoCallback(false)
+                          setOauthRequestId(null)
+                          setCallbackUrl('')
+                        }}
+                        className="flex-1"
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (!callbackUrl.trim() || !oauthRequestId) return
+                          setOauthSubmitting(true)
+                          completeGatewayOAuth(gatewayId, oauthRequestId, callbackUrl.trim())
+                        }}
+                        disabled={oauthSubmitting || !callbackUrl.trim()}
+                        className="flex-1"
+                      >
+                        {oauthSubmitting
+                          ? t('credential.oauthCompleting')
+                          : t('credential.oauthComplete')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </ModalPanel>
+      </Modal>
     </div>
   )
 }
