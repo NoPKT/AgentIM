@@ -124,29 +124,29 @@ export function MessageList({ onImageClick, roomSupportsRewind }: MessageListPro
   // (which DESTROYS all cached measurements and forces fallback to estimates),
   // we re-invoke measureElement on each rendered DOM node so the virtualizer
   // keeps accurate per-item sizes.
+  //
+  // We observe the wrapper container (not individual items) to avoid
+  // measure→resize→observe loops that trigger ResizeObserver warnings.
   const measureRAF = useRef(0)
-  const remeasureVisible = useCallback(() => {
-    const el = parentRef.current
-    if (!el) return
-    const nodes = el.querySelectorAll<HTMLElement>('[data-index]')
-    nodes.forEach((node) => virtualizer.measureElement(node))
-  }, [virtualizer])
-
   useEffect(() => {
     const el = parentRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(measureRAF.current)
-      measureRAF.current = requestAnimationFrame(remeasureVisible)
+      measureRAF.current = requestAnimationFrame(() => {
+        const nodes = el.querySelectorAll<HTMLElement>('[data-index]')
+        nodes.forEach((node) => virtualizer.measureElement(node))
+      })
     })
-    // Observe each rendered message element for size changes
-    const nodes = el.querySelectorAll<HTMLElement>('[data-index]')
-    nodes.forEach((node) => ro.observe(node))
+    const listContainer = el.querySelector('[style*="position: relative"]')
+    if (listContainer instanceof HTMLElement) {
+      ro.observe(listContainer)
+    }
     return () => {
       cancelAnimationFrame(measureRAF.current)
       ro.disconnect()
     }
-  }, [virtualizer, currentMessages, remeasureVisible])
+  }, [virtualizer])
 
   // Auto-scroll to bottom (on new messages or streaming updates), throttled to avoid layout thrashing
   const scrollRAF = useRef(0)

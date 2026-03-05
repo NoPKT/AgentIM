@@ -81,6 +81,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidMount() {
     this._onError = (event: ErrorEvent) => {
+      // Ignore benign ResizeObserver loop warnings — they fire a global error
+      // event with error=null on Safari and a specific message on Chrome/Firefox.
+      if (event.error == null || event.message?.includes('ResizeObserver loop')) {
+        return
+      }
       console.error('[ErrorBoundary] Uncaught error:', event.error)
       _errorReporter?.(event.error instanceof Error ? event.error : new Error(String(event.error)))
       this.setState({
