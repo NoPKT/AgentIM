@@ -368,3 +368,21 @@ export function ServerIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function KeyIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  )
+}
+
+export function BotIcon(props: IconProps) {
+  return (
+    <svg {...defaultStroke} {...props}>
+      <path d="M12 2a1 1 0 011 1v2h-2V3a1 1 0 011-1zM8.5 11a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+      <rect x="4" y="7" width="16" height="12" rx="3" />
+      <path d="M9 19v2m6-2v2" />
+    </svg>
+  )
+}

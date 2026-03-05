@@ -36,6 +36,16 @@ const CODEX_PERMISSION_PREAMBLE = [
   'Read-only operations (reading files, searching, listing) do not require approval.',
 ].join('\n')
 
+const CODEX_PLAN_MODE_PREAMBLE = [
+  '[AgentIM Plan Mode]',
+  'You are currently in PLAN MODE. In this mode:',
+  '- Analyze the task and present a detailed plan of what you would do',
+  '- DO NOT execute any commands, modify files, or make changes',
+  '- Describe each step clearly and wait for the user to approve',
+  '- Only after receiving explicit approval should you proceed with execution',
+  '- If the user asks you to proceed, exit plan mode and execute the plan',
+].join('\n')
+
 const CODEX_AGENTIM_CONTEXT_PREAMBLE = [
   '[AgentIM Room Communication]',
   'You are connected to an AgentIM room with other agents and users.',
@@ -51,6 +61,7 @@ export class CodexAdapter extends BaseAgentAdapter {
   private threadId?: string | null
   /** Whether prompt-based permission simulation is active for this adapter. */
   private readonly promptPermission: boolean
+  private planMode = false
 
   // Runtime settings configurable via slash commands
   private modelOverride?: string
@@ -414,6 +425,9 @@ export class CodexAdapter extends BaseAgentAdapter {
   protected override buildPrompt(content: string, context?: MessageContext): string {
     const base = super.buildPrompt(content, context)
     const parts: string[] = []
+    if (this.planMode) {
+      parts.push(CODEX_PLAN_MODE_PREAMBLE)
+    }
     if (this.promptPermission) {
       parts.push(CODEX_PERMISSION_PREAMBLE)
     }
@@ -612,6 +626,12 @@ export class CodexAdapter extends BaseAgentAdapter {
         usage: '/network [on|off]',
         source: 'builtin',
       },
+      {
+        name: 'plan',
+        description: 'Toggle plan mode (read-only)',
+        usage: '/plan [on|off]',
+        source: 'builtin',
+      },
     ]
   }
 
@@ -638,6 +658,10 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (typeof timer === 'object' && 'unref' in timer) timer.unref()
       }),
     ])
+  }
+
+  override getPlanMode(): boolean {
+    return this.planMode
   }
 
   override getAvailableEffortLevels(): string[] {
@@ -758,6 +782,20 @@ export class CodexAdapter extends BaseAgentAdapter {
         return {
           success: true,
           message: `Network access: ${this.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
+        }
+      }
+      case 'plan': {
+        const arg = args.trim().toLowerCase()
+        if (arg === 'on' || arg === 'true' || arg === '1') {
+          this.planMode = true
+        } else if (arg === 'off' || arg === 'false' || arg === '0') {
+          this.planMode = false
+        } else {
+          this.planMode = !this.planMode
+        }
+        return {
+          success: true,
+          message: `Plan mode: ${this.planMode ? 'enabled' : 'disabled'}`,
         }
       }
       default:
