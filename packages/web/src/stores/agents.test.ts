@@ -166,6 +166,7 @@ describe('useAgentStore', () => {
         name: 'Default',
         mode: 'api' as const,
         hasApiKey: true,
+        hasOAuthData: false,
         isDefault: true,
         createdAt: '2026-01-01T00:00:00Z',
       },

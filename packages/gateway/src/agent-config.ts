@@ -12,6 +12,8 @@ export interface AgentAuthConfig {
   apiKey?: string // encrypted when stored on disk
   baseUrl?: string // plaintext (non-sensitive)
   model?: string // plaintext
+  // Subscription mode: serialized JSON of CLI auth file content
+  oauthData?: string
 }
 
 /** A single named credential */
@@ -22,6 +24,7 @@ export interface CredentialEntry {
   apiKey?: string // decrypted in-memory, encrypted on disk
   baseUrl?: string
   model?: string
+  oauthData?: string // subscription mode: serialized JSON of CLI auth file (decrypted in-memory)
   isDefault?: boolean // at most one per agent type
   createdAt: string // ISO timestamp
 }
@@ -32,6 +35,7 @@ export interface CredentialInfo {
   name: string
   mode: 'subscription' | 'api'
   hasApiKey: boolean
+  hasOAuthData: boolean
   baseUrl?: string
   model?: string
   isDefault: boolean
@@ -46,6 +50,7 @@ interface StoredCredentialEntry {
   name: string
   mode: 'subscription' | 'api'
   apiKey?: string // encrypted base64
+  oauthData?: string // encrypted base64
   baseUrl?: string
   model?: string
   isDefault?: boolean
@@ -136,6 +141,11 @@ function decryptEntry(stored: StoredCredentialEntry): CredentialEntry | null {
     if (!decrypted) return null // decryption failed (different machine?)
     entry.apiKey = decrypted
   }
+  if (stored.oauthData) {
+    const decrypted = decryptToken(stored.oauthData)
+    if (!decrypted) return null
+    entry.oauthData = decrypted
+  }
   if (stored.baseUrl) entry.baseUrl = stored.baseUrl
   if (stored.model) entry.model = stored.model
   return entry
@@ -150,6 +160,7 @@ function encryptEntry(entry: CredentialEntry): StoredCredentialEntry {
     createdAt: entry.createdAt,
   }
   if (entry.apiKey) stored.apiKey = encryptToken(entry.apiKey)
+  if (entry.oauthData) stored.oauthData = encryptToken(entry.oauthData)
   if (entry.baseUrl) stored.baseUrl = entry.baseUrl
   if (entry.model) stored.model = entry.model
   if (entry.isDefault) stored.isDefault = true
@@ -175,6 +186,7 @@ export function listCredentialInfo(agentType: string): CredentialInfo[] {
     name: s.name,
     mode: s.mode,
     hasApiKey: !!s.apiKey,
+    hasOAuthData: !!s.oauthData,
     baseUrl: s.baseUrl,
     model: s.model,
     isDefault: !!s.isDefault,
@@ -220,7 +232,7 @@ export function addCredential(
 export function updateCredential(
   agentType: string,
   id: string,
-  patch: Partial<Pick<CredentialEntry, 'name' | 'apiKey' | 'baseUrl' | 'model'>>,
+  patch: Partial<Pick<CredentialEntry, 'name' | 'apiKey' | 'baseUrl' | 'model' | 'oauthData'>>,
 ): boolean {
   const store = loadCredentialStore(agentType)
   const idx = store.credentials.findIndex((c) => c.id === id)
@@ -229,6 +241,8 @@ export function updateCredential(
   const existing = store.credentials[idx]
   if (patch.name !== undefined) existing.name = patch.name
   if (patch.apiKey !== undefined) existing.apiKey = encryptToken(patch.apiKey)
+  if (patch.oauthData !== undefined)
+    existing.oauthData = patch.oauthData ? encryptToken(patch.oauthData) : undefined
   if (patch.baseUrl !== undefined) existing.baseUrl = patch.baseUrl || undefined
   if (patch.model !== undefined) existing.model = patch.model || undefined
 
@@ -377,42 +391,108 @@ export function credentialToAuthConfig(cred: CredentialEntry): AgentAuthConfig {
     apiKey: cred.apiKey,
     baseUrl: cred.baseUrl,
     model: cred.model,
+    oauthData: cred.oauthData,
   }
 }
 
+// ─── Subscription Home Isolation ───
+
+const SUBSCRIPTION_HOMES_DIR = join(homedir(), '.agentim', 'subscription-homes')
+
+/** Auth file paths relative to home for each agent type. */
+const AUTH_FILE_PATHS: Record<string, string[]> = {
+  codex: [join('.codex', 'auth.json')],
+  'claude-code': ['.claude.json'],
+  gemini: [join('.gemini', 'oauth_creds.json')],
+}
+
 /**
- * Read OAuth access_token from a CLI tool's auth file.
- * Returns undefined if the file does not exist or is unreadable.
+ * Create a per-credential home directory and write OAuth auth files into it.
+ * Returns the home directory path.
  */
-function readOAuthToken(authFilePath: string): string | undefined {
-  try {
-    const auth = JSON.parse(readFileSync(authFilePath, 'utf-8')) as {
-      access_token?: string
-      tokens?: { access_token?: string }
+export function prepareSubscriptionHome(
+  agentType: string,
+  credentialId: string,
+  oauthData: string,
+): string {
+  const homeDir = join(SUBSCRIPTION_HOMES_DIR, `${agentType}-${credentialId}`)
+  mkdirSync(homeDir, { recursive: true, mode: 0o700 })
+
+  const authPaths = AUTH_FILE_PATHS[agentType]
+  if (!authPaths) return homeDir
+
+  for (const relPath of authPaths) {
+    const fullPath = join(homeDir, relPath)
+    const parentDir = join(fullPath, '..')
+    mkdirSync(parentDir, { recursive: true, mode: 0o700 })
+    writeFileSync(fullPath, oauthData, { mode: 0o600 })
+  }
+
+  return homeDir
+}
+
+/**
+ * Read OAuth auth data from the real home directory for a given agent type.
+ * Returns the serialized JSON content, or undefined if unreadable.
+ */
+export function readSubscriptionAuthData(agentType: string): string | undefined {
+  const authPaths = AUTH_FILE_PATHS[agentType]
+  if (!authPaths) return undefined
+
+  for (const relPath of authPaths) {
+    try {
+      return readFileSync(join(homedir(), relPath), 'utf-8')
+    } catch {
+      // File not found or unreadable
     }
-    // Codex stores tokens under auth.tokens.access_token (chatgpt auth mode),
-    // while the top-level auth.access_token is used by other tools.
-    return auth.tokens?.access_token || auth.access_token || undefined
-  } catch {
-    return undefined
+  }
+  return undefined
+}
+
+/**
+ * After an agent session, read back auth files from the per-credential home.
+ * If the content has changed (token refreshed by CLI), update the credential store.
+ */
+export function syncBackSubscriptionAuth(
+  agentType: string,
+  credentialId: string,
+  currentOAuthData?: string,
+): void {
+  const homeDir = join(SUBSCRIPTION_HOMES_DIR, `${agentType}-${credentialId}`)
+  const authPaths = AUTH_FILE_PATHS[agentType]
+  if (!authPaths) return
+
+  for (const relPath of authPaths) {
+    try {
+      const refreshed = readFileSync(join(homeDir, relPath), 'utf-8')
+      if (refreshed && refreshed !== currentOAuthData) {
+        updateCredential(agentType, credentialId, { oauthData: refreshed })
+      }
+    } catch {
+      // File not found — nothing to sync back
+    }
   }
 }
 
 /**
  * Convert agent auth config to environment variables for the adapter.
- * Both API-key and subscription (OAuth) credentials are resolved here so
- * that adapters receive a ready-to-use token without needing to know the
- * auth mode.
+ * For subscription mode with oauthData, sets up per-credential home isolation
+ * so the CLI subprocess reads auth from its own directory.
  */
 export function agentConfigToEnv(
   agentType: string,
   config: AgentAuthConfig,
+  credentialId?: string,
 ): Record<string, string> {
   const env: Record<string, string> = {}
 
   switch (agentType) {
     case 'claude-code':
-      // Claude Code SDK handles OAuth internally — only API-key mode needs env
+      if (config.mode === 'subscription' && config.oauthData && credentialId) {
+        // Set up isolated home so Claude Code CLI reads its own auth file
+        const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
+        env.HOME = homeDir
+      }
       if (config.apiKey) env.ANTHROPIC_API_KEY = config.apiKey
       if (config.baseUrl) env.ANTHROPIC_BASE_URL = config.baseUrl
       if (config.model) env.ANTHROPIC_MODEL = config.model
@@ -421,18 +501,22 @@ export function agentConfigToEnv(
       if (config.mode === 'api' && config.apiKey) {
         env.OPENAI_API_KEY = config.apiKey
         env.CODEX_API_KEY = config.apiKey
-      } else if (config.mode === 'subscription') {
-        // Read the OAuth token that `codex login` stored
-        const token = readOAuthToken(join(homedir(), '.codex', 'auth.json'))
-        if (token) env.CODEX_API_KEY = token
+      } else if (config.mode === 'subscription' && config.oauthData && credentialId) {
+        // Set up isolated home so Codex CLI reads its own auth.json
+        const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
+        env.HOME = homeDir
       }
       if (config.baseUrl) env.OPENAI_BASE_URL = config.baseUrl
       if (config.model) env.CODEX_MODEL = config.model
       break
     case 'gemini':
       if (config.mode === 'subscription') {
-        // Tell the Gemini SDK to use Google OAuth (cached credentials from CLI login)
         env.GOOGLE_GENAI_USE_GCA = 'true'
+        if (config.oauthData && credentialId) {
+          // Gemini has built-in GEMINI_CLI_HOME support — more precise than HOME
+          const homeDir = prepareSubscriptionHome(agentType, credentialId, config.oauthData)
+          env.GEMINI_CLI_HOME = homeDir
+        }
       }
       if (config.apiKey) env.GEMINI_API_KEY = config.apiKey
       if (config.baseUrl) env.GEMINI_BASE_URL = config.baseUrl

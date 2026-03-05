@@ -799,6 +799,7 @@ const credentialInfoSchema = z.object({
   name: z.string(),
   mode: z.enum(['subscription', 'api']),
   hasApiKey: z.boolean(),
+  hasOAuthData: z.boolean().optional().default(false),
   baseUrl: z.string().optional(),
   model: z.string().optional(),
   isDefault: z.boolean(),

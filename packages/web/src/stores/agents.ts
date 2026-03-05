@@ -10,6 +10,7 @@ export interface CredentialInfo {
   name: string
   mode: 'subscription' | 'api'
   hasApiKey: boolean
+  hasOAuthData: boolean
   baseUrl?: string
   model?: string
   isDefault: boolean
