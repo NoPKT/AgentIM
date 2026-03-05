@@ -70,24 +70,32 @@ function isProcessAlive(pid: number): boolean {
  * Prevents acting on a recycled PID that now belongs to an unrelated process.
  * Uses argv-based matching to avoid false positives from unrelated processes
  * that happen to have "agentim" in their path (e.g. /opt/agentim-tools/other).
+ *
+ * @param pid - The process ID to check.
+ * @param strict - When true (default), returns false if the process cannot be
+ *   positively identified as agentim. Safe for destructive operations like
+ *   stopDaemon (won't kill unverified processes). When false, returns true if
+ *   the process is alive even when identity cannot be confirmed. Safe for
+ *   read-only operations like listDaemons (won't delete daemon files for
+ *   processes that are alive but unverifiable).
  */
-function isAgentimProcess(pid: number): boolean {
+function isAgentimProcess(pid: number, strict = true): boolean {
   try {
+    let matched = false
     if (platform() === 'linux') {
       // /proc/PID/cmdline uses NUL as argv separator
       const cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf-8')
       const args = cmdline.split('\0')
       // Check if any argv element ends with 'agentim' (the CLI entry point)
       // or contains '/agentim/' (the dist path) or the argv includes 'daemon'
-      return args.some(
+      matched = args.some(
         (arg) =>
           arg.endsWith('/agentim') ||
           arg.endsWith('/cli.js') ||
           arg.endsWith('/cli.ts') ||
           (arg.includes('agentim') && (arg.includes('daemon') || arg.includes('--foreground'))),
       )
-    }
-    if (platform() === 'win32') {
+    } else if (platform() === 'win32') {
       // Windows: use WMIC to query process command line by PID
       const output = execSync(
         `wmic process where "ProcessId=${pid}" get CommandLine /format:list`,
@@ -96,17 +104,27 @@ function isAgentimProcess(pid: number): boolean {
           timeout: 5000,
         },
       ).trim()
-      return /\bagentim\b/i.test(output) || /cli\.[jt]s\b/i.test(output)
+      matched = /\bagentim\b/i.test(output) || /cli\.[jt]s\b/i.test(output)
+    } else {
+      // macOS / other Unix: use ps with full argument list
+      const output = execSync(`ps -p ${pid} -o args=`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+      }).trim()
+      // Match the agentim CLI binary or daemon subcommand
+      matched = /\bagentim\b/.test(output) || /cli\.[jt]s\b/.test(output)
     }
-    // macOS / other Unix: use ps with full argument list
-    const output = execSync(`ps -p ${pid} -o args=`, {
-      encoding: 'utf-8',
-      timeout: 3000,
-    }).trim()
-    // Match the agentim CLI binary or daemon subcommand
-    return /\bagentim\b/.test(output) || /cli\.[jt]s\b/.test(output)
+    if (matched) return true
+    // Process is alive but identity not confirmed via pattern matching.
+    // In lenient mode, assume it's ours to avoid incorrectly deleting
+    // daemon files (e.g. when the process was started in an unusual way).
+    if (!strict) return isProcessAlive(pid)
+    return false
   } catch {
-    // If we cannot verify, assume NOT an agentim process to avoid killing
+    // Verification failed (timeout, permission denied, etc.).
+    // In lenient mode, assume the process is agentim if it's still alive.
+    if (!strict) return isProcessAlive(pid)
+    // In strict mode, assume NOT an agentim process to avoid killing
     // an unrelated process that recycled this PID.
     return false
   }
@@ -187,7 +205,10 @@ export function listDaemons(): (DaemonInfo & { alive: boolean })[] {
     const filePath = join(DAEMONS_DIR, file)
     try {
       const info = JSON.parse(readFileSync(filePath, 'utf-8')) as DaemonInfo
-      result.push({ ...info, alive: isProcessAlive(info.pid) && isAgentimProcess(info.pid) })
+      result.push({
+        ...info,
+        alive: isProcessAlive(info.pid) && isAgentimProcess(info.pid, false),
+      })
     } catch {
       // Skip malformed files
     }
