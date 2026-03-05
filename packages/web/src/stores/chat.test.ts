@@ -176,21 +176,34 @@ describe('useChatStore', () => {
     })
 
     it('caps messages at MAX_CACHED_MESSAGES (1000)', () => {
-      // Pre-fill with 999 messages
+      // Pre-fill with 999 messages, each with a distinct timestamp so sorting is deterministic
+      const baseTime = new Date('2024-01-01T00:00:00Z').getTime()
       const existing: Message[] = Array.from({ length: 999 }, (_, i) =>
-        makeMessage({ id: `old-${i}`, content: `msg ${i}` }),
+        makeMessage({
+          id: `old-${i}`,
+          content: `msg ${i}`,
+          createdAt: new Date(baseTime + i * 1000).toISOString(),
+        }),
       )
       useChatStore.setState({ messages: new Map([['room-1', existing]]) })
 
-      // Add one more — total 1000, should not truncate yet
-      useChatStore.getState().addMessage(makeMessage({ id: 'new-1' }))
+      // Add one more (newer than all existing) — total 1000, should not truncate yet
+      useChatStore
+        .getState()
+        .addMessage(
+          makeMessage({ id: 'new-1', createdAt: new Date(baseTime + 999 * 1000).toISOString() }),
+        )
       expect(useChatStore.getState().messages.get('room-1')).toHaveLength(1000)
 
       // Add another — total would be 1001, should truncate to 1000
-      useChatStore.getState().addMessage(makeMessage({ id: 'new-2' }))
+      useChatStore
+        .getState()
+        .addMessage(
+          makeMessage({ id: 'new-2', createdAt: new Date(baseTime + 1000 * 1000).toISOString() }),
+        )
       const msgs = useChatStore.getState().messages.get('room-1')!
       expect(msgs.length).toBe(1000)
-      // Oldest message should have been evicted
+      // Oldest message (earliest timestamp) should have been evicted
       expect(msgs.find((m) => m.id === 'old-0')).toBeUndefined()
     })
 

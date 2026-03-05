@@ -1,4 +1,4 @@
-import { saveConfig, type GatewayConfig } from './config.js'
+import { saveConfig, loadConfig, type GatewayConfig } from './config.js'
 import { createLogger } from './lib/logger.js'
 
 const log = createLogger('TokenManager')
@@ -19,6 +19,22 @@ export class TokenManager {
     this.config = newConfig
   }
 
+  /**
+   * Check if another process has refreshed the tokens by reading config from disk.
+   * If the refresh token on disk differs from ours, adopt the new tokens.
+   * Returns the new access token if adopted, or null otherwise.
+   */
+  private adoptTokensFromDisk(): string | null {
+    const diskConfig = loadConfig()
+    if (diskConfig && diskConfig.refreshToken !== this.config.refreshToken) {
+      this.config.token = diskConfig.token
+      this.config.refreshToken = diskConfig.refreshToken
+      log.info('Picked up tokens refreshed by another process')
+      return diskConfig.token
+    }
+    return null
+  }
+
   /** Refresh the access token using the refresh token via HTTP API.
    *  Pass an AbortSignal to cancel in-flight retries and requests. */
   async refresh(signal?: AbortSignal): Promise<string> {
@@ -30,6 +46,10 @@ export class TokenManager {
       if (signal?.aborted) throw new Error('Token refresh aborted')
 
       if (attempt > 0) {
+        // Before retrying, check if another process already refreshed the tokens
+        const adopted = this.adoptTokensFromDisk()
+        if (adopted) return adopted
+
         // Exponential backoff with jitter: 2s, 4s, 8s + random
         const delay = BASE_DELAY * Math.pow(2, attempt - 1) + Math.random() * 1000
         log.warn(`Token refresh retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms...`)
@@ -69,6 +89,9 @@ export class TokenManager {
           const status = res.status
           // Client errors (except timeout/rate-limit) are permanent — don't retry
           if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            // Before failing permanently, check if another process refreshed
+            const adopted = this.adoptTokensFromDisk()
+            if (adopted) return adopted
             throw new Error(`Token refresh failed permanently: ${status}`)
           }
           lastError = new Error(`Token refresh failed: ${status}`)
