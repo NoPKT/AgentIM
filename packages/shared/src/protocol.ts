@@ -303,6 +303,10 @@ export interface ServerRoomRemoved {
   roomId: string
 }
 
+export interface ServerAgentsChanged {
+  type: 'server:agents_changed'
+}
+
 export interface ServerRoomCleared {
   type: 'server:room_cleared'
   roomId: string
@@ -397,6 +401,7 @@ export type ServerMessage =
   | ServerReactionUpdate
   | ServerPermissionRequest
   | ServerPermissionRequestExpired
+  | ServerAgentsChanged
   | ServerRoomCleared
   | ServerRoomRewound
   | ServerSpawnResult
@@ -842,6 +847,7 @@ const SERVER_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   'server:reaction_update',
   'server:permission_request',
   'server:permission_request_expired',
+  'server:agents_changed',
   'server:room_cleared',
   'server:room_rewound',
   'server:spawn_result',
