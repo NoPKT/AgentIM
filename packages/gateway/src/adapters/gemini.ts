@@ -349,7 +349,10 @@ export class GeminiAdapter extends BaseAgentAdapter {
       targetDir: this.workingDirectory ?? process.cwd(),
       cwd: this.workingDirectory ?? process.cwd(),
       debugMode: false,
-      interactive: false,
+      // Must be true when permission bridge is active, otherwise the SDK's
+      // checkPolicy() throws "not supported in non-interactive mode" for
+      // ASK_USER decisions instead of emitting TOOL_CONFIRMATION_REQUEST.
+      interactive: hasPermissionBridge,
       approvalMode,
     }
     rs.config = new sdk.Config(configOpts)
