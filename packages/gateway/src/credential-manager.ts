@@ -1,4 +1,7 @@
 import { type ExecSyncOptions, execSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { promptSelect, prompt, promptPassword } from './interactive.js'
 import {
   listCredentials,
@@ -39,25 +42,60 @@ const LOGIN_COMMANDS: Record<string, { cmd: string; description: string }> = {
 
 /**
  * Run the native subscription login command for an agent type.
- * Returns true on success, false on failure.
+ * Uses an isolated temp directory to prevent reading cached credentials
+ * from the real home and to enforce credential isolation.
+ *
+ * Returns `{ success, loginHome }` — `loginHome` is the temp directory
+ * where auth files were written (caller must clean up).
  */
-function runSubscriptionLogin(agentType: string): boolean {
+function runSubscriptionLogin(agentType: string): { success: boolean; loginHome: string } {
   const loginInfo = LOGIN_COMMANDS[agentType]
   if (!loginInfo) {
     log.error(`No subscription login command configured for agent type: ${agentType}`)
-    return false
+    return { success: false, loginHome: '' }
+  }
+
+  // Create a temp isolated dir so the CLI cannot find cached credentials
+  const loginHome = mkdtempSync(join(tmpdir(), `agentim-login-${agentType}-`))
+
+  const env: Record<string, string> = {}
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined) env[k] = v
+  }
+  env.HOME = loginHome
+
+  // Gemini CLI uses GEMINI_CLI_HOME to locate its config dir
+  if (agentType === 'gemini') {
+    env.GEMINI_CLI_HOME = loginHome
+    // Seed settings so the CLI knows to use OAuth auth
+    const geminiDir = join(loginHome, '.gemini')
+    mkdirSync(geminiDir, { recursive: true, mode: 0o700 })
+    writeFileSync(
+      join(geminiDir, 'settings.json'),
+      JSON.stringify({ security: { auth: { selectedType: 'oauth-personal' } } }),
+    )
   }
 
   log.info(`Running: ${loginInfo.cmd}`)
   log.info('Please complete the login process in the prompt below...\n')
 
   try {
-    const execOpts: ExecSyncOptions = { stdio: 'inherit' }
+    const execOpts: ExecSyncOptions = { stdio: 'inherit', env }
     execSync(loginInfo.cmd, execOpts)
-    return true
+    return { success: true, loginHome }
   } catch (err) {
     log.error(`Login command failed: ${(err as Error).message}`)
-    return false
+    return { success: false, loginHome }
+  }
+}
+
+/** Remove a temp login home directory. */
+function cleanupLoginHome(dir: string) {
+  if (!dir) return
+  try {
+    rmSync(dir, { recursive: true, force: true })
+  } catch {
+    // Best-effort cleanup
   }
 }
 
@@ -70,10 +108,15 @@ export async function repairSubscriptionCredential(
   agentType: string,
   credentialId: string,
 ): Promise<CredentialEntry | null> {
-  const success = runSubscriptionLogin(agentType)
-  if (!success) return null
+  const { success, loginHome } = runSubscriptionLogin(agentType)
+  if (!success) {
+    cleanupLoginHome(loginHome)
+    return null
+  }
 
-  const oauthData = readSubscriptionAuthData(agentType)
+  const oauthData = readSubscriptionAuthData(agentType, loginHome)
+  cleanupLoginHome(loginHome)
+
   if (!oauthData) {
     log.error('Could not read auth data after login.')
     return null
@@ -182,12 +225,16 @@ export async function addCredentialInteractive(agentType: string): Promise<Crede
     log.info(`Credential "${name}" added successfully!`)
     return entry
   } else {
-    // Subscription mode — run the native login command
-    const success = runSubscriptionLogin(agentType)
-    if (!success) return null
+    // Subscription mode — run the native login command in an isolated dir
+    const { success, loginHome } = runSubscriptionLogin(agentType)
+    if (!success) {
+      cleanupLoginHome(loginHome)
+      return null
+    }
 
     // Read the auth data that the CLI tool wrote during login
-    const oauthData = readSubscriptionAuthData(agentType)
+    const oauthData = readSubscriptionAuthData(agentType, loginHome)
+    cleanupLoginHome(loginHome)
 
     const name = await prompt('Name for this credential: ')
     if (!name) {
