@@ -14,6 +14,18 @@ export function groupChunks(chunks: ParsedChunk[]): ChunkGroup[] {
   const groups: ChunkGroup[] = []
   for (const chunk of chunks) {
     const last = groups[groups.length - 1]
+    // Merge tool_result into preceding tool_use with matching toolId so that
+    // specialized blocks (CommandExecutionBlock, ShellCommandBlock, etc.) can
+    // display the result inside the same collapsible section.
+    if (
+      chunk.type === 'tool_result' &&
+      last?.type === 'tool_use' &&
+      chunk.metadata?.toolId &&
+      last.metadata?.toolId === chunk.metadata.toolId
+    ) {
+      last.metadata = { ...last.metadata, toolResult: chunk.content }
+      continue
+    }
     if (
       last &&
       last.type === chunk.type &&
@@ -363,15 +375,18 @@ function ReadToolBlockGroup({ contents }: { contents: string[] }) {
 
 function BashToolBlock({
   content,
+  metadata,
   isStreaming = false,
 }: {
   content: string
+  metadata?: Record<string, unknown>
   isStreaming?: boolean
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const input = parseToolInput(content)
   const command = (input?.command as string) || content
+  const toolResult = (metadata?.toolResult as string) || ''
   const preview = command.length > 80 ? command.slice(0, 80) + '...' : command
 
   return (
@@ -415,10 +430,15 @@ function BashToolBlock({
       </button>
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
-          <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+          <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
             <span className="text-gray-500 select-none">$ </span>
             {command}
           </pre>
+          {toolResult && (
+            <pre className="text-xs font-mono bg-surface-secondary text-text-secondary rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {toolResult}
+            </pre>
+          )}
         </div>
       )}
     </div>
@@ -858,9 +878,11 @@ function SimpleToolBlock({
 /** Codex command_execution: "$ <cmd>\n<output>" */
 function CommandExecutionBlock({
   content,
+  metadata,
   isStreaming = false,
 }: {
   content: string
+  metadata?: Record<string, unknown>
   isStreaming?: boolean
 }) {
   const { t } = useTranslation()
@@ -869,7 +891,9 @@ function CommandExecutionBlock({
   // Parse "$ <command>\n<output>"
   const firstNewline = content.indexOf('\n')
   const commandLine = firstNewline >= 0 ? content.slice(0, firstNewline) : content
-  const output = firstNewline >= 0 ? content.slice(firstNewline + 1) : ''
+  // Use merged tool_result from metadata, or inline output after first newline
+  const output =
+    (metadata?.toolResult as string) || (firstNewline >= 0 ? content.slice(firstNewline + 1) : '')
   const command = commandLine.startsWith('$ ') ? commandLine.slice(2) : commandLine
   const preview = command.length > 80 ? command.slice(0, 80) + '...' : command
 
@@ -936,9 +960,11 @@ function CommandExecutionBlock({
 /** Gemini run_shell_command: JSON {description, command} */
 function ShellCommandBlock({
   content,
+  metadata,
   isStreaming = false,
 }: {
   content: string
+  metadata?: Record<string, unknown>
   isStreaming?: boolean
 }) {
   const { t } = useTranslation()
@@ -946,6 +972,7 @@ function ShellCommandBlock({
   const input = parseToolInput(content)
   const description = (input?.description as string) || ''
   const command = (input?.command as string) || ''
+  const toolResult = (metadata?.toolResult as string) || ''
   const preview = description || command
   const previewText = preview.length > 80 ? preview.slice(0, 80) + '...' : preview
 
@@ -999,6 +1026,11 @@ function ShellCommandBlock({
               {command}
             </pre>
           )}
+          {toolResult && (
+            <pre className="text-xs font-mono bg-surface-secondary text-text-secondary rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {toolResult}
+            </pre>
+          )}
         </div>
       )}
     </div>
@@ -1027,11 +1059,13 @@ export function ToolUseBlock({
     case 'Read':
       return <ReadToolBlock content={content} />
     case 'Bash':
-      return <BashToolBlock content={content} isStreaming={isStreaming} />
+      return <BashToolBlock content={content} metadata={metadata} isStreaming={isStreaming} />
     case 'command':
-      return <CommandExecutionBlock content={content} isStreaming={isStreaming} />
+      return (
+        <CommandExecutionBlock content={content} metadata={metadata} isStreaming={isStreaming} />
+      )
     case 'run_shell_command':
-      return <ShellCommandBlock content={content} isStreaming={isStreaming} />
+      return <ShellCommandBlock content={content} metadata={metadata} isStreaming={isStreaming} />
     case 'Grep':
     case 'Glob':
       return <GrepToolBlock content={content} isStreaming={isStreaming} />
@@ -1126,6 +1160,11 @@ export function ToolUseBlock({
           <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
             {content}
           </pre>
+          {(metadata?.toolResult as string) && (
+            <pre className="text-xs text-text-secondary bg-success-subtle rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {metadata?.toolResult as string}
+            </pre>
+          )}
         </div>
       )}
     </div>
