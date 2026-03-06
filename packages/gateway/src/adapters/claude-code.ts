@@ -221,7 +221,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           } else {
             const msg = retryErr instanceof Error ? retryErr.message : String(retryErr)
             log.error(`ClaudeCode SDK error (retry): ${msg}`)
-            onError(msg)
+            onError(ClaudeCodeAdapter.enrichAuthError(msg))
           }
           return
         }
@@ -233,7 +233,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         } else {
           const msg = err instanceof Error ? err.message : String(err)
           log.error(`ClaudeCode SDK error: ${msg}`)
-          onError(msg)
+          onError(ClaudeCodeAdapter.enrichAuthError(msg))
         }
         return
       }
@@ -1300,5 +1300,20 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     this.currentQueries.clear()
     this.clearAllBusy()
     this.roomStates.clear()
+  }
+
+  /** Detect auth-related errors and append actionable guidance. */
+  private static enrichAuthError(msg: string): string {
+    const isAuthError =
+      msg.includes('authentication_error') ||
+      msg.includes('OAuth token has expired') ||
+      msg.includes('Failed to authenticate') ||
+      /API Error: 401/.test(msg)
+    if (!isAuthError) return msg
+    return (
+      msg +
+      '\n\n⚠️ Authentication failed. Please run `claude login` in a terminal ' +
+      'to refresh your OAuth token, then retry.'
+    )
   }
 }
