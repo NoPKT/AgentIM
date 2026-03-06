@@ -50,7 +50,7 @@ interface ClaudeRoomState {
     | { type: 'enabled'; budgetTokens?: number }
     | { type: 'disabled' }
   planMode: boolean
-  effort?: 'low' | 'medium' | 'high' | 'max'
+  effort?: 'low' | 'medium' | 'high'
   toolUseCount: number
   maxBudgetUsd?: number
   maxTurns?: number
@@ -879,7 +879,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       },
       {
         name: 'effort',
-        description: 'Set effort level: low, medium, high, max',
+        description: 'Set effort level: low, medium, high',
         usage: '/effort [level]',
         source: 'builtin',
       },
@@ -1040,7 +1040,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   override getAvailableEffortLevels(): string[] {
-    return ['low', 'medium', 'high', 'max']
+    return ['low', 'medium', 'high']
   }
 
   override getAvailableThinkingModes(): string[] {
@@ -1155,17 +1155,17 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!level) {
           return {
             success: true,
-            message: `Effort level: ${rs.effort ?? '(default)'}\nOptions: low, medium, high, max`,
+            message: `Effort level: ${rs.effort ?? '(default)'}\nOptions: low, medium, high`,
           }
         }
-        const valid = ['low', 'medium', 'high', 'max'] as const
+        const valid = ['low', 'medium', 'high'] as const
         if (!valid.includes(level as (typeof valid)[number])) {
           return {
             success: false,
-            message: `Invalid effort level: ${level}\nOptions: low, medium, high, max`,
+            message: `Invalid effort level: ${level}\nOptions: low, medium, high`,
           }
         }
-        rs.effort = level as 'low' | 'medium' | 'high' | 'max'
+        rs.effort = level as 'low' | 'medium' | 'high'
         return { success: true, message: `Effort set to: ${level}` }
       }
       case 'cost': {
