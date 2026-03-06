@@ -64,9 +64,9 @@ describe('ClaudeCodeAdapter slash commands', () => {
     a.dispose()
   })
 
-  it('/effort low/medium/high/max', async () => {
+  it('/effort low/medium/high', async () => {
     const a = make()
-    for (const level of ['low', 'medium', 'high', 'max']) {
+    for (const level of ['low', 'medium', 'high']) {
       const r = await a.handleSlashCommand('effort', level)
       assert.ok(r.success, `effort ${level} should succeed`)
       assert.equal(a.getEffortLevel(), level)
@@ -296,9 +296,9 @@ describe('ClaudeCodeAdapter metadata methods', () => {
     a.dispose()
   })
 
-  it('getAvailableEffortLevels returns 4 levels', () => {
+  it('getAvailableEffortLevels returns 3 levels', () => {
     const a = make()
-    assert.deepEqual(a.getAvailableEffortLevels(), ['low', 'medium', 'high', 'max'])
+    assert.deepEqual(a.getAvailableEffortLevels(), ['low', 'medium', 'high'])
     a.dispose()
   })
 
