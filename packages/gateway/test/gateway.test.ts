@@ -277,7 +277,10 @@ describe('BaseAgentAdapter.buildPrompt', () => {
   it('prepends sender name', () => {
     const adapter = new TestAdapter({ agentId: 'bp-2', agentName: 'Test' })
     const result = adapter.testBuildPrompt('Hello', { roomId: 'r1', senderName: 'Alice' })
-    assert.equal(result, '[From: Alice]\n\nHello')
+    assert.equal(
+      result,
+      "[From: Alice]\n[Important: Reply in the same language as the user's message.]\n\nHello",
+    )
   })
 
   it('prepends system prompt and sender name', () => {
@@ -287,7 +290,10 @@ describe('BaseAgentAdapter.buildPrompt', () => {
       senderName: 'Alice',
       roomContext: { roomId: 'r1', roomName: 'Room', members: [], systemPrompt: 'Be helpful' },
     })
-    assert.equal(result, '[System: Be helpful]\n\n[From: Alice]\n\nHello')
+    assert.equal(
+      result,
+      "[System: Be helpful]\n\n[From: Alice]\n[Important: Reply in the same language as the user's message.]\n\nHello",
+    )
   })
 
   it('skips sender when empty', () => {
@@ -307,7 +313,10 @@ describe('BaseAgentAdapter.buildPrompt', () => {
       senderName: 'Bob',
       roomContext: { roomId: 'r1', roomName: 'Room', members: [] },
     })
-    assert.equal(result, '[From: Bob]\n\nHello')
+    assert.equal(
+      result,
+      "[From: Bob]\n[Important: Reply in the same language as the user's message.]\n\nHello",
+    )
   })
 })
 

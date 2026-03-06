@@ -430,6 +430,11 @@ export const MessageItem = memo(function MessageItem({
                   </span>
                 )}
               </span>
+              {isAgent && (
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info-muted text-info-text rounded">
+                  {t('agent.agents')}
+                </span>
+              )}
               <span className="text-xs text-text-muted">
                 {new Date(message.createdAt).toLocaleString(i18n.language, {
                   month: 'numeric',
