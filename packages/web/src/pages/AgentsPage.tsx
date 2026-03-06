@@ -1640,58 +1640,99 @@ function GatewayCredentialsPanel({ gatewayId }: { gatewayId: string }) {
                       </a>
                     </div>
 
-                    {/* Auto-complete hint */}
-                    <p className="text-[10px] text-text-muted italic">
-                      {t('credential.oauthAutoHint')}
-                    </p>
+                    {oauthAutoCallback ? (
+                      <>
+                        {/* Auto-callback: CLI handles redirect internally */}
+                        <div className="p-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                          <div className="flex items-center gap-2">
+                            <div className="flex space-x-1">
+                              <span
+                                className="w-1.5 h-1.5 bg-green-500 rounded-full animate-bounce"
+                                style={{ animationDelay: '0ms' }}
+                              />
+                              <span
+                                className="w-1.5 h-1.5 bg-green-500 rounded-full animate-bounce"
+                                style={{ animationDelay: '150ms' }}
+                              />
+                              <span
+                                className="w-1.5 h-1.5 bg-green-500 rounded-full animate-bounce"
+                                style={{ animationDelay: '300ms' }}
+                              />
+                            </div>
+                            <p className="text-[10px] font-medium text-green-700 dark:text-green-300">
+                              {t('credential.oauthAutoWaiting')}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setShowAddForm(false)
+                            setAddName('')
+                            setAddMode('api')
+                            setOauthPending(false)
+                            setOauthAuthUrl(null)
+                            setOauthAutoCallback(false)
+                            setOauthRequestId(null)
+                            setCallbackUrl('')
+                          }}
+                          className="w-full"
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Manual callback: user pastes callback URL */}
+                        <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                          <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 mb-1.5">
+                            {t('credential.oauthStep2')}
+                          </p>
+                          <input
+                            type="text"
+                            value={callbackUrl}
+                            onChange={(e) => setCallbackUrl(e.target.value)}
+                            placeholder="http://localhost:PORT/callback?code=..."
+                            className={inputCls}
+                          />
+                        </div>
 
-                    {/* Callback URL paste */}
-                    <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                      <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 mb-1.5">
-                        {t('credential.oauthStep2')}
-                      </p>
-                      <input
-                        type="text"
-                        value={callbackUrl}
-                        onChange={(e) => setCallbackUrl(e.target.value)}
-                        placeholder="http://localhost:PORT/callback?code=..."
-                        className={inputCls}
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setShowAddForm(false)
-                          setAddName('')
-                          setAddMode('api')
-                          setOauthPending(false)
-                          setOauthAuthUrl(null)
-                          setOauthAutoCallback(false)
-                          setOauthRequestId(null)
-                          setCallbackUrl('')
-                        }}
-                        className="flex-1"
-                      >
-                        {t('common.cancel')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (!callbackUrl.trim() || !oauthRequestId) return
-                          setOauthSubmitting(true)
-                          completeGatewayOAuth(gatewayId, oauthRequestId, callbackUrl.trim())
-                        }}
-                        disabled={oauthSubmitting || !callbackUrl.trim()}
-                        className="flex-1"
-                      >
-                        {oauthSubmitting
-                          ? t('credential.oauthCompleting')
-                          : t('credential.oauthComplete')}
-                      </Button>
-                    </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setShowAddForm(false)
+                              setAddName('')
+                              setAddMode('api')
+                              setOauthPending(false)
+                              setOauthAuthUrl(null)
+                              setOauthAutoCallback(false)
+                              setOauthRequestId(null)
+                              setCallbackUrl('')
+                            }}
+                            className="flex-1"
+                          >
+                            {t('common.cancel')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (!callbackUrl.trim() || !oauthRequestId) return
+                              setOauthSubmitting(true)
+                              completeGatewayOAuth(gatewayId, oauthRequestId, callbackUrl.trim())
+                            }}
+                            disabled={oauthSubmitting || !callbackUrl.trim()}
+                            className="flex-1"
+                          >
+                            {oauthSubmitting
+                              ? t('credential.oauthCompleting')
+                              : t('credential.oauthComplete')}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </>
