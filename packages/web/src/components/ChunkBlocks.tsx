@@ -1076,10 +1076,13 @@ export function ToolUseBlock({
   // Dispatch to specialized blocks
   switch (toolName) {
     case 'Edit':
+    case 'edit_file':
       return <EditToolBlock content={content} isStreaming={isStreaming} />
     case 'Write':
+    case 'write_file':
       return <WriteToolBlock content={content} isStreaming={isStreaming} />
     case 'Read':
+    case 'read_file':
       return <ReadToolBlock content={content} />
     case 'Bash':
       return <BashToolBlock content={content} metadata={metadata} isStreaming={isStreaming} />
@@ -1091,6 +1094,7 @@ export function ToolUseBlock({
       return <ShellCommandBlock content={content} metadata={metadata} isStreaming={isStreaming} />
     case 'Grep':
     case 'Glob':
+    case 'list_directory':
       return <GrepToolBlock content={content} isStreaming={isStreaming} />
     case 'TodoWrite':
     case 'TaskCreate':
@@ -1352,7 +1356,8 @@ function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | Collapse
       })
     } else if (
       first.type === 'tool_use' &&
-      (first.metadata?.toolName as string) === 'Read' &&
+      ((first.metadata?.toolName as string) === 'Read' ||
+        (first.metadata?.toolName as string) === 'read_file') &&
       buffer.length > 3
     ) {
       // Read blocks use existing ReadToolBlockGroup with >3 threshold
@@ -1463,19 +1468,27 @@ function wrapProcessSections(
   return result
 }
 
-/** Collapsed batch of Bash commands — merged into a single code block */
+/** Collapsed batch of shell commands — merged into a single code block */
 function BashBatchBlock({
   contents,
   metadatas,
+  toolName,
 }: {
   contents: string[]
   metadatas?: (Record<string, unknown> | undefined)[]
+  toolName?: string
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const commands = contents.map((c, i) => {
     const input = parseToolInput(c)
-    const command = (input?.command as string) || c
+    let command: string
+    if (toolName === 'command') {
+      // Codex: content is "$ <cmd>" — strip the "$ " prefix
+      command = c.startsWith('$ ') ? c.slice(2) : c
+    } else {
+      command = (input?.command as string) || c
+    }
     const toolResult = (metadatas?.[i]?.toolResult as string) || ''
     return { command, toolResult }
   })
@@ -1551,9 +1564,9 @@ function ToolBatchBlock({
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
-  // Bash commands: merge into a single code block
-  if (toolName === 'Bash') {
-    return <BashBatchBlock contents={contents} metadatas={metadatas} />
+  // Shell command tools: merge into a single code block
+  if (toolName === 'Bash' || toolName === 'command' || toolName === 'run_shell_command') {
+    return <BashBatchBlock contents={contents} metadatas={metadatas} toolName={toolName} />
   }
 
   return (

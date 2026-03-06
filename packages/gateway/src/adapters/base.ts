@@ -115,8 +115,11 @@ export abstract class BaseAgentAdapter {
       }
     }
 
+    // Language hint: instruct the agent to reply in the same language as the user
     if (context?.senderName) {
-      parts.push(`[From: ${context.senderName}]`)
+      parts.push(
+        `[From: ${context.senderName}]\n[Important: Reply in the same language as the user's message.]`,
+      )
     }
     parts.push(content)
     const prompt = parts.join('\n\n')
