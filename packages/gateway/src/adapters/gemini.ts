@@ -130,12 +130,11 @@ interface GeminiRoomState {
 const DEFAULT_ROOM_KEY = '__global__'
 
 export class GeminiAdapter extends BaseAgentAdapter {
-  // Stream control (global — only one message can be processed at a time)
-  private streamAbort?: AbortController
+  // Per-room abort controllers for parallel stream processing
+  private streamAborts = new Map<string, AbortController>()
 
   // Per-room state
   private roomStates = new Map<string, GeminiRoomState>()
-  private currentRoomId?: string
 
   constructor(opts: AdapterOptions) {
     super(opts)
@@ -160,6 +159,10 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
   get type() {
     return 'gemini' as const
+  }
+
+  override get supportsParallelRooms() {
+    return true
   }
 
   /**
@@ -350,24 +353,26 @@ export class GeminiAdapter extends BaseAgentAdapter {
     onError: ErrorCallback,
     context?: MessageContext,
   ) {
-    if (this.isRunning) {
-      onError('Agent is already processing a message')
+    const roomId = context?.roomId ?? DEFAULT_ROOM_KEY
+
+    if (this.isRoomBusy(roomId)) {
+      onError('Agent is already processing a message for this room')
       return
     }
 
-    this.isRunning = true
-    this.currentRoomId = context?.roomId
+    this.setRoomBusy(roomId, true)
     let fullContent = ''
     let capacityAborted = false
     let retryError = ''
 
     try {
-      const rs = this.getRoomState(context?.roomId)
-      const client = await this.ensureClient(context?.roomId)
+      const rs = this.getRoomState(roomId)
+      const client = await this.ensureClient(roomId)
       const sdk = await this.ensureSdk()
       const prompt = this.buildPrompt(content, context)
 
-      this.streamAbort = new AbortController()
+      const streamAbort = new AbortController()
+      this.streamAborts.set(roomId, streamAbort)
       rs.promptCounter++
       const promptId = `prompt-${rs.promptCounter}`
 
@@ -386,13 +391,13 @@ export class GeminiAdapter extends BaseAgentAdapter {
         )
         retryError = classifyRetryError(raw)
         capacityAborted = true
-        this.streamAbort?.abort()
+        streamAbort.abort()
         log.warn(`Aborting SDK retries — surfacing error to user: ${retryError}`)
       }
       sdk.coreEvents.on(sdk.CoreEvent.RetryAttempt, retryListener)
 
       try {
-        const stream = client.sendMessageStream(prompt, this.streamAbort.signal, promptId)
+        const stream = client.sendMessageStream(prompt, streamAbort.signal, promptId)
 
         for await (const event of stream) {
           const chunks = this.processEvent(event, sdk)
@@ -412,15 +417,15 @@ export class GeminiAdapter extends BaseAgentAdapter {
           if (event.type === sdk.GeminiEventType.Error) {
             const errVal = (event as { value: { error: unknown } }).value
             const errMsg = extractErrorMessage(errVal.error)
-            this.isRunning = false
-            this.streamAbort = undefined
+            this.setRoomBusy(roomId, false)
+            this.streamAborts.delete(roomId)
             onError(errMsg)
             return
           }
         }
 
-        this.isRunning = false
-        this.streamAbort = undefined
+        this.setRoomBusy(roomId, false)
+        this.streamAborts.delete(roomId)
         // If the SDK handled the abort internally (no throw), the loop ends
         // normally but fullContent is empty.  Surface the retry error instead.
         if (capacityAborted && !fullContent) {
@@ -432,8 +437,8 @@ export class GeminiAdapter extends BaseAgentAdapter {
         sdk.coreEvents.off(sdk.CoreEvent.RetryAttempt, retryListener)
       }
     } catch (err: unknown) {
-      this.isRunning = false
-      this.streamAbort = undefined
+      this.setRoomBusy(roomId, false)
+      this.streamAborts.delete(roomId)
       if ((err as Error).name === 'AbortError' && capacityAborted) {
         // Aborted because the SDK tried to retry — surface the real error
         const msg = retryError || extractErrorMessage(err)
@@ -805,8 +810,14 @@ export class GeminiAdapter extends BaseAgentAdapter {
     // meaning gemini-3-pro-preview is aliased to gemini-3.1-pro-preview.
     // Use isActiveModel() to filter out aliased models so the user cannot
     // select a model that silently maps to a different one.
-    const rs = this.getRoomState(this.currentRoomId)
-    const useGemini31 = rs.config?.getGemini31LaunchedSync?.() ?? true
+    // Check any initialized room state for Gemini 3.1 launch flag
+    let useGemini31 = true
+    for (const [, rs] of this.roomStates) {
+      if (rs.config) {
+        useGemini31 = rs.config.getGemini31LaunchedSync?.() ?? true
+        break
+      }
+    }
     return [..._cachedSdk.VALID_GEMINI_MODELS].filter((m) =>
       _cachedSdk!.isActiveModel(m, useGemini31),
     )
@@ -863,21 +874,22 @@ export class GeminiAdapter extends BaseAgentAdapter {
   }
 
   stop() {
-    if (this.streamAbort) {
-      this.streamAbort.abort()
-      log.info('Gemini stream aborted')
+    // Abort all active room streams
+    for (const [roomId, abort] of this.streamAborts) {
+      abort.abort()
+      this.resetSession(roomId)
     }
-    this.streamAbort = undefined
-    this.isRunning = false
-    this.resetSession(this.currentRoomId)
+    this.streamAborts.clear()
+    this.clearAllBusy()
+    log.info('Gemini all streams aborted')
   }
 
   dispose() {
-    if (this.streamAbort) {
-      this.streamAbort.abort()
+    for (const [, abort] of this.streamAborts) {
+      abort.abort()
     }
-    this.streamAbort = undefined
-    this.isRunning = false
+    this.streamAborts.clear()
+    this.clearAllBusy()
     // Dispose all room sessions
     for (const [, rs] of this.roomStates) {
       if (rs.config) {

@@ -108,7 +108,8 @@ export class AgentManager {
   private roomContextLastUsed = new Map<string, number>()
   private pendingPermissions = new Map<string, PendingPermission>()
   private agentCurrentRoom = new Map<string, string>()
-  /** Per-agent FIFO queue for messages that arrive while the adapter is busy. */
+  /** Per-room FIFO queue for messages that arrive while the adapter is busy.
+   *  Key format: `${agentId}:${roomId}` */
   private messageQueues = new Map<string, ServerSendToAgent[]>()
   private wsClient: GatewayWsClient
   private permissionLevel: PermissionLevel
@@ -492,7 +493,7 @@ export class AgentManager {
       this.adapters.delete(agentId)
       this.agentCapabilities.delete(agentId)
       this.sessionIds.delete(agentId)
-      this.messageQueues.delete(agentId)
+      this.clearAgentQueues(agentId)
       // Clean up room contexts for this agent (collect keys first to avoid mutating during iteration)
       const keysToDelete = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToDelete) {
@@ -604,6 +605,33 @@ export class AgentManager {
     log.info(`Room context updated for agent ${msg.agentId} in room ${msg.context.roomName}`)
   }
 
+  /** Build a queue key for per-room message queuing. */
+  private queueKey(agentId: string, roomId: string): string {
+    return `${agentId}:${roomId}`
+  }
+
+  /** Get total queued messages across all rooms for an agent. */
+  private getTotalQueueDepth(agentId: string): number {
+    const prefix = `${agentId}:`
+    let total = 0
+    for (const [key, queue] of this.messageQueues) {
+      if (key.startsWith(prefix)) {
+        total += queue.length
+      }
+    }
+    return total
+  }
+
+  /** Clear all message queues for an agent across all rooms. */
+  private clearAgentQueues(agentId: string): void {
+    const prefix = `${agentId}:`
+    for (const key of [...this.messageQueues.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.messageQueues.delete(key)
+      }
+    }
+  }
+
   private handleSendToAgent(msg: ServerSendToAgent) {
     // Check if this message resolves a pending request_reply
     if (
@@ -622,12 +650,13 @@ export class AgentManager {
       return
     }
 
-    // If the adapter is currently processing, queue the message for later
-    if (adapter.running) {
-      const queue = this.messageQueues.get(msg.agentId) ?? []
+    // Check per-room busy state (parallel-capable adapters only block the same room)
+    if (adapter.isRoomBusy(msg.roomId)) {
+      const key = this.queueKey(msg.agentId, msg.roomId)
+      const queue = this.messageQueues.get(key) ?? []
       if (queue.length >= MAX_AGENT_QUEUE_SIZE) {
         log.warn(
-          `Message queue full for agent ${msg.agentId} (${MAX_AGENT_QUEUE_SIZE}), rejecting ${msg.messageId}`,
+          `Message queue full for agent ${msg.agentId} room ${msg.roomId} (${MAX_AGENT_QUEUE_SIZE}), rejecting ${msg.messageId}`,
         )
         this.wsClient.send({
           type: 'gateway:message_complete',
@@ -644,12 +673,13 @@ export class AgentManager {
         return
       }
       queue.push(msg)
-      this.messageQueues.set(msg.agentId, queue)
+      this.messageQueues.set(key, queue)
       log.info(
-        `Queued message ${msg.messageId} for busy agent ${adapter.agentName} (queue: ${queue.length})`,
+        `Queued message ${msg.messageId} for busy agent ${adapter.agentName} room ${msg.roomId} (queue: ${queue.length})`,
       )
       // Report updated queue depth to server so it can throttle senders
-      this.sendAgentStatus(msg.agentId, 'busy', queue.length)
+      const totalQueued = this.getTotalQueueDepth(msg.agentId)
+      this.sendAgentStatus(msg.agentId, 'busy', totalQueued)
       return
     }
 
@@ -657,25 +687,51 @@ export class AgentManager {
   }
 
   /**
-   * Process the next queued message for the given agent, or set agent status
-   * back to online if the queue is empty.
+   * Process the next queued message for the given agent+room. If the same-room
+   * queue is empty, check other rooms' queues (cross-room drain for non-parallel
+   * adapters). Sets agent status to online when all queues are empty.
    */
-  private processNextQueued(agentId: string) {
-    const queue = this.messageQueues.get(agentId)
+  private processNextQueued(agentId: string, roomId: string) {
+    const adapter = this.adapters.get(agentId)
+    if (!adapter) {
+      this.sendAgentStatus(agentId, 'online', 0)
+      return
+    }
+
+    // First try same-room queue
+    const key = this.queueKey(agentId, roomId)
+    const queue = this.messageQueues.get(key)
     if (queue && queue.length > 0) {
       const next = queue.shift()!
-      if (queue.length === 0) this.messageQueues.delete(agentId)
-      const adapter = this.adapters.get(agentId)
-      if (adapter) {
-        log.info(
-          `Processing queued message ${next.messageId} for agent ${adapter.agentName} (remaining: ${queue?.length ?? 0})`,
-        )
-        this.processMessage(adapter, next)
-        return
-      }
+      if (queue.length === 0) this.messageQueues.delete(key)
+      log.info(
+        `Processing queued message ${next.messageId} for agent ${adapter.agentName} room ${roomId} (remaining: ${queue?.length ?? 0})`,
+      )
+      this.processMessage(adapter, next)
+      return
     }
-    // Queue is empty or adapter gone — set status to online
-    this.sendAgentStatus(agentId, 'online', 0)
+
+    // Same-room queue empty. If adapter is free, try other rooms' queues.
+    if (!adapter.running) {
+      const prefix = `${agentId}:`
+      for (const [otherKey, otherQueue] of this.messageQueues) {
+        if (otherKey.startsWith(prefix) && otherQueue.length > 0) {
+          const next = otherQueue.shift()!
+          if (otherQueue.length === 0) this.messageQueues.delete(otherKey)
+          log.info(
+            `Processing cross-room queued message ${next.messageId} for agent ${adapter.agentName} room ${next.roomId}`,
+          )
+          this.processMessage(adapter, next)
+          return
+        }
+      }
+      // All queues empty and adapter idle — go online
+      this.sendAgentStatus(agentId, 'online', 0)
+    } else {
+      // Adapter still processing other rooms — report remaining queue depth
+      const totalQueued = this.getTotalQueueDepth(agentId)
+      this.sendAgentStatus(agentId, 'busy', totalQueued)
+    }
   }
 
   /**
@@ -697,7 +753,7 @@ export class AgentManager {
     let completed = false
 
     // Update status to busy with current queue depth
-    const queueDepth = this.messageQueues.get(msg.agentId)?.length ?? 0
+    const queueDepth = this.getTotalQueueDepth(msg.agentId)
     this.sendAgentStatus(msg.agentId, 'busy', queueDepth)
 
     try {
@@ -732,7 +788,7 @@ export class AgentManager {
               depth: msg.depth,
             })
             // Process next queued message or go online
-            this.processNextQueued(msg.agentId)
+            this.processNextQueued(msg.agentId, msg.roomId)
           }
 
           if (workingDir) {
@@ -815,7 +871,7 @@ export class AgentManager {
               depth: msg.depth,
             })
             // Process next queued message or set error status
-            this.processNextQueued(msg.agentId)
+            this.processNextQueued(msg.agentId, msg.roomId)
           }
 
           // Collect workspace status even on error — the agent may have
@@ -859,7 +915,7 @@ export class AgentManager {
     } catch (err) {
       // Recover from synchronous throw in sendMessage to avoid agent stuck in 'busy'
       log.error(`Agent ${msg.agentId} sendMessage threw: ${(err as Error).message}`)
-      this.processNextQueued(msg.agentId)
+      this.processNextQueued(msg.agentId, msg.roomId)
     }
   }
 
@@ -949,7 +1005,7 @@ export class AgentManager {
       this.agentCapabilities.delete(agentId)
       this.sessionIds.delete(agentId)
       this.agentCredentials.delete(agentId)
-      this.messageQueues.delete(agentId)
+      this.clearAgentQueues(agentId)
       const keysToRemove = [...this.roomContexts.keys()].filter((k) => k.startsWith(`${agentId}:`))
       for (const key of keysToRemove) {
         this.roomContexts.delete(key)
@@ -967,7 +1023,7 @@ export class AgentManager {
     const adapter = this.adapters.get(agentId)
     if (adapter) {
       // Clear queued messages — the user explicitly wants to stop this agent
-      this.messageQueues.delete(agentId)
+      this.clearAgentQueues(agentId)
       adapter.stop()
       // Sync back any refreshed OAuth tokens
       this.syncAgentCredentials(agentId)
@@ -1793,8 +1849,8 @@ export class AgentManager {
     if (adapter.running) {
       adapter.stop()
     }
-    // Clear message queue for this agent
-    this.messageQueues.delete(msg.agentId)
+    // Clear message queues for this agent
+    this.clearAgentQueues(msg.agentId)
     // Call adapter rewind
     adapter
       .rewind(msg.messageId, msg.roomId)
