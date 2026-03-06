@@ -1184,9 +1184,22 @@ export function ToolUseBlock({
 
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-info-border">
-          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
-            {content}
-          </pre>
+          {input ? (
+            <div className="text-xs space-y-1">
+              {Object.entries(input).map(([k, v]) => (
+                <div key={k} className="flex gap-2">
+                  <span className="text-text-muted flex-shrink-0">{k}:</span>
+                  <span className="text-text-secondary font-mono break-all">
+                    {typeof v === 'string' ? v : JSON.stringify(v)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
+              {content}
+            </pre>
+          )}
           {(metadata?.toolResult as string) && (
             <pre className="text-xs text-text-secondary bg-success-subtle rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
               {metadata?.toolResult as string}
