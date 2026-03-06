@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LazyMarkdown } from './LazyMarkdown.js'
 import type { ParsedChunk } from '@agentim/shared'
@@ -71,8 +71,10 @@ export function ThinkingBlock({
       </button>
 
       {expanded && (
-        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-purple-200 dark:border-purple-700 text-sm text-text-secondary whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
-          {content}
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-purple-200 dark:border-purple-700 text-sm text-text-secondary leading-relaxed max-h-80 overflow-y-auto">
+          <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_p]:text-text-secondary [&_strong]:text-text-secondary [&_code]:bg-surface-hover [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:text-text-secondary">
+            <LazyMarkdown>{content}</LazyMarkdown>
+          </div>
           {isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-purple-400 animate-pulse ml-0.5 align-middle" />
           )}
@@ -853,6 +855,156 @@ function SimpleToolBlock({
   )
 }
 
+/** Codex command_execution: "$ <cmd>\n<output>" */
+function CommandExecutionBlock({
+  content,
+  isStreaming = false,
+}: {
+  content: string
+  isStreaming?: boolean
+}) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  // Parse "$ <command>\n<output>"
+  const firstNewline = content.indexOf('\n')
+  const commandLine = firstNewline >= 0 ? content.slice(0, firstNewline) : content
+  const output = firstNewline >= 0 ? content.slice(firstNewline + 1) : ''
+  const command = commandLine.startsWith('$ ') ? commandLine.slice(2) : commandLine
+  const preview = command.length > 80 ? command.slice(0, 80) + '...' : command
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {isStreaming && (
+          <span className="relative flex h-2 w-2 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500" />
+          </span>
+        )}
+        <svg
+          className="w-3.5 h-3.5 text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        {!expanded && (
+          <code className="text-text-muted font-mono truncate flex-1">$ {preview}</code>
+        )}
+        {expanded && (
+          <span className="font-medium text-gray-600 dark:text-gray-400">
+            {t('chat.runningCommand')}
+          </span>
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
+          <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
+            <span className="text-gray-500 select-none">$ </span>
+            {command}
+          </pre>
+          {output && (
+            <pre className="text-xs font-mono bg-surface-secondary text-text-secondary rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {output}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Gemini run_shell_command: JSON {description, command} */
+function ShellCommandBlock({
+  content,
+  isStreaming = false,
+}: {
+  content: string
+  isStreaming?: boolean
+}) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const input = parseToolInput(content)
+  const description = (input?.description as string) || ''
+  const command = (input?.command as string) || ''
+  const preview = description || command
+  const previewText = preview.length > 80 ? preview.slice(0, 80) + '...' : preview
+
+  return (
+    <div className="my-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 text-xs w-full text-left"
+      >
+        <svg
+          className={`w-3.5 h-3.5 text-text-muted transition-transform flex-shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {isStreaming && (
+          <span className="relative flex h-2 w-2 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500" />
+          </span>
+        )}
+        <svg
+          className="w-3.5 h-3.5 text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <span className="font-medium text-gray-600 dark:text-gray-400">
+          {t('chat.runningCommand')}
+        </span>
+        {!expanded && previewText && (
+          <span className="text-text-muted truncate flex-1">{previewText}</span>
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
+          {description && <div className="text-xs text-text-secondary mb-1">{description}</div>}
+          {command && (
+            <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto whitespace-pre-wrap">
+              <span className="text-gray-500 select-none">$ </span>
+              {command}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolUseBlock({
   content,
   metadata,
@@ -876,6 +1028,10 @@ export function ToolUseBlock({
       return <ReadToolBlock content={content} />
     case 'Bash':
       return <BashToolBlock content={content} isStreaming={isStreaming} />
+    case 'command':
+      return <CommandExecutionBlock content={content} isStreaming={isStreaming} />
+    case 'run_shell_command':
+      return <ShellCommandBlock content={content} isStreaming={isStreaming} />
     case 'Grep':
     case 'Glob':
       return <GrepToolBlock content={content} isStreaming={isStreaming} />
@@ -1065,7 +1221,29 @@ export function TextBlock({
           {t('chat.streamingTruncated')}
         </div>
       )}
-      <LazyMarkdown>{displayContent}</LazyMarkdown>
+      <LazyMarkdown
+        components={{
+          code({ className, children, ...props }) {
+            const isBlock =
+              /language-/.test(className || '') ||
+              (typeof children === 'string' && children.includes('\n'))
+            return isBlock ? (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            ) : (
+              <code
+                className="px-1.5 py-0.5 bg-surface-hover rounded text-[0.85em] font-mono"
+                {...props}
+              >
+                {children}
+              </code>
+            )
+          },
+        }}
+      >
+        {displayContent}
+      </LazyMarkdown>
       {isStreaming && (
         <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle" />
       )}
@@ -1465,50 +1643,56 @@ export function ChunkGroupRenderer({
         const key = `${group.type}-${i}`
         const isLast = isStreaming && i === processed.length - 1
 
+        let element: React.ReactNode
+        let isProcess = true
+
         if (group.type === 'process_section') {
-          return <ProcessSectionBlock key={key} section={group as ProcessSection} />
-        }
-
-        if (group.type === 'read_batch') {
-          return <ReadToolBlockGroup key={key} contents={(group as CollapsedBatch).contents} />
-        }
-
-        if (group.type === 'tool_batch') {
+          element = <ProcessSectionBlock section={group as ProcessSection} />
+        } else if (group.type === 'read_batch') {
+          element = <ReadToolBlockGroup contents={(group as CollapsedBatch).contents} />
+        } else if (group.type === 'tool_batch') {
           const batch = group as CollapsedBatch
+          element = <ToolBatchBlock contents={batch.contents} toolName={batch.toolName || ''} />
+        } else if (group.type === 'thinking_batch') {
+          element = <ThinkingBatchBlock contents={(group as CollapsedBatch).contents} />
+        } else {
+          const g = group as ChunkGroup
+          switch (g.type) {
+            case 'thinking':
+              element = <ThinkingBlock content={g.content} isStreaming={isLast} />
+              break
+            case 'tool_use':
+              element = (
+                <ToolUseBlock content={g.content} metadata={g.metadata} isStreaming={isLast} />
+              )
+              break
+            case 'tool_result':
+              element = <ToolResultBlock content={g.content} metadata={g.metadata} />
+              break
+            case 'error':
+              element = <ErrorBlock content={g.content} />
+              isProcess = false
+              break
+            case 'workspace_status':
+              return null
+            case 'text':
+              element = <TextBlock content={g.content} isStreaming={isLast} />
+              isProcess = false
+              break
+            default:
+              return null
+          }
+        }
+
+        // Dim completed process blocks to reduce visual noise
+        if (isProcess && !isLast) {
           return (
-            <ToolBatchBlock key={key} contents={batch.contents} toolName={batch.toolName || ''} />
+            <div key={key} className="opacity-75 hover:opacity-100 transition-opacity">
+              {element}
+            </div>
           )
         }
-
-        if (group.type === 'thinking_batch') {
-          return <ThinkingBatchBlock key={key} contents={(group as CollapsedBatch).contents} />
-        }
-
-        const g = group as ChunkGroup
-        switch (g.type) {
-          case 'thinking':
-            return <ThinkingBlock key={key} content={g.content} isStreaming={isLast} />
-          case 'tool_use':
-            return (
-              <ToolUseBlock
-                key={key}
-                content={g.content}
-                metadata={g.metadata}
-                isStreaming={isLast}
-              />
-            )
-          case 'tool_result':
-            return <ToolResultBlock key={key} content={g.content} metadata={g.metadata} />
-          case 'error':
-            return <ErrorBlock key={key} content={g.content} />
-          case 'workspace_status':
-            // Workspace status is now shown in the dedicated panel, not inline
-            return null
-          case 'text':
-            return <TextBlock key={key} content={g.content} isStreaming={isLast} />
-          default:
-            return null
-        }
+        return <Fragment key={key}>{element}</Fragment>
       })}
     </>
   )
