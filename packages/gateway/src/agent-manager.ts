@@ -45,6 +45,8 @@ import {
   setDefaultCredential,
   credentialToAuthConfig,
   agentConfigToEnv,
+  getCredential,
+  prepareSubscriptionHome,
   readSubscriptionAuthData,
   syncBackSubscriptionAuth,
 } from './agent-config.js'
@@ -756,6 +758,11 @@ export class AgentManager {
     const queueDepth = this.getTotalQueueDepth(msg.agentId)
     this.sendAgentStatus(msg.agentId, 'busy', queueDepth)
 
+    // For subscription mode: refresh isolated HOME credentials from the
+    // credential store before each query. A previous query's sync-back may
+    // have updated the stored tokens, and the isolated HOME may be stale.
+    this.refreshSubscriptionCredentials(msg.agentId)
+
     try {
       adapter.sendMessage(
         msg.content,
@@ -777,6 +784,9 @@ export class AgentManager {
           // Collect workspace status asynchronously before completing
           const workingDir = adapter.workingDirectory
           const sendComplete = () => {
+            // Sync back any tokens the subprocess may have refreshed
+            this.syncAgentCredentials(msg.agentId)
+
             this.wsClient.send({
               type: 'gateway:message_complete',
               roomId: msg.roomId,
@@ -860,6 +870,9 @@ export class AgentManager {
 
           const workingDir = adapter.workingDirectory
           const sendErrorComplete = () => {
+            // Sync back any tokens the subprocess may have refreshed before the error
+            this.syncAgentCredentials(msg.agentId)
+
             this.wsClient.send({
               type: 'gateway:message_complete',
               roomId: msg.roomId,
@@ -1036,9 +1049,40 @@ export class AgentManager {
     if (credCtx) {
       try {
         syncBackSubscriptionAuth(credCtx.agentType, credCtx.credentialId, credCtx.oauthData)
+        // Update in-memory oauthData to match what the store now holds,
+        // so the next refreshSubscriptionCredentials comparison is accurate.
+        const latest = getCredential(credCtx.agentType, credCtx.credentialId)
+        if (latest?.oauthData) {
+          credCtx.oauthData = latest.oauthData
+        }
       } catch (err) {
         log.warn(`Failed to sync back auth for ${agentId}: ${(err as Error).message}`)
       }
+    }
+  }
+
+  /**
+   * Before each query, refresh the isolated HOME's credential files from the
+   * credential store. A previous query's sync-back may have persisted newer
+   * tokens, and the files on disk may be stale (written at spawn time).
+   */
+  private refreshSubscriptionCredentials(agentId: string) {
+    const credCtx = this.agentCredentials.get(agentId)
+    if (!credCtx) return
+
+    try {
+      const latest = getCredential(credCtx.agentType, credCtx.credentialId)
+      if (!latest?.oauthData) return
+
+      // Only rewrite if the stored data has changed since we last wrote it
+      if (latest.oauthData !== credCtx.oauthData) {
+        prepareSubscriptionHome(credCtx.agentType, credCtx.credentialId, latest.oauthData)
+        // Update in-memory tracking so subsequent comparisons are correct
+        credCtx.oauthData = latest.oauthData
+        log.info(`Refreshed subscription credentials for agent ${agentId}`)
+      }
+    } catch (err) {
+      log.warn(`Failed to refresh credentials for ${agentId}: ${(err as Error).message}`)
     }
   }
 
