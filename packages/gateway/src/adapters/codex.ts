@@ -499,6 +499,10 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (proc.onChunk) {
           const delta = params.delta as string
           if (delta) {
+            log.info(
+              `[delta] keys=${Object.keys(params).join(',')} ` +
+                `itemId=${params.itemId ?? params.id ?? 'N/A'} "${delta.substring(0, 80)}"`,
+            )
             proc.fullContent += delta
             proc.onChunk({ type: 'text', content: delta })
           }
