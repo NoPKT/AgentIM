@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'path'
 import type { ParsedChunk, ModelOption } from '@agentim/shared'
@@ -90,6 +90,73 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   constructor(opts: AdapterOptions) {
     super(opts)
     this.defaultSandbox = opts.sandbox ?? false
+    // Load persisted session IDs from previous gateway runs
+    this.loadPersistedSessions()
+  }
+
+  // ─── Session Persistence ───
+
+  /** Path to the file storing session-to-room mappings. */
+  private getSessionStorePath(): string | undefined {
+    if (!this.workingDirectory) return undefined
+    return join(this.workingDirectory, '.claude', '.agentim-sessions.json')
+  }
+
+  /** Load previously persisted session IDs into room states. */
+  private loadPersistedSessions(): void {
+    const path = this.getSessionStorePath()
+    if (!path || !existsSync(path)) return
+    try {
+      const data = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, string>
+      let count = 0
+      for (const [roomId, sessionId] of Object.entries(data)) {
+        if (typeof sessionId === 'string' && sessionId) {
+          const rs = this.getRoomState(roomId)
+          if (!rs.sessionId) {
+            rs.sessionId = sessionId
+            count++
+          }
+        }
+      }
+      if (count > 0) {
+        log.info(`Loaded ${count} persisted session(s) from ${path}`)
+      }
+    } catch {
+      // File corrupt or unreadable — start fresh
+    }
+  }
+
+  /** Persist a session ID for a room so it survives gateway restarts. */
+  private persistSession(roomId: string, sessionId: string): void {
+    const path = this.getSessionStorePath()
+    if (!path) return
+    try {
+      let data: Record<string, string> = {}
+      try {
+        data = JSON.parse(readFileSync(path, 'utf-8'))
+      } catch {
+        // File doesn't exist yet
+      }
+      data[roomId] = sessionId
+      const dir = dirname(path)
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      writeFileSync(path, JSON.stringify(data, null, 2))
+    } catch (err) {
+      log.warn(`Failed to persist session: ${(err as Error).message}`)
+    }
+  }
+
+  /** Remove a persisted session for a room. */
+  private removePersistedSession(roomId: string): void {
+    const path = this.getSessionStorePath()
+    if (!path || !existsSync(path)) return
+    try {
+      const data = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, string>
+      delete data[roomId]
+      writeFileSync(path, JSON.stringify(data, null, 2))
+    } catch {
+      // Non-critical
+    }
   }
 
   private getRoomState(roomId?: string): ClaudeRoomState {
@@ -370,12 +437,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     const msgType = msg.type as string
     const msgSubtype = msg.subtype as string | undefined
 
-    // Capture session ID from init message
+    // Capture session ID from init message and persist for restart recovery
     if (msgType === 'system' && msgSubtype === 'init') {
       const initMsg = message as SDKSystemMessage
       const rs = this.getRoomState(roomId)
       rs.sessionId = initMsg.session_id
-      log.info(`Session started for room ${roomId ?? 'global'}: ${rs.sessionId}`)
+      const key = roomId ?? DEFAULT_ROOM_KEY
+      this.persistSession(key, initMsg.session_id)
+      log.info(`Session started for room ${key}: ${rs.sessionId}`)
       return
     }
 
@@ -908,7 +977,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Clear session so the next message starts a fresh conversation.
     // The server has already deleted messages; room_context will provide
     // the truncated history on the next send_to_agent.
+    const key = roomId ?? DEFAULT_ROOM_KEY
     this.getRoomState(roomId).sessionId = undefined
+    this.removePersistedSession(key)
     return { success: true }
   }
 
@@ -946,10 +1017,12 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     switch (command) {
       case 'clear': {
         rs.sessionId = undefined
+        this.removePersistedSession(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: 'Session cleared' }
       }
       case 'compact': {
         rs.sessionId = undefined
+        this.removePersistedSession(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: 'Session compacted (reset)' }
       }
       case 'model': {
@@ -1154,10 +1227,11 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   stop() {
-    // Interrupt all active room queries
+    // Interrupt all active room queries and remove persisted sessions
     for (const [roomId, query] of this.currentQueries) {
       query.interrupt()
       this.getRoomState(roomId).sessionId = undefined
+      this.removePersistedSession(roomId)
     }
     this.currentQueries.clear()
     this.clearAllBusy()
