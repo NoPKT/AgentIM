@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import type { WorkspaceStatus, DirectoryEntry } from '@agentim/shared'
 
+/** A file open request originating from a chat message link click. */
+export interface PendingFile {
+  agentId: string
+  roomId: string
+  path: string
+  line?: number
+}
+
 export interface WorkspaceState {
   // Per-agent latest git status (from message chunks or explicit requests)
   statuses: Map<
@@ -19,11 +27,16 @@ export interface WorkspaceState {
   } | null
   // Loading states
   loading: { agentId: string; kind: string } | null
+  // Pending file open request from a chat message link
+  pendingFile: PendingFile | null
 
   setStatus(agentId: string, data: WorkspaceStatus | null, workingDirectory: string): void
   setTree(agentId: string, path: string, entries: DirectoryEntry[]): void
   setFileContent(content: WorkspaceState['fileContent']): void
   setLoading(loading: WorkspaceState['loading']): void
+  /** Request to open a file from a chat message link. */
+  openFile(agentId: string, roomId: string, path: string, line?: number): void
+  clearPendingFile(): void
   clear(): void
 }
 
@@ -32,6 +45,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   trees: new Map(),
   fileContent: null,
   loading: null,
+  pendingFile: null,
 
   setStatus(agentId, data, workingDirectory) {
     set((state) => {
@@ -59,12 +73,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set({ loading })
   },
 
+  openFile(agentId, roomId, path, line) {
+    set({ pendingFile: { agentId, roomId, path, line } })
+    window.dispatchEvent(new CustomEvent('agentim:open_workspace_file'))
+  },
+
+  clearPendingFile() {
+    set({ pendingFile: null })
+  },
+
   clear() {
     set({
       statuses: new Map(),
       trees: new Map(),
       fileContent: null,
       loading: null,
+      pendingFile: null,
     })
   },
 }))

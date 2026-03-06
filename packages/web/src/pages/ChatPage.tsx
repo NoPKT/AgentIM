@@ -233,6 +233,16 @@ export default function ChatPage() {
     [],
   )
 
+  // Open workspace panel when a file link is clicked in a message
+  useEffect(() => {
+    const handler = () => {
+      setTerminalAgentId(null)
+      setWorkspaceOpen(true)
+    }
+    window.addEventListener('agentim:open_workspace_file', handler)
+    return () => window.removeEventListener('agentim:open_workspace_file', handler)
+  }, [])
+
   // Filter permission requests for the current room
   const activePermissionRequests = useMemo(() => {
     if (!currentRoomId) return []
