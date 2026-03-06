@@ -105,6 +105,45 @@ function classifyRetryError(raw: string): string {
   return raw.length > 300 ? `${raw.slice(0, 300)}…` : raw
 }
 
+/**
+ * Extract human-readable text from a structured tool result object.
+ * Gemini tool results (e.g. run_shell_command) often return objects like
+ * `{ok: true, output: "..."}` or `{ok: false, error: "..."}`.
+ * This extracts the meaningful text content instead of showing raw JSON.
+ */
+function formatToolResult(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value !== 'object') return String(value)
+
+  const obj = value as Record<string, unknown>
+
+  // Shell command results: {ok, output, error, exitCode}
+  if ('output' in obj && typeof obj.output === 'string') {
+    const parts: string[] = []
+    if (obj.output) parts.push(obj.output)
+    if (obj.error && typeof obj.error === 'string') parts.push(obj.error)
+    return parts.join('\n') || (obj.ok === false ? 'Command failed' : '')
+  }
+
+  // Error-only result: {ok: false, error: "..."}
+  if ('error' in obj && typeof obj.error === 'string') {
+    return obj.error
+  }
+
+  // Result with a message field
+  if ('message' in obj && typeof obj.message === 'string') {
+    return obj.message
+  }
+
+  // Fallback: pretty-print JSON
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
 // Cache the dynamically imported SDK module to avoid repeated import() calls
 let _cachedSdk: typeof import('@google/gemini-cli-core') | null = null
 
@@ -576,14 +615,18 @@ export class GeminiAdapter extends BaseAgentAdapter {
               )
               functionResponseParts.push(...responseParts)
 
-              // Emit tool_result chunk for the UI
+              // Emit tool_result chunk for the UI.
+              // Prefer returnDisplay (human-friendly), then llmContent (model-facing).
+              // When the value is a structured object (e.g. shell command result
+              // like {ok, output, error}), extract meaningful text instead of
+              // showing raw JSON.
               const display = result.error
                 ? `Error: ${result.error.message}`
                 : typeof result.returnDisplay === 'string'
                   ? result.returnDisplay
                   : typeof result.llmContent === 'string'
                     ? result.llmContent
-                    : JSON.stringify(result.llmContent ?? '')
+                    : formatToolResult(result.llmContent)
               onChunk({
                 type: 'tool_result',
                 content: display,
@@ -693,7 +736,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
           ? `Error: ${resp.error.message}`
           : typeof resp.resultDisplay === 'string'
             ? resp.resultDisplay
-            : JSON.stringify(resp.resultDisplay ?? '')
+            : formatToolResult(resp.resultDisplay)
         return [
           {
             type: 'tool_result',

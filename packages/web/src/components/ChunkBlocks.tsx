@@ -14,17 +14,27 @@ export function groupChunks(chunks: ParsedChunk[]): ChunkGroup[] {
   const groups: ChunkGroup[] = []
   for (const chunk of chunks) {
     const last = groups[groups.length - 1]
-    // Merge tool_result into preceding tool_use with matching toolId so that
+    // Merge tool_result into a preceding tool_use with matching toolId so that
     // specialized blocks (CommandExecutionBlock, ShellCommandBlock, etc.) can
     // display the result inside the same collapsible section.
-    if (
-      chunk.type === 'tool_result' &&
-      last?.type === 'tool_use' &&
-      chunk.metadata?.toolId &&
-      last.metadata?.toolId === chunk.metadata.toolId
-    ) {
-      last.metadata = { ...last.metadata, toolResult: chunk.content }
-      continue
+    // Search backward through all groups — when multiple tools execute in
+    // parallel, the order is tool_use_1, tool_use_2, ..., tool_result_1, tool_result_2,
+    // so the matching tool_use may not be the last group.
+    if (chunk.type === 'tool_result' && chunk.metadata?.toolId) {
+      let merged = false
+      for (let i = groups.length - 1; i >= 0; i--) {
+        const g = groups[i]
+        if (
+          g.type === 'tool_use' &&
+          g.metadata?.toolId === chunk.metadata.toolId &&
+          !g.metadata?.toolResult
+        ) {
+          g.metadata = { ...g.metadata, toolResult: chunk.content }
+          merged = true
+          break
+        }
+      }
+      if (merged) continue
     }
     if (
       last &&
