@@ -388,6 +388,36 @@ export function AgentPanel({ agentId, isOpen, onClose, isOwner = false, roomId }
                   </button>
                 </Section>
               )}
+
+              {/* Permission Level */}
+              <Section title={t('agentPanel.permissionLevel')}>
+                <button
+                  onClick={() => sendCommand('permission', '')}
+                  disabled={pendingCommands.has('permission')}
+                  className="flex items-center justify-between w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm disabled:opacity-50 transition-colors"
+                >
+                  <span className="text-text-secondary">
+                    {agent.permissionLevel === 'bypass'
+                      ? t('agentPanel.permissionBypass')
+                      : t('agentPanel.permissionInteractive')}
+                  </span>
+                  <span
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+                      agent.permissionLevel === 'bypass'
+                        ? 'bg-warning-text'
+                        : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                        agent.permissionLevel === 'bypass'
+                          ? 'translate-x-[22px]'
+                          : 'translate-x-[2px]'
+                      }`}
+                    />
+                  </span>
+                </button>
+              </Section>
             </>
           )}
 
@@ -921,6 +951,34 @@ export function AgentPanelInline({ agentId, roomId }: { agentId: string; roomId:
           </button>
         </ConfigSection>
       )}
+
+      {/* Permission Level */}
+      <ConfigSection label={t('agentPanel.permissionLevel')}>
+        <button
+          onClick={() => sendCommand('permission', '')}
+          disabled={pendingCommands.has('permission')}
+          className="flex items-center justify-between w-full min-h-[44px] px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm disabled:opacity-50 transition-colors"
+        >
+          <span className="text-text-secondary">
+            {agent.permissionLevel === 'bypass'
+              ? t('agentPanel.permissionBypass')
+              : t('agentPanel.permissionInteractive')}
+          </span>
+          <span
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+              agent.permissionLevel === 'bypass'
+                ? 'bg-warning-text'
+                : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+                agent.permissionLevel === 'bypass' ? 'translate-x-[22px]' : 'translate-x-[2px]'
+              }`}
+            />
+          </span>
+        </button>
+      </ConfigSection>
 
       {/* Session Info */}
       {isOnline && (

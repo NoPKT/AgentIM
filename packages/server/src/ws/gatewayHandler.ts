@@ -1094,6 +1094,7 @@ async function handleAgentInfoResponse(
     availableEffortLevels?: string[]
     availableThinkingModes?: string[]
     planMode?: boolean
+    permissionLevel?: 'interactive' | 'bypass'
   },
 ) {
   const gw = connectionManager.getGateway(ws)
@@ -1126,6 +1127,7 @@ async function handleAgentInfoResponse(
     availableEffortLevels: msg.availableEffortLevels,
     availableThinkingModes: msg.availableThinkingModes,
     planMode: msg.planMode,
+    permissionLevel: msg.permissionLevel,
     deviceInfo: agentGw
       ? {
           hostname: agentGw.hostname ?? '',

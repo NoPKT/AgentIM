@@ -74,6 +74,7 @@ export interface Agent {
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
   planMode?: boolean
+  permissionLevel?: 'interactive' | 'bypass'
   lastSeenAt?: string
   createdAt: string
   updatedAt: string

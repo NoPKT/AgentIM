@@ -522,6 +522,7 @@ export interface GatewayAgentInfo {
   availableEffortLevels?: string[]
   availableThinkingModes?: string[]
   planMode?: boolean
+  permissionLevel?: 'interactive' | 'bypass'
 }
 
 export interface GatewaySpawnResult {
