@@ -12,14 +12,14 @@ export interface PermissionRequestData {
   toolInput: Record<string, unknown>
   expiresAt: string
   /** Set after the user responds or the request expires */
-  resolved?: 'allowed' | 'denied' | 'timedOut'
+  resolved?: 'allowed' | 'allowedAlways' | 'denied' | 'timedOut'
 }
 
 const DANGEROUS_TOOLS = new Set(['Bash', 'Write', 'Edit'])
 
 interface PermissionCardProps {
   request: PermissionRequestData
-  onResolved: (requestId: string, decision: 'allowed' | 'denied') => void
+  onResolved: (requestId: string, decision: 'allowed' | 'allowedAlways' | 'denied') => void
 }
 
 export function PermissionCard({ request, onResolved }: PermissionCardProps) {
@@ -27,6 +27,8 @@ export function PermissionCard({ request, onResolved }: PermissionCardProps) {
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Math.max(0, Math.ceil((new Date(request.expiresAt).getTime() - Date.now()) / 1000)),
   )
+  const [showDenyReason, setShowDenyReason] = useState(false)
+  const [denyReason, setDenyReason] = useState('')
 
   const isDangerous = useMemo(() => DANGEROUS_TOOLS.has(request.toolName), [request.toolName])
   const isResolved = !!request.resolved
@@ -53,14 +55,24 @@ export function PermissionCard({ request, onResolved }: PermissionCardProps) {
     onResolved(request.requestId, 'allowed')
   }, [request.requestId, onResolved])
 
+  const handleAllowAlways = useCallback(() => {
+    wsClient.send({
+      type: 'client:permission_response',
+      requestId: request.requestId,
+      decision: 'allowAlways',
+    })
+    onResolved(request.requestId, 'allowedAlways')
+  }, [request.requestId, onResolved])
+
   const handleDeny = useCallback(() => {
     wsClient.send({
       type: 'client:permission_response',
       requestId: request.requestId,
       decision: 'deny',
+      ...(denyReason.trim() ? { denyReason: denyReason.trim() } : {}),
     })
     onResolved(request.requestId, 'denied')
-  }, [request.requestId, onResolved])
+  }, [request.requestId, onResolved, denyReason])
 
   // Build a short summary of the tool input
   const inputSummary = useMemo(() => {
@@ -78,7 +90,7 @@ export function PermissionCard({ request, onResolved }: PermissionCardProps) {
 
   // Determine card border/bg color based on state
   const cardStyle = isResolved
-    ? request.resolved === 'allowed'
+    ? request.resolved === 'allowed' || request.resolved === 'allowedAlways'
       ? 'border-success-border bg-success-subtle/30'
       : request.resolved === 'denied'
         ? 'border-danger-border bg-danger-subtle/30'
@@ -163,14 +175,14 @@ export function PermissionCard({ request, onResolved }: PermissionCardProps) {
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md ${
-              request.resolved === 'allowed'
+              request.resolved === 'allowed' || request.resolved === 'allowedAlways'
                 ? 'bg-success-subtle text-success-text'
                 : request.resolved === 'denied'
                   ? 'bg-danger-subtle text-danger-text'
                   : 'bg-surface-hover text-text-muted'
             }`}
           >
-            {request.resolved === 'allowed' && (
+            {(request.resolved === 'allowed' || request.resolved === 'allowedAlways') && (
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -202,22 +214,61 @@ export function PermissionCard({ request, onResolved }: PermissionCardProps) {
             )}
             {request.resolved === 'allowed'
               ? t('chat.permissionAllowed')
-              : request.resolved === 'denied'
-                ? t('chat.permissionDenied')
-                : t('chat.permissionTimedOut')}
+              : request.resolved === 'allowedAlways'
+                ? t('chat.permissionAllowedAlways')
+                : request.resolved === 'denied'
+                  ? t('chat.permissionDenied')
+                  : t('chat.permissionTimedOut')}
           </span>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={handleAllow}>
-            {t('chat.permissionAllow')}
-          </Button>
-          <Button size="sm" variant="danger" onClick={handleDeny}>
-            {t('chat.permissionDeny')}
-          </Button>
-          <span className="ml-auto text-xs text-text-muted italic">
-            {t('chat.permissionAgentPaused')}
-          </span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleAllow}>
+              {t('chat.permissionAllow')}
+            </Button>
+            <Button size="sm" onClick={handleAllowAlways}>
+              {t('chat.permissionAllowAlways')}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={showDenyReason ? handleDeny : () => setShowDenyReason(true)}
+            >
+              {showDenyReason ? t('chat.permissionDeny') : t('chat.permissionDenyWithReason')}
+            </Button>
+            {!showDenyReason && (
+              <span className="ml-auto text-xs text-text-muted italic">
+                {t('chat.permissionAgentPaused')}
+              </span>
+            )}
+          </div>
+          {showDenyReason && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                className="flex-1 text-xs px-2 py-1.5 rounded-md border border-border bg-surface-primary text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-info-border"
+                placeholder={t('chat.permissionDenyReasonPlaceholder')}
+                value={denyReason}
+                onChange={(e) => setDenyReason(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleDeny()
+                  if (e.key === 'Escape') setShowDenyReason(false)
+                }}
+                autoFocus
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowDenyReason(false)
+                  setDenyReason('')
+                }}
+              >
+                &times;
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

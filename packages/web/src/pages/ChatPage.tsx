@@ -223,7 +223,7 @@ export default function ChatPage() {
 
   // Handle user decision on a permission request — remove immediately
   const handlePermissionResolved = useCallback(
-    (requestId: string, _decision: 'allowed' | 'denied') => {
+    (requestId: string, _decision: 'allowed' | 'allowedAlways' | 'denied') => {
       setPermissionRequests((prev) => {
         const next = new Map(prev)
         next.delete(requestId)
