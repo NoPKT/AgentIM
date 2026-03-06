@@ -494,6 +494,9 @@ export class CodexAdapter extends BaseAgentAdapter {
     if (!proc) return
     const params = (notif.params ?? {}) as Record<string, unknown>
 
+    // Diagnostic: log all notification methods to trace empty response issues
+    log.info(`[notif] ${notif.method} room=${roomId} fullContent.len=${proc.fullContent.length}`)
+
     switch (notif.method) {
       case 'item/agentMessage/delta':
         if (proc.onChunk) {
@@ -528,6 +531,9 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (proc.onComplete) {
           const complete = proc.onComplete
           const content = proc.fullContent
+          log.info(
+            `[turn/completed] room=${roomId} fullContent.len=${content.length} preview="${content.substring(0, 100)}"`,
+          )
           this.clearRoomCallbacks(roomId)
           complete(content)
         }
@@ -550,6 +556,9 @@ export class CodexAdapter extends BaseAgentAdapter {
         if (proc.onComplete) {
           const complete = proc.onComplete
           const content = proc.fullContent
+          log.info(
+            `[task_complete] room=${roomId} fullContent.len=${content.length} preview="${content.substring(0, 100)}"`,
+          )
           this.clearRoomCallbacks(roomId)
           complete(content)
         }
@@ -560,7 +569,9 @@ export class CodexAdapter extends BaseAgentAdapter {
         break
 
       default:
-        // Ignore other notifications silently
+        log.info(
+          `[notif:unhandled] ${notif.method} params=${JSON.stringify(params).substring(0, 200)}`,
+        )
         break
     }
   }
@@ -584,6 +595,9 @@ export class CodexAdapter extends BaseAgentAdapter {
   private handleItemCompleted(proc: CodexRoomProcess, item: Record<string, unknown>): void {
     if (!proc.onChunk) return
     const type = item.type as string
+    log.info(
+      `[item/completed] type=${type} id=${item.id} text.len=${((item.text as string) ?? '').length}`,
+    )
 
     if (type === 'commandExecution') {
       const output = item.aggregatedOutput as string

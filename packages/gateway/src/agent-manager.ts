@@ -1409,7 +1409,7 @@ export class AgentManager {
       autoCallback?: boolean
     }
   > = {
-    'claude-code': { cmd: 'claude', args: ['setup-token'], needsPty: true },
+    'claude-code': { cmd: 'claude', args: ['auth', 'login'], autoCallback: true },
     codex: { cmd: 'codex', args: ['login'] },
     // Gemini CLI has no dedicated auth command. Headless mode triggers OAuth
     // if not yet authenticated. We force a clean home dir via GEMINI_CLI_HOME
@@ -1757,7 +1757,20 @@ export class AgentManager {
         })
         log.info(`OAuth completed successfully for ${msg.agentType}`)
         if (oauthData) {
-          log.info(`Stored OAuth auth data for credential ${credential.id}`)
+          try {
+            const parsed = JSON.parse(oauthData)
+            const oauth = parsed.claudeAiOauth ?? parsed
+            log.info(
+              `Stored OAuth data for ${credential.id}: ` +
+                `hasAccessToken=${!!oauth.accessToken} ` +
+                `hasRefreshToken=${!!oauth.refreshToken} ` +
+                `expiresAt=${oauth.expiresAt ?? 'N/A'}`,
+            )
+          } catch {
+            log.info(`Stored OAuth data for ${credential.id} (len=${oauthData.length})`)
+          }
+        } else {
+          log.warn(`No OAuth data captured for ${msg.agentType} — credential may not work`)
         }
       } else {
         cleanupFiles()
@@ -1859,7 +1872,18 @@ export class AgentManager {
       })
       log.info(`OAuth completed successfully for ${entry.agentType}`)
       if (oauthData) {
-        log.info(`Stored OAuth auth data for credential ${credential.id}`)
+        try {
+          const parsed = JSON.parse(oauthData)
+          const oauth = parsed.claudeAiOauth ?? parsed
+          log.info(
+            `Stored OAuth data for ${credential.id}: ` +
+              `hasAccessToken=${!!oauth.accessToken} ` +
+              `hasRefreshToken=${!!oauth.refreshToken} ` +
+              `expiresAt=${oauth.expiresAt ?? 'N/A'}`,
+          )
+        } catch {
+          log.info(`Stored OAuth data for ${credential.id} (len=${oauthData.length})`)
+        }
       }
     } catch (err) {
       clearTimeout(entry.timer)
