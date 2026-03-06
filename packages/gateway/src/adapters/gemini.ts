@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import type { ParsedChunk, ModelOption } from '@agentim/shared'
 import {
   BaseAgentAdapter,
@@ -140,6 +142,63 @@ export class GeminiAdapter extends BaseAgentAdapter {
     super(opts)
     // Eagerly trigger SDK load so model info is available for getAvailableModels()
     this.ensureSdk().catch(() => {})
+  }
+
+  // ─── Session Persistence ───
+
+  /** Directory for storing per-room conversation history. */
+  private getHistoryDir(): string | undefined {
+    if (!this.workingDirectory) return undefined
+    return join(this.workingDirectory, '.gemini', '.agentim-history')
+  }
+
+  /** Path to the history file for a specific room. */
+  private getHistoryPath(roomId: string): string | undefined {
+    const dir = this.getHistoryDir()
+    if (!dir) return undefined
+    // Sanitize roomId for filesystem safety
+    const safe = roomId.replace(/[^a-zA-Z0-9_-]/g, '_')
+    return join(dir, `${safe}.json`)
+  }
+
+  /** Persist conversation history for a room to survive gateway restarts. */
+  private persistHistory(roomId: string, history: unknown[]): void {
+    const path = this.getHistoryPath(roomId)
+    if (!path) return
+    try {
+      const dir = dirname(path)
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      writeFileSync(path, JSON.stringify(history))
+    } catch (err) {
+      log.warn(`Failed to persist Gemini history: ${(err as Error).message}`)
+    }
+  }
+
+  /** Load persisted conversation history for a room. */
+  private loadPersistedHistory(roomId: string): unknown[] | undefined {
+    const path = this.getHistoryPath(roomId)
+    if (!path || !existsSync(path)) return undefined
+    try {
+      const data = JSON.parse(readFileSync(path, 'utf-8'))
+      if (Array.isArray(data) && data.length > 0) {
+        log.info(`Loaded persisted Gemini history for room ${roomId} (${data.length} entries)`)
+        return data
+      }
+    } catch {
+      // Corrupt file — start fresh
+    }
+    return undefined
+  }
+
+  /** Remove persisted history for a room. */
+  private removePersistedHistory(roomId: string): void {
+    const path = this.getHistoryPath(roomId)
+    if (!path || !existsSync(path)) return
+    try {
+      unlinkSync(path)
+    } catch {
+      // Non-critical
+    }
   }
 
   private getRoomState(roomId?: string): GeminiRoomState {
@@ -343,6 +402,20 @@ export class GeminiAdapter extends BaseAgentAdapter {
     log.info(
       `Gemini client initialized (model: ${model}, session: ${sessionId}, approval: ${approvalMode})`,
     )
+
+    // Restore persisted conversation history from a previous gateway run
+    const key = roomId ?? DEFAULT_ROOM_KEY
+    const savedHistory = this.loadPersistedHistory(key)
+    if (savedHistory && rs.client) {
+      try {
+        await rs.client.resumeChat(savedHistory as import('@google/genai').Content[])
+        log.info(`Resumed Gemini conversation for room ${key} from persisted history`)
+      } catch (err) {
+        log.warn(`Failed to resume Gemini history: ${(err as Error).message} — starting fresh`)
+        this.removePersistedHistory(key)
+      }
+    }
+
     return rs.client!
   }
 
@@ -431,6 +504,15 @@ export class GeminiAdapter extends BaseAgentAdapter {
         if (capacityAborted && !fullContent) {
           onError(retryError || 'Request aborted due to retry failure')
         } else {
+          // Persist conversation history for cross-restart recovery
+          try {
+            const history = client.getHistory()
+            if (history.length > 0) {
+              this.persistHistory(roomId, history)
+            }
+          } catch (err) {
+            log.debug?.(`Failed to persist history after message: ${(err as Error).message}`)
+          }
           onComplete(fullContent)
         }
       } finally {
@@ -706,6 +788,14 @@ export class GeminiAdapter extends BaseAgentAdapter {
         try {
           const { nanoid } = await import('nanoid')
           const info = await rs.client.tryCompressChat(nanoid(), true)
+          // Persist the compressed history
+          const key = roomId ?? DEFAULT_ROOM_KEY
+          try {
+            const history = rs.client.getHistory()
+            if (history.length > 0) this.persistHistory(key, history)
+          } catch {
+            // Non-critical
+          }
           return {
             success: true,
             message: `Chat compressed: ${info.originalTokenCount} → ${info.newTokenCount} tokens`,
@@ -859,6 +949,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
   // ─── Session Lifecycle ───
 
   private resetSession(roomId?: string) {
+    const key = roomId ?? DEFAULT_ROOM_KEY
     const rs = this.getRoomState(roomId)
     if (rs.config) {
       try {
@@ -870,6 +961,7 @@ export class GeminiAdapter extends BaseAgentAdapter {
     rs.config = undefined
     rs.client = undefined
     rs.initialized = false
+    this.removePersistedHistory(key)
     log.info('Gemini session reset')
   }
 

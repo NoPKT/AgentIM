@@ -1,9 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { ModelOption } from '@agentim/shared'
 import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
@@ -88,35 +88,43 @@ interface CodexRoomState {
 
 const DEFAULT_ROOM_KEY = '__global__'
 
+/** Per-room app-server process state for parallel room processing. */
+interface CodexRoomProcess {
+  child: ChildProcessWithoutNullStreams
+  readline: ReadlineInterface
+  initialized: boolean
+  nextRequestId: number
+  pendingRequests: Map<number, PendingRequest>
+  // Stream callbacks for the current turn
+  onChunk?: ChunkCallback
+  onComplete?: CompleteCallback
+  onError?: ErrorCallback
+  fullContent: string
+  // Session-level auto-approve rules
+  sessionApprovedTools: Set<string>
+}
+
 export class CodexAdapter extends BaseAgentAdapter {
-  // App-server child process
-  private child?: ChildProcessWithoutNullStreams
-  private readline?: ReadlineInterface
-  private initialized = false
-  private nextRequestId = 1
-  private pendingRequests = new Map<number, PendingRequest>()
+  /** Per-room app-server processes for parallel room processing. */
+  private roomProcesses = new Map<string, CodexRoomProcess>()
 
-  // Stream callbacks — set during sendMessage, cleared on complete
-  private onChunk?: ChunkCallback
-  private onComplete?: CompleteCallback
-  private onError?: ErrorCallback
-  private fullContent = ''
-
-  // Per-room state
+  // Per-room state (settings, threadId, etc.)
   private roomStates = new Map<string, CodexRoomState>()
-  private currentRoomId?: string
 
   // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
   private cachedModelInfo: ModelOption[] = []
   private fetchModelsPromise: Promise<void> | null = null
 
-  // Session-level auto-approve rules from "always allow" decisions
-  private sessionApprovedTools = new Set<string>()
-
   constructor(opts: AdapterOptions) {
     super(opts)
+    // Load persisted thread IDs from previous gateway runs
+    this.loadPersistedThreads()
     // Fetch model list from OpenAI API (async, non-blocking)
     this.fetchModelsPromise = this.fetchModels().catch(() => {})
+  }
+
+  override get supportsParallelRooms() {
+    return true
   }
 
   private getRoomState(roomId?: string): CodexRoomState {
@@ -133,7 +141,72 @@ export class CodexAdapter extends BaseAgentAdapter {
     return 'codex' as const
   }
 
-  // ─── App-Server Process Management ───
+  // ─── Thread Persistence ───
+
+  /** Path to the file storing thread-to-room mappings. */
+  private getThreadStorePath(): string | undefined {
+    if (!this.workingDirectory) return undefined
+    return join(this.workingDirectory, '.codex', '.agentim-threads.json')
+  }
+
+  /** Load previously persisted thread IDs into room states. */
+  private loadPersistedThreads(): void {
+    const path = this.getThreadStorePath()
+    if (!path || !existsSync(path)) return
+    try {
+      const data = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, string>
+      let count = 0
+      for (const [roomId, threadId] of Object.entries(data)) {
+        if (typeof threadId === 'string' && threadId) {
+          const rs = this.getRoomState(roomId)
+          if (!rs.threadId) {
+            rs.threadId = threadId
+            count++
+          }
+        }
+      }
+      if (count > 0) {
+        log.info(`Loaded ${count} persisted thread(s) from ${path}`)
+      }
+    } catch {
+      // File corrupt or unreadable — start fresh
+    }
+  }
+
+  /** Persist a thread ID for a room so it survives gateway restarts. */
+  private persistThread(roomId: string, threadId: string): void {
+    const path = this.getThreadStorePath()
+    if (!path) return
+    try {
+      let data: Record<string, string> = {}
+      try {
+        data = JSON.parse(readFileSync(path, 'utf-8'))
+      } catch {
+        // File doesn't exist yet
+      }
+      data[roomId] = threadId
+      const dir = dirname(path)
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      writeFileSync(path, JSON.stringify(data, null, 2))
+    } catch (err) {
+      log.warn(`Failed to persist thread: ${(err as Error).message}`)
+    }
+  }
+
+  /** Remove a persisted thread for a room. */
+  private removePersistedThread(roomId: string): void {
+    const path = this.getThreadStorePath()
+    if (!path || !existsSync(path)) return
+    try {
+      const data = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, string>
+      delete data[roomId]
+      writeFileSync(path, JSON.stringify(data, null, 2))
+    } catch {
+      // Non-critical
+    }
+  }
+
+  // ─── App-Server Process Management (Per-Room) ───
 
   private findCodexBinary(): string {
     // Try to find the codex binary in common locations
@@ -155,90 +228,106 @@ export class CodexAdapter extends BaseAgentAdapter {
     return 'codex'
   }
 
-  private async ensureAppServer(): Promise<void> {
-    if (this.child && this.initialized) return
-
-    if (this.child) {
-      // Process exists but not initialized yet — wait
-      return
-    }
-
-    const codexBin = this.findCodexBinary()
-    const isJsFile = codexBin.endsWith('.js')
-
-    // Build environment for the child process
+  /** Build the child process environment. */
+  private buildChildEnv(): Record<string, string> {
     const childEnv: Record<string, string> = {}
     for (const [key, value] of Object.entries(process.env)) {
       if (value !== undefined) childEnv[key] = value
     }
     Object.assign(childEnv, this.env)
+    return childEnv
+  }
+
+  /** Ensure an app-server process exists for the given room. */
+  private async ensureRoomProcess(roomId: string): Promise<CodexRoomProcess> {
+    const existing = this.roomProcesses.get(roomId)
+    if (existing?.initialized) return existing
+    if (existing) return existing // Still initializing
+
+    const codexBin = this.findCodexBinary()
+    const isJsFile = codexBin.endsWith('.js')
+    const childEnv = this.buildChildEnv()
 
     const args = isJsFile ? [codexBin, 'app-server'] : ['app-server']
     const command = isJsFile ? process.execPath : codexBin
 
-    this.child = spawn(command, args, {
+    const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: childEnv,
     })
 
-    this.readline = createInterface({
-      input: this.child.stdout,
+    const readline = createInterface({
+      input: child.stdout,
       crlfDelay: Infinity,
     })
 
-    // Route incoming messages
-    this.readline.on('line', (line) => this.handleLine(line))
+    const proc: CodexRoomProcess = {
+      child,
+      readline,
+      initialized: false,
+      nextRequestId: 1,
+      pendingRequests: new Map(),
+      fullContent: '',
+      sessionApprovedTools: new Set(),
+    }
+    this.roomProcesses.set(roomId, proc)
 
-    this.child.stderr.on('data', (data) => {
+    // Route incoming messages for this room's process
+    readline.on('line', (line) => this.handleLine(roomId, line))
+
+    child.stderr.on('data', (data) => {
       const msg = data.toString().trim()
       if (msg && !msg.includes('rmcp')) {
-        log.warn(`[stderr] ${msg.substring(0, 500)}`)
+        log.warn(`[${roomId} stderr] ${msg.substring(0, 500)}`)
       }
     })
 
-    this.child.on('exit', (code) => {
-      log.info(`Codex app-server exited with code ${code}`)
-      this.child = undefined
-      this.readline = undefined
-      this.initialized = false
+    child.on('exit', (code) => {
+      log.info(`Codex app-server for room ${roomId} exited with code ${code}`)
       // Reject all pending requests
-      for (const [id, pending] of this.pendingRequests) {
+      for (const [id, pending] of proc.pendingRequests) {
         pending.reject(new Error(`Codex app-server exited (code=${code})`))
-        this.pendingRequests.delete(id)
+        proc.pendingRequests.delete(id)
       }
+      this.roomProcesses.delete(roomId)
+      this.setRoomBusy(roomId, false)
     })
 
     // Initialize
-    await this.sendRequest('initialize', {
+    await this.sendRequest(roomId, 'initialize', {
       clientInfo: { name: 'agentim', version: '0.1.0' },
     })
-    this.initialized = true
-    log.info('Codex app-server initialized')
+    proc.initialized = true
+    log.info(`Codex app-server initialized for room ${roomId}`)
+    return proc
   }
 
-  // ─── JSON-RPC Transport ───
+  // ─── JSON-RPC Transport (Per-Room) ───
 
-  private send(obj: unknown): void {
-    if (!this.child?.stdin?.writable) {
-      log.warn('Cannot send — app-server stdin not writable')
+  private sendToProcess(roomId: string, obj: unknown): void {
+    const proc = this.roomProcesses.get(roomId)
+    if (!proc?.child?.stdin?.writable) {
+      log.warn(`Cannot send to room ${roomId} — app-server stdin not writable`)
       return
     }
-    this.child.stdin.write(JSON.stringify(obj) + '\n')
+    proc.child.stdin.write(JSON.stringify(obj) + '\n')
   }
 
-  private sendRequest(method: string, params: unknown): Promise<unknown> {
-    const id = this.nextRequestId++
+  private sendRequest(roomId: string, method: string, params: unknown): Promise<unknown> {
+    const proc = this.roomProcesses.get(roomId)
+    if (!proc) return Promise.reject(new Error(`No process for room ${roomId}`))
+    const id = proc.nextRequestId++
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject, label: method })
-      this.send({ jsonrpc: '2.0', id, method, params })
+      proc.pendingRequests.set(id, { resolve, reject, label: method })
+      this.sendToProcess(roomId, { jsonrpc: '2.0', id, method, params })
     })
   }
 
-  private sendResponse(id: number, result: unknown): void {
-    this.send({ jsonrpc: '2.0', id, result })
+  private sendResponse(roomId: string, id: number, result: unknown): void {
+    this.sendToProcess(roomId, { jsonrpc: '2.0', id, result })
   }
 
-  private handleLine(line: string): void {
+  private handleLine(roomId: string, line: string): void {
     if (!line.trim()) return
     let msg: JsonRpcMessage
     try {
@@ -247,13 +336,16 @@ export class CodexAdapter extends BaseAgentAdapter {
       return
     }
 
+    const proc = this.roomProcesses.get(roomId)
+    if (!proc) return
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = msg as any
 
     // Response to our request
-    if (m.id !== undefined && m.id !== null && this.pendingRequests.has(m.id as number)) {
-      const pending = this.pendingRequests.get(m.id as number)!
-      this.pendingRequests.delete(m.id as number)
+    if (m.id !== undefined && m.id !== null && proc.pendingRequests.has(m.id as number)) {
+      const pending = proc.pendingRequests.get(m.id as number)!
+      proc.pendingRequests.delete(m.id as number)
       if (m.error) {
         pending.reject(new Error(m.error.message))
       } else {
@@ -264,59 +356,61 @@ export class CodexAdapter extends BaseAgentAdapter {
 
     // Server request (has both id and method) — needs response
     if (m.method && m.id !== undefined && m.id !== null) {
-      this.handleServerRequest(msg as JsonRpcServerRequest)
+      this.handleServerRequest(roomId, msg as JsonRpcServerRequest)
       return
     }
 
     // Notification (has method, no id)
     if (m.method) {
-      this.handleNotification(msg as JsonRpcNotification)
+      this.handleNotification(roomId, msg as JsonRpcNotification)
       return
     }
   }
 
   // ─── Server Request Handling (Approvals) ───
 
-  private async handleServerRequest(req: JsonRpcServerRequest): Promise<void> {
+  private async handleServerRequest(roomId: string, req: JsonRpcServerRequest): Promise<void> {
     const params = req.params ?? {}
 
     if (req.method === 'item/commandExecution/requestApproval') {
-      await this.handleCommandApproval(req.id, params)
+      await this.handleCommandApproval(roomId, req.id, params)
       return
     }
 
     if (req.method === 'item/fileChange/requestApproval') {
-      await this.handleFileChangeApproval(req.id, params)
+      await this.handleFileChangeApproval(roomId, req.id, params)
       return
     }
 
     if (req.method === 'item/tool/requestUserInput') {
       // Tool requesting user input — deny by default in headless mode
-      this.sendResponse(req.id, { answers: [] })
+      this.sendResponse(roomId, req.id, { answers: [] })
       return
     }
 
     // Unknown server request — send empty result
     log.warn(`Unknown server request: ${req.method}`)
-    this.sendResponse(req.id, {})
+    this.sendResponse(roomId, req.id, {})
   }
 
   private async handleCommandApproval(
+    roomId: string,
     requestId: number,
     params: Record<string, unknown>,
   ): Promise<void> {
+    const proc = this.roomProcesses.get(roomId)
     const command = (params.command as string) ?? ''
     const toolName = 'command'
 
     // Check session-level auto-approve
-    if (this.sessionApprovedTools.has(toolName)) {
-      this.sendResponse(requestId, { decision: 'accept' })
+    if (proc?.sessionApprovedTools.has(toolName)) {
+      this.sendResponse(roomId, requestId, { decision: 'accept' })
       return
     }
 
     if (!this.onPermissionRequest) {
       // No permission handler — auto-approve
-      this.sendResponse(requestId, { decision: 'accept' })
+      this.sendResponse(roomId, requestId, { decision: 'accept' })
       return
     }
 
@@ -335,32 +429,34 @@ export class CodexAdapter extends BaseAgentAdapter {
       })
 
       if (result.behavior === 'allow') {
-        this.sendResponse(requestId, { decision: 'accept' })
+        this.sendResponse(roomId, requestId, { decision: 'accept' })
       } else if (result.behavior === 'allowAlways') {
-        this.sessionApprovedTools.add(toolName)
-        this.sendResponse(requestId, { decision: 'acceptForSession' })
+        proc?.sessionApprovedTools.add(toolName)
+        this.sendResponse(roomId, requestId, { decision: 'acceptForSession' })
       } else {
-        this.sendResponse(requestId, { decision: 'cancel' })
+        this.sendResponse(roomId, requestId, { decision: 'cancel' })
       }
     } catch (err) {
       log.error(`Permission request failed: ${(err as Error).message}`)
-      this.sendResponse(requestId, { decision: 'cancel' })
+      this.sendResponse(roomId, requestId, { decision: 'cancel' })
     }
   }
 
   private async handleFileChangeApproval(
+    roomId: string,
     requestId: number,
     params: Record<string, unknown>,
   ): Promise<void> {
+    const proc = this.roomProcesses.get(roomId)
     const toolName = 'fileChange'
 
-    if (this.sessionApprovedTools.has(toolName)) {
-      this.sendResponse(requestId, { decision: 'accept' })
+    if (proc?.sessionApprovedTools.has(toolName)) {
+      this.sendResponse(roomId, requestId, { decision: 'accept' })
       return
     }
 
     if (!this.onPermissionRequest) {
-      this.sendResponse(requestId, { decision: 'accept' })
+      this.sendResponse(roomId, requestId, { decision: 'accept' })
       return
     }
 
@@ -378,31 +474,33 @@ export class CodexAdapter extends BaseAgentAdapter {
       })
 
       if (result.behavior === 'allow') {
-        this.sendResponse(requestId, { decision: 'accept' })
+        this.sendResponse(roomId, requestId, { decision: 'accept' })
       } else if (result.behavior === 'allowAlways') {
-        this.sessionApprovedTools.add(toolName)
-        this.sendResponse(requestId, { decision: 'acceptForSession' })
+        proc?.sessionApprovedTools.add(toolName)
+        this.sendResponse(roomId, requestId, { decision: 'acceptForSession' })
       } else {
-        this.sendResponse(requestId, { decision: 'cancel' })
+        this.sendResponse(roomId, requestId, { decision: 'cancel' })
       }
     } catch (err) {
       log.error(`Permission request failed: ${(err as Error).message}`)
-      this.sendResponse(requestId, { decision: 'cancel' })
+      this.sendResponse(roomId, requestId, { decision: 'cancel' })
     }
   }
 
   // ─── Notification Handling (Streaming Events) ───
 
-  private handleNotification(notif: JsonRpcNotification): void {
+  private handleNotification(roomId: string, notif: JsonRpcNotification): void {
+    const proc = this.roomProcesses.get(roomId)
+    if (!proc) return
     const params = (notif.params ?? {}) as Record<string, unknown>
 
     switch (notif.method) {
       case 'item/agentMessage/delta':
-        if (this.onChunk) {
+        if (proc.onChunk) {
           const delta = params.delta as string
           if (delta) {
-            this.fullContent += delta
-            this.onChunk({ type: 'text', content: delta })
+            proc.fullContent += delta
+            proc.onChunk({ type: 'text', content: delta })
           }
         }
         break
@@ -410,23 +508,23 @@ export class CodexAdapter extends BaseAgentAdapter {
       case 'item/started': {
         const item = params.item as Record<string, unknown>
         if (!item) break
-        this.handleItemStarted(item)
+        this.handleItemStarted(proc, item)
         break
       }
 
       case 'item/completed': {
         const item = params.item as Record<string, unknown>
         if (!item) break
-        this.handleItemCompleted(item)
+        this.handleItemCompleted(proc, item)
         break
       }
 
       case 'turn/completed':
         // Turn finished — signal completion
-        if (this.onComplete) {
-          const complete = this.onComplete
-          const content = this.fullContent
-          this.clearStreamCallbacks()
+        if (proc.onComplete) {
+          const complete = proc.onComplete
+          const content = proc.fullContent
+          this.clearRoomCallbacks(roomId)
           complete(content)
         }
         break
@@ -445,10 +543,10 @@ export class CodexAdapter extends BaseAgentAdapter {
 
       case 'codex/event/task_complete':
         // Task complete — if turn/completed hasn't fired yet, complete now
-        if (this.onComplete) {
-          const complete = this.onComplete
-          const content = this.fullContent
-          this.clearStreamCallbacks()
+        if (proc.onComplete) {
+          const complete = proc.onComplete
+          const content = proc.fullContent
+          this.clearRoomCallbacks(roomId)
           complete(content)
         }
         break
@@ -463,13 +561,13 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  private handleItemStarted(item: Record<string, unknown>): void {
-    if (!this.onChunk) return
+  private handleItemStarted(proc: CodexRoomProcess, item: Record<string, unknown>): void {
+    if (!proc.onChunk) return
     const type = item.type as string
 
     if (type === 'commandExecution') {
       const command = item.command as string
-      this.onChunk({
+      proc.onChunk({
         type: 'tool_use',
         content: `$ ${command}`,
         metadata: { toolName: 'command', toolId: item.id as string },
@@ -479,14 +577,14 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  private handleItemCompleted(item: Record<string, unknown>): void {
-    if (!this.onChunk) return
+  private handleItemCompleted(proc: CodexRoomProcess, item: Record<string, unknown>): void {
+    if (!proc.onChunk) return
     const type = item.type as string
 
     if (type === 'commandExecution') {
       const output = item.aggregatedOutput as string
       if (output) {
-        this.onChunk({
+        proc.onChunk({
           type: 'tool_result',
           content: output,
           metadata: { toolId: item.id as string },
@@ -495,7 +593,7 @@ export class CodexAdapter extends BaseAgentAdapter {
     } else if (type === 'fileChange') {
       const changes = item.changes as Array<{ kind: string; path: string }> | undefined
       if (changes?.length) {
-        this.onChunk({
+        proc.onChunk({
           type: 'tool_result',
           content: changes.map((c) => `${c.kind}: ${c.path}`).join('\n'),
           metadata: { toolId: item.id as string },
@@ -506,9 +604,9 @@ export class CodexAdapter extends BaseAgentAdapter {
       // but if we missed the deltas, emit the full text
       const text = item.text as string
       const phase = item.phase as string
-      if (text && !this.fullContent.includes(text.substring(0, 50))) {
-        this.fullContent += text
-        this.onChunk({ type: 'text', content: text })
+      if (text && !proc.fullContent.includes(text.substring(0, 50))) {
+        proc.fullContent += text
+        proc.onChunk({ type: 'text', content: text })
       }
       // Log phase for debugging
       if (phase) log.debug(`Agent message phase: ${phase}`)
@@ -516,36 +614,39 @@ export class CodexAdapter extends BaseAgentAdapter {
       const server = item.server as string
       const tool = item.tool as string
       const args = item.arguments as unknown
-      this.onChunk({
+      proc.onChunk({
         type: 'tool_use',
         content: JSON.stringify({ server, tool, arguments: args }, null, 2),
         metadata: { toolName: `${server}:${tool}`, toolId: item.id as string },
       })
     } else if (type === 'webSearch') {
       const query = item.query as string
-      this.onChunk({
+      proc.onChunk({
         type: 'tool_use',
         content: `Web search: ${query}`,
         metadata: { toolName: 'web_search', toolId: item.id as string },
       })
     } else if (type === 'error') {
       const message = item.message as string
-      this.onChunk({ type: 'error', content: message ?? 'Unknown error' })
+      proc.onChunk({ type: 'error', content: message ?? 'Unknown error' })
     }
   }
 
-  private clearStreamCallbacks(): void {
-    this.onChunk = undefined
-    this.onComplete = undefined
-    this.onError = undefined
-    this.fullContent = ''
-    this.isRunning = false
+  private clearRoomCallbacks(roomId: string): void {
+    const proc = this.roomProcesses.get(roomId)
+    if (proc) {
+      proc.onChunk = undefined
+      proc.onComplete = undefined
+      proc.onError = undefined
+      proc.fullContent = ''
+    }
+    this.setRoomBusy(roomId, false)
   }
 
   // ─── Thread Management ───
 
-  private async ensureThread(roomId?: string): Promise<string> {
-    await this.ensureAppServer()
+  private async ensureThread(roomId: string): Promise<string> {
+    await this.ensureRoomProcess(roomId)
     const rs = this.getRoomState(roomId)
 
     if (rs.threadId) return rs.threadId
@@ -555,8 +656,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     if (this.permissionLevel === 'bypass') {
       approvalPolicy = 'never'
     } else if (this.onPermissionRequest) {
-      // Interactive mode with permission bridge — use untrusted for maximum
-      // approval coverage (all tool executions require approval)
       approvalPolicy = 'on-request'
     }
 
@@ -584,9 +683,12 @@ export class CodexAdapter extends BaseAgentAdapter {
       threadOpts.additionalDirectories = this.env.CODEX_ADDITIONAL_DIRS.split(':')
     }
 
-    const result = (await this.sendRequest('thread/start', threadOpts)) as ThreadStartResult
+    const result = (await this.sendRequest(roomId, 'thread/start', threadOpts)) as ThreadStartResult
     rs.threadId = result.thread.id
-    log.info(`Codex thread started: ${rs.threadId} (approvalPolicy=${approvalPolicy})`)
+    this.persistThread(roomId, rs.threadId)
+    log.info(
+      `Codex thread started: ${rs.threadId} for room ${roomId} (approvalPolicy=${approvalPolicy})`,
+    )
     return rs.threadId
   }
 
@@ -610,38 +712,42 @@ export class CodexAdapter extends BaseAgentAdapter {
     onError: ErrorCallback,
     context?: MessageContext,
   ) {
-    if (this.isRunning) {
-      onError('Agent is already processing a message')
+    const roomId = context?.roomId ?? DEFAULT_ROOM_KEY
+
+    if (this.isRoomBusy(roomId)) {
+      onError('Agent is already processing a message for this room')
       return
     }
 
-    this.isRunning = true
-    this.currentRoomId = context?.roomId
-    this.onChunk = onChunk
-    this.onComplete = onComplete
-    this.onError = onError
-    this.fullContent = ''
+    this.setRoomBusy(roomId, true)
 
     try {
-      const threadId = await this.ensureThread(context?.roomId)
+      const threadId = await this.ensureThread(roomId)
+      const proc = this.roomProcesses.get(roomId)!
+      proc.onChunk = onChunk
+      proc.onComplete = onComplete
+      proc.onError = onError
+      proc.fullContent = ''
+
       const prompt = this.buildPrompt(content, context)
 
-      const result = (await this.sendRequest('turn/start', {
+      const result = (await this.sendRequest(roomId, 'turn/start', {
         threadId,
         input: [{ type: 'text', text: prompt }],
       })) as TurnStartResult
 
-      const rs = this.getRoomState(context?.roomId)
+      const rs = this.getRoomState(roomId)
       rs.turnId = result.turn.id
-      log.info(`Turn started: ${rs.turnId}`)
+      log.info(`Turn started: ${rs.turnId} for room ${roomId}`)
 
       // Turn events are now handled by the notification handler.
       // The turn/start response just confirms the turn was created.
       // Completion is signaled by turn/completed notification.
     } catch (err: unknown) {
-      this.clearStreamCallbacks()
+      const content = this.roomProcesses.get(roomId)?.fullContent
+      this.clearRoomCallbacks(roomId)
       if ((err as Error).name === 'AbortError') {
-        onComplete(this.fullContent || 'Interrupted')
+        onComplete(content || 'Interrupted')
       } else {
         const msg = err instanceof Error ? err.message : String(err)
         log.error(`Codex app-server error: ${msg}`)
@@ -951,6 +1057,9 @@ export class CodexAdapter extends BaseAgentAdapter {
       case 'clear': {
         rs.threadId = undefined
         rs.turnId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        // Kill the room's app-server process so next message starts fresh
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: 'Thread cleared' }
       }
       case 'model': {
@@ -964,6 +1073,8 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
         rs.modelOverride = name
         rs.threadId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: `Model set to: ${name} (thread will restart)` }
       }
       case 'effort': {
@@ -983,6 +1094,8 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
         rs.reasoningEffort = level as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
         rs.threadId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: `Reasoning effort set to: ${level} (thread will restart)` }
       }
       case 'cost': {
@@ -1012,6 +1125,8 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
         rs.sandboxMode = mode as SandboxMode
         rs.threadId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: `Sandbox set to: ${mode} (thread will restart)` }
       }
       case 'websearch': {
@@ -1031,6 +1146,8 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
         rs.webSearchMode = mode as WebSearchMode
         rs.threadId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return { success: true, message: `Web search set to: ${mode} (thread will restart)` }
       }
       case 'network': {
@@ -1048,6 +1165,8 @@ export class CodexAdapter extends BaseAgentAdapter {
           rs.networkAccess = !rs.networkAccess
         }
         rs.threadId = undefined
+        this.removePersistedThread(roomId ?? DEFAULT_ROOM_KEY)
+        this.killRoomProcess(roomId ?? DEFAULT_ROOM_KEY)
         return {
           success: true,
           message: `Network access: ${rs.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
@@ -1074,45 +1193,54 @@ export class CodexAdapter extends BaseAgentAdapter {
 
   // ─── Lifecycle ───
 
+  /** Kill and clean up a single room's app-server process. */
+  private killRoomProcess(roomId: string): void {
+    const proc = this.roomProcesses.get(roomId)
+    if (!proc) return
+    try {
+      proc.child.kill()
+    } catch {
+      // Ignore
+    }
+    try {
+      proc.readline.close()
+    } catch {
+      // Ignore
+    }
+    this.roomProcesses.delete(roomId)
+  }
+
   stop() {
     log.info('Codex stop requested')
-    this.isRunning = false
 
-    // Interrupt the current turn if running
-    const rs = this.getRoomState(this.currentRoomId)
-    if (rs.turnId && rs.threadId) {
-      this.sendRequest('turn/interrupt', {
-        threadId: rs.threadId,
-      }).catch((err) => {
-        log.warn(`turn/interrupt failed: ${(err as Error).message}`)
-      })
-    }
+    // Interrupt all active turns and complete with current content
+    for (const [roomId, proc] of this.roomProcesses) {
+      const rs = this.getRoomState(roomId)
+      if (rs.turnId && rs.threadId) {
+        this.sendRequest(roomId, 'turn/interrupt', {
+          threadId: rs.threadId,
+        }).catch((err) => {
+          log.warn(`turn/interrupt failed for room ${roomId}: ${(err as Error).message}`)
+        })
+      }
 
-    if (this.onComplete) {
-      const complete = this.onComplete
-      const content = this.fullContent
-      this.clearStreamCallbacks()
-      complete(content || 'Interrupted')
+      if (proc.onComplete) {
+        const complete = proc.onComplete
+        const content = proc.fullContent
+        this.clearRoomCallbacks(roomId)
+        complete(content || 'Interrupted')
+      }
     }
+    this.clearAllBusy()
   }
 
   dispose() {
-    this.isRunning = false
-    this.clearStreamCallbacks()
-
-    // Kill the app-server process
-    if (this.child) {
-      this.child.kill()
-      this.child = undefined
+    // Kill all room processes
+    for (const [roomId] of this.roomProcesses) {
+      this.killRoomProcess(roomId)
     }
-    if (this.readline) {
-      this.readline.close()
-      this.readline = undefined
-    }
-
+    this.roomProcesses.clear()
+    this.clearAllBusy()
     this.roomStates.clear()
-    this.pendingRequests.clear()
-    this.sessionApprovedTools.clear()
-    this.initialized = false
   }
 }
