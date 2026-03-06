@@ -63,7 +63,8 @@ export interface ClientStopGeneration {
 export interface ClientPermissionResponse {
   type: 'client:permission_response'
   requestId: string
-  decision: Extract<PermissionDecision, 'allow' | 'deny'>
+  decision: Extract<PermissionDecision, 'allow' | 'allowAlways' | 'deny'>
+  denyReason?: string
 }
 
 export interface ClientAgentCommand {
@@ -684,6 +685,7 @@ export interface ServerPermissionResponse {
   requestId: string
   agentId: string
   decision: PermissionDecision
+  denyReason?: string
 }
 
 export interface ServerSpawnAgent {

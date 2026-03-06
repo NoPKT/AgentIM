@@ -266,7 +266,7 @@ export async function handleClientMessage(ws: WSContext, raw: string) {
       case 'client:stop_generation':
         return handleStopGeneration(ws, msg.roomId, msg.agentId)
       case 'client:permission_response':
-        return handlePermissionResponse(ws, msg.requestId, msg.decision)
+        return handlePermissionResponse(ws, msg.requestId, msg.decision, msg.denyReason)
       case 'client:agent_command':
         return await handleAgentCommand(ws, msg.agentId, msg.roomId, msg.command, msg.args)
       case 'client:query_agent_info':
@@ -994,7 +994,12 @@ async function handleStopGeneration(ws: WSContext, roomId: string, agentId: stri
   connectionManager.sendToGateway(agentId, stopMsg)
 }
 
-function handlePermissionResponse(ws: WSContext, requestId: string, decision: 'allow' | 'deny') {
+function handlePermissionResponse(
+  ws: WSContext,
+  requestId: string,
+  decision: 'allow' | 'allowAlways' | 'deny',
+  denyReason?: string,
+) {
   const client = connectionManager.getClient(ws)
   if (!client) return
 
@@ -1018,6 +1023,7 @@ function handlePermissionResponse(ws: WSContext, requestId: string, decision: 'a
     requestId,
     agentId: pending.agentId,
     decision,
+    ...(denyReason ? { denyReason } : {}),
   })
 }
 

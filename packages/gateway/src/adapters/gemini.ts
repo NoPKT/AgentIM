@@ -222,13 +222,16 @@ export class GeminiAdapter extends BaseAgentAdapter {
         `env keys=[${Object.keys(this.env).join(', ')}]`,
     )
 
-    // Determine approval mode
-    // In headless/daemon mode (!process.stdin.isTTY), no user can interactively
-    // approve tool calls. Without YOLO mode, the SDK's MessageBus auto-rejects
-    // any ASK_USER decisions, causing the agent to silently stop after tool calls.
-    const isDaemonMode = !process.stdin.isTTY
+    // Determine approval mode based on permission level and daemon mode.
+    // When interactive permission bridge is available (onPermissionRequest callback),
+    // use DEFAULT mode so the SDK's PolicyEngine emits ASK_USER decisions that
+    // our MessageBus listener can intercept and forward to the web UI.
+    const hasPermissionBridge = this.permissionLevel === 'interactive' && !!this.onPermissionRequest
     let approvalMode = sdk.ApprovalMode.DEFAULT
-    if (this.permissionLevel === 'bypass' || isDaemonMode) {
+    if (this.permissionLevel === 'bypass') {
+      approvalMode = sdk.ApprovalMode.YOLO
+    } else if (!hasPermissionBridge && !process.stdin.isTTY) {
+      // No permission bridge and no TTY — must auto-approve to avoid blocking
       approvalMode = sdk.ApprovalMode.YOLO
     } else if (rs.planMode) {
       approvalMode = sdk.ApprovalMode.PLAN
@@ -263,14 +266,80 @@ export class GeminiAdapter extends BaseAgentAdapter {
 
     await rs.config.initialize()
 
+    // Register MessageBus listener for interactive permission bridging.
+    // When the PolicyEngine decides ASK_USER, the request is emitted to this
+    // listener instead of being auto-rejected. We forward it to the AgentIM
+    // permission system and publish the response back.
+    if (hasPermissionBridge) {
+      const messageBus = rs.config.getMessageBus()
+      const { MessageBusType: MBT, ToolConfirmationOutcome: TCO } = sdk
+      type ToolConfirmationRequest = import('@google/gemini-cli-core').ToolConfirmationRequest
+      const requestPermission = this.onPermissionRequest!
+      const { nanoid: genId } = await import('nanoid')
+
+      messageBus.subscribe<ToolConfirmationRequest>(MBT.TOOL_CONFIRMATION_REQUEST, (request) => {
+        const toolName = request.toolCall?.name ?? 'unknown'
+        const toolInput = (request.toolCall?.args ?? {}) as Record<string, unknown>
+        if (request.details) {
+          toolInput._confirmationDetails = request.details
+        }
+        if (request.serverName) {
+          toolInput._serverName = request.serverName
+        }
+
+        const requestId = genId()
+        requestPermission({
+          requestId,
+          toolName,
+          toolInput,
+          timeoutMs: 300_000,
+        })
+          .then((result) => {
+            const confirmed = result.behavior === 'allow' || result.behavior === 'allowAlways'
+            const outcome = confirmed
+              ? result.behavior === 'allowAlways'
+                ? TCO.ProceedAlways
+                : TCO.ProceedOnce
+              : TCO.Cancel
+
+            messageBus.publish({
+              type: MBT.TOOL_CONFIRMATION_RESPONSE,
+              correlationId: request.correlationId,
+              confirmed,
+              outcome,
+            })
+
+            if (result.behavior === 'allowAlways') {
+              messageBus.publish({
+                type: MBT.UPDATE_POLICY,
+                toolName,
+              })
+            }
+          })
+          .catch((err) => {
+            log.error(`Permission request failed: ${(err as Error).message}`)
+            messageBus.publish({
+              type: MBT.TOOL_CONFIRMATION_RESPONSE,
+              correlationId: request.correlationId,
+              confirmed: false,
+              outcome: TCO.Cancel,
+            })
+          })
+      })
+      log.info('Gemini MessageBus permission bridge registered')
+    }
+
     // Use the Config's own pre-initialized geminiClient — it shares the
     // contentGenerator set by refreshAuth() above.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rs.client = (rs.config as any).geminiClient as InstanceType<
       typeof import('@google/gemini-cli-core').GeminiClient
     >
     rs.initialized = true
 
-    log.info(`Gemini client initialized (model: ${model}, session: ${sessionId})`)
+    log.info(
+      `Gemini client initialized (model: ${model}, session: ${sessionId}, approval: ${approvalMode})`,
+    )
     return rs.client!
   }
 

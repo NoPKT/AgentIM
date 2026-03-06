@@ -532,7 +532,8 @@ export const clientStopGenerationSchema = z.object({
 export const clientPermissionResponseSchema = z.object({
   type: z.literal('client:permission_response'),
   requestId: z.string().min(1).max(100),
-  decision: z.enum(['allow', 'deny']),
+  decision: z.enum(['allow', 'allowAlways', 'deny']),
+  denyReason: z.string().max(500).optional(),
 })
 
 export const clientAgentCommandSchema = z.object({

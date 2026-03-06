@@ -183,10 +183,13 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
               toolInput,
               timeoutMs: PERMISSION_TIMEOUT_MS,
             })
-            if (result.behavior === 'allow') {
+            if (result.behavior === 'allow' || result.behavior === 'allowAlways') {
               return { behavior: 'allow' as const }
             }
-            return { behavior: 'deny' as const, message: 'Permission denied by user' }
+            return {
+              behavior: 'deny' as const,
+              message: result.message || 'Permission denied by user',
+            }
           }
         }
       }

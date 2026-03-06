@@ -1,8 +1,11 @@
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { ParsedChunk, ModelOption } from '@agentim/shared'
+import type { ModelOption } from '@agentim/shared'
+import { PERMISSION_TIMEOUT_MS } from '@agentim/shared'
 import {
   BaseAgentAdapter,
   type AdapterOptions,
@@ -12,39 +15,8 @@ import {
   type MessageContext,
 } from './base.js'
 import { createLogger } from '../lib/logger.js'
-import type { Codex, Thread, ThreadItem, SandboxMode, WebSearchMode } from '@openai/codex-sdk'
 
 const log = createLogger('Codex')
-
-// Prompt-based permission simulation for daemon mode.
-// The Codex SDK does not expose a permission-request callback (unlike Claude Code's
-// canUseTool), so we instruct the model itself to ask for approval before executing
-// dangerous operations. The agentic loop naturally pauses: the model outputs a
-// plan description (text turn), the user responds, and the model proceeds or stops.
-const CODEX_PERMISSION_PREAMBLE = [
-  '[AgentIM Permission Policy]',
-  'Before executing any of the following operations, you MUST first describe your',
-  'complete plan in a text message and wait for the user to approve:',
-  '- Modifying, creating, or deleting files',
-  '- Running shell commands that change system state (install, build, deploy, git push)',
-  '- Accessing external services or APIs',
-  '',
-  'Workflow: (1) Describe exactly what you plan to do, (2) End your message and',
-  'wait for the user to reply with approval, (3) Only execute after receiving',
-  'explicit approval. If the user declines, suggest alternatives without executing.',
-  '',
-  'Read-only operations (reading files, searching, listing) do not require approval.',
-].join('\n')
-
-const CODEX_PLAN_MODE_PREAMBLE = [
-  '[AgentIM Plan Mode]',
-  'You are currently in PLAN MODE. In this mode:',
-  '- Analyze the task and present a detailed plan of what you would do',
-  '- DO NOT execute any commands, modify files, or make changes',
-  '- Describe each step clearly and wait for the user to approve',
-  '- Only after receiving explicit approval should you proceed with execution',
-  '- If the user asks you to proceed, exit plan mode and execute the plan',
-].join('\n')
 
 const CODEX_AGENTIM_CONTEXT_PREAMBLE = [
   '[AgentIM Room Communication]',
@@ -55,24 +27,80 @@ const CODEX_AGENTIM_CONTEXT_PREAMBLE = [
   'The room system will route your message to the mentioned agent.',
 ].join('\n')
 
+// ─── JSON-RPC Transport Types ───
+
+interface JsonRpcResponse {
+  jsonrpc: '2.0'
+  id: number
+  result?: unknown
+  error?: { code: number; message: string }
+}
+
+interface JsonRpcNotification {
+  jsonrpc: '2.0'
+  method: string
+  params?: unknown
+}
+
+interface JsonRpcServerRequest {
+  jsonrpc: '2.0'
+  id: number
+  method: string
+  params?: Record<string, unknown>
+}
+
+type JsonRpcMessage = JsonRpcResponse | JsonRpcNotification | JsonRpcServerRequest
+
+interface PendingRequest {
+  resolve: (result: unknown) => void
+  reject: (error: Error) => void
+  label: string
+}
+
+// ─── Codex App-Server Item Types ───
+
+type ApprovalPolicy = 'on-request' | 'untrusted' | 'never'
+type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
+type WebSearchMode = 'disabled' | 'cached' | 'live'
+
+interface ThreadStartResult {
+  thread: { id: string; cwd: string }
+  model: string
+  modelProvider: string
+  cwd: string
+}
+
+interface TurnStartResult {
+  turn: { id: string; status: string }
+}
+
 /** Per-room state for Codex adapter. */
 interface CodexRoomState {
-  thread?: Thread
-  threadId?: string | null
+  threadId?: string
   modelOverride?: string
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
   sandboxMode?: SandboxMode
   webSearchMode?: WebSearchMode
   networkAccess?: boolean
   planMode: boolean
+  turnId?: string
 }
 
 const DEFAULT_ROOM_KEY = '__global__'
 
 export class CodexAdapter extends BaseAgentAdapter {
-  private codex?: Codex
-  /** Whether prompt-based permission simulation is active for this adapter. */
-  private readonly promptPermission: boolean
+  // App-server child process
+  private child?: ChildProcessWithoutNullStreams
+  private readline?: ReadlineInterface
+  private initialized = false
+  private nextRequestId = 1
+  private pendingRequests = new Map<number, PendingRequest>()
+
+  // Stream callbacks — set during sendMessage, cleared on complete
+  private onChunk?: ChunkCallback
+  private onComplete?: CompleteCallback
+  private onError?: ErrorCallback
+  private fullContent = ''
 
   // Per-room state
   private roomStates = new Map<string, CodexRoomState>()
@@ -80,18 +108,13 @@ export class CodexAdapter extends BaseAgentAdapter {
 
   // Model info loaded from Codex CLI cache (~/.codex/models_cache.json)
   private cachedModelInfo: ModelOption[] = []
-
-  // Promise for the async model fetch so waitForModels() can await it
   private fetchModelsPromise: Promise<void> | null = null
 
-  // Abort controller for the current turn
-  private turnAbort?: AbortController
+  // Session-level auto-approve rules from "always allow" decisions
+  private sessionApprovedTools = new Set<string>()
 
   constructor(opts: AdapterOptions) {
     super(opts)
-    // Enable prompt-based permissions when interactive mode is requested but the
-    // SDK cannot support it natively (i.e. daemon mode / no TTY).
-    this.promptPermission = this.permissionLevel === 'interactive' && !process.stdin.isTTY
     // Fetch model list from OpenAI API (async, non-blocking)
     this.fetchModelsPromise = this.fetchModels().catch(() => {})
   }
@@ -110,38 +133,527 @@ export class CodexAdapter extends BaseAgentAdapter {
     return 'codex' as const
   }
 
-  private async ensureCodex() {
-    if (!this.codex) {
-      const { Codex: CodexClass } = await import('@openai/codex-sdk')
-      const apiKey = this.env.OPENAI_API_KEY || this.env.CODEX_API_KEY || undefined
-      const opts: {
-        apiKey?: string
-        baseUrl?: string
-        env?: Record<string, string>
-      } = {
-        baseUrl: this.env.OPENAI_BASE_URL || undefined,
+  // ─── App-Server Process Management ───
+
+  private findCodexBinary(): string {
+    // Try to find the codex binary in common locations
+    try {
+      // Look in node_modules first (most reliable in a pnpm/npm project)
+      const pkgDir = require.resolve('@openai/codex/package.json')
+      const binPath = join(pkgDir, '..', 'bin', 'codex.js')
+      if (existsSync(binPath)) return binPath
+    } catch {
+      // Not installed as dependency — try PATH
+    }
+
+    // Try system-wide codex
+    for (const candidate of ['/usr/local/bin/codex', '/usr/bin/codex']) {
+      if (existsSync(candidate)) return candidate
+    }
+
+    // Fallback: assume it's on PATH
+    return 'codex'
+  }
+
+  private async ensureAppServer(): Promise<void> {
+    if (this.child && this.initialized) return
+
+    if (this.child) {
+      // Process exists but not initialized yet — wait
+      return
+    }
+
+    const codexBin = this.findCodexBinary()
+    const isJsFile = codexBin.endsWith('.js')
+
+    // Build environment for the child process
+    const childEnv: Record<string, string> = {}
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) childEnv[key] = value
+    }
+    Object.assign(childEnv, this.env)
+
+    const args = isJsFile ? [codexBin, 'app-server'] : ['app-server']
+    const command = isJsFile ? process.execPath : codexBin
+
+    this.child = spawn(command, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: childEnv,
+    })
+
+    this.readline = createInterface({
+      input: this.child.stdout,
+      crlfDelay: Infinity,
+    })
+
+    // Route incoming messages
+    this.readline.on('line', (line) => this.handleLine(line))
+
+    this.child.stderr.on('data', (data) => {
+      const msg = data.toString().trim()
+      if (msg && !msg.includes('rmcp')) {
+        log.warn(`[stderr] ${msg.substring(0, 500)}`)
       }
-      // The Codex SDK's envOverride completely REPLACES process.env for the
-      // child process (not merged).  We must merge manually so the subprocess
-      // inherits system env vars (PATH, HOME, etc.) while our overrides
-      // (HOME for subscription isolation, API keys) take precedence.
-      if (Object.keys(this.env).length > 0) {
-        const merged: Record<string, string> = {}
-        for (const [key, value] of Object.entries(process.env)) {
-          if (value !== undefined) merged[key] = value
-        }
-        Object.assign(merged, this.env)
-        opts.env = merged
+    })
+
+    this.child.on('exit', (code) => {
+      log.info(`Codex app-server exited with code ${code}`)
+      this.child = undefined
+      this.readline = undefined
+      this.initialized = false
+      // Reject all pending requests
+      for (const [id, pending] of this.pendingRequests) {
+        pending.reject(new Error(`Codex app-server exited (code=${code})`))
+        this.pendingRequests.delete(id)
       }
-      // Only pass apiKey if present — omitting it lets SDK discover auth from $HOME/.codex/auth.json
-      if (apiKey) opts.apiKey = apiKey
-      this.codex = new CodexClass(opts)
+    })
+
+    // Initialize
+    await this.sendRequest('initialize', {
+      clientInfo: { name: 'agentim', version: '0.1.0' },
+    })
+    this.initialized = true
+    log.info('Codex app-server initialized')
+  }
+
+  // ─── JSON-RPC Transport ───
+
+  private send(obj: unknown): void {
+    if (!this.child?.stdin?.writable) {
+      log.warn('Cannot send — app-server stdin not writable')
+      return
+    }
+    this.child.stdin.write(JSON.stringify(obj) + '\n')
+  }
+
+  private sendRequest(method: string, params: unknown): Promise<unknown> {
+    const id = this.nextRequestId++
+    return new Promise((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve, reject, label: method })
+      this.send({ jsonrpc: '2.0', id, method, params })
+    })
+  }
+
+  private sendResponse(id: number, result: unknown): void {
+    this.send({ jsonrpc: '2.0', id, result })
+  }
+
+  private handleLine(line: string): void {
+    if (!line.trim()) return
+    let msg: JsonRpcMessage
+    try {
+      msg = JSON.parse(line)
+    } catch {
+      return
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = msg as any
+
+    // Response to our request
+    if (m.id !== undefined && m.id !== null && this.pendingRequests.has(m.id as number)) {
+      const pending = this.pendingRequests.get(m.id as number)!
+      this.pendingRequests.delete(m.id as number)
+      if (m.error) {
+        pending.reject(new Error(m.error.message))
+      } else {
+        pending.resolve(m.result)
+      }
+      return
+    }
+
+    // Server request (has both id and method) — needs response
+    if (m.method && m.id !== undefined && m.id !== null) {
+      this.handleServerRequest(msg as JsonRpcServerRequest)
+      return
+    }
+
+    // Notification (has method, no id)
+    if (m.method) {
+      this.handleNotification(msg as JsonRpcNotification)
+      return
     }
   }
 
+  // ─── Server Request Handling (Approvals) ───
+
+  private async handleServerRequest(req: JsonRpcServerRequest): Promise<void> {
+    const params = req.params ?? {}
+
+    if (req.method === 'item/commandExecution/requestApproval') {
+      await this.handleCommandApproval(req.id, params)
+      return
+    }
+
+    if (req.method === 'item/fileChange/requestApproval') {
+      await this.handleFileChangeApproval(req.id, params)
+      return
+    }
+
+    if (req.method === 'item/tool/requestUserInput') {
+      // Tool requesting user input — deny by default in headless mode
+      this.sendResponse(req.id, { answers: [] })
+      return
+    }
+
+    // Unknown server request — send empty result
+    log.warn(`Unknown server request: ${req.method}`)
+    this.sendResponse(req.id, {})
+  }
+
+  private async handleCommandApproval(
+    requestId: number,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    const command = (params.command as string) ?? ''
+    const toolName = 'command'
+
+    // Check session-level auto-approve
+    if (this.sessionApprovedTools.has(toolName)) {
+      this.sendResponse(requestId, { decision: 'accept' })
+      return
+    }
+
+    if (!this.onPermissionRequest) {
+      // No permission handler — auto-approve
+      this.sendResponse(requestId, { decision: 'accept' })
+      return
+    }
+
+    try {
+      const { nanoid } = await import('nanoid')
+      const permRequestId = nanoid()
+      const result = await this.onPermissionRequest({
+        requestId: permRequestId,
+        toolName: 'Bash',
+        toolInput: {
+          command,
+          cwd: params.cwd as string,
+          commandActions: params.commandActions,
+        },
+        timeoutMs: PERMISSION_TIMEOUT_MS,
+      })
+
+      if (result.behavior === 'allow') {
+        this.sendResponse(requestId, { decision: 'accept' })
+      } else if (result.behavior === 'allowAlways') {
+        this.sessionApprovedTools.add(toolName)
+        this.sendResponse(requestId, { decision: 'acceptForSession' })
+      } else {
+        this.sendResponse(requestId, { decision: 'cancel' })
+      }
+    } catch (err) {
+      log.error(`Permission request failed: ${(err as Error).message}`)
+      this.sendResponse(requestId, { decision: 'cancel' })
+    }
+  }
+
+  private async handleFileChangeApproval(
+    requestId: number,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    const toolName = 'fileChange'
+
+    if (this.sessionApprovedTools.has(toolName)) {
+      this.sendResponse(requestId, { decision: 'accept' })
+      return
+    }
+
+    if (!this.onPermissionRequest) {
+      this.sendResponse(requestId, { decision: 'accept' })
+      return
+    }
+
+    try {
+      const { nanoid } = await import('nanoid')
+      const permRequestId = nanoid()
+      const result = await this.onPermissionRequest({
+        requestId: permRequestId,
+        toolName: 'Write',
+        toolInput: {
+          path: params.path,
+          changes: params.changes,
+        },
+        timeoutMs: PERMISSION_TIMEOUT_MS,
+      })
+
+      if (result.behavior === 'allow') {
+        this.sendResponse(requestId, { decision: 'accept' })
+      } else if (result.behavior === 'allowAlways') {
+        this.sessionApprovedTools.add(toolName)
+        this.sendResponse(requestId, { decision: 'acceptForSession' })
+      } else {
+        this.sendResponse(requestId, { decision: 'cancel' })
+      }
+    } catch (err) {
+      log.error(`Permission request failed: ${(err as Error).message}`)
+      this.sendResponse(requestId, { decision: 'cancel' })
+    }
+  }
+
+  // ─── Notification Handling (Streaming Events) ───
+
+  private handleNotification(notif: JsonRpcNotification): void {
+    const params = (notif.params ?? {}) as Record<string, unknown>
+
+    switch (notif.method) {
+      case 'item/agentMessage/delta':
+        if (this.onChunk) {
+          const delta = params.delta as string
+          if (delta) {
+            this.fullContent += delta
+            this.onChunk({ type: 'text', content: delta })
+          }
+        }
+        break
+
+      case 'item/started': {
+        const item = params.item as Record<string, unknown>
+        if (!item) break
+        this.handleItemStarted(item)
+        break
+      }
+
+      case 'item/completed': {
+        const item = params.item as Record<string, unknown>
+        if (!item) break
+        this.handleItemCompleted(item)
+        break
+      }
+
+      case 'turn/completed':
+        // Turn finished — signal completion
+        if (this.onComplete) {
+          const complete = this.onComplete
+          const content = this.fullContent
+          this.clearStreamCallbacks()
+          complete(content)
+        }
+        break
+
+      case 'codex/event/token_count': {
+        const msg = params.msg as Record<string, unknown> | undefined
+        const info = msg?.info as Record<string, unknown> | undefined
+        const total = info?.total_token_usage as Record<string, number> | undefined
+        if (total) {
+          this.accumulatedInputTokens = total.input_tokens ?? 0
+          this.accumulatedOutputTokens = total.output_tokens ?? 0
+          this.accumulatedCacheReadTokens = total.cached_input_tokens ?? 0
+        }
+        break
+      }
+
+      case 'codex/event/task_complete':
+        // Task complete — if turn/completed hasn't fired yet, complete now
+        if (this.onComplete) {
+          const complete = this.onComplete
+          const content = this.fullContent
+          this.clearStreamCallbacks()
+          complete(content)
+        }
+        break
+
+      case 'thread/status/changed':
+        // Could track waitingOnApproval status here
+        break
+
+      default:
+        // Ignore other notifications silently
+        break
+    }
+  }
+
+  private handleItemStarted(item: Record<string, unknown>): void {
+    if (!this.onChunk) return
+    const type = item.type as string
+
+    if (type === 'commandExecution') {
+      const command = item.command as string
+      this.onChunk({
+        type: 'tool_use',
+        content: `$ ${command}`,
+        metadata: { toolName: 'command', toolId: item.id as string },
+      })
+    } else if (type === 'reasoning') {
+      // Reasoning started — will get content in completed
+    }
+  }
+
+  private handleItemCompleted(item: Record<string, unknown>): void {
+    if (!this.onChunk) return
+    const type = item.type as string
+
+    if (type === 'commandExecution') {
+      const output = item.aggregatedOutput as string
+      if (output) {
+        this.onChunk({
+          type: 'tool_result',
+          content: output,
+          metadata: { toolId: item.id as string },
+        })
+      }
+    } else if (type === 'fileChange') {
+      const changes = item.changes as Array<{ kind: string; path: string }> | undefined
+      if (changes?.length) {
+        this.onChunk({
+          type: 'tool_result',
+          content: changes.map((c) => `${c.kind}: ${c.path}`).join('\n'),
+          metadata: { toolId: item.id as string },
+        })
+      }
+    } else if (type === 'agentMessage') {
+      // Final agent message — text already streamed via delta notifications
+      // but if we missed the deltas, emit the full text
+      const text = item.text as string
+      const phase = item.phase as string
+      if (text && !this.fullContent.includes(text.substring(0, 50))) {
+        this.fullContent += text
+        this.onChunk({ type: 'text', content: text })
+      }
+      // Log phase for debugging
+      if (phase) log.debug(`Agent message phase: ${phase}`)
+    } else if (type === 'mcpToolCall') {
+      const server = item.server as string
+      const tool = item.tool as string
+      const args = item.arguments as unknown
+      this.onChunk({
+        type: 'tool_use',
+        content: JSON.stringify({ server, tool, arguments: args }, null, 2),
+        metadata: { toolName: `${server}:${tool}`, toolId: item.id as string },
+      })
+    } else if (type === 'webSearch') {
+      const query = item.query as string
+      this.onChunk({
+        type: 'tool_use',
+        content: `Web search: ${query}`,
+        metadata: { toolName: 'web_search', toolId: item.id as string },
+      })
+    } else if (type === 'error') {
+      const message = item.message as string
+      this.onChunk({ type: 'error', content: message ?? 'Unknown error' })
+    }
+  }
+
+  private clearStreamCallbacks(): void {
+    this.onChunk = undefined
+    this.onComplete = undefined
+    this.onError = undefined
+    this.fullContent = ''
+    this.isRunning = false
+  }
+
+  // ─── Thread Management ───
+
+  private async ensureThread(roomId?: string): Promise<string> {
+    await this.ensureAppServer()
+    const rs = this.getRoomState(roomId)
+
+    if (rs.threadId) return rs.threadId
+
+    // Determine approval policy based on permission level
+    let approvalPolicy: ApprovalPolicy = 'on-request'
+    if (this.permissionLevel === 'bypass') {
+      approvalPolicy = 'never'
+    } else if (this.onPermissionRequest) {
+      // Interactive mode with permission bridge — use untrusted for maximum
+      // approval coverage (all tool executions require approval)
+      approvalPolicy = 'on-request'
+    }
+
+    const threadOpts: Record<string, unknown> = {
+      cwd: this.workingDirectory,
+      approvalPolicy,
+    }
+
+    if (rs.modelOverride || this.env.CODEX_MODEL) {
+      threadOpts.model = rs.modelOverride || this.env.CODEX_MODEL
+    }
+    if (rs.reasoningEffort) {
+      threadOpts.reasoningEffort = rs.reasoningEffort
+    }
+    if (rs.sandboxMode) {
+      threadOpts.sandbox = rs.sandboxMode
+    }
+    if (rs.networkAccess !== undefined) {
+      threadOpts.networkAccessEnabled = rs.networkAccess
+    }
+    if (rs.webSearchMode) {
+      threadOpts.webSearchMode = rs.webSearchMode
+    }
+    if (this.env.CODEX_ADDITIONAL_DIRS) {
+      threadOpts.additionalDirectories = this.env.CODEX_ADDITIONAL_DIRS.split(':')
+    }
+
+    const result = (await this.sendRequest('thread/start', threadOpts)) as ThreadStartResult
+    rs.threadId = result.thread.id
+    log.info(`Codex thread started: ${rs.threadId} (approvalPolicy=${approvalPolicy})`)
+    return rs.threadId
+  }
+
+  // ─── Public API ───
+
+  protected override buildPrompt(content: string, context?: MessageContext): string {
+    const base = super.buildPrompt(content, context)
+    const parts: string[] = []
+    // Add AgentIM context for agent-to-agent awareness
+    if (this.mcpContext) {
+      parts.push(CODEX_AGENTIM_CONTEXT_PREAMBLE)
+    }
+    if (parts.length === 0) return base
+    return `${parts.join('\n\n')}\n\n${base}`
+  }
+
+  async sendMessage(
+    content: string,
+    onChunk: ChunkCallback,
+    onComplete: CompleteCallback,
+    onError: ErrorCallback,
+    context?: MessageContext,
+  ) {
+    if (this.isRunning) {
+      onError('Agent is already processing a message')
+      return
+    }
+
+    this.isRunning = true
+    this.currentRoomId = context?.roomId
+    this.onChunk = onChunk
+    this.onComplete = onComplete
+    this.onError = onError
+    this.fullContent = ''
+
+    try {
+      const threadId = await this.ensureThread(context?.roomId)
+      const prompt = this.buildPrompt(content, context)
+
+      const result = (await this.sendRequest('turn/start', {
+        threadId,
+        input: [{ type: 'text', text: prompt }],
+      })) as TurnStartResult
+
+      const rs = this.getRoomState(context?.roomId)
+      rs.turnId = result.turn.id
+      log.info(`Turn started: ${rs.turnId}`)
+
+      // Turn events are now handled by the notification handler.
+      // The turn/start response just confirms the turn was created.
+      // Completion is signaled by turn/completed notification.
+    } catch (err: unknown) {
+      this.clearStreamCallbacks()
+      if ((err as Error).name === 'AbortError') {
+        onComplete(this.fullContent || 'Interrupted')
+      } else {
+        const msg = err instanceof Error ? err.message : String(err)
+        log.error(`Codex app-server error: ${msg}`)
+        onError(msg)
+      }
+    }
+  }
+
+  // ─── Model Management ───
+
   /** Whether the current credentials are OAuth (subscription) rather than an API key. */
   private get isOAuthMode(): boolean {
-    // Subscription via HOME override: no API keys set, HOME points to isolated dir
     return !this.env.OPENAI_API_KEY && !this.env.CODEX_API_KEY
   }
 
@@ -189,12 +701,6 @@ export class CodexAdapter extends BaseAgentAdapter {
       .join(' ')
   }
 
-  /**
-   * Fetch models from the ChatGPT subscription endpoint (/v1/chat/models).
-   * This endpoint accepts OAuth tokens that would get 403 on /v1/models.
-   * On success, also writes the result to the local cache file so that
-   * subsequent startups can use it even when the network is unavailable.
-   */
   private async fetchChatModels(token: string): Promise<ModelOption[]> {
     try {
       const res = await fetch('https://api.openai.com/v1/chat/models', {
@@ -208,11 +714,10 @@ export class CodexAdapter extends BaseAgentAdapter {
       const body = await res.json()
       const models = CodexAdapter.parseChatModels(body)
       if (models.length === 0) return []
-      // Persist to local cache so future startups can use it offline
       try {
         writeFileSync(CodexAdapter.MODEL_CACHE_PATH, JSON.stringify({ models }, null, 2))
       } catch {
-        // Non-critical: cache write failure is fine
+        // Non-critical
       }
       log.info(`Fetched ${models.length} Codex models from /v1/chat/models`)
       return CodexAdapter.chatModelsToOptions(models)
@@ -222,9 +727,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  /**
-   * Fetch models from the standard /v1/models endpoint (works with API keys).
-   */
   private async fetchApiModels(token: string): Promise<ModelOption[]> {
     const baseUrl = (this.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '')
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`
@@ -256,9 +758,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  /**
-   * Read model list from the Codex CLI local cache (~/.codex/models_cache.json).
-   */
   private readModelCache(): ModelOption[] {
     try {
       const raw = readFileSync(CodexAdapter.MODEL_CACHE_PATH, 'utf-8')
@@ -271,35 +770,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  /**
-   * Last-resort: run `codex --version` to trigger CLI startup side effects
-   * that may refresh the model cache, then re-read the cache file.
-   */
-  private tryRefreshCacheViaCli(): ModelOption[] {
-    try {
-      // Check if codex binary is available
-      const bin = existsSync('/usr/local/bin/codex')
-        ? '/usr/local/bin/codex'
-        : existsSync('/usr/bin/codex')
-          ? '/usr/bin/codex'
-          : 'codex'
-      execFileSync(bin, ['--version'], { timeout: 5_000, stdio: 'ignore' })
-      // Re-read cache after CLI execution
-      const models = this.readModelCache()
-      if (models.length > 0) {
-        log.info(`Refreshed ${models.length} Codex models via CLI cache regeneration`)
-      }
-      return models
-    } catch {
-      log.debug?.('codex CLI not available or failed to refresh model cache')
-      return []
-    }
-  }
-
-  /**
-   * Read OAuth access_token from the HOME-overridden auth.json file.
-   * In subscription mode, HOME points to a per-credential isolated directory.
-   */
   private readOAuthTokenFromFile(): string | undefined {
     const homeBase = this.env.HOME || homedir()
     const authPath = join(homeBase, '.codex', 'auth.json')
@@ -314,29 +784,34 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
-  /**
-   * Fetch available models using a multi-strategy approach:
-   *
-   * **OAuth (subscription) mode** — HOME overridden to per-credential dir:
-   *   1. Local cache file (~/.codex/models_cache.json, primary — fastest)
-   *   2. /v1/chat/models with token from auth.json (ChatGPT subscription endpoint)
-   *   3. Run `codex` CLI to regenerate cache (last resort)
-   *
-   * **API key mode** — OPENAI_API_KEY set:
-   *   1. /v1/models (standard OpenAI endpoint, primary)
-   *   2. Local cache file (fallback)
-   */
+  private tryRefreshCacheViaCli(): ModelOption[] {
+    try {
+      const bin = existsSync('/usr/local/bin/codex')
+        ? '/usr/local/bin/codex'
+        : existsSync('/usr/bin/codex')
+          ? '/usr/bin/codex'
+          : 'codex'
+      execFileSync(bin, ['--version'], { timeout: 5_000, stdio: 'ignore' })
+      const models = this.readModelCache()
+      if (models.length > 0) {
+        log.info(`Refreshed ${models.length} Codex models via CLI cache regeneration`)
+      }
+      return models
+    } catch {
+      log.debug?.('codex CLI not available or failed to refresh model cache')
+      return []
+    }
+  }
+
   private async fetchModels(): Promise<void> {
     const token = this.env.CODEX_API_KEY || this.env.OPENAI_API_KEY
 
     if (this.isOAuthMode) {
-      // OAuth mode: prioritize local cache (no network needed), then try API
       const cached = this.readModelCache()
       if (cached.length > 0) {
         this.cachedModelInfo = cached
         return
       }
-      // Try reading token from the HOME-overridden auth.json
       const oauthToken = this.readOAuthTokenFromFile()
       if (oauthToken) {
         const chatModels = await this.fetchChatModels(oauthToken)
@@ -351,13 +826,11 @@ export class CodexAdapter extends BaseAgentAdapter {
         }
       }
     } else if (token) {
-      // API key mode: prefer /v1/models
       const apiModels = await this.fetchApiModels(token)
       if (apiModels.length > 0) {
         this.cachedModelInfo = apiModels
         return
       }
-      // Fallback: read local cache file
       const cached = this.readModelCache()
       if (cached.length > 0) {
         this.cachedModelInfo = cached
@@ -367,280 +840,13 @@ export class CodexAdapter extends BaseAgentAdapter {
       log.warn('No API key or OAuth credentials — skipping API model fetch')
     }
 
-    // Last resort: try running codex CLI to regenerate cache
     const cliModels = this.tryRefreshCacheViaCli()
     if (cliModels.length > 0) {
       this.cachedModelInfo = cliModels
     }
   }
 
-  /**
-   * Ensure a thread exists. On first call, starts a new thread because the
-   * Codex SDK only provides the threadId via the 'thread.started' event
-   * emitted during the first runStreamed() call. After that, threadId is
-   * captured and subsequent calls (e.g. after stop()) will use resumeThread()
-   * to continue the same conversation.
-   *
-   * Limitation: the SDK does not support pre-setting a threadId before the
-   * first query, so true cross-process session resumption is not possible
-   * unless the caller persists and injects threadId externally.
-   */
-  private async ensureThread(roomId?: string) {
-    await this.ensureCodex()
-    const rs = this.getRoomState(roomId)
-    if (!rs.thread) {
-      // Codex SDK limitation: no permission-request callback or event in its API.
-      // The only control is `approvalPolicy`:
-      //   - 'never'      = auto-approve all tool executions
-      //   - 'on-request' = SDK prompts interactively via stdin (TTY only)
-      //
-      // In daemon mode (no TTY), 'on-request' blocks indefinitely on stdin, so we
-      // always fall back to 'never'. To compensate, prompt-based permission
-      // simulation injects instructions into the model prompt that make the AI ask
-      // for user approval through the chat before executing dangerous operations.
-      const isDaemonMode = !process.stdin.isTTY
-      const approvalPolicy =
-        this.permissionLevel === 'bypass' || isDaemonMode ? 'never' : 'on-request'
-      if (isDaemonMode && this.permissionLevel !== 'bypass') {
-        if (this.promptPermission) {
-          log.info(
-            [
-              '',
-              '╔══════════════════════════════════════════════════════════════════╗',
-              '║  ℹ  CODEX DAEMON MODE — PROMPT-BASED PERMISSION ACTIVE         ║',
-              '╠══════════════════════════════════════════════════════════════════╣',
-              '║  No TTY detected. The Codex SDK auto-approves tool executions   ║',
-              '║  (approvalPolicy="never"), but prompt-based permission is       ║',
-              '║  enabled: the model is instructed to describe its plan and wait  ║',
-              '║  for your approval before executing operations.                 ║',
-              '║                                                                 ║',
-              '║  Note: This is a soft safeguard — the model generally follows   ║',
-              '║  the instruction but compliance is not guaranteed by the SDK.   ║',
-              '╚══════════════════════════════════════════════════════════════════╝',
-              '',
-            ].join('\n'),
-          )
-        } else {
-          log.warn(
-            [
-              '',
-              '╔══════════════════════════════════════════════════════════════════╗',
-              '║  ⚠  CODEX DAEMON MODE — AUTO-APPROVE ENABLED                   ║',
-              '╠══════════════════════════════════════════════════════════════════╣',
-              '║  No TTY detected. The Codex SDK requires interactive stdin for  ║',
-              '║  permission prompts, so approvalPolicy has been set to "never"  ║',
-              '║  (all tool executions will be auto-approved).                   ║',
-              '║                                                                 ║',
-              '║  To suppress this warning, launch the gateway with:             ║',
-              '║    --permission-level bypass                                    ║',
-              '╚══════════════════════════════════════════════════════════════════╝',
-              '',
-            ].join('\n'),
-          )
-        }
-      }
-      const threadOpts: {
-        model?: string
-        modelReasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
-        workingDirectory?: string
-        approvalPolicy?: 'never' | 'on-request'
-        sandboxMode?: SandboxMode
-        networkAccessEnabled?: boolean
-        webSearchMode?: WebSearchMode
-        additionalDirectories?: string[]
-      } = {
-        workingDirectory: this.workingDirectory,
-        approvalPolicy,
-      }
-      if (rs.modelOverride || this.env.CODEX_MODEL) {
-        threadOpts.model = rs.modelOverride || this.env.CODEX_MODEL
-      }
-      if (rs.reasoningEffort) {
-        threadOpts.modelReasoningEffort = rs.reasoningEffort
-      }
-      if (rs.sandboxMode) {
-        threadOpts.sandboxMode = rs.sandboxMode
-      }
-      if (rs.networkAccess !== undefined) {
-        threadOpts.networkAccessEnabled = rs.networkAccess
-      }
-      if (rs.webSearchMode) {
-        threadOpts.webSearchMode = rs.webSearchMode
-      }
-      if (this.env.CODEX_ADDITIONAL_DIRS) {
-        threadOpts.additionalDirectories = this.env.CODEX_ADDITIONAL_DIRS.split(':')
-      }
-      if (rs.threadId) {
-        rs.thread = this.codex!.resumeThread(rs.threadId, threadOpts)
-        log.info(`Resumed Codex thread: ${rs.threadId}`)
-      } else {
-        rs.thread = this.codex!.startThread(threadOpts)
-        log.info(`Started new Codex thread (approvalPolicy=${approvalPolicy})`)
-      }
-    }
-  }
-
-  /**
-   * Override buildPrompt to inject the permission preamble when prompt-based
-   * permission simulation is active. The preamble instructs the model to
-   * describe its plan and wait for user approval before executing operations.
-   */
-  protected override buildPrompt(content: string, context?: MessageContext): string {
-    const base = super.buildPrompt(content, context)
-    const parts: string[] = []
-    if (this.getRoomState(this.currentRoomId).planMode) {
-      parts.push(CODEX_PLAN_MODE_PREAMBLE)
-    }
-    if (this.promptPermission) {
-      parts.push(CODEX_PERMISSION_PREAMBLE)
-    }
-    // Add AgentIM context for agent-to-agent awareness
-    if (this.mcpContext) {
-      parts.push(CODEX_AGENTIM_CONTEXT_PREAMBLE)
-    }
-    if (parts.length === 0) return base
-    return `${parts.join('\n\n')}\n\n${base}`
-  }
-
-  async sendMessage(
-    content: string,
-    onChunk: ChunkCallback,
-    onComplete: CompleteCallback,
-    onError: ErrorCallback,
-    context?: MessageContext,
-  ) {
-    if (this.isRunning) {
-      onError('Agent is already processing a message')
-      return
-    }
-
-    this.isRunning = true
-    this.currentRoomId = context?.roomId
-    let fullContent = ''
-
-    try {
-      const rs = this.getRoomState(context?.roomId)
-      await this.ensureThread(context?.roomId)
-      const prompt = this.buildPrompt(content, context)
-      const abortController = new AbortController()
-      this.turnAbort = abortController
-      const { events } = await rs.thread!.runStreamed(prompt, {
-        signal: abortController.signal,
-      })
-
-      for await (const event of events) {
-        // Capture thread ID
-        if (event.type === 'thread.started') {
-          rs.threadId = event.thread_id
-          log.info(`Codex thread ID: ${rs.threadId}`)
-          continue
-        }
-
-        // Note: Codex SDK handles permissions via approvalPolicy parameter.
-        // In daemon mode with interactive permission level, the model is prompted
-        // to describe its plan and wait for user approval (see CODEX_PERMISSION_PREAMBLE).
-
-        if (event.type === 'turn.completed') {
-          if (event.usage) {
-            this.accumulatedInputTokens += event.usage.input_tokens ?? 0
-            this.accumulatedOutputTokens += event.usage.output_tokens ?? 0
-            this.accumulatedCacheReadTokens += event.usage.cached_input_tokens ?? 0
-          }
-          continue
-        }
-
-        if (event.type === 'item.completed') {
-          const chunks = this.mapItemToChunks(event.item)
-          for (const chunk of chunks) {
-            if (chunk.type === 'text') fullContent += chunk.content
-            onChunk(chunk)
-          }
-        }
-
-        if (event.type === 'turn.failed') {
-          this.isRunning = false
-          onError(event.error.message)
-          return
-        }
-
-        if (event.type === 'error') {
-          this.isRunning = false
-          onError(event.message)
-          return
-        }
-      }
-
-      this.isRunning = false
-      this.turnAbort = undefined
-      onComplete(fullContent)
-    } catch (err: unknown) {
-      this.isRunning = false
-      this.turnAbort = undefined
-      if ((err as Error).name === 'AbortError') {
-        onComplete(fullContent || 'Interrupted')
-      } else {
-        const msg = err instanceof Error ? err.message : String(err)
-        log.error(`Codex SDK error: ${msg}`)
-        onError(msg)
-      }
-    }
-  }
-
-  private mapItemToChunks(item: ThreadItem): ParsedChunk[] {
-    switch (item.type) {
-      case 'agent_message':
-        return [{ type: 'text', content: item.text }]
-      case 'reasoning':
-        return [{ type: 'thinking', content: item.text }]
-      case 'command_execution':
-        return [
-          {
-            type: 'tool_use',
-            content: `$ ${item.command}\n${item.aggregated_output}`,
-            metadata: { toolName: 'command', toolId: item.id },
-          },
-        ]
-      case 'file_change':
-        return [
-          {
-            type: 'tool_result',
-            content: item.changes.map((c) => `${c.kind}: ${c.path}`).join('\n'),
-            metadata: { toolId: item.id },
-          },
-        ]
-      case 'mcp_tool_call':
-        return [
-          {
-            type: 'tool_use',
-            content: JSON.stringify(
-              { server: item.server, tool: item.tool, arguments: item.arguments },
-              null,
-              2,
-            ),
-            metadata: { toolName: `${item.server}:${item.tool}`, toolId: item.id },
-          },
-        ]
-      case 'web_search':
-        return [
-          {
-            type: 'tool_use',
-            content: `Web search: ${item.query}`,
-            metadata: { toolName: 'web_search', toolId: item.id },
-          },
-        ]
-      case 'error':
-        return [{ type: 'error', content: item.message }]
-      case 'todo_list':
-        return [
-          {
-            type: 'text',
-            content: item.items.map((t) => `${t.completed ? '✅' : '⬜'} ${t.text}`).join('\n'),
-          },
-        ]
-      default:
-        return []
-    }
-  }
+  // ─── Slash Commands ───
 
   override getSlashCommands(): Array<{
     name: string
@@ -704,8 +910,6 @@ export class CodexAdapter extends BaseAgentAdapter {
     return this.getRoomState(roomId).modelOverride || this.env.CODEX_MODEL || 'codex-mini-latest'
   }
 
-  // Models are fetched dynamically from the OpenAI /v1/models API.
-  // Returns empty arrays until the async fetch completes.
   override getAvailableModels(): string[] {
     return this.cachedModelInfo.map((m) => m.value)
   }
@@ -745,8 +949,8 @@ export class CodexAdapter extends BaseAgentAdapter {
     const rs = this.getRoomState(roomId)
     switch (command) {
       case 'clear': {
-        rs.thread = undefined
         rs.threadId = undefined
+        rs.turnId = undefined
         return { success: true, message: 'Thread cleared' }
       }
       case 'model': {
@@ -759,8 +963,7 @@ export class CodexAdapter extends BaseAgentAdapter {
           }
         }
         rs.modelOverride = name
-        // Force thread recreation to apply the new model
-        rs.thread = undefined
+        rs.threadId = undefined
         return { success: true, message: `Model set to: ${name} (thread will restart)` }
       }
       case 'effort': {
@@ -779,8 +982,7 @@ export class CodexAdapter extends BaseAgentAdapter {
           }
         }
         rs.reasoningEffort = level as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
-        // Force thread recreation to apply the new effort level
-        rs.thread = undefined
+        rs.threadId = undefined
         return { success: true, message: `Reasoning effort set to: ${level} (thread will restart)` }
       }
       case 'cost': {
@@ -809,7 +1011,7 @@ export class CodexAdapter extends BaseAgentAdapter {
           }
         }
         rs.sandboxMode = mode as SandboxMode
-        rs.thread = undefined
+        rs.threadId = undefined
         return { success: true, message: `Sandbox set to: ${mode} (thread will restart)` }
       }
       case 'websearch': {
@@ -828,7 +1030,7 @@ export class CodexAdapter extends BaseAgentAdapter {
           }
         }
         rs.webSearchMode = mode as WebSearchMode
-        rs.thread = undefined
+        rs.threadId = undefined
         return { success: true, message: `Web search set to: ${mode} (thread will restart)` }
       }
       case 'network': {
@@ -845,7 +1047,7 @@ export class CodexAdapter extends BaseAgentAdapter {
         } else {
           rs.networkAccess = !rs.networkAccess
         }
-        rs.thread = undefined
+        rs.threadId = undefined
         return {
           success: true,
           message: `Network access: ${rs.networkAccess ? 'enabled' : 'disabled'} (thread will restart)`,
@@ -870,26 +1072,47 @@ export class CodexAdapter extends BaseAgentAdapter {
     }
   }
 
+  // ─── Lifecycle ───
+
   stop() {
     log.info('Codex stop requested')
     this.isRunning = false
-    // Use AbortSignal to cancel the running turn, then discard the thread
-    if (this.turnAbort) {
-      this.turnAbort.abort()
-      this.turnAbort = undefined
-    }
-    // threadId is preserved so ensureThread() can resume the conversation
+
+    // Interrupt the current turn if running
     const rs = this.getRoomState(this.currentRoomId)
-    rs.thread = undefined
+    if (rs.turnId && rs.threadId) {
+      this.sendRequest('turn/interrupt', {
+        threadId: rs.threadId,
+      }).catch((err) => {
+        log.warn(`turn/interrupt failed: ${(err as Error).message}`)
+      })
+    }
+
+    if (this.onComplete) {
+      const complete = this.onComplete
+      const content = this.fullContent
+      this.clearStreamCallbacks()
+      complete(content || 'Interrupted')
+    }
   }
 
   dispose() {
     this.isRunning = false
-    if (this.turnAbort) {
-      this.turnAbort.abort()
-      this.turnAbort = undefined
+    this.clearStreamCallbacks()
+
+    // Kill the app-server process
+    if (this.child) {
+      this.child.kill()
+      this.child = undefined
     }
+    if (this.readline) {
+      this.readline.close()
+      this.readline = undefined
+    }
+
     this.roomStates.clear()
-    this.codex = undefined
+    this.pendingRequests.clear()
+    this.sessionApprovedTools.clear()
+    this.initialized = false
   }
 }

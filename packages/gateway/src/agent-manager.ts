@@ -64,7 +64,7 @@ function expandPath(p: string): string {
 }
 
 interface PendingPermission {
-  resolve: (decision: { behavior: 'allow' | 'deny' }) => void
+  resolve: (decision: { behavior: 'allow' | 'allowAlways' | 'deny'; message?: string }) => void
   reject: (err: Error) => void
   timer: ReturnType<typeof setTimeout>
   reminderTimer: ReturnType<typeof setTimeout> | null
@@ -345,9 +345,15 @@ export class AgentManager {
                 if (!roomId) {
                   return { behavior: 'deny' as const }
                 }
-                return new Promise<{ behavior: 'allow' | 'deny' }>((resolve, reject) => {
+                return new Promise<{
+                  behavior: 'allow' | 'allowAlways' | 'deny'
+                  message?: string
+                }>((resolve, reject) => {
                   let settled = false
-                  const safeResolve = (decision: { behavior: 'allow' | 'deny' }) => {
+                  const safeResolve = (decision: {
+                    behavior: 'allow' | 'allowAlways' | 'deny'
+                    message?: string
+                  }) => {
                     if (settled) return
                     settled = true
                     resolve(decision)
@@ -585,8 +591,9 @@ export class AgentManager {
     clearTimeout(pending.timer)
     if (pending.reminderTimer) clearTimeout(pending.reminderTimer)
     this.pendingPermissions.delete(msg.requestId)
-    const behavior = msg.decision === 'allow' ? 'allow' : 'deny'
-    pending.resolve({ behavior })
+    const behavior =
+      msg.decision === 'allow' ? 'allow' : msg.decision === 'allowAlways' ? 'allowAlways' : 'deny'
+    pending.resolve({ behavior, message: msg.denyReason })
     log.info(`Permission ${msg.decision} for requestId=${msg.requestId}`)
   }
 

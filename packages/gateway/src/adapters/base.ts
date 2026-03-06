@@ -17,7 +17,7 @@ export type PermissionRequestCallback = (opts: {
   toolName: string
   toolInput: Record<string, unknown>
   timeoutMs: number
-}) => Promise<{ behavior: 'allow' | 'deny' }>
+}) => Promise<{ behavior: 'allow' | 'allowAlways' | 'deny'; message?: string }>
 
 export interface AdapterOptions {
   agentId: string

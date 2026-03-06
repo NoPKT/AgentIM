@@ -101,7 +101,7 @@ export type SenderType = (typeof SENDER_TYPES)[number]
 export const PERMISSION_LEVELS = ['bypass', 'interactive'] as const
 export type PermissionLevel = (typeof PERMISSION_LEVELS)[number]
 
-export const PERMISSION_DECISIONS = ['allow', 'deny', 'timeout'] as const
+export const PERMISSION_DECISIONS = ['allow', 'allowAlways', 'deny', 'timeout'] as const
 export type PermissionDecision = (typeof PERMISSION_DECISIONS)[number]
 
 export const PERMISSION_TIMEOUT_MS = 300_000 // 5 minutes
