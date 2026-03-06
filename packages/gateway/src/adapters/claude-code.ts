@@ -201,180 +201,238 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     let fullContent = ''
 
     try {
-      if (!_cachedQueryFn) {
-        const mod = await import('@anthropic-ai/claude-agent-sdk')
-        _cachedQueryFn = mod.query
-      }
-      const query = _cachedQueryFn
-
-      // Ensure PATH includes the current node binary's directory so the SDK
-      // can spawn `node` even when running as a daemon with a minimal PATH.
-      const nodeDir = dirname(process.execPath)
-      const currentPath = process.env.PATH || ''
-      const env: Record<string, string | undefined> = {
-        ...process.env,
-        ...this.env,
-        ...(currentPath.includes(nodeDir) ? {} : { PATH: `${nodeDir}:${currentPath}` }),
-      }
-
-      // Log auth mode for debugging
-      if (env.ANTHROPIC_API_KEY) {
-        log.info('Using ANTHROPIC_API_KEY for authentication')
-      } else if (env.HOME && env.HOME !== process.env.HOME) {
-        log.info(`Using isolated HOME for subscription auth: ${env.HOME}`)
-      } else {
-        log.info('Using default auth (keychain/OAuth)')
-      }
-
-      const options: Options = {
-        allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
-        cwd: this.workingDirectory,
-        env,
-        // Capture stderr from the Claude Code subprocess for error diagnostics
-        stderr: (data: string) => {
-          log.warn(`[stderr] ${data.trimEnd()}`)
-        },
-      }
-
-      if (roomState.planMode) {
-        options.permissionMode = 'plan'
-      } else if (this.permissionLevel === 'bypass') {
-        options.permissionMode = 'bypassPermissions'
-        options.allowDangerouslySkipPermissions = true
-      } else {
-        options.permissionMode = 'default'
-        if (this.onPermissionRequest) {
-          const requestPermission = this.onPermissionRequest
-          options.canUseTool = async (toolName: string, toolInput: Record<string, unknown>) => {
-            const { nanoid } = await import('nanoid')
-            const requestId = nanoid()
-            const result = await requestPermission({
-              requestId,
-              toolName,
-              toolInput,
-              timeoutMs: PERMISSION_TIMEOUT_MS,
-            })
-            if (result.behavior === 'allow' || result.behavior === 'allowAlways') {
-              return { behavior: 'allow' as const }
-            }
-            return {
-              behavior: 'deny' as const,
-              message: result.message || 'Permission denied by user',
-            }
-          }
-        }
-      }
-
+      fullContent = await this.executeQuery(content, onChunk, roomState, roomId, context)
+    } catch (err: unknown) {
+      // If the query failed and we were trying to resume a session, retry without resume.
+      // Stale/expired session IDs cause the subprocess to exit with code 1.
       if (roomState.sessionId) {
-        options.resume = roomState.sessionId
-      }
-
-      // Apply runtime settings from slash commands
-      if (roomState.thinkingConfig) options.thinking = roomState.thinkingConfig
-      if (roomState.effort) options.effort = roomState.effort
-      if (roomState.modelOverride) options.model = roomState.modelOverride
-
-      // Budget, turns, and fallback model
-      if (roomState.maxBudgetUsd !== undefined) options.maxBudgetUsd = roomState.maxBudgetUsd
-      if (roomState.maxTurns !== undefined) options.maxTurns = roomState.maxTurns
-      if (this.env.CLAUDE_FALLBACK_MODEL) options.fallbackModel = this.env.CLAUDE_FALLBACK_MODEL
-
-      // Sandbox configuration
-      if (roomState.sandboxEnabled) {
-        options.sandbox = { enabled: true, autoAllowBashIfSandboxed: true }
-      }
-
-      // Beta features
-      if (this.env.CLAUDE_ENABLE_1M_CONTEXT === 'true') {
-        /* eslint-disable @typescript-eslint/no-explicit-any */
-        options.betas = ['context-1m-2025-08-07' as any]
-        /* eslint-enable @typescript-eslint/no-explicit-any */
-      }
-
-      // Additional directories
-      if (this.env.CLAUDE_ADDITIONAL_DIRS) {
-        options.additionalDirectories = this.env.CLAUDE_ADDITIONAL_DIRS.split(':')
-      }
-
-      // File checkpointing
-      if (roomState.checkpointingEnabled) {
-        options.enableFileCheckpointing = true
-      }
-
-      // Subagent definitions from env
-      if (this.env.CLAUDE_AGENTS_CONFIG) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        log.warn(`Query failed with resume session, retrying without resume: ${errMsg}`)
+        roomState.sessionId = undefined
+        this.removePersistedSession(roomId)
+        this.currentQueries.delete(roomId)
         try {
-          const config = this.env.CLAUDE_AGENTS_CONFIG
-          let parsed: Record<string, unknown>
-          if (config.startsWith('{')) {
-            parsed = JSON.parse(config)
+          fullContent = await this.executeQuery(content, onChunk, roomState, roomId, context)
+        } catch (retryErr: unknown) {
+          this.setRoomBusy(roomId, false)
+          this.currentQueries.delete(roomId)
+          if ((retryErr as Error).name === 'AbortError') {
+            onComplete(fullContent || 'Interrupted')
           } else {
-            parsed = JSON.parse(readFileSync(config, 'utf-8'))
+            const msg = retryErr instanceof Error ? retryErr.message : String(retryErr)
+            log.error(`ClaudeCode SDK error (retry): ${msg}`)
+            onError(msg)
           }
-          /* eslint-disable @typescript-eslint/no-explicit-any */
-          options.agents = parsed as any
-          /* eslint-enable @typescript-eslint/no-explicit-any */
-        } catch (err) {
-          log.warn(`Failed to parse CLAUDE_AGENTS_CONFIG: ${(err as Error).message}`)
+          return
         }
+      } else {
+        this.setRoomBusy(roomId, false)
+        this.currentQueries.delete(roomId)
+        if ((err as Error).name === 'AbortError') {
+          onComplete(fullContent || 'Interrupted')
+        } else {
+          const msg = err instanceof Error ? err.message : String(err)
+          log.error(`ClaudeCode SDK error: ${msg}`)
+          onError(msg)
+        }
+        return
       }
+    }
 
-      // Enable prompt suggestions so UI can show predicted next prompts
-      options.promptSuggestions = true
+    this.setRoomBusy(roomId, false)
+    this.currentQueries.delete(roomId)
+    onComplete(fullContent)
+  }
 
-      // Handle MCP elicitation requests (form input / URL auth from MCP servers).
-      // Uses arrow function — no roomId capture needed since elicitation is agent-scoped.
-      options.onElicitation = async (request: ElicitationRequest): Promise<ElicitationResult> => {
-        if (this.onPermissionRequest) {
+  /** Core query execution — extracted so sendMessage can retry on stale session. */
+  private async executeQuery(
+    content: string,
+    onChunk: ChunkCallback,
+    roomState: ClaudeRoomState,
+    roomId: string,
+    context?: MessageContext,
+  ): Promise<string> {
+    if (!_cachedQueryFn) {
+      const mod = await import('@anthropic-ai/claude-agent-sdk')
+      _cachedQueryFn = mod.query
+    }
+    const query = _cachedQueryFn
+
+    // Ensure PATH includes the current node binary's directory so the SDK
+    // can spawn `node` even when running as a daemon with a minimal PATH.
+    const nodeDir = dirname(process.execPath)
+    const currentPath = process.env.PATH || ''
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      ...this.env,
+      ...(currentPath.includes(nodeDir) ? {} : { PATH: `${nodeDir}:${currentPath}` }),
+    }
+
+    // Log auth mode for debugging
+    if (env.ANTHROPIC_API_KEY) {
+      log.info('Using ANTHROPIC_API_KEY for authentication')
+    } else if (env.HOME && env.HOME !== process.env.HOME) {
+      log.info(`Using isolated HOME for subscription auth: ${env.HOME}`)
+    } else {
+      log.info('Using default auth (keychain/OAuth)')
+    }
+
+    // Capture stderr output so it can be included in error messages
+    const stderrLines: string[] = []
+    const options: Options = {
+      allowedTools: ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch'],
+      cwd: this.workingDirectory,
+      env,
+      stderr: (data: string) => {
+        const line = data.trimEnd()
+        log.warn(`[stderr] ${line}`)
+        stderrLines.push(line)
+        // Keep only the last 20 lines to avoid memory bloat
+        if (stderrLines.length > 20) stderrLines.shift()
+      },
+    }
+
+    if (roomState.planMode) {
+      options.permissionMode = 'plan'
+    } else if (this.permissionLevel === 'bypass') {
+      options.permissionMode = 'bypassPermissions'
+      options.allowDangerouslySkipPermissions = true
+    } else {
+      options.permissionMode = 'default'
+      if (this.onPermissionRequest) {
+        const requestPermission = this.onPermissionRequest
+        options.canUseTool = async (toolName: string, toolInput: Record<string, unknown>) => {
           const { nanoid } = await import('nanoid')
           const requestId = nanoid()
-          const result = await this.onPermissionRequest({
+          const result = await requestPermission({
             requestId,
-            toolName: `elicitation:${request.serverName}`,
-            toolInput: {
-              message: request.message,
-              mode: request.mode,
-              url: request.url,
-              requestedSchema: request.requestedSchema,
-            },
+            toolName,
+            toolInput,
             timeoutMs: PERMISSION_TIMEOUT_MS,
           })
-          if (result.behavior === 'allow') {
-            return { action: 'accept' as const, content: {} }
+          if (result.behavior === 'allow' || result.behavior === 'allowAlways') {
+            return { behavior: 'allow' as const }
           }
-          return { action: 'decline' as const }
+          return {
+            behavior: 'deny' as const,
+            message: result.message || 'Permission denied by user',
+          }
+        }
+      }
+    }
+
+    if (roomState.sessionId) {
+      options.resume = roomState.sessionId
+    }
+
+    // Apply runtime settings from slash commands
+    if (roomState.thinkingConfig) options.thinking = roomState.thinkingConfig
+    if (roomState.effort) options.effort = roomState.effort
+    if (roomState.modelOverride) options.model = roomState.modelOverride
+
+    // Budget, turns, and fallback model
+    if (roomState.maxBudgetUsd !== undefined) options.maxBudgetUsd = roomState.maxBudgetUsd
+    if (roomState.maxTurns !== undefined) options.maxTurns = roomState.maxTurns
+    if (this.env.CLAUDE_FALLBACK_MODEL) options.fallbackModel = this.env.CLAUDE_FALLBACK_MODEL
+
+    // Sandbox configuration
+    if (roomState.sandboxEnabled) {
+      options.sandbox = { enabled: true, autoAllowBashIfSandboxed: true }
+    }
+
+    // Beta features
+    if (this.env.CLAUDE_ENABLE_1M_CONTEXT === 'true') {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      options.betas = ['context-1m-2025-08-07' as any]
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    }
+
+    // Additional directories
+    if (this.env.CLAUDE_ADDITIONAL_DIRS) {
+      options.additionalDirectories = this.env.CLAUDE_ADDITIONAL_DIRS.split(':')
+    }
+
+    // File checkpointing
+    if (roomState.checkpointingEnabled) {
+      options.enableFileCheckpointing = true
+    }
+
+    // Subagent definitions from env
+    if (this.env.CLAUDE_AGENTS_CONFIG) {
+      try {
+        const config = this.env.CLAUDE_AGENTS_CONFIG
+        let parsed: Record<string, unknown>
+        if (config.startsWith('{')) {
+          parsed = JSON.parse(config)
+        } else {
+          parsed = JSON.parse(readFileSync(config, 'utf-8'))
+        }
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        options.agents = parsed as any
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+      } catch (err) {
+        log.warn(`Failed to parse CLAUDE_AGENTS_CONFIG: ${(err as Error).message}`)
+      }
+    }
+
+    // Enable prompt suggestions so UI can show predicted next prompts
+    options.promptSuggestions = true
+
+    // Handle MCP elicitation requests (form input / URL auth from MCP servers).
+    // Uses arrow function — no roomId capture needed since elicitation is agent-scoped.
+    options.onElicitation = async (request: ElicitationRequest): Promise<ElicitationResult> => {
+      if (this.onPermissionRequest) {
+        const { nanoid } = await import('nanoid')
+        const requestId = nanoid()
+        const result = await this.onPermissionRequest({
+          requestId,
+          toolName: `elicitation:${request.serverName}`,
+          toolInput: {
+            message: request.message,
+            mode: request.mode,
+            url: request.url,
+            requestedSchema: request.requestedSchema,
+          },
+          timeoutMs: PERMISSION_TIMEOUT_MS,
+        })
+        if (result.behavior === 'allow') {
+          return { action: 'accept' as const, content: {} }
         }
         return { action: 'decline' as const }
       }
+      return { action: 'decline' as const }
+    }
 
-      // Hooks for lifecycle events (pass roomId for per-room tool use tracking)
-      options.hooks = this.buildHooks(onChunk, roomId)
+    // Hooks for lifecycle events (pass roomId for per-room tool use tracking)
+    options.hooks = this.buildHooks(onChunk, roomId)
 
-      // Inject AgentIM MCP server for agent-to-agent communication
-      if (this.mcpContext && !this.mcpServerConfig) {
-        try {
-          const { createAgentImMcpServer } = await import('../mcp/agentim-tools.js')
-          this.mcpServerConfig = await createAgentImMcpServer(this.mcpContext)
-          log.info('AgentIM MCP server created for agent-to-agent communication')
-        } catch (err) {
-          log.warn(`Failed to create AgentIM MCP server: ${(err as Error).message}`)
-        }
+    // Inject AgentIM MCP server for agent-to-agent communication
+    if (this.mcpContext && !this.mcpServerConfig) {
+      try {
+        const { createAgentImMcpServer } = await import('../mcp/agentim-tools.js')
+        this.mcpServerConfig = await createAgentImMcpServer(this.mcpContext)
+        log.info('AgentIM MCP server created for agent-to-agent communication')
+      } catch (err) {
+        log.warn(`Failed to create AgentIM MCP server: ${(err as Error).message}`)
       }
-      if (this.mcpServerConfig) {
-        /* eslint-disable @typescript-eslint/no-explicit-any */
-        const servers = (options as any).mcpServers ?? {}
-        servers.agentim = this.mcpServerConfig
-        ;(options as any).mcpServers = servers
-        /* eslint-enable @typescript-eslint/no-explicit-any */
-      }
+    }
+    if (this.mcpServerConfig) {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const servers = (options as any).mcpServers ?? {}
+      servers.agentim = this.mcpServerConfig
+      ;(options as any).mcpServers = servers
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    }
 
-      // systemPrompt is included by buildPrompt() via [System: ...] prefix,
-      // so we do NOT set options.systemPrompt to avoid double injection.
-      const prompt = this.buildPrompt(content, context)
+    // systemPrompt is included by buildPrompt() via [System: ...] prefix,
+    // so we do NOT set options.systemPrompt to avoid double injection.
+    const prompt = this.buildPrompt(content, context)
 
-      const response = query({ prompt, options })
-      this.currentQueries.set(roomId, response)
+    let fullContent = ''
+    const response = query({ prompt, options })
+    this.currentQueries.set(roomId, response)
 
+    try {
       for await (const message of response) {
         this.processMessage(
           message,
@@ -385,44 +443,42 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           roomId,
         )
       }
-
-      // Fetch supported models and agents after first successful query (async, non-blocking)
-      if (!this.modelInfoFetched && response) {
-        this.modelInfoFetched = true
-        response
-          .supportedModels()
-          .then((models) => {
-            this.cachedModelInfo = models
-            log.info(`Cached ${models.length} supported models from SDK`)
-          })
-          .catch((err) => {
-            log.warn(`Failed to fetch supported models: ${err}`)
-          })
-        response
-          .supportedAgents()
-          .then((agents) => {
-            this.cachedAgentInfo = agents
-            log.info(`Cached ${agents.length} supported agents from SDK`)
-          })
-          .catch((err) => {
-            log.warn(`Failed to fetch supported agents: ${err}`)
-          })
+    } catch (err) {
+      // Enrich error with captured stderr for better diagnostics
+      if (stderrLines.length > 0) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        const stderrSuffix = stderrLines.join('\n')
+        const enriched = new Error(`${errMsg}\n[stderr]: ${stderrSuffix}`)
+        enriched.name = (err as Error).name ?? 'Error'
+        throw enriched
       }
-
-      this.setRoomBusy(roomId, false)
-      this.currentQueries.delete(roomId)
-      onComplete(fullContent)
-    } catch (err: unknown) {
-      this.setRoomBusy(roomId, false)
-      this.currentQueries.delete(roomId)
-      if ((err as Error).name === 'AbortError') {
-        onComplete(fullContent || 'Interrupted')
-      } else {
-        const msg = err instanceof Error ? err.message : String(err)
-        log.error(`ClaudeCode SDK error: ${msg}`)
-        onError(msg)
-      }
+      throw err
     }
+
+    // Fetch supported models and agents after first successful query (async, non-blocking)
+    if (!this.modelInfoFetched && response) {
+      this.modelInfoFetched = true
+      response
+        .supportedModels()
+        .then((models) => {
+          this.cachedModelInfo = models
+          log.info(`Cached ${models.length} supported models from SDK`)
+        })
+        .catch((err) => {
+          log.warn(`Failed to fetch supported models: ${err}`)
+        })
+      response
+        .supportedAgents()
+        .then((agents) => {
+          this.cachedAgentInfo = agents
+          log.info(`Cached ${agents.length} supported agents from SDK`)
+        })
+        .catch((err) => {
+          log.warn(`Failed to fetch supported agents: ${err}`)
+        })
+    }
+
+    return fullContent
   }
 
   private processMessage(
