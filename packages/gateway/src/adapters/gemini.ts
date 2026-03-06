@@ -470,51 +470,160 @@ export class GeminiAdapter extends BaseAgentAdapter {
       sdk.coreEvents.on(sdk.CoreEvent.RetryAttempt, retryListener)
 
       try {
-        const stream = client.sendMessageStream(prompt, streamAbort.signal, promptId)
+        // Agentic tool execution loop: the SDK's sendMessageStream yields
+        // events but does NOT execute tools.  When the model requests tool
+        // calls, we execute them and feed the results back.
+        const MAX_TOOL_TURNS = 50
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let request: any = prompt
 
-        for await (const event of stream) {
-          const chunks = this.processEvent(event, sdk)
-          for (const chunk of chunks) {
-            if (chunk.type === 'text') {
-              fullContent += chunk.content
+        for (let turnIdx = 0; turnIdx < MAX_TOOL_TURNS; turnIdx++) {
+          const stream = client.sendMessageStream(request, streamAbort.signal, promptId)
+
+          // Manually iterate the async generator to capture the Turn return
+          // value (which contains pendingToolCalls).  for-await-of discards it.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let turn: any
+          let errorBailed = false
+
+          for (;;) {
+            const iterResult = await stream.next()
+            if (iterResult.done) {
+              turn = iterResult.value
+              break
             }
-            onChunk(chunk)
+
+            const event = iterResult.value
+            const chunks = this.processEvent(event, sdk)
+            for (const chunk of chunks) {
+              if (chunk.type === 'text') {
+                fullContent += chunk.content
+              }
+              onChunk(chunk)
+            }
+
+            if (event.type === sdk.GeminiEventType.Finished) {
+              this.extractUsage(event, sdk)
+            }
+
+            if (event.type === sdk.GeminiEventType.Error) {
+              const errVal = (event as { value: { error: unknown } }).value
+              const errMsg = extractErrorMessage(errVal.error)
+              this.setRoomBusy(roomId, false)
+              this.streamAborts.delete(roomId)
+              onError(errMsg)
+              errorBailed = true
+              break
+            }
           }
 
-          // Extract usage from Finished events
-          if (event.type === sdk.GeminiEventType.Finished) {
-            this.extractUsage(event, sdk)
-          }
+          if (errorBailed) return
 
-          // Bail on error events
-          if (event.type === sdk.GeminiEventType.Error) {
-            const errVal = (event as { value: { error: unknown } }).value
-            const errMsg = extractErrorMessage(errVal.error)
+          // If the SDK handled the abort internally (no throw), the stream
+          // ends normally but fullContent is empty.
+          if (capacityAborted && !fullContent) {
             this.setRoomBusy(roomId, false)
             this.streamAborts.delete(roomId)
-            onError(errMsg)
+            onError(retryError || 'Request aborted due to retry failure')
             return
           }
+
+          // No pending tool calls — conversation turn is complete
+          if (!turn?.pendingToolCalls?.length) break
+
+          // Execute pending tool calls and build function responses
+          const pendingCalls = turn.pendingToolCalls as Array<{
+            callId: string
+            name: string
+            args: Record<string, unknown>
+          }>
+          log.info(
+            `Executing ${pendingCalls.length} tool call(s) (turn ${turnIdx + 1}): ${pendingCalls.map((c) => c.name).join(', ')}`,
+          )
+
+          const toolRegistry = rs.config!.getToolRegistry()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const functionResponseParts: any[] = []
+
+          for (const tc of pendingCalls) {
+            const tool = toolRegistry.getTool(tc.name)
+            if (!tool) {
+              functionResponseParts.push({
+                functionResponse: {
+                  id: tc.callId,
+                  name: tc.name,
+                  response: { error: `Tool "${tc.name}" not found` },
+                },
+              })
+              onChunk({
+                type: 'tool_result',
+                content: `Error: Tool "${tc.name}" not found`,
+                metadata: { toolId: tc.callId },
+              })
+              continue
+            }
+
+            try {
+              const invocation = tool.build(tc.args)
+              const result = await invocation.execute(streamAbort.signal)
+
+              // Build function response parts for the Gemini API
+              const responseParts = sdk.convertToFunctionResponse(
+                tc.name,
+                tc.callId,
+                result.llmContent,
+                rs.config!.getActiveModel(),
+              )
+              functionResponseParts.push(...responseParts)
+
+              // Emit tool_result chunk for the UI
+              const display = result.error
+                ? `Error: ${result.error.message}`
+                : typeof result.returnDisplay === 'string'
+                  ? result.returnDisplay
+                  : typeof result.llmContent === 'string'
+                    ? result.llmContent
+                    : JSON.stringify(result.llmContent ?? '')
+              onChunk({
+                type: 'tool_result',
+                content: display,
+                metadata: { toolId: tc.callId },
+              })
+            } catch (err) {
+              const errMsg = err instanceof Error ? err.message : String(err)
+              log.warn(`Tool "${tc.name}" execution failed: ${errMsg}`)
+              functionResponseParts.push({
+                functionResponse: {
+                  id: tc.callId,
+                  name: tc.name,
+                  response: { error: errMsg },
+                },
+              })
+              onChunk({
+                type: 'tool_result',
+                content: `Error: ${errMsg}`,
+                metadata: { toolId: tc.callId },
+              })
+            }
+          }
+
+          // Feed function responses back as the next request
+          request = functionResponseParts
         }
 
         this.setRoomBusy(roomId, false)
         this.streamAborts.delete(roomId)
-        // If the SDK handled the abort internally (no throw), the loop ends
-        // normally but fullContent is empty.  Surface the retry error instead.
-        if (capacityAborted && !fullContent) {
-          onError(retryError || 'Request aborted due to retry failure')
-        } else {
-          // Persist conversation history for cross-restart recovery
-          try {
-            const history = client.getHistory()
-            if (history.length > 0) {
-              this.persistHistory(roomId, history)
-            }
-          } catch (err) {
-            log.debug?.(`Failed to persist history after message: ${(err as Error).message}`)
+
+        // Persist conversation history for cross-restart recovery
+        try {
+          const history = client.getHistory()
+          if (history.length > 0) {
+            this.persistHistory(roomId, history)
           }
-          onComplete(fullContent)
+        } catch (err) {
+          log.debug?.(`Failed to persist history after message: ${(err as Error).message}`)
         }
+        onComplete(fullContent)
       } finally {
         sdk.coreEvents.off(sdk.CoreEvent.RetryAttempt, retryListener)
       }
