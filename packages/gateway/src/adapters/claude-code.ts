@@ -72,9 +72,8 @@ interface ClaudeRoomState {
 const DEFAULT_ROOM_KEY = '__global__'
 
 export class ClaudeCodeAdapter extends BaseAgentAdapter {
-  private currentQuery?: Query
-  /** Tracks which room is being processed during sendMessage. */
-  private currentRoomId?: string
+  /** Per-room active queries for parallel room processing. */
+  private currentQueries = new Map<string, Query>()
 
   // Per-room session and settings state
   private roomStates = new Map<string, ClaudeRoomState>()
@@ -112,6 +111,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     return 'claude-code' as const
   }
 
+  override get supportsParallelRooms() {
+    return true
+  }
+
   async sendMessage(
     content: string,
     onChunk: ChunkCallback,
@@ -119,13 +122,14 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     onError: ErrorCallback,
     context?: MessageContext,
   ) {
-    if (this.isRunning) {
-      onError('Agent is already processing a message')
+    const roomId = context?.roomId ?? DEFAULT_ROOM_KEY
+
+    if (this.isRoomBusy(roomId)) {
+      onError('Agent is already processing a message for this room')
       return
     }
 
-    this.isRunning = true
-    this.currentRoomId = context?.roomId
+    this.setRoomBusy(roomId, true)
     const roomState = this.getRoomState(context?.roomId)
     let fullContent = ''
 
@@ -251,7 +255,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       // Enable prompt suggestions so UI can show predicted next prompts
       options.promptSuggestions = true
 
-      // Handle MCP elicitation requests (form input / URL auth from MCP servers)
+      // Handle MCP elicitation requests (form input / URL auth from MCP servers).
+      // Uses arrow function — no roomId capture needed since elicitation is agent-scoped.
       options.onElicitation = async (request: ElicitationRequest): Promise<ElicitationResult> => {
         if (this.onPermissionRequest) {
           const { nanoid } = await import('nanoid')
@@ -275,8 +280,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         return { action: 'decline' as const }
       }
 
-      // Hooks for lifecycle events
-      options.hooks = this.buildHooks(onChunk)
+      // Hooks for lifecycle events (pass roomId for per-room tool use tracking)
+      options.hooks = this.buildHooks(onChunk, roomId)
 
       // Inject AgentIM MCP server for agent-to-agent communication
       if (this.mcpContext && !this.mcpServerConfig) {
@@ -301,12 +306,17 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       const prompt = this.buildPrompt(content, context)
 
       const response = query({ prompt, options })
-      this.currentQuery = response
+      this.currentQueries.set(roomId, response)
 
       for await (const message of response) {
-        this.processMessage(message, onChunk, (text) => {
-          fullContent += text
-        })
+        this.processMessage(
+          message,
+          onChunk,
+          (text) => {
+            fullContent += text
+          },
+          roomId,
+        )
       }
 
       // Fetch supported models and agents after first successful query (async, non-blocking)
@@ -332,12 +342,12 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           })
       }
 
-      this.isRunning = false
-      this.currentQuery = undefined
+      this.setRoomBusy(roomId, false)
+      this.currentQueries.delete(roomId)
       onComplete(fullContent)
     } catch (err: unknown) {
-      this.isRunning = false
-      this.currentQuery = undefined
+      this.setRoomBusy(roomId, false)
+      this.currentQueries.delete(roomId)
       if ((err as Error).name === 'AbortError') {
         onComplete(fullContent || 'Interrupted')
       } else {
@@ -352,6 +362,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     message: SDKMessage,
     onChunk: ChunkCallback,
     appendText: (text: string) => void,
+    roomId?: string,
   ) {
     // Use untyped access to avoid discriminated union narrowing issues.
     // SDKMessage is a wide union where many subtypes share type === 'system'.
@@ -362,9 +373,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Capture session ID from init message
     if (msgType === 'system' && msgSubtype === 'init') {
       const initMsg = message as SDKSystemMessage
-      const rs = this.getRoomState(this.currentRoomId)
+      const rs = this.getRoomState(roomId)
       rs.sessionId = initMsg.session_id
-      log.info(`Session started for room ${this.currentRoomId ?? 'global'}: ${rs.sessionId}`)
+      log.info(`Session started for room ${roomId ?? 'global'}: ${rs.sessionId}`)
       return
     }
 
@@ -410,7 +421,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           this.accumulatedOutputTokens += resultMsg.usage.output_tokens ?? 0
         }
         if (resultMsg.modelUsage) {
-          const rs = this.getRoomState(this.currentRoomId)
+          const rs = this.getRoomState(roomId)
           rs.lastModelUsage = {}
           for (const [model, usage] of Object.entries(resultMsg.modelUsage)) {
             rs.lastModelUsage[model] = {
@@ -560,7 +571,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     }
   }
 
-  private buildHooks(onChunk: ChunkCallback): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
+  private buildHooks(
+    onChunk: ChunkCallback,
+    roomId: string,
+  ): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
     return {
       SubagentStart: [
         {
@@ -633,7 +647,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         {
           hooks: [
             async () => {
-              this.getRoomState(this.currentRoomId).toolUseCount++
+              this.getRoomState(roomId).toolUseCount++
               return { continue: true }
             },
           ],
@@ -948,9 +962,10 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           }
         }
         rs.modelOverride = name
-        // Apply immediately if a query is active
-        if (this.currentQuery) {
-          await this.currentQuery.setModel(name)
+        // Apply immediately if a query is active for this room
+        const activeQuery = this.currentQueries.get(roomId ?? DEFAULT_ROOM_KEY)
+        if (activeQuery) {
+          await activeQuery.setModel(name)
         }
         return { success: true, message: `Model set to: ${name}` }
       }
@@ -1116,7 +1131,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         if (!messageId) {
           return { success: false, message: 'Usage: /rewind <messageId>' }
         }
-        if (!this.currentQuery) {
+        const rewindQuery = this.currentQueries.get(roomId ?? DEFAULT_ROOM_KEY)
+        if (!rewindQuery) {
           return { success: false, message: 'No active query to rewind' }
         }
         if (!rs.checkpointingEnabled) {
@@ -1126,7 +1142,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           }
         }
         try {
-          await this.currentQuery.rewindFiles(messageId)
+          await rewindQuery.rewindFiles(messageId)
           return { success: true, message: `Files rewound to message: ${messageId}` }
         } catch (err) {
           return { success: false, message: `Rewind failed: ${(err as Error).message}` }
@@ -1138,17 +1154,21 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   }
 
   stop() {
-    this.currentQuery?.interrupt()
-    this.currentQuery = undefined
-    // Clear session for the room that was being processed
-    if (this.currentRoomId) {
-      this.getRoomState(this.currentRoomId).sessionId = undefined
+    // Interrupt all active room queries
+    for (const [roomId, query] of this.currentQueries) {
+      query.interrupt()
+      this.getRoomState(roomId).sessionId = undefined
     }
+    this.currentQueries.clear()
+    this.clearAllBusy()
   }
 
   dispose() {
-    this.currentQuery?.close()
-    this.currentQuery = undefined
+    for (const [, query] of this.currentQueries) {
+      query.close()
+    }
+    this.currentQueries.clear()
+    this.clearAllBusy()
     this.roomStates.clear()
   }
 }

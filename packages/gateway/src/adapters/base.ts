@@ -53,6 +53,9 @@ export abstract class BaseAgentAdapter {
   protected readonly onPermissionRequest?: PermissionRequestCallback
   protected isRunning = false
 
+  /** Per-room busy tracking for parallel room processing. */
+  private busyRooms = new Set<string>()
+
   /** MCP context for agent-to-agent communication */
   protected mcpContext?: McpContext
 
@@ -139,7 +142,37 @@ export abstract class BaseAgentAdapter {
   abstract dispose(): void
 
   get running(): boolean {
-    return this.isRunning
+    return this.isRunning || this.busyRooms.size > 0
+  }
+
+  /** Whether this adapter can process messages for different rooms in parallel. */
+  get supportsParallelRooms(): boolean {
+    return false
+  }
+
+  /** Check if a specific room is currently being processed. */
+  isRoomBusy(roomId: string): boolean {
+    if (!this.supportsParallelRooms) return this.isRunning || this.busyRooms.size > 0
+    return this.busyRooms.has(roomId)
+  }
+
+  /** Mark a room as busy or idle. Keeps legacy isRunning in sync. */
+  protected setRoomBusy(roomId: string, busy: boolean): void {
+    if (busy) {
+      this.busyRooms.add(roomId)
+      this.isRunning = true
+    } else {
+      this.busyRooms.delete(roomId)
+      if (this.busyRooms.size === 0) {
+        this.isRunning = false
+      }
+    }
+  }
+
+  /** Clear all per-room busy state. */
+  protected clearAllBusy(): void {
+    this.busyRooms.clear()
+    this.isRunning = false
   }
 
   /** Return the list of slash commands this agent supports. */
