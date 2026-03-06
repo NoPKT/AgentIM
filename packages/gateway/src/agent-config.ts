@@ -440,9 +440,11 @@ export function prepareSubscriptionHome(
  * but the SDK also has a plaintext file fallback at ~/.claude/.credentials.json.
  * We first try to read from keychain (canonical source), then fall back to file.
  */
-export function readSubscriptionAuthData(agentType: string): string | undefined {
-  // Claude Code on macOS: try keychain first (primary store), then file fallback
-  if (agentType === 'claude-code' && process.platform === 'darwin') {
+export function readSubscriptionAuthData(agentType: string, fromHome?: string): string | undefined {
+  const home = fromHome ?? homedir()
+
+  // Claude Code on macOS: try keychain first (only when reading from real home)
+  if (!fromHome && agentType === 'claude-code' && process.platform === 'darwin') {
     const keychainData = readClaudeCodeKeychainOAuth()
     if (keychainData) return keychainData
     // Fall through to file-based read below
@@ -453,7 +455,7 @@ export function readSubscriptionAuthData(agentType: string): string | undefined 
 
   for (const relPath of authPaths) {
     try {
-      return readFileSync(join(homedir(), relPath), 'utf-8')
+      return readFileSync(join(home, relPath), 'utf-8')
     } catch {
       // File not found or unreadable
     }
