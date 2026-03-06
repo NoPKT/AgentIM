@@ -876,9 +876,22 @@ function SimpleToolBlock({
 
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-info-border">
-          <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
-            {content}
-          </pre>
+          {input ? (
+            <div className="text-xs space-y-1">
+              {Object.entries(input).map(([k, v]) => (
+                <div key={k} className="flex gap-2">
+                  <span className="text-text-muted flex-shrink-0">{k}:</span>
+                  <span className="text-text-secondary font-mono break-all">
+                    {typeof v === 'string' ? v : JSON.stringify(v)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <pre className="text-xs text-text-secondary bg-surface-secondary rounded-md p-2 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap break-all">
+              {content}
+            </pre>
+          )}
         </div>
       )}
     </div>
@@ -1305,6 +1318,8 @@ interface CollapsedBatch {
   type: 'read_batch' | 'tool_batch' | 'thinking_batch'
   contents: string[]
   toolName?: string
+  /** Per-item metadata — preserves toolResult and other metadata through batching */
+  metadatas?: (Record<string, unknown> | undefined)[]
 }
 
 /** A process section wrapping consecutive non-text blocks */
@@ -1350,6 +1365,7 @@ function collapseConsecutiveGroups(groups: ChunkGroup[]): (ChunkGroup | Collapse
         type: 'tool_batch',
         contents: buffer.map((b) => b.content),
         toolName: (first.metadata?.toolName as string) || '',
+        metadatas: buffer.map((b) => b.metadata),
       })
     } else {
       // Not enough to batch — emit individually
@@ -1448,13 +1464,22 @@ function wrapProcessSections(
 }
 
 /** Collapsed batch of Bash commands — merged into a single code block */
-function BashBatchBlock({ contents }: { contents: string[] }) {
+function BashBatchBlock({
+  contents,
+  metadatas,
+}: {
+  contents: string[]
+  metadatas?: (Record<string, unknown> | undefined)[]
+}) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const commands = contents.map((c) => {
+  const commands = contents.map((c, i) => {
     const input = parseToolInput(c)
-    return (input?.command as string) || c
+    const command = (input?.command as string) || c
+    const toolResult = (metadatas?.[i]?.toolResult as string) || ''
+    return { command, toolResult }
   })
+  const hasResults = commands.some((c) => c.toolResult)
 
   return (
     <div className="my-2">
@@ -1491,14 +1516,22 @@ function BashBatchBlock({ contents }: { contents: string[] }) {
       {expanded && (
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
           <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
-            {commands.map((cmd, i) => (
+            {commands.map((c, i) => (
               <div key={i}>
                 <span className="text-gray-500 select-none">$ </span>
-                {cmd}
+                {c.command}
                 {i < commands.length - 1 && '\n'}
               </div>
             ))}
           </pre>
+          {hasResults && (
+            <pre className="text-xs font-mono bg-surface-secondary text-text-secondary rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
+              {commands
+                .filter((c) => c.toolResult)
+                .map((c) => c.toolResult)
+                .join('\n')}
+            </pre>
+          )}
         </div>
       )}
     </div>
@@ -1506,13 +1539,21 @@ function BashBatchBlock({ contents }: { contents: string[] }) {
 }
 
 /** Collapsed batch of same-type tool blocks */
-function ToolBatchBlock({ contents, toolName }: { contents: string[]; toolName: string }) {
+function ToolBatchBlock({
+  contents,
+  toolName,
+  metadatas,
+}: {
+  contents: string[]
+  toolName: string
+  metadatas?: (Record<string, unknown> | undefined)[]
+}) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   // Bash commands: merge into a single code block
   if (toolName === 'Bash') {
-    return <BashBatchBlock contents={contents} />
+    return <BashBatchBlock contents={contents} metadatas={metadatas} />
   }
 
   return (
@@ -1555,7 +1596,7 @@ function ToolBatchBlock({ contents, toolName }: { contents: string[]; toolName: 
       {expanded && (
         <div className="ml-5 mt-1 space-y-1">
           {contents.map((c, i) => (
-            <ToolUseBlock key={i} content={c} metadata={{ toolName }} />
+            <ToolUseBlock key={i} content={c} metadata={metadatas?.[i] ?? { toolName }} />
           ))}
         </div>
       )}
@@ -1648,6 +1689,7 @@ function ProcessSectionBlock({ section }: { section: ProcessSection }) {
                   key={key}
                   contents={batch.contents}
                   toolName={batch.toolName || ''}
+                  metadatas={batch.metadatas}
                 />
               )
             }
@@ -1701,7 +1743,13 @@ export function ChunkGroupRenderer({
           element = <ReadToolBlockGroup contents={(group as CollapsedBatch).contents} />
         } else if (group.type === 'tool_batch') {
           const batch = group as CollapsedBatch
-          element = <ToolBatchBlock contents={batch.contents} toolName={batch.toolName || ''} />
+          element = (
+            <ToolBatchBlock
+              contents={batch.contents}
+              toolName={batch.toolName || ''}
+              metadatas={batch.metadatas}
+            />
+          )
         } else if (group.type === 'thinking_batch') {
           element = <ThinkingBatchBlock contents={(group as CollapsedBatch).contents} />
         } else {
