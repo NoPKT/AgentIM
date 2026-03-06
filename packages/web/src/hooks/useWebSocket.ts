@@ -150,9 +150,12 @@ export function useWebSocket() {
           try {
             const prevAgent = agentStore.agents.find((a) => a.id === msg.agent.id)
             agentStore.updateAgent(msg.agent)
-            // Status changed → show system message in agent's rooms
-            if (prevAgent && prevAgent.status !== msg.agent.status) {
-              const statusKey = msg.agent.status === 'online' ? 'agentOnline' : 'agentOffline'
+            // Status changed → show system message only for online↔offline transitions
+            // (ignore busy status to avoid noisy "offline"/"online" flicker during normal work)
+            const isNowOnline = msg.agent.status === 'online' || msg.agent.status === 'busy'
+            const wasOnline = prevAgent?.status === 'online' || prevAgent?.status === 'busy'
+            if (prevAgent && isNowOnline !== wasOnline) {
+              const statusKey = isNowOnline ? 'agentOnline' : 'agentOffline'
               const roomMembers = chat.roomMembers
               for (const [roomId, members] of roomMembers) {
                 if (members.some((m) => m.memberId === msg.agent.id)) {

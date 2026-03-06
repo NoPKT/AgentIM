@@ -223,8 +223,12 @@ export class GeminiAdapter extends BaseAgentAdapter {
     )
 
     // Determine approval mode
+    // In headless/daemon mode (!process.stdin.isTTY), no user can interactively
+    // approve tool calls. Without YOLO mode, the SDK's MessageBus auto-rejects
+    // any ASK_USER decisions, causing the agent to silently stop after tool calls.
+    const isDaemonMode = !process.stdin.isTTY
     let approvalMode = sdk.ApprovalMode.DEFAULT
-    if (this.permissionLevel === 'bypass') {
+    if (this.permissionLevel === 'bypass' || isDaemonMode) {
       approvalMode = sdk.ApprovalMode.YOLO
     } else if (rs.planMode) {
       approvalMode = sdk.ApprovalMode.PLAN
