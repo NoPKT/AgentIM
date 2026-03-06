@@ -748,6 +748,7 @@ export const gatewayAgentInfoSchema = z.object({
   availableEffortLevels: z.array(z.string().max(50)).max(20).optional(),
   availableThinkingModes: z.array(z.string().max(100)).max(20).optional(),
   planMode: z.boolean().optional(),
+  permissionLevel: z.enum(['interactive', 'bypass']).optional(),
 })
 
 export const gatewaySpawnResultSchema = z.object({
@@ -939,6 +940,7 @@ const agentSchema = z.object({
   availableEffortLevels: z.array(z.string()).optional(),
   availableThinkingModes: z.array(z.string()).optional(),
   planMode: z.boolean().optional(),
+  permissionLevel: z.enum(['interactive', 'bypass']).optional(),
   lastSeenAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),

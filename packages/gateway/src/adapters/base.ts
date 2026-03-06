@@ -49,7 +49,7 @@ export abstract class BaseAgentAdapter {
   readonly workingDirectory?: string
   protected readonly env: Record<string, string>
   protected readonly passEnv?: Set<string>
-  protected readonly permissionLevel: PermissionLevel
+  protected permissionLevel: PermissionLevel
   protected readonly onPermissionRequest?: PermissionRequestCallback
   protected isRunning = false
 
@@ -205,6 +205,16 @@ export abstract class BaseAgentAdapter {
   /** Return whether plan mode is active. */
   getPlanMode(_roomId?: string): boolean {
     return false
+  }
+
+  /** Return the current permission level. */
+  getPermissionLevel(): PermissionLevel {
+    return this.permissionLevel
+  }
+
+  /** Dynamically change the permission level (e.g. from web UI toggle). */
+  setPermissionLevel(level: PermissionLevel): void {
+    this.permissionLevel = level
   }
 
   /**

@@ -1038,6 +1038,35 @@ export class AgentManager {
     }
 
     try {
+      // Handle permission level toggle at the manager level (applies to all adapters)
+      if (msg.command === 'permission') {
+        const arg = msg.args.trim().toLowerCase()
+        let level: PermissionLevel
+        if (arg === 'bypass' || arg === 'off') {
+          level = 'bypass'
+        } else if (arg === 'interactive' || arg === 'on') {
+          level = 'interactive'
+        } else {
+          // Toggle
+          level = adapter.getPermissionLevel() === 'interactive' ? 'bypass' : 'interactive'
+        }
+        adapter.setPermissionLevel(level)
+        this.wsClient.send({
+          type: 'gateway:agent_command_result',
+          agentId: msg.agentId,
+          roomId: msg.roomId,
+          command: msg.command,
+          success: true,
+          message: `Permission level: ${level}`,
+        })
+        this.handleQueryAgentInfo({
+          type: 'server:query_agent_info',
+          agentId: msg.agentId,
+          roomId: msg.roomId,
+        })
+        return
+      }
+
       const result = await adapter.handleSlashCommand(msg.command, msg.args, msg.roomId)
       this.wsClient.send({
         type: 'gateway:agent_command_result',
@@ -1102,6 +1131,7 @@ export class AgentManager {
       availableThinkingModes:
         availableThinkingModes.length > 0 ? availableThinkingModes : undefined,
       planMode: adapter.getPlanMode(msg.roomId) || undefined,
+      permissionLevel: adapter.getPermissionLevel(),
     })
   }
 
