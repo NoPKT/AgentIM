@@ -67,6 +67,8 @@ function runSubscriptionLogin(agentType: string): { success: boolean; loginHome:
   // Gemini CLI uses GEMINI_CLI_HOME to locate its config dir
   if (agentType === 'gemini') {
     env.GEMINI_CLI_HOME = loginHome
+    // Skip macOS Keychain (isolated HOME has no keychain); use file-based storage
+    env.GEMINI_FORCE_FILE_STORAGE = 'true'
     // Seed settings so the CLI knows to use OAuth auth
     const geminiDir = join(loginHome, '.gemini')
     mkdirSync(geminiDir, { recursive: true, mode: 0o700 })
