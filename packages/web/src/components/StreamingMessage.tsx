@@ -1,8 +1,9 @@
 import { useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ParsedChunk } from '@agentim/shared'
-import { getAvatarGradient } from '../lib/avatars.js'
+import { agentTypeIcons, agentGradients } from '../lib/agentConfig.js'
 import { groupChunks, ChunkGroupRenderer } from './ChunkBlocks.js'
+import { useAgentStore } from '../stores/agents.js'
 import { wsClient } from '../lib/ws.js'
 
 interface StreamingMessageProps {
@@ -15,6 +16,9 @@ interface StreamingMessageProps {
 export function StreamingMessage({ agentName, agentId, roomId, chunks }: StreamingMessageProps) {
   const { t, i18n } = useTranslation()
   const contentRef = useRef<HTMLDivElement>(null)
+  const agentInfo = useAgentStore(
+    (s) => s.agents.find((a) => a.id === agentId) ?? s.sharedAgents.find((a) => a.id === agentId),
+  )
 
   const groups = useMemo(() => groupChunks(chunks), [chunks])
 
@@ -49,13 +53,26 @@ export function StreamingMessage({ agentName, agentId, roomId, chunks }: Streami
   return (
     <div className="px-6 py-2" role="status" aria-busy="true">
       <div className="flex items-start space-x-3">
-        {/* Avatar */}
+        {/* Avatar — matches MessageItem's agent avatar */}
         <div
-          className={`flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarGradient(agentName)} flex items-center justify-center`}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br ${
+            agentGradients[agentInfo?.type ?? 'generic'] || agentGradients.generic
+          }`}
         >
-          <span className="text-sm font-medium text-white">
-            {agentName.charAt(0).toUpperCase()}
-          </span>
+          {(() => {
+            const icon = agentTypeIcons[agentInfo?.type ?? 'generic'] || agentTypeIcons.generic
+            return (
+              <svg
+                className="w-4 h-4 text-white"
+                fill="currentColor"
+                viewBox={icon.viewBox || '0 0 24 24'}
+              >
+                {icon.paths.map((d, i) => (
+                  <path key={i} d={d} />
+                ))}
+              </svg>
+            )
+          })()}
         </div>
 
         {/* Content */}

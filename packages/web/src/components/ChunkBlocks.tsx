@@ -1505,7 +1505,6 @@ function BashBatchBlock({
     const toolResult = (metadatas?.[i]?.toolResult as string) || ''
     return { command, toolResult }
   })
-  const hasResults = commands.some((c) => c.toolResult)
 
   return (
     <div className="my-2">
@@ -1543,21 +1542,15 @@ function BashBatchBlock({
         <div className="mt-1.5 ml-5 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
           <pre className="text-xs font-mono bg-gray-900 text-green-400 rounded-md p-3 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
             {commands.map((c, i) => (
-              <div key={i}>
-                <span className="text-gray-500 select-none">$ </span>
-                {c.command}
-                {i < commands.length - 1 && '\n'}
-              </div>
+              <Fragment key={i}>
+                <div>
+                  <span className="text-gray-500 select-none">$ </span>
+                  {c.command}
+                </div>
+                {c.toolResult && <div className="text-gray-400 mb-1">{c.toolResult}</div>}
+              </Fragment>
             ))}
           </pre>
-          {hasResults && (
-            <pre className="text-xs font-mono bg-surface-secondary text-text-secondary rounded-md p-2 mt-1 overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
-              {commands
-                .filter((c) => c.toolResult)
-                .map((c) => c.toolResult)
-                .join('\n')}
-            </pre>
-          )}
         </div>
       )}
     </div>
