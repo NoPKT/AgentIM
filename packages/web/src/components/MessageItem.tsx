@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react'
+import { useState, useMemo, useEffect, useRef, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@agentim/shared'
 import { LazyMarkdown } from './LazyMarkdown.js'
@@ -11,6 +11,7 @@ import { MediaMessage } from './MediaMessage.js'
 import { twMerge } from 'tailwind-merge'
 import { useMessageActions } from '../hooks/useMessageActions.js'
 import { useUploadUrls } from '../hooks/useUploadUrl.js'
+import { useWorkspaceStore } from '../stores/workspace.js'
 import {
   VideoIcon,
   MusicNoteIcon,
@@ -80,6 +81,51 @@ function ImageWithSkeleton({
       />
     </div>
   )
+}
+
+/**
+ * Parse a link href as a file path with optional line number.
+ * Returns null for normal URLs (http, https, mailto, etc.).
+ */
+function parseFileLink(href: string | null): { path: string; line?: number } | null {
+  if (!href) return null
+  // Skip common URL schemes and anchors
+  if (/^(?:https?|mailto|tel|data|javascript|ftp):/i.test(href)) return null
+  if (href.startsWith('#')) return null
+  // Match a file path (must have extension) with optional :lineNumber
+  const match = href.match(/^(.+?\.\w+)(?::(\d+))?$/)
+  if (!match) return null
+  return { path: match[1], line: match[2] ? parseInt(match[2], 10) : undefined }
+}
+
+/**
+ * Hook that adds a delegated click handler on a container ref to intercept
+ * file path links and open them in the workspace panel.
+ */
+function useFileLinkHandler(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  agentId: string | undefined,
+  roomId: string,
+) {
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || !agentId) return
+
+    const handleClick = (e: MouseEvent) => {
+      const link = (e.target as Element).closest('a')
+      if (!link) return
+      const href = link.getAttribute('href')
+      const fileInfo = parseFileLink(href)
+      if (fileInfo) {
+        e.preventDefault()
+        e.stopPropagation()
+        useWorkspaceStore.getState().openFile(agentId, roomId, fileInfo.path, fileInfo.line)
+      }
+    }
+
+    el.addEventListener('click', handleClick)
+    return () => el.removeEventListener('click', handleClick)
+  }, [containerRef, agentId, roomId])
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -241,6 +287,17 @@ export const MessageItem = memo(function MessageItem({
   const { t, i18n } = useTranslation()
   const messages = useChatStore((s) => s.messages)
   const actions = useMessageActions(message, { roomSupportsRewind })
+  const isAgent = message.senderType === 'agent'
+  const agentInfo = useAgentStore((s) =>
+    isAgent
+      ? (s.agents.find((a) => a.id === message.senderId) ??
+        s.sharedAgents.find((a) => a.id === message.senderId))
+      : undefined,
+  )
+
+  // Intercept file path links in agent messages → open in workspace panel
+  const msgRef = useRef<HTMLDivElement>(null)
+  useFileLinkHandler(msgRef, isAgent ? message.senderId : undefined, message.roomId)
 
   // Find the replied-to message
   const repliedMessage = message.replyToId
@@ -266,16 +323,9 @@ export const MessageItem = memo(function MessageItem({
     )
   }
 
-  const isAgent = message.senderType === 'agent'
-  const agentInfo = useAgentStore((s) =>
-    isAgent
-      ? (s.agents.find((a) => a.id === message.senderId) ??
-        s.sharedAgents.find((a) => a.id === message.senderId))
-      : undefined,
-  )
-
   return (
     <div
+      ref={msgRef}
       className={`px-6 ${showHeader ? 'py-2' : 'py-0.5'} hover:bg-surface-hover/50 transition-colors group/msg relative`}
     >
       {/* Mobile action trigger — only show when canRewind */}

@@ -287,32 +287,78 @@ function getLanguage(path: string): string | undefined {
   return ext ? map[ext] : undefined
 }
 
-function HighlightedCode({ content, path }: { content: string; path: string }) {
+function HighlightedCode({
+  content,
+  path,
+  scrollToLine,
+}: {
+  content: string
+  path: string
+  scrollToLine?: number
+}) {
+  const preRef = useRef<HTMLPreElement>(null)
   const codeRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!codeRef.current) return
     const lang = getLanguage(path)
-    if (lang) {
-      try {
-        const result = hljs.highlight(content, { language: lang, ignoreIllegals: true })
-        codeRef.current.innerHTML = result.value
-      } catch {
-        codeRef.current.textContent = content
+    const lines = content.split('\n')
+
+    // Build line-wrapped HTML: each line in a <span> for scroll targeting
+    const highlightedLines = lines.map((line, i) => {
+      let html: string
+      if (lang) {
+        try {
+          html = hljs.highlight(line, { language: lang, ignoreIllegals: true }).value
+        } catch {
+          html = escapeHtml(line)
+        }
+      } else {
+        html = escapeHtml(line)
       }
-    } else {
-      codeRef.current.textContent = content
+      const lineNum = i + 1
+      const isTarget = scrollToLine === lineNum
+      return `<span id="code-line-${lineNum}" class="code-line${isTarget ? ' bg-accent/15' : ''}" style="display:block">${html || '\n'}</span>`
+    })
+    codeRef.current.innerHTML = highlightedLines.join('')
+
+    // Scroll to target line
+    if (scrollToLine && preRef.current) {
+      const target = preRef.current.querySelector(`#code-line-${scrollToLine}`)
+      if (target) {
+        requestAnimationFrame(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+      }
     }
-  }, [content, path])
+  }, [content, path, scrollToLine])
 
   return (
-    <pre className="text-xs font-mono bg-surface-secondary rounded-md p-3 overflow-x-auto whitespace-pre-wrap hljs">
+    <pre
+      ref={preRef}
+      className="text-xs font-mono bg-surface-secondary rounded-md p-3 overflow-x-auto whitespace-pre-wrap hljs"
+    >
       <code ref={codeRef}>{content}</code>
     </pre>
   )
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 // ─── Files Tab ───
+
+/** Clear pendingFile once the file is displayed (rendered as a side-effect component). */
+function ClearPendingFile({ agentId, path }: { agentId: string; path: string }) {
+  const pendingFile = useWorkspaceStore((s) => s.pendingFile)
+  useEffect(() => {
+    if (pendingFile && pendingFile.agentId === agentId && pendingFile.path === path) {
+      // Delay clearing so HighlightedCode can consume scrollToLine on this render
+      const timer = setTimeout(() => useWorkspaceStore.getState().clearPendingFile(), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [pendingFile, agentId, path])
+  return null
+}
 
 function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: string }) {
   const { t } = useTranslation()
@@ -322,6 +368,7 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
   const trees = useWorkspaceStore((s) => s.trees.get(agentId))
   const fileContent = useWorkspaceStore((s) => s.fileContent)
   const loading = useWorkspaceStore((s) => s.loading)
+  const pendingFile = useWorkspaceStore((s) => s.pendingFile)
   const entries = trees?.get(currentPath)
 
   const requestTree = useCallback(
@@ -465,7 +512,16 @@ function WorkspaceFilesView({ roomId, agentId }: { roomId: string; agentId: stri
                 <span className="text-warning-text">{t('chat.workspaceFileTooBig')}</span>
               )}
             </div>
-            <HighlightedCode content={fileContent.content} path={fileContent.path} />
+            <HighlightedCode
+              content={fileContent.content}
+              path={fileContent.path}
+              scrollToLine={
+                pendingFile?.agentId === agentId && pendingFile?.path === fileContent.path
+                  ? pendingFile.line
+                  : undefined
+              }
+            />
+            <ClearPendingFile agentId={agentId} path={fileContent.path} />
           </div>
         ) : (
           <div className="text-xs text-text-muted">{t('chat.workspaceSelectFile')}</div>
@@ -527,6 +583,26 @@ export function WorkspacePanel({
   const handleDragEnd = useCallback(() => {
     isDragging.current = false
   }, [])
+
+  // Handle pending file open requests from chat message link clicks
+  const pendingFile = useWorkspaceStore((s) => s.pendingFile)
+  useEffect(() => {
+    if (!pendingFile || pendingFile.roomId !== roomId) return
+    // Only act if the target agent is a member of this room
+    if (!agentMembers.some((m) => m.memberId === pendingFile.agentId)) return
+    setSelectedAgentId(pendingFile.agentId)
+    setActiveTab('files')
+    // Request the file via WebSocket
+    useWorkspaceStore.getState().setLoading({ agentId: pendingFile.agentId, kind: 'file' })
+    useWorkspaceStore.getState().setFileContent(null)
+    wsClient.send({
+      type: 'client:request_workspace',
+      roomId,
+      agentId: pendingFile.agentId,
+      request: { kind: 'file', path: pendingFile.path },
+    })
+    // pendingFile.line is consumed by WorkspaceFilesView when the file loads
+  }, [pendingFile, roomId, agentMembers])
 
   // Clear loading state after 15s timeout to prevent permanent "Loading..."
   useEffect(() => {
