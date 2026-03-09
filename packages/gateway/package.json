@@ -48,7 +48,7 @@
   "dependencies": {
     "@agentim/shared": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "^0.2.70",
-    "@google/gemini-cli-core": "^0.31.0",
+    "@google/gemini-cli-core": "^0.32.1",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@openai/codex-sdk": "^0.107.0",
     "commander": "^14.0.3",
